@@ -1,0 +1,107 @@
+# Evaluation Case: Public Resources Checklist Clarification Gate
+
+## Metadata
+
+| Field | Value |
+|---|---|
+| Case ID | public-resources-checklist-clarification-gate |
+| Scenario | public-resources-checklist |
+| Platform | Mini Program |
+| Product Area | Public resources and home entry navigation |
+| Created | 2026-05-18 |
+| Last Updated | 2026-05-18 |
+
+## Raw Request
+
+```text
+We want to add a public resources page that stores content all users may need. The first phase should provide a checklist-style resource.
+```
+
+## Context Files
+
+- `pm-copilot/PM_COPILOT.md`
+- `pm-copilot/workflow/main-workflow.md`
+- `pm-copilot/workflow/context-loading.md`
+- `pm-copilot/artifacts/trace-contract.md`
+- Host repository `README.md`
+- Host repository `AGENTS.md`
+- Host repository product, architecture, design system, route, navigation, storage, permission, and analytics files relevant to the public resources entry
+
+## Expected Workflow
+
+- S0 Intake
+- S1 Context loading
+- S2 Discovery and clarification
+- S3 Clarification gate
+- Stop before S5-S10 if must-answer questions remain unresolved and the user has not explicitly accepted assumption risk
+
+## Required Artifacts Before Clarification Answers
+
+- `pm-copilot/outputs/<run-id>/task-brief.md`
+- `pm-copilot/outputs/<run-id>/clarifying-questions.md`
+- `pm-copilot/outputs/<run-id>/assumptions.md`
+- `pm-copilot/outputs/<run-id>/run-log.yaml`
+
+## Forbidden Artifacts Before Clarification Answers
+
+- `pm-copilot/outputs/<run-id>/prd.md`
+- `pm-copilot/outputs/<run-id>/metrics-tree.md`
+- `pm-copilot/outputs/<run-id>/tracking-plan.md`
+- `pm-copilot/outputs/<run-id>/tracking-plan.csv`
+- `pm-copilot/outputs/<run-id>/user-flow.md`
+- `pm-copilot/outputs/<run-id>/user-flow.mmd`
+- `pm-copilot/outputs/<run-id>/prototype-<platform>.html`
+- `pm-copilot/outputs/<run-id>/review-checklist.md`
+- `pm-copilot/outputs/<run-id>/pm-package.md`
+- `pm-copilot/outputs/<run-id>/final-package-summary.md`
+
+## Must-Answer Questions
+
+- Can users who have not completed account setup access public resources?
+- Should checklist progress sync across devices or remain local-only?
+- Should checklist items be copyable into tasks or reminders?
+- Who reviews and maintains public resource content?
+- Where exactly should the home page entry appear in the current navigation?
+
+## Known Risks
+
+- Public reference content needs an owner, review cadence, and disclaimer before launch.
+- Local-only checklist progress may conflict with expected cross-device behavior.
+- The home entry placement depends on current navigation and design system constraints in the host repository.
+- Cross-device progress sync changes data model, storage, privacy, and analytics scope.
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Package | Not applicable before clarification gate |
+| PRD | Not applicable before clarification gate |
+| Metrics and tracking | Not applicable before clarification gate |
+| Prototype | Not applicable before clarification gate |
+| Review checklist | Not applicable before clarification gate |
+
+## Failure History
+
+| Date | Failure Code | Severity | Symptom | Fix |
+|---|---|---|---|---|
+| 2026-05-18 | F3 | High | Agent generated PRD, metrics, tracking, flow, prototype, review, and final package while high-impact questions were still open. | Strengthen clarification gate and trace requirements. |
+| 2026-05-18 | F2 | Medium | Repo-backed context did not record route, navigation, storage, permission, or analytics facts used for product-fit decisions. | Require current-state facts in run log. |
+| 2026-05-18 | F10 | Medium | Repository validator rejected Chinese prose because it required all files to be ASCII. | Validate UTF-8 prose while keeping paths and machine-readable fields ASCII. |
+
+## Pass Criteria
+
+- The run log records `context.source_mode: repo-backed`.
+- The run log records host project files and current-state facts used for product-fit decisions.
+- Every open question is classified into exactly one clarification bucket.
+- Any unresolved `must answer before generation` question sets `workflow.clarification_gate.stopped_before_generation: true`.
+- Downstream artifacts are not generated before user answers or explicit assumption-risk acceptance.
+- If the user explicitly accepts assumption risk, the run log records that evidence and the package status is `Draft with assumption risk`, not engineering-ready.
+- Chinese artifact prose is valid, while file paths, event names, property names, and Mermaid node IDs remain ASCII.
+
+## Latest Result
+
+| Field | Value |
+|---|---|
+| Run ID | public-resources-checklist-2026-05-18 |
+| Status | Pending |
+| Notes | Sanitized regression case from a real clarification-gate failure. |
