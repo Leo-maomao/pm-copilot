@@ -1,41 +1,32 @@
-# Final Package Workflow
+# Delivery Check Workflow
+
+This workflow replaces the old default `pm-package.md` packaging step. It verifies that the PM-facing deliverables are complete and consistent.
 
 ## Inputs
 
-- PRD
-- Metrics tree
-- Tracking plan table
-- User flow diagram
-- HTML prototype
-- Review checklist
-- Assumptions and open questions
+- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prototype-<platform>.html`, when a user-facing prototype is relevant
+- Optional exports such as `tracking-plan.csv` or `user-flow.mmd`
+- Internal `run-log.yaml`, when available
 
-## Packaging Steps
+## Delivery Check Steps
 
-1. Verify each artifact exists.
-2. Verify each artifact follows its contract.
-3. Create `pm-package.md` as the primary reviewer-facing package.
-4. Embed or summarize the PRD, metrics tree, tracking table, flow diagram, prototype notes, review checklist, assumptions, and confirmations.
-5. Create an artifact index with file names and purposes.
-6. Summarize the product decision, scope, metrics, prototype platform, and review status.
-7. List assumptions, open questions, and required human confirmations.
-8. Provide a recommended stakeholder review agenda.
+1. Verify `prd.md` exists and follows the PRD contract.
+2. Verify the prototype exists when the requirement has user-facing UI.
+3. Verify PRD and prototype agree on scope, states, logic, interaction rules, tracking, and blockers.
+4. Verify the PRD links the prototype and says that detailed page-level design and interaction annotations live inside the prototype.
+5. Verify optional exports are genuinely useful or explicitly requested.
+6. Verify readiness fields are separate: PRD status, engineering handoff status, and launch status.
+7. Verify content source, review status, disclaimer status, and launch impact are recorded when relevant.
+8. Verify structured review findings are reflected in the PRD with artifact, evidence, owner, required-before phase, and status.
+9. Verify validation commands and limitations are recorded consistently in PRD and run log.
 
-## Final Package Sections
+## Default Delivery Files
 
-- Executive summary
-- Context and current-state fit
-- Clarification status
-- PRD
-- Metrics tree
-- Tracking plan table
-- User flow diagram
-- Prototype and annotations
-- Review checklist
-- Artifact index
-- Key decisions
-- Metrics and tracking summary
-- Prototype summary
-- Risks and open questions
-- Review agenda
-- Next actions
+- `prd.md`
+- `prototype-<platform>.html`
+- `run-log.yaml` as internal trace only
+
+## Legacy Files
+
+Do not generate `pm-package.md`, `final-package-summary.md`, `review-checklist.md`, `tracking-plan.md`, `user-flow.md`, or other split Markdown files by default. They are legacy or explicit-request outputs.

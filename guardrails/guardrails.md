@@ -13,7 +13,8 @@
 - Keep assumptions separate from confirmed user input.
 - Do not use assumptions to bypass a must-answer question.
 - Do not continue from clarification into PRD, metrics, tracking, flow, prototype, review, or final packaging until must-answer questions are answered or the user explicitly accepts assumption risk.
-- Do not produce a `Ready for engineering` package while pre-development or pre-launch confirmation items remain unanswered. Ask first, or downgrade to `Draft with confirmation risk` only when the user explicitly asks to proceed.
+- Do not produce a `Ready for engineering` PRD/prototype delivery while engineering-blocking confirmation items remain unanswered. Ask first, or downgrade to `Draft with confirmation risk` only when the user explicitly asks to proceed.
+- Do not hide launch blockers behind an engineering-ready label. If launch-only confirmations remain, mark launch as blocked and list the owner and required confirmation.
 - User silence is not consent to proceed with material assumptions.
 
 ## Existing Product Fit
@@ -36,6 +37,13 @@ Require human confirmation before processing or generating details involving:
 - Confidential partner or customer information
 
 Never request or store raw passwords, full payment card numbers, government IDs, or unnecessary personal identifiers.
+
+## Reference and Regulated Content
+
+- For reference, policy, medical, legal, financial, safety, or operational content, record the content source, review owner, review status, disclaimer status, and launch impact.
+- Label unreviewed content as placeholder or draft in PRDs and prototypes.
+- Do not present unreviewed content as approved final copy, advice, policy, or launch-ready guidance.
+- A content payload can block launch while the surrounding product framework remains ready for engineering only when the PRD states that split explicitly.
 
 ## Product Safety
 

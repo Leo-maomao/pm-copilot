@@ -8,7 +8,7 @@ Recommended direct prompt:
 <write your product request here>
 
 If important information is missing, ask me first.
-If enough information is available, create the full review-ready package.
+If enough information is available, create `prd.md` and the matching clickable prototype.
 If must-answer or pre-development confirmation information is missing, stop and wait for my answer before generating downstream artifacts.
 Use any product docs I provide as current context; a software repository is optional.
 Use my request language for headings, labels, statuses, notes, and prototype annotations.
@@ -58,21 +58,9 @@ This step is optional for the first direct run. If `context/product-context.loca
 
 If you do not have a code repository, collect any available product documents instead: historical PRDs, specs, screenshots, research notes, support tickets, analytics exports, tracking plans, meeting notes, or release notes. PM Copilot should use those documents as product context.
 
-## 3. Create a Task Brief
+## 3. Prepare Context
 
-Copy:
-
-```text
-templates/task-brief-template.md
-```
-
-To:
-
-```text
-outputs/<run-id>/task-brief.md
-```
-
-Write the raw request exactly as you received it. Do not over-polish the request. The Discovery Agent is expected to clarify it.
+You do not need to create task-brief, clarifying-question, or assumption files. Paste the raw request directly into the agent. The original request, answered clarifications, and low-risk assumptions are recorded inside `prd.md` after the clarification gate passes.
 
 ## 4. Run the Workflow
 
@@ -88,29 +76,27 @@ Read:
 - guardrails/failover.md
 - artifacts/artifact-contracts.md
 - context/product-context.local.yaml
-- outputs/<run-id>/task-brief.md
 
-Follow the workflow and produce a review-ready package under:
+Follow the workflow and produce PRD/prototype deliverables under:
 outputs/<run-id>/
 
 Ask clarification questions before generation if high-impact information is missing.
-If must-answer or pre-development confirmation questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer. If I explicitly ask you to proceed without answers, mark unresolved must-answer items as draft assumption risk and unresolved pre-development confirmations as draft confirmation risk.
-Put PRD, metrics, tracking table, user flow, review checklist, assumptions, and next actions inside `pm-package.md` by default. Create split files only if needed or requested.
+If must-answer or pre-development confirmation questions exist, stop and wait for my answer before creating PRD or prototype deliverables. If I explicitly ask you to proceed without answers, mark unresolved must-answer items as draft assumption risk and unresolved pre-development confirmations as draft confirmation risk.
+Create `prd.md` and `prototype-<platform>.html` by default. Put requirement input, clarified answers, assumptions, research/reference findings, metrics, tracking table, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md`. Create split files only if needed or requested.
 ```
 
-## 5. Review the Package
+## 5. Review the Delivery
 
 Check that the output includes:
 
-- Clarifying questions
-- Assumptions
-- Consolidated PM package
-- PRD section inside `pm-package.md`
-- Metrics tree section inside `pm-package.md`
-- Tracking plan table inside `pm-package.md`
-- Renderable user flow diagram inside `pm-package.md`
+- `prd.md`
+- Version history, requirement input, confirmed answers, and assumptions inside the PRD
+- Research/reference findings inside the PRD
+- Requirement list and detailed requirement tables inside the PRD
+- Metrics and tracking plan table inside the PRD
+- Flow diagrams inside the PRD when useful
 - Platform-specific clickable annotated HTML prototype
-- Review checklist section inside `pm-package.md`
+- PRD/prototype readiness, risks, acceptance criteria, and validation results
 - Optional exports such as CSV or Mermaid source when useful
 
 ## 6. Validate Repository Structure
@@ -121,7 +107,7 @@ Run:
 python3 scripts/validate_repo.py
 ```
 
-This checks required folders, skill frontmatter, example package structure, CSV parsing, and basic HTML file presence.
+This checks required folders, skill frontmatter, example PRD/prototype structure, CSV parsing, and basic HTML file presence.
 
 ## Recommended First Run
 

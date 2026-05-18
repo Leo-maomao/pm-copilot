@@ -32,8 +32,6 @@ Reduce manual support booking and let users complete appointment reservation ins
 ## Requested Artifacts
 
 - PRD
-- Tracking plan
-- User flow
-- Mini Program low-fidelity HTML prototype
-- Review checklist
-- Final package summary
+- Mini Program annotated HTML prototype
+
+Put tracking, user flow, risks, review status, and validation results inside the PRD.

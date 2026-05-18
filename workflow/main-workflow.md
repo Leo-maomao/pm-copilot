@@ -13,7 +13,7 @@ S0 Intake
 -> S7 Flow and prototype
 -> S8 Review
 -> S9 Revision loop
--> S10 Final package
+-> S10 Delivery check
 ```
 
 ## State Definitions
@@ -25,12 +25,12 @@ S0 Intake
 | S2 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
 | S3 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
 | S4 Optional research | Research Agent | External context is needed and tools are available | Source-backed research brief is produced or limitation is stated |
-| S5 PRD drafting | Requirements Agent | Discovery output is usable | PRD contract is satisfied |
-| S6 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | KPI tree and tracking plan contracts are satisfied |
-| S7 Flow and prototype | Prototype Agent | Core flow and platform are known | Mermaid flow and HTML prototype contracts are satisfied |
-| S8 Review | Review Agent | Draft artifacts exist | Checklist, risks, and required fixes are produced |
+| S5 PRD drafting | Requirements Agent | Discovery output is usable | `prd.md` contract is satisfied |
+| S6 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | Metrics and tracking sections are complete inside `prd.md` |
+| S7 Flow and prototype | Prototype Agent | Core flow and platform are known | Flow sections are complete inside `prd.md`; HTML prototype contract is satisfied |
+| S8 Review | Review Agent | Draft PRD and prototype exist | Risks, blockers, and required fixes are reflected in PRD status and validation sections |
 | S9 Revision loop | PM Orchestrator | Review finds critical gaps | Artifacts are updated or gaps are accepted as open risks |
-| S10 Final package | PM Orchestrator | Critical gaps are closed or accepted | Package summary and artifact index are complete |
+| S10 Delivery check | PM Orchestrator | Critical gaps are closed or accepted | `prd.md`, prototype, and optional exports are internally consistent |
 
 ## Human-in-the-Loop Checkpoints
 
@@ -43,27 +43,47 @@ Human confirmation is required before drafting downstream artifacts when:
 - Platform, affected module, primary user journey, or rollout surface is unclear.
 - The tracking plan includes sensitive properties.
 - Research sources are unavailable but competitor claims would affect the solution.
-- The final package contains high-severity open risks.
-- An item is marked `must confirm before development or launch` and the requested output is expected to be ready for engineering handoff.
+- The PRD/prototype delivery contains high-severity open risks.
+- An item is marked `must confirm before development or launch` and the requested output is expected to claim the readiness that item blocks.
 
-If any must-answer question exists, stop after creating only:
+If any must-answer question exists, ask the user and stop before creating `prd.md` or prototype HTML. Create or update only `outputs/<run-id>/run-log.yaml` when a persistent trace is useful.
 
-- `outputs/<run-id>/task-brief.md`
-- `outputs/<run-id>/clarifying-questions.md`
-- `outputs/<run-id>/assumptions.md`
-- `outputs/<run-id>/run-log.yaml`
-
-Do not create PRD, metrics, tracking, flow, prototype, review, or final package until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
+Do not create PRD, metrics, tracking, flow, prototype, review, or delivery artifacts until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
 
 ## Clarification Semantics
 
 Avoid contradictory clarification output. A single unknown must belong to exactly one bucket:
 
-- `Must answer before generation`: blocks PRD, metrics, tracking, flow, prototype, review, and final package.
-- `Can draft with stated assumption`: can be assumed for a draft package, but the assumption must be visible and reviewable.
-- `Must confirm before development or launch`: blocks a `Ready for engineering` package. It only permits generation when the user explicitly asks for a draft or accepts confirmation risk.
+- `Must answer before generation`: blocks PRD, metrics, tracking, flow, prototype, review, and delivery check.
+- `Can draft with stated assumption`: can be assumed for a draft PRD/prototype, but the assumption must be visible and reviewable.
+- `Must confirm before development or launch`: blocks the readiness phase it applies to. Each item must state whether it blocks engineering handoff, launch, or both.
 
-If the user asks to proceed with assumptions while must-answer or pre-development confirmation questions remain, downgrade the package status to `Draft with assumption risk` or `Draft with confirmation risk`. Do not call it development-ready.
+If the user asks to proceed with assumptions while must-answer or engineering-blocking confirmation questions remain, downgrade PRD status to `Draft with assumption risk` or `Draft with confirmation risk`. Do not call it development-ready. If only launch-blocking confirmations remain, the PRD may be engineering-ready only when launch status is explicitly blocked and the engineering acceptance criteria exclude the unconfirmed launch item.
+
+Conditional risks should follow the chosen scope. If the generated scope explicitly excludes the behavior that creates a risk, record the risk as a non-goal, future-scope blocker, or guardrail instead of leaving it as an unresolved current-launch confirmation. If the scope includes the behavior or is ambiguous, keep the confirmation open.
+
+## Readiness Model
+
+Every final PRD must carry three related but separate readiness fields:
+
+- PRD status: whether the delivery is blocked, a draft, ready for review, or ready for engineering.
+- Engineering handoff status: whether engineering can build the confirmed scope now, and which decisions block implementation.
+- Launch status: whether the shipped behavior, content, copy, compliance, analytics, and operational process are approved for release.
+
+Do not use one `Ready` label to hide a blocked phase. A framework can be ready for engineering while content, legal copy, or operational approval blocks launch; the PRD must say both facts.
+
+## Scope Integrity
+
+After user answers are applied, separate product decisions into:
+
+- Confirmed MVP scope: requirements and acceptance criteria may be written here.
+- Optional or conditional scope: describe as a decision still needed; do not include it in MVP acceptance criteria.
+- Future scope: useful direction that is not part of the current delivery.
+- Explicit non-goals: behaviors that should not be built without a new requirement pass.
+
+If the user says a capability is possible, desirable, or "if needed" but does not confirm it for MVP, treat it as optional or future scope. Do not turn it into a must-build requirement.
+
+For content-heavy features, separate the product framework from the content payload. Requirements may cover the content container, states, permissions, and maintenance flow while launch remains blocked on source, review owner, review status, or disclaimer confirmation.
 
 ## Current Product Fit
 
@@ -75,8 +95,11 @@ Before S2 exits, capture:
 
 - Existing product area or module likely affected.
 - Relevant current behavior, user journeys, UI patterns, API contracts, data models, permission rules, analytics conventions, or documented historical decisions.
+- Entry points, navigation visibility, permission or eligibility states, and fallback behavior for users who cannot access the new surface.
 - Gaps between the user's requested change and the current product context.
 - Project constraints that should shape scope, rollout, migration, and acceptance criteria.
+
+If no analytics convention or event taxonomy is found, record that as a current-state fact. S6 may still produce a tracking proposal, but it must be labeled as proposed and must not claim to follow an existing taxonomy.
 
 If the agent cannot determine the current product state from available repositories, documents, or user answers, ask for the missing context as must-answer questions.
 
@@ -88,15 +111,16 @@ Only update an existing run folder when the user explicitly names that folder or
 
 Do not create `examples/<run-id>/` for ordinary user runs. The `examples/` directory is reserved for stable scenario-library inputs, documentation, and regression fixtures.
 
-## Packaging Rules
+## Delivery Rules
 
 Default delivery should optimize for reviewability, not file count.
 
-- Create `outputs/<run-id>/pm-package.md` as the primary reviewer-facing artifact.
+- Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact.
 - Create `outputs/<run-id>/prototype-<platform>.html` when a user-facing prototype is relevant.
-- Keep source or export files only when they are useful for implementation, analytics import, rendering, review workflow, or iteration.
-- `pm-package.md` must include the PRD, metrics tree, tracking plan table, rendered-flow section, prototype link and notes, review checklist, assumptions, and confirmations.
-- Do not create separate `prd.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default when `pm-package.md` already contains complete versions of those sections.
+- Create `outputs/<run-id>/run-log.yaml` as an internal trace when useful.
+- Keep source or export files only when they are useful for analytics import, Mermaid rendering, external review workflow, or user-requested iteration.
+- `prd.md` must include version history, requirement input and confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, flow diagrams when useful, tracking plan, prototype reference, risks/open confirmations, acceptance criteria, and validation results.
+- Do not create separate `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
 - Avoid making the user open many small Markdown files to understand one requirement.
 
 ## Language Rules
@@ -108,14 +132,15 @@ Repository templates are structural examples, not literal copy. Translate headin
 ## Skippable Steps
 
 - Research can be skipped when the task does not need external evidence.
-- Prototype can be reduced to a flow-only artifact when the request is purely backend, infra, or analytics.
-- Tracking can be reduced when the task is a non-user-facing operational change, but the omission must be explained.
+- Prototype can be omitted when the request is purely backend, infra, or analytics.
+- Tracking can be reduced when the task is a non-user-facing operational change, but the omission must be explained in the PRD.
 
 ## Revision Rules
 
 - Review findings with severity `Critical` or `High` must route back to the owning agent.
 - Medium findings may be listed as review-time discussion points.
 - Low findings may remain as optional improvements.
+- Review findings must include artifact, evidence, owner, required-before phase, and status. A review that reports no Critical or High issues must still record the checks performed and any Medium or Low residual risks.
 
 ## Trace Format
 
@@ -128,4 +153,8 @@ Minimum trace requirements:
 - Record `workflow.clarification_gate.required`, `status`, `stopped_before_generation`, and `assumption_risk_accepted`.
 - Classify every unresolved question as exactly one of `must answer before generation`, `can draft with stated assumption`, or `must confirm before development or launch`.
 - Record numeric review scores when a quality rubric exists.
-- If S5-S10 artifacts are generated while unresolved must-answer or pre-development confirmation questions remain, record the user's explicit draft-risk acceptance as evidence and downgrade package readiness.
+- If S5-S10 artifacts are generated while unresolved must-answer or pre-development confirmation questions remain, record the user's explicit draft-risk acceptance as evidence and downgrade PRD readiness.
+- Record validation commands actually run, their results, and any skipped validation with the reason. The PRD and run log must use the same validation status.
+- Record PRD, engineering handoff, and launch readiness separately, including blockers for each phase.
+- Record content source and review status when the feature includes reference, policy, medical, legal, financial, safety, or operational content.
+- Record structured review findings or an explicit no-finding review summary with evidence of the checks performed.

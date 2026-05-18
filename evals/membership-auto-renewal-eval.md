@@ -14,7 +14,7 @@
 ## Raw Request
 
 ```text
-We want to optimize membership auto-renewal because renewal conversion looks lower than expected. Please create a PRD and related review materials.
+We want to optimize membership auto-renewal because renewal conversion looks lower than expected. Please create a PRD and clickable annotated prototype.
 ```
 
 ## Context Files
@@ -25,19 +25,16 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 
 - Discovery and clarification
 - PRD
-- Metrics tree
-- Tracking plan
-- User flow
+- Metrics and tracking sections inside PRD
+- Flow diagrams inside PRD
 - H5 prototype
-- Review checklist
-- Final package
+- Delivery review inside `prd.md`
 
 ## Required Artifacts
 
-- `outputs/membership-auto-renewal/clarifying-questions.md`
-- `outputs/membership-auto-renewal/assumptions.md`
-- `outputs/membership-auto-renewal/pm-package.md`
+- `outputs/membership-auto-renewal/prd.md`
 - `outputs/membership-auto-renewal/prototype-h5.html`
+- `outputs/membership-auto-renewal/run-log.yaml` when a persistent trace is useful
 - Optional split source or export files only when useful
 
 ## Known Risks
@@ -51,11 +48,11 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 
 | Area | Minimum Score |
 |---|---|
-| Package | 17 / 24 |
-| PRD | 21 / 28 |
-| Metrics and tracking | 18 / 24 |
-| Prototype | 21 / 28 |
-| Review checklist | 12 / 16 |
+| Delivery | 20 / 28 |
+| PRD | 31 / 40 |
+| Metrics and tracking | 21 / 28 |
+| Prototype | 24 / 32 |
+| Delivery review inside PRD | 15 / 20 |
 
 ## Failure History
 
@@ -71,8 +68,9 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 - Tracking plan uses complete event and property tables.
 - User flow renders as a standard Mermaid flowchart.
 - H5 prototype is local, clickable, annotated, and clearly not production code.
-- Review checklist blocks launch until legal copy, baseline metrics, and payment failure categories are confirmed.
-- Package status is not `Ready for engineering` while required billing or payment confirmations remain unresolved.
+- Delivery review findings block launch until legal copy, baseline metrics, and payment failure categories are confirmed.
+- PRD status is not `Ready for engineering` while required engineering-blocking billing or payment confirmations remain unresolved.
+- PRD status, engineering handoff status, and launch status are separate.
 
 ## Latest Result
 
@@ -80,4 +78,4 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 |---|---|
 | Run ID |  |
 | Status | Pending |
-| Notes | Needs rerun against consolidated package and confirmation-risk readiness rules. |
+| Notes | Needs rerun against PRD/prototype delivery and confirmation-risk readiness rules. |

@@ -35,17 +35,13 @@ We want to add a public resources page that stores content all users may need. T
 - S3 Clarification gate
 - Stop before S5-S10 if must-answer questions remain unresolved and the user has not explicitly accepted assumption risk
 
-## Required Artifacts Before Clarification Answers
+## Allowed Artifacts Before Clarification Answers
 
-- `pm-copilot/outputs/<run-id>/task-brief.md`
-- `pm-copilot/outputs/<run-id>/clarifying-questions.md`
-- `pm-copilot/outputs/<run-id>/assumptions.md`
-- `pm-copilot/outputs/<run-id>/run-log.yaml`
+- `pm-copilot/outputs/<run-id>/run-log.yaml`, only when a persistent trace is useful
 
 ## Forbidden Artifacts Before Clarification Answers
 
 - `pm-copilot/outputs/<run-id>/prd.md`
-- `pm-copilot/outputs/<run-id>/metrics-tree.md`
 - `pm-copilot/outputs/<run-id>/tracking-plan.md`
 - `pm-copilot/outputs/<run-id>/tracking-plan.csv`
 - `pm-copilot/outputs/<run-id>/user-flow.md`
@@ -66,15 +62,20 @@ We want to add a public resources page that stores content all users may need. T
 ## Known Risks
 
 - Public reference content needs an owner, review cadence, and disclaimer before launch.
+- Public reference content may block launch without blocking engineering of the static framework; the PRD must keep those readiness phases separate.
 - Local-only checklist progress may conflict with expected cross-device behavior.
 - The home entry placement depends on current navigation and design system constraints in the host repository.
+- The tab or navigation entry may be visible to ineligible users even when content is gated, so permission and fallback states must be explicit.
 - Cross-device progress sync changes data model, storage, privacy, and analytics scope.
+- Downloadable PDF or platform image assets should not become MVP scope unless the user explicitly confirms them.
+- If no host analytics taxonomy is found, generated tracking events should be marked as proposed.
+- Validation status must be consistent between `run-log.yaml` and `prd.md`.
 
 ## Rubric Thresholds
 
 | Area | Minimum Score |
 |---|---|
-| Package | Not applicable before clarification gate |
+| Delivery | Not applicable before clarification gate |
 | PRD | Not applicable before clarification gate |
 | Metrics and tracking | Not applicable before clarification gate |
 | Prototype | Not applicable before clarification gate |
@@ -84,9 +85,13 @@ We want to add a public resources page that stores content all users may need. T
 
 | Date | Failure Code | Severity | Symptom | Fix |
 |---|---|---|---|---|
-| 2026-05-18 | F3 | High | Agent generated PRD, metrics, tracking, flow, prototype, review, and final package while high-impact questions were still open. | Strengthen clarification gate and trace requirements. |
+| 2026-05-18 | F3 | High | Agent generated PRD, tracking, flow, prototype, review, and delivery artifacts while high-impact questions were still open. | Strengthen clarification gate and trace requirements. |
 | 2026-05-18 | F2 | Medium | Repo-backed context did not record route, navigation, storage, permission, or analytics facts used for product-fit decisions. | Require current-state facts in run log. |
 | 2026-05-18 | F10 | Medium | Repository validator rejected Chinese prose because it required all files to be ASCII. | Validate UTF-8 prose while keeping paths and machine-readable fields ASCII. |
+| 2026-05-18 | scope-drift | Medium | Optional PDF/image download was described as MVP while still listed as an open decision. | Separate confirmed MVP scope from optional or conditional scope. |
+| 2026-05-18 | validation-mismatch | Medium | Run log claimed validation ran while PRD said validation should be run. | Require exact validation commands and matching PRD/run-log status. |
+| 2026-05-18 | readiness-collapse | High | Framework readiness and content launch approval were collapsed into one final status. | Require separate PRD, engineering handoff, and launch readiness fields. |
+| 2026-05-18 | unreviewed-content-finalized | High | Placeholder checklist content looked like approved public guidance. | Require source, review owner, disclaimer status, and launch impact for reference content. |
 
 ## Pass Criteria
 
@@ -95,7 +100,15 @@ We want to add a public resources page that stores content all users may need. T
 - Every open question is classified into exactly one clarification bucket.
 - Any unresolved `must answer before generation` question sets `workflow.clarification_gate.stopped_before_generation: true`.
 - Downstream artifacts are not generated before user answers or explicit assumption-risk acceptance.
-- If the user explicitly accepts assumption risk, the run log records that evidence and the package status is `Draft with assumption risk`, not engineering-ready.
+- If the user explicitly accepts assumption risk, the run log records that evidence and the PRD status is `Draft with assumption risk`, not engineering-ready.
+- PRD status, engineering handoff status, and launch status are recorded separately when generation proceeds.
+- Launch-only content blockers list owner, required confirmation, and launch impact instead of hiding inside open questions.
+- Confirmed MVP scope, optional scope, future scope, and non-goals are separated.
+- Navigation visibility, eligible state, ineligible state, and fallback behavior are explicit for the public resources entry.
+- Reference checklist content records source status, review owner, review status, disclaimer status, and launch impact.
+- PDF/image download is optional or conditional unless explicitly confirmed.
+- If no analytics taxonomy is loaded, tracking events are labeled as proposed.
+- Validation results are concrete and consistent across the run log and PRD.
 - Chinese artifact prose is valid, while file paths, event names, property names, and Mermaid node IDs remain ASCII.
 
 ## Latest Result

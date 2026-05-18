@@ -26,20 +26,18 @@ Create:
 
 ```text
 examples/<scenario>/task-brief.md
-outputs/<scenario>/clarifying-questions.md
-outputs/<scenario>/assumptions.md
-outputs/<scenario>/pm-package.md
+outputs/<scenario>/prd.md
 outputs/<scenario>/prototype-<platform>.html
 ```
 
-Optional split or export files can be added when useful, such as `tracking-plan.csv`, `user-flow.mmd`, or separate source Markdown files.
+Put confirmations, assumptions, metrics, tracking, flows, review status, and validation results inside `prd.md`. Optional export files can be added only when they are useful for external tools, such as `tracking-plan.csv` or `user-flow.mmd`.
 
 ## Scenario Quality Bar
 
 - The raw request should be realistic and slightly ambiguous.
 - The output should include assumptions, not pretend all information is known.
-- `pm-package.md` should let reviewers understand the requirement without opening every source file.
+- `prd.md` should let reviewers understand the requirement without opening every source file.
 - The prototype should match the selected platform, be clickable, and include annotations or implementation notes.
-- Tracking should use event and property tables with privacy notes inside `pm-package.md` or a linked export.
-- User flow should be a renderable Mermaid diagram inside `pm-package.md` or a linked export.
-- Review checklist should identify at least one realistic open decision inside `pm-package.md` or a linked file.
+- Tracking should use event and property tables with privacy notes inside `prd.md` or a linked export.
+- User flow should be a renderable Mermaid diagram inside `prd.md` or a linked export.
+- Risks and open confirmations should identify at least one realistic open decision inside `prd.md`.

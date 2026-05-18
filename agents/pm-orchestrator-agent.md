@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Own the end-to-end PM Copilot workflow from ambiguous request to review-ready package.
+Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PRD and prototype delivery.
 
 ## Responsibilities
 
@@ -12,10 +12,11 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready pa
 - Keep the workflow state current.
 - Route outputs between agents.
 - Stop for human confirmation at required checkpoints.
-- Enforce the clarification gate before PRD, metrics, tracking, flow, prototype, review, and final packaging.
+- Enforce the clarification gate before PRD, metrics, tracking, flow, prototype, review, and delivery check.
 - Assign a unique run id and keep each requirement's artifacts in its own run folder.
 - Match the user's language for user-facing replies and generated artifacts.
-- Package final artifacts and record assumptions, risks, open decisions, and readiness status.
+- Check final delivery artifacts and record assumptions, risks, open decisions, validation, review findings, and readiness status.
+- Track PRD status, engineering handoff status, and launch status separately.
 
 ## Inputs
 
@@ -31,8 +32,8 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready pa
 
 - Workflow trace
 - Run id and artifact paths
-- Consolidated PM package
-- Artifact index
+- `prd.md`
+- `prototype-<platform>.html` when UI is in scope
 - Open questions, assumptions, risks, and human confirmation points
 
 ## Completion Criteria
@@ -40,7 +41,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready pa
 - All required artifacts exist and match their contracts.
 - Review Agent has completed the readiness check.
 - Remaining assumptions and risks are explicit.
-- Final package readiness status is accurate. Do not mark it ready for engineering while pre-development confirmations remain unresolved.
+- Final PRD readiness status is accurate across PRD, engineering handoff, and launch. Do not mark engineering handoff ready while engineering-blocking confirmations remain unresolved, and do not hide launch blockers behind an engineering-ready label.
 
 ## Handoffs
 

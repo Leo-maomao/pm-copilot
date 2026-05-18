@@ -3,19 +3,20 @@ name: review-checklist
 description: Use when reviewing generated PM artifacts for completeness, ambiguity, missing metrics, edge cases, dependencies, risks, and stakeholder readiness.
 ---
 
-# Review Checklist
+# Delivery Review
 
 ## Goal
 
-Decide whether the artifact package is ready for stakeholder review.
+Decide whether the PRD and prototype delivery is ready for stakeholder review, engineering handoff, or launch.
 
 ## Workflow
 
-1. Check each artifact against its contract.
+1. Check `prd.md`, prototype HTML, and optional exports against their contracts.
 2. Identify gaps by severity: Critical, High, Medium, Low.
-3. Route each finding to the responsible agent or artifact.
-4. Separate required fixes from optional improvements.
-5. State whether the package is ready for review.
+3. Record artifact, evidence, owner, required-before phase, and status for each finding.
+4. Route each finding to the responsible agent or artifact.
+5. Separate required fixes from optional improvements.
+6. State PRD, engineering handoff, and launch readiness separately.
 
 ## Output
 
@@ -24,10 +25,13 @@ Decide whether the artifact package is ready for stakeholder review.
 - Artifact checklist
 - Open decisions
 - Human confirmation required
+- Content source and launch review status, when relevant
+- Validation results
 - Next actions
 
 ## Quality Bar
 
 - Findings are actionable.
 - Severity is justified.
-- Critical issues block the final package.
+- Critical issues block the relevant readiness phase.
+- No-Critical-or-High reviews still record what was checked and any residual risk.

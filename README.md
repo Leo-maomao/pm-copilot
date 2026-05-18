@@ -1,6 +1,6 @@
 # PM Copilot
 
-PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into a review-ready package: clarified requirements, PRD, metrics, tracking plan, user flow, clickable multi-platform prototype, review checklist, and final handoff summary.
+PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into two practical handoff artifacts: a complete PRD and a clickable annotated prototype.
 
 The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, artifact contracts, workflow rules, guardrails, templates, and examples that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
 
@@ -8,15 +8,13 @@ PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `
 
 ## What It Produces
 
-- Clarifying questions and explicit assumptions
-- PRD suitable for product, design, engineering, QA, and analytics review
-- KPI tree and success metrics
-- Tracking plan with events, properties, triggers, and validation notes
-- Mermaid user flow
-- Local clickable HTML prototype for Web, H5, App, or Mini Program scenarios
-- Consolidated `pm-package.md` for review, plus source/export files when useful
-- Review checklist and risk log
-- Final handoff and readiness summary inside `pm-package.md`
+- `prd.md` suitable for product, design, engineering, QA, and analytics review
+- Version history, requirement input, clarified answers, assumptions, and open confirmations inside the PRD
+- Research and reference findings, including competitor, user, historical PRD, current implementation, or technical solution references when useful
+- Requirement list and detailed requirement tables with logic, content, rules, interactions, data, permissions, edge states, tracking links, and acceptance links
+- Goals, metrics, tracking plan, and flow diagrams inside the PRD
+- Local clickable annotated HTML prototype for Web, H5, App, or Mini Program scenarios
+- `run-log.yaml` as an internal trace when useful, not as the PM-facing deliverable
 
 ## Quick Start
 
@@ -24,7 +22,7 @@ For direct agent usage, see `docs/direct-use.md`. For manual setup, see `docs/qu
 
 1. Open this repository in your agent-enabled workspace.
 2. Say your product-manager request naturally, for example: `I need a PRD and tracking plan for checkout coupon optimization.`
-3. The agent should follow `PM_COPILOT.md`, inspect relevant context, ask must-answer clarification questions before generation, then create scenario files and outputs automatically.
+3. The agent should follow `PM_COPILOT.md`, inspect relevant context, ask must-answer clarification questions before generation, then create `prd.md` and a prototype automatically.
 4. Optional: create `context/product-context.local.yaml` later for better product-specific results.
 
 Suggested prompt:
@@ -33,7 +31,7 @@ Suggested prompt:
 We want to improve coupon usage on checkout. Users say they cannot find where to apply coupons, and support tickets are increasing.
 
 If important information is missing, ask me first.
-If enough information is available, create the full review-ready package.
+If enough information is available, create `prd.md` and the matching clickable prototype.
 ```
 
 ## Use Inside an Existing Project
@@ -62,7 +60,7 @@ In embedded mode, PM Copilot should inspect the current host project before draf
 After the adapter is installed, users can ask natural PM requests from the host project without naming PM Copilot:
 
 ```text
-Help me write the PRD, metrics tree, tracking plan, and prototype for team permission management.
+Help me write the PRD and clickable prototype for team permission management.
 ```
 
 For details and manual adapter snippets, see `docs/embedded-use.md`.
@@ -79,7 +77,7 @@ Useful context can include:
 - Analytics exports, KPI definitions, and existing tracking plans
 - Business rules, compliance constraints, pricing notes, and rollout plans
 
-PM Copilot should read those documents as the current product context, ask must-answer questions when the documents are insufficient, and then generate the review-ready package after the clarification gate passes.
+PM Copilot should read those documents as the current product context, ask must-answer questions when the documents are insufficient, and then generate `prd.md` and the prototype after the clarification gate passes.
 
 ## Repository Structure
 
@@ -109,18 +107,16 @@ Request intake
 -> Current product context scan
 -> Requirement clarification
 -> User answer or explicit assumption approval
--> PRD
--> Metrics tree
--> Tracking plan
--> User flow
+-> PRD with goals, research, requirements, metrics, tracking, and flows
 -> Multi-platform clickable prototype
--> Review checklist
--> Final package
+-> Delivery check
 ```
 
-The default interaction mode is "clarify before generation." If must-answer information is missing, the agent should stop after creating the brief, clarifying questions, assumptions, and run log. It should continue only after the user answers or explicitly accepts assumption risk. If pre-development or pre-launch confirmations remain open, the package cannot be marked ready for engineering unless the user answers them.
+The default interaction mode is "clarify before generation." If must-answer information is missing, the agent should ask and stop before creating PRD or prototype deliverables. It should continue only after the user answers or explicitly accepts assumption risk. PRD status, engineering handoff status, and launch status are separate: engineering-blocking confirmations prevent `Ready for engineering`, while launch-only blockers must remain visible with owner and required confirmation.
 
-Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, including the task brief and run log. The `examples/` directory is reserved for curated scenario-library inputs and regression fixtures. If the inferred scenario already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
+For reference, policy, medical, legal, financial, safety, or operational content, PM Copilot records source status, review owner, review status, disclaimer status, and launch impact. Unreviewed content must be labeled as placeholder or draft even when the surrounding product framework is ready for engineering.
+
+Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, `prototype-<platform>.html`, and optionally `run-log.yaml`. The `examples/` directory is reserved for curated scenario-library inputs and regression fixtures. If the inferred scenario already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
 
 PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese headings, labels, statuses, notes, and PM content; English requests should produce English equivalents. File names and machine-readable identifiers stay ASCII.
 
@@ -152,7 +148,7 @@ See `docs/scenario-library.md`.
 - `docs/configuration.md` - product context configuration
 - `docs/platform-guides.md` - Codex, Claude Code, Cursor, and internal platform usage
 - `docs/prompt-recipes.md` - copy-paste prompts for common workflows
-- `docs/quality-rubric.md` - manual scoring rubric for generated packages
+- `docs/quality-rubric.md` - manual scoring rubric for generated PRD/prototype deliveries
 - `docs/optimization-playbook.md` - real-task optimization loop
 - `docs/failure-taxonomy.md` - failure classification and fix mapping
 - `docs/scenario-library.md` - available examples and how to add more

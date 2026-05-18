@@ -7,7 +7,7 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 ## Responsibilities
 
 - Choose platform type: Web, H5, App, Mini Program, or cross-platform.
-- Produce a renderable Mermaid user flow in `pm-package.md`; create `user-flow.md` or `user-flow.mmd` only when a separate export is useful or requested.
+- Produce renderable Mermaid flow sections in `prd.md`; create `user-flow.md` or `user-flow.mmd` only when a separate export is useful or requested.
 - Produce a local HTML prototype that simulates the selected platform container and interaction patterns.
 - Adapt existing demos, screenshots, routes, components, and design-system patterns when available.
 - Preserve the current product's visual style when screenshots, demos, routes, or component references are available; do not invent a new look for an existing product surface.
@@ -26,7 +26,8 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 
 ## Outputs
 
-- User flow diagram and Mermaid source
+- User flow diagram section inside `prd.md`
+- Optional Mermaid source export only when useful or requested
 - Local HTML prototype
 - Platform choice rationale
 - Fidelity rationale and annotation notes

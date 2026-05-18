@@ -1,32 +1,33 @@
 ---
 name: artifact-packaging
-description: Use when assembling PRD, metrics, tracking, flow, prototype, review checklist, assumptions, risks, and next actions into a final review package.
+description: Use when checking final PM delivery consistency across PRD, prototype, optional exports, readiness status, assumptions, risks, and validation results.
 ---
 
-# Artifact Packaging
+# Delivery Check
 
 ## Goal
 
-Make the generated work easy to review, share, and continue.
+Make the final PM delivery easy to review, share, and continue without creating extra default Markdown packages.
 
 ## Workflow
 
-1. Verify required artifacts exist.
-2. Build an artifact index.
-3. Summarize key decisions and remaining risks.
-4. Include assumptions and open questions.
-5. Recommend a stakeholder review agenda.
-6. Mark package status: Ready, Ready with risks, or Not ready.
+1. Verify `prd.md` exists and follows the PRD contract.
+2. Verify `prototype-<platform>.html` exists when UI is in scope.
+3. Verify PRD and prototype agree on scope, screens, states, logic, interactions, tracking, and blockers.
+4. Verify the PRD contains version history, confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, tracking plan, prototype reference, risks/open confirmations, acceptance criteria, and validation results.
+5. Verify optional exports are useful or explicitly requested.
+6. Mark readiness separately: PRD status, engineering handoff status, and launch status.
+7. Do not create `pm-package.md` or `final-package-summary.md` unless the user explicitly asks for a legacy consolidated package.
 
 ## Output
 
-- Final package summary
-- Artifact index
-- Review agenda
+- Delivery check summary
+- Missing or inconsistent item list
+- Readiness status
 - Next actions
 
 ## Quality Bar
 
-- Reviewers can find every artifact.
-- Risks and open questions are visible.
-- Package status matches Review Agent findings.
+- Reviewers can use `prd.md` and the prototype without assembling the story from many files.
+- Risks and open confirmations are visible.
+- Delivery status matches Review Agent findings and validation results.

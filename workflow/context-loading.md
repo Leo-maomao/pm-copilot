@@ -37,9 +37,13 @@ Use relevant files only. Typical sources include:
 - Existing demos, screenshots, Storybook stories, preview pages, design-system examples, and component states.
 - API contracts, service modules, data models, permission rules, and feature flags.
 - Analytics conventions, event naming, existing tracking plans, and metric definitions.
+- Navigation visibility, authorization gates, eligibility states, empty or ineligible states, and route fallback behavior.
+- Content sources, editorial ownership, disclaimer patterns, review cadence, or compliance notes when the feature serves reference or regulated content.
 - Package metadata or framework config when it reveals platform and app structure.
 
 Do not load the whole host repository by default. Start with file discovery, then read the smallest set of files that can answer product-fit questions.
+
+If analytics files or conventions are not found after a reasonable targeted search, record `analytics_taxonomy_source.status: not found` in the run log. Tracking output can still be useful, but it must be labeled as a proposed taxonomy that needs analytics or engineering approval.
 
 ## Document-Backed Context
 
@@ -49,6 +53,8 @@ Extract only decision-relevant information:
 
 - Current product behavior and known constraints.
 - Existing UI screens, demos, screenshots, or prototype references.
+- Existing navigation, permission, eligibility, and fallback behavior.
+- Content sources, editorial ownership, review status, disclaimer patterns, and approval requirements.
 - Target users, scenarios, and pain points.
 - Prior decisions, rejected directions, and open questions.
 - Existing metrics, tracking taxonomy, and baseline data.
@@ -57,11 +63,13 @@ Extract only decision-relevant information:
 
 Mark document facts separately from inferred assumptions. If documents conflict, prefer newer, user-confirmed, or source-owned documents, and record the conflict.
 
+If the provided documents do not include an analytics taxonomy, record that gap instead of implying that proposed event names are already standardized.
+
 ## Brief-Only Context
 
-When the user has no repository and no product documents, do not block forever. Ask only the minimum must-answer questions needed to avoid a misleading package. Common must-answer fields are product goal, target user, platform, scope boundary, success metric, and major risk area.
+When the user has no repository and no product documents, do not block forever. Ask only the minimum must-answer questions needed to avoid a misleading PRD/prototype delivery. Common must-answer fields are product goal, target user, platform, scope boundary, success metric, and major risk area.
 
-After the user answers or explicitly asks for a draft with assumption or confirmation risk, generate a useful first package with visible assumptions, open questions, and non-ready status.
+After the user answers or explicitly asks for a draft with assumption or confirmation risk, generate a useful first PRD/prototype delivery with visible assumptions, open questions, and non-ready status.
 
 If current behavior, affected module, platform, data ownership, rollout constraints, or historical product decisions remain unclear and materially affect the solution, classify the missing information as `must answer before generation` and stop at the clarification gate.
 

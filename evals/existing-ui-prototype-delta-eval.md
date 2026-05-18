@@ -36,7 +36,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 - Each page or screen has its own annotation group.
 - Each annotation is reachable from a hotspot, tooltip, side panel item, or inline marker tied to a specific UI element.
 - Cross-page notes are separated from page-specific notes.
-- The package records which existing files or screenshots informed the prototype.
+- The PRD records which existing files or screenshots informed the prototype.
 
 ## Failure History
 

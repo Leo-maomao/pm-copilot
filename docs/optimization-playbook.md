@@ -75,17 +75,17 @@ Use `templates/agent-run-log-template.yaml`.
 
 Use `docs/quality-rubric.md`.
 
-Minimum useful alpha thresholds:
+Minimum useful early-usage thresholds:
 
 | Area | Minimum |
 |---|---|
-| Package | 17 / 24 |
-| PRD | 21 / 28 |
-| Metrics and tracking | 18 / 24 |
-| Prototype | 21 / 28 |
-| Review checklist | 12 / 16 |
+| Delivery | 20 / 28 |
+| PRD | 31 / 40 |
+| Metrics and tracking | 21 / 28 |
+| Prototype | 24 / 32 |
+| Delivery review inside PRD | 15 / 20 |
 
-If a package misses a threshold, classify why before editing anything.
+If a delivery misses a threshold, classify why before editing anything.
 
 ## Step 4: Classify Failures
 
@@ -101,7 +101,7 @@ Common categories:
 - Memory failure: reused stale or irrelevant facts.
 - Guardrail failure: fabricated, over-assumed, or ignored sensitive risk.
 - Artifact failure: output shape is incomplete or inconsistent.
-- Review failure: failed to catch the package's own weakness.
+- Review failure: failed to catch the delivery's own weakness.
 
 ## Step 5: Choose the Smallest Fix
 
@@ -161,6 +161,8 @@ Use `templates/evaluation-case-template.md`.
 | Prototype platform is wrong | Improve prototype contract and platform selection rules |
 | Outputs contradict each other | Improve PM Orchestrator handoff and final review rules |
 | Agent invents competitor facts | Strengthen research-agent and guardrails |
+| Ready status hides launch blockers | Improve readiness model, PRD contract, and delivery review rules |
+| Content-heavy feature lacks source or review owner | Improve guardrails, PRD contract, and content-source trace fields |
 | Good case regresses after a change | Add regression eval and avoid global prompt rewrites |
 
 ## Maturity Levels

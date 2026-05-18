@@ -31,8 +31,6 @@ Increase return visits and content completion by helping users save content for 
 ## Requested Artifacts
 
 - PRD
-- Tracking plan
-- User flow
-- App low-fidelity HTML prototype
-- Review checklist
-- Final package summary
+- App annotated HTML prototype
+
+Put tracking, user flow, risks, review status, and validation results inside the PRD.

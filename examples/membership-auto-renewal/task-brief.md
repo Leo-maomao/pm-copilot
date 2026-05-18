@@ -2,7 +2,7 @@
 
 ## Raw Request
 
-We want to optimize membership auto-renewal because renewal conversion looks lower than expected. Please create a PRD and related review materials.
+We want to optimize membership auto-renewal because renewal conversion looks lower than expected. Please create a PRD and clickable annotated prototype.
 
 ## Product Area
 
@@ -33,9 +33,6 @@ Improve successful membership renewal without increasing complaints, refund requ
 - Clarifying questions
 - Assumptions
 - PRD
-- Metrics tree
-- Tracking plan
-- Mermaid user flow
-- H5 low-fidelity HTML prototype
-- Review checklist
-- Final package summary
+- H5 annotated HTML prototype
+
+Put metrics, tracking, user flow, risks, review status, and validation results inside the PRD.

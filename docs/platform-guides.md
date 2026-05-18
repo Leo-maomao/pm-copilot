@@ -38,7 +38,7 @@ Notes:
 Suggested prompt:
 
 ```text
-I need a product requirements package for mini-program appointment booking.
+I need a PRD and clickable prototype for mini-program appointment booking.
 ```
 
 Notes:

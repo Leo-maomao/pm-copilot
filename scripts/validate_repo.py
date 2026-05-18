@@ -41,7 +41,11 @@ REQUIRED_FILES = [
     "workflow/main-workflow.md",
     "workflow/context-loading.md",
     "artifacts/artifact-contracts.md",
+    "artifacts/final-package-contract.md",
+    "artifacts/prd-contract.md",
+    "artifacts/prototype-contract.md",
     "artifacts/trace-contract.md",
+    "artifacts/tracking-plan-contract.md",
     "tools/tool-use-protocol.md",
     "guardrails/guardrails.md",
     "guardrails/failover.md",
@@ -54,8 +58,13 @@ REQUIRED_FILES = [
     "templates/agent-run-log-template.yaml",
     "templates/evaluation-case-template.md",
     "templates/direct-request-template.md",
+    "templates/evaluation-case-template.md",
+    "templates/final-package-template.md",
     "templates/pm-package-template.md",
+    "templates/prd-template.md",
+    "templates/review-checklist-template.md",
     "templates/tracking-plan-template.md",
+    "templates/tracking-plan-template.csv",
     "templates/user-flow-template.md",
     "scripts/install_adapter.py",
     "adapters/codex/AGENTS.snippet.md",
@@ -65,9 +74,37 @@ REQUIRED_FILES = [
 ]
 
 REQUIRED_OUTPUT_FILES = [
-    "clarifying-questions.md",
+    "prd.md",
+]
+
+FORBIDDEN_DEFAULT_OUTPUT_FILES = [
     "assumptions.md",
+    "clarifying-questions.md",
+    "final-package-summary.md",
+    "metrics-tree.md",
     "pm-package.md",
+    "review-checklist.md",
+    "tracking-plan.md",
+    "user-flow.md",
+]
+
+REQUIRED_PRD_SECTIONS = [
+    "Version History",
+    "Requirement Input and Confirmation Record",
+    "Readiness",
+    "Background",
+    "Research and Reference Findings",
+    "Project Goals and Metrics",
+    "Scope",
+    "Requirement List",
+    "Requirement Details",
+    "Flow Diagram",
+    "Tracking Plan",
+    "Prototype Reference",
+    "Risks and Open Confirmations",
+    "Acceptance Criteria",
+    "Delivery Review Findings",
+    "Validation Results",
 ]
 
 TRACKING_COLUMNS = [
@@ -101,6 +138,76 @@ BINARY_SUFFIXES = {
 MACHINE_PATH_RE = re.compile(r"^[A-Za-z0-9._@+/-]+$")
 PROPERTY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
+REQUIRED_TEXT_TOKENS = {
+    "PM_COPILOT.md": [
+        "engineering handoff",
+        "launch status",
+        "content source",
+        "navigation visibility",
+    ],
+    "workflow/main-workflow.md": [
+        "Readiness Model",
+        "engineering handoff status",
+        "launch status",
+        "content source",
+        "structured review findings",
+    ],
+    "artifacts/artifact-contracts.md": [
+        "Default Delivery",
+        "Requirement details",
+        "Tracking Plan",
+        "HTML Prototype",
+        "Legacy Optional Artifacts",
+    ],
+    "artifacts/trace-contract.md": [
+        "request_source:",
+        "readiness:",
+        "content_sources:",
+        "review_findings:",
+        "validation_results:",
+    ],
+    "templates/agent-run-log-template.yaml": [
+        "request_source:",
+        "readiness:",
+        "engineering_handoff_status:",
+        "launch_status:",
+        "surface_decisions:",
+        "content_sources:",
+        "review_findings:",
+    ],
+    "templates/prd-template.md": [
+        "<localized version history>",
+        "<localized requirement input and confirmation record>",
+        "<localized research and reference findings>",
+        "<localized requirement details>",
+        "<localized prototype reference>",
+        "<localized validation results>",
+    ],
+    "templates/pm-package-template.md": [
+        "<localized canonical PRD>",
+        "<localized canonical prototype>",
+        "<localized readiness summary>",
+    ],
+    "templates/final-package-template.md": [
+        "<localized canonical deliverables>",
+        "<localized readiness>",
+        "<localized validation>",
+    ],
+    "templates/review-checklist-template.md": [
+        "<localized evidence>",
+        "<localized owner>",
+        "<localized required before>",
+        "<localized content source and launch review>",
+        "<localized validation results>",
+    ],
+    "templates/evaluation-case-template.md": [
+        "PRD status, engineering handoff status, and launch status",
+        "Reference or regulated content records source status",
+        "Review findings include artifact, evidence, owner",
+        "Validation results are concrete and consistent",
+    ],
+}
+
 
 def fail(message: str) -> None:
     print(f"FAIL: {message}")
@@ -119,10 +226,20 @@ def check_required_paths() -> None:
             fail(f"Missing required file: {file_name}")
 
 
+def check_contract_template_alignment() -> None:
+    for relative_path, tokens in REQUIRED_TEXT_TOKENS.items():
+        path = ROOT / relative_path
+        text = path.read_text(encoding="utf-8")
+        lowered_text = text.lower()
+        for token in tokens:
+            if token.lower() not in lowered_text:
+                fail(f"Missing required token '{token}' in {relative_path}")
+
+
 def check_version() -> None:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if not re.match(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$", version):
-        fail(f"VERSION is not semantic: {version}")
+    if not re.match(r"^\d+\.\d+\.\d+$", version):
+        fail(f"VERSION must use MAJOR.MINOR.DEBUG format: {version}")
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     if version not in changelog:
@@ -164,6 +281,19 @@ def check_examples() -> None:
         for required in REQUIRED_OUTPUT_FILES:
             if not (output_dir / required).is_file():
                 fail(f"Missing {required} for scenario: {scenario}")
+
+        for forbidden in FORBIDDEN_DEFAULT_OUTPUT_FILES:
+            if (output_dir / forbidden).exists():
+                fail(
+                    f"Default example output must consolidate {forbidden} into "
+                    f"prd.md for scenario: {scenario}"
+                )
+
+        prd_text = (output_dir / "prd.md").read_text(encoding="utf-8")
+        lowered_prd = prd_text.lower()
+        for section in REQUIRED_PRD_SECTIONS:
+            if section.lower() not in lowered_prd:
+                fail(f"PRD missing section '{section}' for scenario: {scenario}")
 
         prototypes = list(output_dir.glob("prototype-*.html"))
         if not prototypes:
@@ -259,6 +389,7 @@ def check_machine_readable_paths() -> None:
 
 def main() -> None:
     check_required_paths()
+    check_contract_template_alignment()
     check_version()
     check_skills()
     check_examples()

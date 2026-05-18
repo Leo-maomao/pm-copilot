@@ -26,9 +26,11 @@ Generate a local clickable HTML prototype that matches the selected product plat
 6. Create a single self-contained HTML file.
 7. Include main path interaction.
 8. Include relevant non-happy states.
-9. Build an annotation map before writing HTML: number, page/screen, UI element, logic note, interaction note, data or permission note, and tracking note when relevant.
-10. Add numbered callout markers on the prototype surface and matching numbered notes in a right-side panel. Use compact markers such as `①`, `②`, and `③`.
-11. Label the artifact as prototype-only, not production code.
+9. Show eligible and ineligible user states when access depends on account, role, setup, plan, consent, location, or permission.
+10. Label placeholder or unreviewed reference content as draft and avoid presenting it as approved final content.
+11. Build an annotation map before writing HTML: number, page/screen, UI element, logic note, interaction note, data or permission note, and tracking note when relevant.
+12. Add numbered callout markers on the prototype surface and matching numbered notes in a right-side panel. Use compact markers such as `①`, `②`, and `③`.
+13. Label the artifact as prototype-only, not production code.
 
 ## Output
 
@@ -39,6 +41,7 @@ Generate a local clickable HTML prototype that matches the selected product plat
 - Existing-surface mapping and change summary
 - Style-source summary
 - Numbered annotation map
+- Permission and fallback state notes
 - Interaction notes
 - Cross-platform differences if multiple prototypes are needed
 
@@ -50,6 +53,8 @@ Generate a local clickable HTML prototype that matches the selected product plat
 - Text fits inside the frame.
 - The UI is polished enough to guide UI and engineering; avoid bare placeholders when product context exists.
 - Main states, validation, errors, empty states, permission states, and success feedback are represented when relevant.
+- Access-gated surfaces include eligible and ineligible states or an explicit not-applicable note.
+- Placeholder or unreviewed content is visibly labeled and does not look launch-approved.
 - If current product UI exists, the prototype preserves the existing structure and shows the new requirement as a delta.
 - Annotations are tied to specific pages, components, or interactions, not mixed into one generic notes list.
 - Annotation notes are concrete enough for engineering. Examples: text length limit and ellipsis rule, tap result, hover tooltip, long-press behavior, disabled/loading/error behavior, data source, permission rule, and tracking event.

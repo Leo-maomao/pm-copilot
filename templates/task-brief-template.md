@@ -35,8 +35,6 @@ Write the original request here.
 ## Requested Artifacts
 
 - PRD
-- Metrics tree
-- Tracking plan
-- User flow
-- HTML prototype
-- Review checklist
+- Annotated HTML prototype
+
+Put metrics, tracking, user flow, risks, review status, and validation results inside the PRD unless a split export is explicitly requested.

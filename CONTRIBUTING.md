@@ -40,11 +40,11 @@ PM Copilot welcomes improvements to agents, skills, templates, examples, guardra
 Each scenario should include:
 
 - `examples/<scenario>/task-brief.md`
-- `outputs/<scenario>/clarifying-questions.md`
-- `outputs/<scenario>/assumptions.md`
-- `outputs/<scenario>/pm-package.md`
-- one prototype file when relevant
-- optional split source or export files such as `tracking-plan.csv` or `user-flow.mmd` only when useful
+- `outputs/<scenario>/prd.md`
+- `outputs/<scenario>/prototype-<platform>.html` when the scenario has a user-facing surface
+- optional internal trace or machine-readable exports only when they are useful, such as `run-log.yaml`, `tracking-plan.csv`, or `user-flow.mmd`
+
+Do not add default `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` files for new scenarios. Put confirmations, assumptions, metrics, tracking, flows, review status, and validation results inside `prd.md`.
 
 Use anonymized and synthetic data only.
 
@@ -79,7 +79,7 @@ tidy -q -e templates/prototype-template.html
 
 - The change is platform-neutral unless explicitly documented.
 - New skills include valid frontmatter.
-- New examples include task brief and output package.
+- New examples include a task brief, PRD, and prototype when relevant.
 - New tracking plans parse as CSV.
 - Changelog is updated for user-visible changes.
 - No sensitive data is committed.

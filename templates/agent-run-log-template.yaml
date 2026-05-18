@@ -6,7 +6,8 @@ agent_platform: ""
 model: ""
 
 task:
-  brief_path: ""
+  request_source: "" # conversation | file | example task brief | other
+  brief_path: "" # optional legacy or scenario-library input
   raw_request: ""
   requested_artifacts: []
 
@@ -21,9 +22,29 @@ context:
     - fact: ""
       source: ""
       confidence: ""
+  analytics_taxonomy_source:
+    status: "" # found | not found | not checked | not applicable
+    source: ""
+    implication: "" # existing taxonomy followed | tracking proposal only | tracking omitted
   context_excluded: []
   conflicts_found: []
   conflict_resolution: []
+
+readiness:
+  prd_status: "" # blocked | draft with assumptions | draft with confirmation risk | ready for review | ready for engineering
+  engineering_handoff_status: "" # ready | blocked | not applicable
+  launch_status: "" # ready | blocked | not applicable
+  status_rationale: ""
+  engineering_blockers:
+    - id: ""
+      blocker: ""
+      owner: ""
+      required_confirmation: ""
+  launch_blockers:
+    - id: ""
+      blocker: ""
+      owner: ""
+      required_confirmation: ""
 
 workflow:
   states_completed: []
@@ -60,6 +81,7 @@ human_inputs:
     - id: ""
       question: ""
       classification: "" # must answer before generation | can draft with stated assumption | must confirm before development or launch
+      blocks_phase: "" # generation | engineering | launch | both | none
       rationale: ""
   answers_received: []
   unanswered_questions: []
@@ -73,12 +95,41 @@ assumptions:
     source: "" # user confirmed | inferred from context | low-impact default
     blocks_generation: false
 
+scope_decisions:
+  confirmed_mvp: []
+  optional_or_conditional: []
+  future_scope: []
+  non_goals: []
+
+surface_decisions:
+  entry_points: []
+  navigation_visibility: ""
+  eligible_user_state: ""
+  ineligible_user_state: ""
+  fallback_states: []
+
+content_sources:
+  - content_area: ""
+    source_status: "" # user supplied | source-backed | placeholder | not applicable
+    source_reference: ""
+    review_owner: ""
+    review_status: "" # approved | pending | not applicable
+    disclaimer_status: "" # approved | pending | not applicable
+    launch_impact: "" # blocks launch | does not block launch | not applicable
+
+open_questions:
+  - id: ""
+    question: ""
+    classification: "" # must answer before generation | can draft with stated assumption | must confirm before development or launch
+    blocks_phase: "" # generation | engineering | launch | both | none
+    owner: ""
+    status: "" # open | answered | not applicable
+    impact: ""
+
 artifacts:
-  task_brief: ""
-  clarifying_questions: ""
-  assumptions: ""
-  pm_package: ""
+  prd: ""
   prototype: ""
+  run_log: ""
   optional_exports:
     - file: ""
       purpose: ""
@@ -87,27 +138,47 @@ artifacts:
     - file: ""
       reason: ""
 
+guardrail_events:
+  - type: ""
+    decision: ""
+    rationale: ""
+
+review_findings:
+  - severity: "" # critical | high | medium | low | none
+    artifact: ""
+    finding: ""
+    evidence: ""
+    owner: ""
+    required_before: "" # generation | engineering | launch | review | none
+    status: "" # open | fixed | accepted | not applicable
+
 review_scores:
-  package:
+  delivery:
     score: null
-    max_score: 24
+    max_score: 28
     status: ""
   prd:
     score: null
-    max_score: 28
+    max_score: 36
     status: ""
   metrics_and_tracking:
     score: null
-    max_score: 24
+    max_score: 28
     status: ""
   prototype:
     score: null
-    max_score: 28
+    max_score: 32
     status: ""
   review_checklist:
     score: null
-    max_score: 16
+    max_score: 20
     status: ""
+
+validation_results:
+  - command: ""
+    status: "" # passed | failed | skipped
+    result: ""
+    limitation: ""
 
 failures:
   - id: ""

@@ -37,7 +37,7 @@ We do not have a project repository here. I uploaded last quarter's checkout PRD
 - The agent cites or references the provided document set as context loaded.
 - The agent separates document-backed facts from assumptions.
 - The agent asks blocking questions before downstream generation when document context is insufficient.
-- The agent can proceed to a review-ready package after answers or explicit assumption approval.
+- The agent can proceed to review-ready PRD/prototype delivery after answers or explicit assumption approval.
 - Generated prose follows the user's language, while file names and identifiers remain ASCII.
 
 ## Failure History

@@ -1,15 +1,15 @@
 # Versioning
 
-PM Copilot uses semantic versioning:
+PM Copilot uses three-segment semantic versioning:
 
 ```text
-MAJOR.MINOR.PATCH-prerelease
+MAJOR.MINOR.DEBUG
 ```
 
 Example:
 
 ```text
-0.1.0-alpha.1
+0.1.10
 ```
 
 ## Version Meaning
@@ -18,12 +18,11 @@ Example:
 |---|---|
 | MAJOR | Breaking changes to repository structure, artifact contracts, workflow states, or agent interfaces |
 | MINOR | New agents, skills, artifact types, examples, templates, or backward-compatible workflow capabilities |
-| PATCH | Fixes, documentation improvements, example corrections, or non-breaking template refinements |
-| prerelease | Alpha, beta, or release-candidate stability marker |
+| DEBUG | Fixes, documentation improvements, example corrections, non-breaking template refinements, and commit-by-commit maintenance updates |
 
 ## Current Stability
 
-`0.1.x-alpha` means:
+`0.1.x` means:
 
 - Suitable for early users and contributors.
 - Interfaces may still change.
@@ -49,6 +48,13 @@ Non-breaking changes include:
 - Improving wording in existing prompts.
 - Adding new guardrails.
 - Adding optional validation checks.
+
+## Increment Rules
+
+- Increment `MAJOR` for breaking repository structure, artifact contract, workflow state, or agent interface changes.
+- Increment `MINOR` for new backward-compatible capabilities, artifact types, agent/skill additions, examples, or workflow features.
+- Increment `DEBUG` for each normal committed change, including fixes, docs, templates, guardrails, eval updates, and validation refinements.
+- Do not use prerelease suffixes or release-candidate labels.
 
 ## Upgrade Rules
 

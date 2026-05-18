@@ -32,6 +32,8 @@ Even low-fidelity prototypes must be clean, clickable, and implementation-orient
 - Buttons and links must have visible outcomes.
 - Copy must fit on mobile-sized frames.
 - The prototype must include realistic screen states: loading, empty, error, permission, confirmation, success, or rollback where relevant.
+- If access depends on account, role, eligibility, plan, location, consent, or setup state, show the eligible and ineligible states or state why one is not relevant.
+- If the feature contains unreviewed reference or regulated content, label it as placeholder or draft in the prototype and do not present it as approved final content.
 - Important controls should expose annotations through clickable hotspots, side panels, tooltips, or inline markers.
 - Annotation state should update by page or screen, so reviewers can tell which note belongs to which UI element.
 - Numbered callouts should not cover critical copy or controls. Use compact markers such as `①`, `②`, and `③` beside or above the element being explained.

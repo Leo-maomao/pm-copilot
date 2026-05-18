@@ -4,7 +4,7 @@ The tracking plan must be reviewable by product, analytics, engineering, and QA.
 
 ## Required Outputs
 
-- Markdown event and property tables as the primary human-readable artifact. By default, place them in `pm-package.md`.
+- Markdown event and property tables as the primary human-readable artifact. By default, place them in `prd.md`.
 - Create `tracking-plan.md` only when a separate analytics or engineering handoff file is useful or requested.
 - Create `tracking-plan.csv` only when a machine-readable export is useful or requested.
 
@@ -27,6 +27,7 @@ property_name,type,required,example,description,allowed_values,privacy_level,sou
 ## Rules
 
 - Use snake_case event names unless context overrides the taxonomy.
+- Record the taxonomy source. If no existing analytics taxonomy or event naming convention was found, label the table as a proposed taxonomy and state that analytics/engineering must approve it before implementation.
 - Use one event per observable user or system action.
 - Do not describe events as loose bullet points. Use tables.
 - Each event must include trigger timing, actor, platform, required properties, optional properties, validation notes, and privacy notes.
@@ -34,3 +35,4 @@ property_name,type,required,example,description,allowed_values,privacy_level,sou
 - Include validation notes for QA and analytics verification.
 - Do not collect raw payment cards, passwords, government IDs, or unredacted personal identifiers.
 - Mark inferred events as assumptions.
+- If an event only applies to optional scope, mark it as conditional and do not present it as required MVP instrumentation.

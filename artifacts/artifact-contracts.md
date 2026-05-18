@@ -6,103 +6,95 @@ Use the user's language for all human-facing artifact content, including heading
 
 Repository templates are structure guides, not literal English copy. Translate template headings and labels when the requested output language is not English.
 
-Write generated run artifacts under the active `outputs/<run-id>/` folder, including `task-brief.md`. Do not overwrite a previous requirement run unless the user explicitly asks to revise it. Use `examples/` only for curated scenario-library inputs, not ordinary generated runs.
+## Default Delivery
 
-If must-answer questions are unresolved, generate only the task brief, clarifying questions, assumptions, and run log. Downstream artifacts must wait for user answers or explicit assumption approval.
+The default product-manager delivery contains only:
 
-The primary reviewer-facing artifact is `pm-package.md`. Separate files may still be generated as source files, exports, or focused handoff artifacts, but the user should be able to review the whole requirement from the package. Do not create split Markdown files by default when the package already contains complete PRD, metrics, tracking, flow, review, assumptions, and next actions.
+- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prototype-<platform>.html` when a user-facing prototype is relevant
 
-Clarification output must not contradict itself. Do not mark one question as both blocking and assumed. Use distinct buckets: `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
+`outputs/<run-id>/run-log.yaml` is an internal trace artifact for debugging, regression, and auditability. It is not a PM-facing deliverable.
 
-Default package readiness is `Ready for engineering`. If the agent cannot meet that standard because confirmations are missing, it must stop and ask. It may generate a draft only when the user explicitly requests a draft or accepts the risk, and the package status must reflect that downgrade.
+Do not create separate `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default. Create split files only when the user asks, an external workflow needs them, or a machine-readable export is useful.
 
-## PM Package
+The original request, clarified answers, low-risk assumptions, scope decisions, metrics, tracking plan, flow diagrams, risks, and validation results belong in `prd.md`.
 
-Required sections:
+## Clarification Gate
 
-- Executive summary
-- Context and current-state fit
-- Clarification status
-- PRD
-- Metrics tree
-- Tracking plan table
-- User flow diagram
-- Prototype link, annotations, and implementation notes
-- Review checklist
-- Assumptions and confirmations
-- Open risks and next actions
+Clarification output must not contradict itself. Do not mark one question as both blocking and assumed. Use distinct buckets:
 
-Minimum quality bar:
+- `must answer before generation`
+- `can draft with stated assumption`
+- `must confirm before development or launch`
 
-- A reviewer can understand the whole requirement without opening every source file.
-- Source files and exports are linked from the package.
-- Status is explicit: `Blocked`, `Draft with assumptions`, `Draft with confirmation risk`, `Ready for review`, or `Ready for engineering`.
-- Do not mark the package `Ready for engineering` while any `must confirm before development or launch` item is unresolved.
-- Items that must be confirmed before development or launch are separate from assumptions used for draft generation.
-- Section headings, table labels, and status labels are localized to the user's language.
+If must-answer questions are unresolved, ask the user and stop before generating `prd.md` or prototype HTML. User silence is not approval.
+
+Default readiness is `Ready for engineering` for the confirmed engineering scope. If engineering-blocking confirmations are missing, the agent must stop and ask. It may generate a draft only when the user explicitly requests a draft or accepts the risk, and the PRD status must reflect that downgrade. Launch readiness is a separate field; a PRD may be ready for engineering while launch remains blocked by content, legal, compliance, operational, or analytics approval.
 
 ## PRD
 
 Required sections:
 
 - Title
-- Status and owners
+- Version history
+- Requirement input and confirmation record
+- Readiness summary
 - Background
-- Problem statement
-- Goals
-- Non-goals
-- Target users
-- User scenarios
-- Scope
-- Requirements
-- Edge cases
-- Metrics
-- Dependencies
-- Risks
-- Open questions
+- Research and reference findings
+- Project goals and metrics
+- Requirement scope
+- Surface and permission states, when relevant
+- Content source and review status, when relevant
+- Requirement list
+- Requirement details
+- Flow diagrams, when useful
+- Tracking plan
+- Prototype reference
+- Risks and open confirmations
 - Acceptance criteria
+- Delivery review findings
+- Validation results
 
 Required formatting:
 
-- Use tables for goals, scope, requirements, edge cases, dependencies, risks, and acceptance criteria when there are multiple items.
-- Use numbered requirements with stable IDs such as `R1`, `R2`, `R3`.
-- Use short paragraphs for background and problem statement.
+- Use tables for version history, confirmations, goals, scope, requirement list, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
+- Use stable IDs such as `R1`, `F1`, `AC1`, and `E1`.
+- Use short paragraphs for background, research conclusions, and rationale.
 - Avoid long undifferentiated unordered lists.
-- Include priority, owner, status, or verification columns where useful.
+- Keep confirmed MVP scope separate from optional, conditional, future, and non-goal scope.
+- Acceptance criteria cover confirmed MVP requirements only.
+- PRD status, engineering handoff status, and launch status are separate and non-contradictory.
+- Existing-product entry points, navigation visibility, permission or eligibility states, and fallback states are explicit when the feature adds or changes a surface.
+
+Requirement details must be implementation-grade. For each functional item, include the relevant subset of:
+
+- Function ID and function name
+- User scenario
+- Entry point or trigger
+- Page or content requirements
+- Business logic
+- Interaction rules
+- Data rules
+- Permission or eligibility rules
+- Edge and fallback states
+- Tracking event links
+- Acceptance criteria links
 
 Minimum quality bar:
 
+- A PM, designer, engineer, QA, and analytics reviewer can understand the requirement from `prd.md` plus the prototype.
 - Goals are measurable or tied to a measurement plan.
-- Scope and non-goals are explicit.
+- Research and reference findings explain why the solution is shaped this way. This section may include user research, competitor research, historical PRDs, screenshots, current implementation findings, or technical solution references.
 - Requirements are testable.
-- Edge cases include error, empty, permission, payment, and rollback where relevant.
-- Open questions are visible, not hidden inside prose.
-- The PRD is scannable enough for product, design, engineering, QA, and analytics review.
-
-## Metrics Tree
-
-Required sections:
-
-- Product goal
-- Primary metric
-- Secondary metrics
-- Guardrail metrics
-- Diagnostic metrics
-- Metric definitions
-- Measurement assumptions
-
-Minimum quality bar:
-
-- The primary metric maps directly to the product goal.
-- Guardrails capture possible harm.
-- Diagnostic metrics explain why the primary metric moved.
+- Edge cases include error, empty, permission, payment, rollback, content-review, and launch-blocking cases where relevant.
+- Open questions and launch blockers are visible, not hidden inside prose.
+- Validation results list the exact command, pass/fail/skipped status, and limitation. The PRD must not conflict with `run-log.yaml` about what was validated.
+- Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
+- Delivery review findings include artifact, evidence, owner, required-before phase, and status, or explicitly state that no Critical or High findings were found after review.
 
 ## Tracking Plan
 
-Primary content:
-
-- Markdown event and property tables inside `pm-package.md`, or `tracking-plan.md` only when a separate analytics handoff file is useful or requested.
-- `tracking-plan.csv` as a machine-readable export only when analytics or engineering needs importable data.
+The tracking plan is a PRD section by default.
 
 Required event table semantic columns. CSV exports must use the exact machine column names below; Markdown review tables may localize the visible label and include the machine name in code formatting.
 
@@ -131,32 +123,25 @@ Required property table semantic columns. CSV exports must use the exact machine
 Minimum quality bar:
 
 - Event names follow the configured taxonomy.
+- If no configured taxonomy was found, the tracking plan is labeled as a proposed taxonomy and records the context source or absence of source.
 - Each core user action has coverage or an explicit omission reason.
-- Each event lists complete required and optional properties.
-- Property definitions are centralized so engineering and analytics do not infer field meaning.
+- Every property used by any event is defined once in the property dictionary.
 - Sensitive properties are flagged and minimized.
 
-## User Flow Diagram
+## Flow Diagrams
 
-Primary content:
+Flow diagrams are PRD sections by default. Create `user-flow.mmd` only when a Mermaid source export is useful or requested.
 
-- A renderable Mermaid diagram block plus legend and notes inside `pm-package.md`, or `user-flow.md` only when a separate flow handoff file is useful or requested.
-- `user-flow.mmd` as the Mermaid source export only when useful or requested.
+Useful diagram types:
 
-Required diagram elements:
-
-- Entry point
-- Main success path
-- Decision points
-- Error or cancellation branches
-- Completion state
+- Functional flow: system or feature-level logic, branches, and states.
+- Operation flow: user-facing action path across pages or controls.
 
 Minimum quality bar:
 
-- The artifact is a standard flowchart, not a prose list.
-- The diagram renders as Mermaid in GitHub-compatible Markdown or another stated renderer.
+- Diagrams are standard Mermaid flowcharts when Markdown rendering is expected.
 - Branch labels are meaningful.
-- The flow matches the PRD scope.
+- The flow matches the confirmed PRD scope.
 - Notes explain only assumptions or edge cases that cannot fit cleanly in the diagram.
 
 ## HTML Prototype
@@ -165,37 +150,35 @@ Required elements:
 
 - Runs locally without build tooling.
 - Simulates the selected platform container.
+- Matches existing product style when current screenshots, demos, routes, components, or design-system references are available.
 - Includes key screens and states.
 - Includes interaction for the main path.
 - States its fidelity level: `low`, `mid`, or `high`.
-- Includes page-scoped clickable annotations or annotation panels for UI, interaction, data, edge case, and implementation notes.
-- Each annotation is anchored to a specific page, component, or interaction. Do not mix all page notes into one generic panel.
-- Includes enough spacing, hierarchy, copy, states, and component behavior for UI and engineering reference.
+- Uses left-side prototype and right-side numbered annotation panel by default.
+- Places compact numbered callouts such as `①`, `②`, and `③` beside the concrete UI element, state, or transition being explained.
+- Uses matching numbered notes in the side panel.
+
+Prototype annotations must cover the relevant subset of:
+
+- Product design intent
+- Logic rule
+- Interaction behavior such as tap, hover, long-press, disabled, loading, error, and success
+- Text length limit, truncation, and ellipsis behavior
+- Content source and placeholder status
+- Data source and refresh behavior
+- Permission or eligibility behavior
+- Tracking hook
+- Engineering handoff note
 
 Minimum quality bar:
 
 - No external assets are required.
 - Text fits in the layout.
+- Callouts do not cover critical copy or controls.
 - The prototype does not claim to be production code.
-- The prototype is implementation-oriented: it shows real screens, state changes, validation, errors, empty states, permissions, and success feedback where relevant.
-- Use high-fidelity direction when the request provides enough brand, visual, and interaction context; otherwise use a polished mid-fidelity prototype rather than a bare wireframe.
-- When existing demos, screenshots, routes, components, or design system files are available, the prototype adapts the existing page and highlights the new requirement delta instead of inventing an unrelated product surface.
+- The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
+- When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
 
-## Review Checklist
+## Legacy Optional Artifacts
 
-Required sections:
-
-- Summary recommendation
-- Critical issues
-- High issues
-- Medium issues
-- Low issues
-- Artifact-by-artifact checklist
-- Open decisions
-- Human confirmation required
-
-Minimum quality bar:
-
-- Findings are actionable.
-- Severity is explicit.
-- The checklist can route work back to the responsible agent.
+`pm-package.md`, `final-package-summary.md`, split PRD, split tracking Markdown, split user-flow Markdown, and split review checklist files are legacy or explicit-request artifacts. They must not be generated by default.

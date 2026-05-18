@@ -10,7 +10,7 @@ Instead of manually copying templates and creating task folders, open this repos
 <write your product request here>
 
 If important information is missing, ask me first.
-If enough information is available, create the full review-ready package.
+If enough information is available, create `prd.md` and the matching clickable prototype.
 If must-answer or pre-development confirmation information is missing, stop and wait for my answer before generating downstream artifacts.
 Use my local product context if it exists; otherwise use the example context and mark assumptions.
 Use my request language for headings, labels, statuses, notes, and prototype annotations.
@@ -19,12 +19,11 @@ Use my request language for headings, labels, statuses, notes, and prototype ann
 The agent should automatically follow `PM_COPILOT.md` and:
 
 - Infer a scenario name and unique run id.
-- Create `outputs/<run-id>/task-brief.md`.
 - Create all generated run artifacts under `outputs/<run-id>/`.
 - Ask must-answer clarification questions before downstream generation.
 - Stop and wait when critical information or pre-development confirmation is missing.
-- Generate a consolidated `pm-package.md`, a prototype when relevant, optional exports when useful, and a run log.
-- Keep PRD, metrics, tracking plan tables, flow diagram, review checklist, assumptions, and next actions inside `pm-package.md` by default.
+- Generate `prd.md`, a prototype when relevant, optional exports when useful, and an internal run log.
+- Keep requirement input, clarified answers, assumptions, research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
 - Run validation when possible.
 
 ## Codex and AGENTS.md
@@ -59,7 +58,7 @@ Then open the folder in your agent environment.
 
 ## Using Product Documents Instead of a Repository
 
-You can use PM Copilot without a software repository. Put relevant product documents in the workspace or attach them in the agent conversation, then ask for the PM artifact package.
+You can use PM Copilot without a software repository. Put relevant product documents in the workspace or attach them in the agent conversation, then ask for the PRD and prototype.
 
 Good context sources include:
 
@@ -89,8 +88,8 @@ User gives request
 -> Agent loads workflow, guardrails, contracts, and context
 -> Agent asks high-impact clarification questions before generation
 -> User answers or explicitly says to proceed as a draft with assumption or confirmation risk
--> Agent creates the task brief and outputs under one run folder
--> Agent reviews package
+-> Agent creates PRD/prototype outputs under one run folder
+-> Agent checks delivery consistency
 -> Agent returns artifact paths and blockers
 ```
 
@@ -103,15 +102,15 @@ We want to improve coupon usage on checkout. Users say they cannot find where to
 Expected generated paths:
 
 ```text
-outputs/checkout-coupon/task-brief.md
-outputs/checkout-coupon/
+outputs/checkout-coupon/prd.md
+outputs/checkout-coupon/prototype-h5.html
 ```
 
 If the same scenario already exists, the agent should create a timestamped run folder such as:
 
 ```text
-outputs/checkout-coupon-20260518-1430/task-brief.md
-outputs/checkout-coupon-20260518-1430/
+outputs/checkout-coupon-20260518-1430/prd.md
+outputs/checkout-coupon-20260518-1430/prototype-h5.html
 ```
 
 ## When to Use Manual Mode

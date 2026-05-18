@@ -26,7 +26,7 @@
 
 ## Pass Criteria
 
-- Human-facing headings in `pm-package.md` are Chinese, not copied from English templates.
+- Human-facing headings in `prd.md` are Chinese, not copied from English templates.
 - Table labels, status labels, prototype annotations, review labels, and next actions are Chinese.
 - File names, event names, property names, requirement IDs, and Mermaid node IDs remain ASCII.
 - Any English terms that remain are product names, technical identifiers, or intentionally preserved terms.

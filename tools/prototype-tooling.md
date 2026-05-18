@@ -1,6 +1,6 @@
 # Prototype Tooling Notes
 
-Low-fidelity prototypes should be generated as self-contained HTML files.
+Prototypes should be generated as self-contained HTML files.
 
 ## Requirements
 
@@ -8,7 +8,10 @@ Low-fidelity prototypes should be generated as self-contained HTML files.
 - No external network dependency.
 - Inline CSS and JavaScript are acceptable for a prototype artifact.
 - Use semantic buttons and links for interactions.
-- Include a visible "Low-fidelity prototype" label.
+- Include a visible prototype-only / not-production-code boundary.
+- When current product UI evidence exists, match the current surface before adding the new requirement.
+- Use left-side prototype plus right-side numbered annotation panel by default.
+- Use matching numbered callouts such as `①`, `②`, and `③` beside the UI element and in the annotation panel.
 
 ## Suggested Verification
 
@@ -16,6 +19,8 @@ Low-fidelity prototypes should be generated as self-contained HTML files.
 - Click through the main path.
 - Confirm text does not overflow the mobile frame.
 - Confirm the selected platform shape is obvious.
+- Confirm numbered callouts map to matching right-side notes.
+- Confirm notes describe concrete logic, interaction, text limit, data, permission, state, and tracking rules where relevant.
 - Confirm no external image, font, or script is required.
 
 ## Platform Hints

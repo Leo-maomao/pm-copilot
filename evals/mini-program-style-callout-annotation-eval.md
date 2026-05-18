@@ -39,7 +39,7 @@
 - Annotation notes are concrete and implementation-grade, for example text length limit and ellipsis rule, tap behavior, hover or tooltip behavior when applicable, long-press behavior, empty/error state, data source, permission rule, and tracking hook.
 - Long notes are summarized in the panel and expanded through click, hover, or disclosure instead of being dumped into one generic paragraph.
 - Markers and notes do not obscure key page content or controls.
-- Package records the style sources used and any style limitations.
+- PRD records the style sources used and any style limitations.
 
 ## Failure History
 

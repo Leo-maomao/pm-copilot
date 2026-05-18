@@ -1,2 +1,2 @@
 event_name,description,trigger,platform,actor,required_properties,optional_properties,success_criteria,validation_notes,privacy_notes
-feature_viewed,User views the feature entry,Entry becomes visible,<platform>,user,"user_id, platform, timestamp","source, experiment_id",Event fires once per view,Check event count against page views,Do not include personal identifiers beyond approved user ID
+feature_viewed,<localized event description>,<localized trigger timing>,<platform>,user,"user_id, platform, timestamp","source, experiment_id",<localized success criteria>,<localized validation note>,<localized privacy note>

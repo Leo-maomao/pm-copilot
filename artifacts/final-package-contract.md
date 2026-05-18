@@ -1,46 +1,21 @@
-# Final Package Contract
+# Legacy Package Contract
 
-The final package must help reviewers understand the requirement without opening many small files.
+PM Copilot no longer creates a consolidated `pm-package.md` or `final-package-summary.md` by default.
 
-## Primary Artifact
+Default delivery is:
 
-Generate:
+- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prototype-<platform>.html` when UI is in scope
+- `outputs/<run-id>/run-log.yaml` as internal trace only
 
-```text
-outputs/<run-id>/pm-package.md
-```
+Use this contract only when the user explicitly asks for a legacy consolidated package or an external workflow requires one.
 
-`final-package-summary.md` may remain as a short index or legacy summary, but `pm-package.md` is the primary reviewer-facing artifact.
+## Legacy Package Rules
 
-Default runs should not create many separate Markdown files. Generate split source files only when the user requests them, when an external workflow needs them, or when an export is materially useful.
-
-## Required Sections
-
-- Executive summary
-- Context and current-state fit
-- Clarification status
-- PRD summary and full requirement detail
-- Metrics tree
-- Tracking plan table
-- User flow diagram
-- Prototype link, annotations, and implementation notes
-- Artifact index
-- Key product decisions
-- Metrics and tracking summary
-- Prototype summary
-- Review status
-- Assumptions
-- Open questions
-- Risks
-- Recommended review agenda
-- Next actions
-
-## Rules
-
-- Link or reference each artifact by filename.
-- Keep unresolved items visible.
-- Do not mark the package as ready if critical issues remain.
-- Separate `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
-- Do not mark the package as `Ready for engineering` while any `must confirm before development or launch` item is unresolved.
-- Do not make the reviewer assemble the core story from many separate files.
-- Localize all human-facing headings and labels to the user's language.
+- Do not duplicate the full PRD. Link `prd.md` and summarize only what helps navigation.
+- Do not duplicate prototype annotations. Link the HTML prototype and summarize covered screens/states.
+- Preserve readiness separation: PRD status, engineering handoff status, and launch status.
+- Keep unresolved assumptions, open confirmations, and validation limitations visible.
+- Preserve content source, review status, disclaimer status, and launch impact when those items appear in `prd.md`.
+- Preserve structured review findings with artifact, evidence, owner, required-before phase, and status.
+- Clearly label the file as a legacy convenience package, not the canonical PM handoff.

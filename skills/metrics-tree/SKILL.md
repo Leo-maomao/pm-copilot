@@ -7,7 +7,7 @@ description: Use when translating product goals into KPI trees, primary metrics,
 
 ## Goal
 
-Define how success will be measured before or alongside the tracking plan.
+Define how success will be measured inside the PRD before or alongside the tracking plan.
 
 ## Workflow
 
@@ -20,14 +20,16 @@ Define how success will be measured before or alongside the tracking plan.
 
 ## Output
 
-- KPI tree
+- KPI tree or compact metric hierarchy for the PRD
 - Metric definitions
 - Measurement assumptions
 - Guardrail metrics
 - Diagnostic metrics
+- Optional split metric export only when explicitly requested
 
 ## Quality Bar
 
 - The primary metric maps to the stated goal.
 - Guardrails capture negative side effects.
 - Metrics can be instrumented or calculated.
+- Default delivery keeps metric content in `prd.md`; do not create `metrics-tree.md` unless the user asks for a split legacy file.
