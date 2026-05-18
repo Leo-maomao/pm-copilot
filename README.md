@@ -33,6 +33,35 @@ If important information is missing, ask me first.
 If enough information is available, create the full review-ready package.
 ```
 
+## Use Inside an Existing Project
+
+This is the expected setup when you want to import PM Copilot into a real software project:
+
+```text
+host-repo/
+|-- AGENTS.md or CLAUDE.md or .cursor/rules/
+|-- src/
+`-- pm-copilot/
+    `-- PM_COPILOT.md
+```
+
+Copy or clone this repository into the host project as `pm-copilot/`, then install a small adapter in the host repository root:
+
+```bash
+cd host-repo/pm-copilot
+python3 scripts/install_adapter.py --host .. --tool all
+```
+
+The adapter is required for reliable embedded use. Simply placing the `pm-copilot/` folder inside another project does not guarantee that Codex, Claude Code, Cursor, or another agent will automatically discover nested instructions.
+
+After the adapter is installed, users can ask natural PM requests from the host project without naming PM Copilot:
+
+```text
+Help me write the PRD, metrics tree, tracking plan, and prototype for team permission management.
+```
+
+For details and manual adapter snippets, see `docs/embedded-use.md`.
+
 ## Repository Structure
 
 ```text
