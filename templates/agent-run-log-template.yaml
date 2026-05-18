@@ -1,0 +1,81 @@
+run_id: ""
+date: ""
+scenario: ""
+agent_platform: ""
+model: ""
+
+task:
+  brief_path: ""
+  raw_request: ""
+  requested_artifacts: []
+
+context:
+  files_loaded: []
+  context_excluded: []
+  conflicts_found: []
+  conflict_resolution: []
+
+workflow:
+  states_completed: []
+  states_skipped: []
+  skip_reasons: []
+  revision_loops: 0
+
+agents_used:
+  - name: ""
+    purpose: ""
+    inputs: []
+    outputs: []
+    handoff_to: ""
+
+skills_used:
+  - name: ""
+    reason: ""
+
+tools_used:
+  - name: ""
+    purpose: ""
+    result: ""
+    limitation: ""
+
+human_inputs:
+  clarification_questions: []
+  answers_received: []
+  unanswered_questions: []
+  confirmations_required: []
+
+assumptions:
+  - id: ""
+    assumption: ""
+    reason: ""
+    risk: ""
+
+artifacts:
+  clarifying_questions: ""
+  assumptions: ""
+  prd: ""
+  metrics_tree: ""
+  tracking_plan: ""
+  user_flow: ""
+  prototype: ""
+  review_checklist: ""
+  final_package: ""
+
+review_scores:
+  package: null
+  prd: null
+  metrics_and_tracking: null
+  prototype: null
+  review_checklist: null
+
+failures:
+  - id: ""
+    severity: ""
+    category: ""
+    symptom: ""
+    evidence: ""
+    likely_root_cause: ""
+    fix_location: ""
+
+final_status: ""
+next_actions: []

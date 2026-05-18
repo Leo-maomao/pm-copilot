@@ -1,0 +1,35 @@
+# PM Copilot Adapter for Codex
+
+Add this snippet to the host repository's root `AGENTS.md` when PM Copilot is nested inside another project.
+
+```markdown
+## PM Copilot
+
+When the user asks for product-manager work such as PRD, requirements, user stories, acceptance criteria, metrics, tracking plans, analytics events, user flows, prototypes, competitor research, review checklists, or equivalent Chinese-language PM tasks, read `pm-copilot/PM_COPILOT.md` and follow that workflow.
+
+Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
+
+Keep normal software-engineering tasks governed by this host repository's regular instructions.
+```
+
+## Usage
+
+1. Put the PM Copilot folder under the host project:
+
+```text
+<host-repo>/pm-copilot/
+```
+
+2. Append the snippet above to:
+
+```text
+<host-repo>/AGENTS.md
+```
+
+3. Then users can say:
+
+```text
+I need a PRD and tracking plan for checkout coupon optimization.
+```
+
+Codex should load the host `AGENTS.md`, detect the PM task, then read `pm-copilot/PM_COPILOT.md`.

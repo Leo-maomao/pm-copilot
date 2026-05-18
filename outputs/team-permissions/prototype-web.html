@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Team Permissions Web Prototype</title>
+  <style type="text/css">
+    body { margin: 0; font-family: Arial, sans-serif; background: #eef2f6; color: #172033; }
+    .app { max-width: 1120px; margin: 24px auto; background: #fff; border: 1px solid #d7dce5; min-height: 680px; display: grid; grid-template-columns: 220px 1fr; }
+    .side { border-right: 1px solid #d7dce5; padding: 18px; background: #f8fafc; }
+    .side h1 { font-size: 18px; margin: 0 0 24px; }
+    .nav { display: grid; gap: 8px; }
+    .nav div { padding: 10px; border-radius: 6px; color: #667085; }
+    .nav .active { background: #e8f0ff; color: #1d4ed8; font-weight: 700; }
+    .main { padding: 22px; }
+    .label { display: inline-block; padding: 4px 8px; background: #f2f4f7; color: #667085; font-size: 12px; border-radius: 6px; font-weight: 700; }
+    h2 { font-size: 26px; margin: 12px 0 6px; }
+    .muted { color: #667085; font-size: 14px; }
+    .toolbar { display: flex; gap: 10px; margin: 20px 0; }
+    input, select { padding: 10px; border: 1px solid #d7dce5; border-radius: 6px; font-size: 14px; }
+    input { flex: 1; }
+    table { width: 100%; border-collapse: collapse; border: 1px solid #d7dce5; }
+    th, td { padding: 12px; border-bottom: 1px solid #edf0f5; text-align: left; font-size: 14px; }
+    th { background: #f8fafc; color: #667085; }
+    button { border: 0; border-radius: 6px; padding: 10px 12px; font-weight: 700; cursor: pointer; }
+    .primary { background: #2563eb; color: #fff; }
+    .secondary { background: #fff; color: #172033; border: 1px solid #d7dce5; }
+    .drawer { position: fixed; top: 0; right: -390px; width: 380px; max-width: 100%; height: 100vh; background: #fff; border-left: 1px solid #d7dce5; box-shadow: -14px 0 38px rgba(23,32,51,.16); padding: 22px; transition: right .18s ease; }
+    .drawer.open { right: 0; }
+    .impact { background: #fff6df; border: 1px solid #f2d18a; border-radius: 8px; padding: 12px; color: #5f3907; font-size: 14px; margin: 14px 0; }
+    .success { display: none; background: #e8f7f0; color: #07845d; border: 1px solid #a8e4c8; padding: 12px; border-radius: 8px; margin-bottom: 14px; }
+    .success.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="side">
+      <h1>Workspace Admin</h1>
+      <div class="nav">
+        <div>Overview</div>
+        <div class="active">Team permissions</div>
+        <div>Billing</div>
+        <div>Audit log</div>
+      </div>
+    </div>
+    <div class="main">
+      <span class="label">Low-fidelity Web prototype</span>
+      <h2>Team permissions</h2>
+      <p class="muted">Review and update workspace roles with confirmation before access changes apply.</p>
+      <div id="success" class="success">Role updated. Audit log entry created.</div>
+      <div class="toolbar">
+        <input type="text" value="">
+        <select><option>All roles</option><option>Owner</option><option>Admin</option><option>Member</option></select>
+      </div>
+      <table summary="Team member role table">
+        <thead><tr><th>Member</th><th>Status</th><th>Current role</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>Alex Chen</td><td>Active</td><td>Member</td><td><button class="primary" type="button" onclick="openDrawer('Alex Chen','Member','Admin')">Change role</button></td></tr>
+          <tr><td>Jordan Lee</td><td>Active</td><td>Owner</td><td><button class="secondary" type="button" onclick="openDrawer('Jordan Lee','Owner','Member')">Review blocked case</button></td></tr>
+          <tr><td>Directory Group</td><td>Synced</td><td>Admin</td><td><button class="secondary" type="button" onclick="openDrawer('Directory Group','Admin','Member')">Review locked case</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div id="drawer" class="drawer">
+    <h2>Confirm role change</h2>
+    <p id="change-copy" class="muted"></p>
+    <div id="impact" class="impact">Admin access can manage billing settings, invite members, and view workspace reports.</div>
+    <button id="confirm" class="primary" type="button">Confirm change</button>
+    <button class="secondary" type="button" onclick="closeDrawer()" style="margin-left:8px">Cancel</button>
+  </div>
+  <script type="text/javascript">
+    var drawer = document.getElementById('drawer');
+    var copy = document.getElementById('change-copy');
+    var impact = document.getElementById('impact');
+    var confirmButton = document.getElementById('confirm');
+    function openDrawer(name, oldRole, newRole) {
+      copy.textContent = 'Change ' + name + ' from ' + oldRole + ' to ' + newRole + '.';
+      if (name === 'Jordan Lee') {
+        impact.textContent = 'Blocked: this may remove the last owner. Keep at least one owner.';
+        confirmButton.disabled = true;
+      } else if (name === 'Directory Group') {
+        impact.textContent = 'Locked: this role is controlled by directory sync.';
+        confirmButton.disabled = true;
+      } else {
+        impact.textContent = 'Admin access can manage billing settings, invite members, and view workspace reports.';
+        confirmButton.disabled = false;
+      }
+      drawer.className = 'drawer open';
+    }
+    function closeDrawer() { drawer.className = 'drawer'; }
+    confirmButton.onclick = function() {
+      closeDrawer();
+      document.getElementById('success').className = 'success show';
+    };
+  </script>
+</body>
+</html>

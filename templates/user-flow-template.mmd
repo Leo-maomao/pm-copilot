@@ -1,0 +1,7 @@
+flowchart TD
+  A[Entry point] --> B[User sees feature]
+  B --> C{User eligible?}
+  C -- Yes --> D[Complete main action]
+  C -- No --> E[Show ineligible state]
+  D --> F[Success state]
+  E --> G[Exit or retry]

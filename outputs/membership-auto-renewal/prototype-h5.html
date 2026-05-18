@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Membership Renewal H5 Prototype</title>
+  <style type="text/css">
+    :root {
+      --bg: #eef2f6;
+      --surface: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #d7dce5;
+      --blue: #2563eb;
+      --blue-soft: #e8f0ff;
+      --green: #07845d;
+      --green-soft: #e8f7f0;
+      --red: #c24132;
+      --red-soft: #fff0ed;
+      --amber: #a15c06;
+      --amber-soft: #fff6df;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .shell {
+      width: min(100%, 430px);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .phone {
+      min-height: 820px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 18px 44px rgba(23, 32, 51, 0.12);
+    }
+
+    .browser-bar {
+      height: 44px;
+      display: grid;
+      grid-template-columns: 28px 1fr 28px;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .url {
+      min-width: 0;
+      padding: 7px 10px;
+      border-radius: 16px;
+      background: #edf1f7;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+    }
+
+    .top {
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #f2f4f7;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 12px 0 6px;
+      font-size: 24px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .content {
+      padding: 16px 18px 22px;
+    }
+
+    .notice {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #f2d18a;
+      background: var(--amber-soft);
+      color: #5f3907;
+      font-size: 13px;
+      line-height: 1.4;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+      background: var(--surface);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid #edf0f5;
+      font-size: 14px;
+    }
+
+    .row:last-child { border-bottom: 0; }
+    .row span:first-child { color: var(--muted); }
+    .row span:last-child { text-align: right; font-weight: 700; }
+
+    .benefits {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .benefits li {
+      padding: 10px;
+      border-radius: 8px;
+      background: #f8fafc;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .state {
+      display: none;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .state.active { display: block; }
+    .state.warning { background: var(--amber-soft); color: var(--amber); border: 1px solid #f2d18a; }
+    .state.success { background: var(--green-soft); color: var(--green); border: 1px solid #a8e4c8; }
+    .state.error { background: var(--red-soft); color: var(--red); border: 1px solid #f5b5ac; }
+
+    .actions {
+      position: sticky;
+      bottom: 0;
+      padding: 14px 18px 18px;
+      background: rgba(255, 255, 255, 0.96);
+      border-top: 1px solid var(--line);
+    }
+
+    button, a.action-link {
+      width: 100%;
+      min-height: 46px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .secondary {
+      margin-top: 10px;
+      background: #fff;
+      color: var(--text);
+      border-color: var(--line);
+    }
+
+    .link-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+
+    .link-row a {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.42);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active { display: flex; }
+
+    .modal-panel {
+      width: min(100%, 360px);
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+    }
+
+    .modal-panel h2 {
+      margin: 0 0 8px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    .modal-panel p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 430px) {
+      .shell { padding: 0; }
+      .phone {
+        min-height: 100vh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="phone">
+      <div class="browser-bar">
+        <div class="dot">&lt;</div>
+        <div class="url">m.example.com/membership/renewal</div>
+        <div class="dot">...</div>
+      </div>
+
+      <div class="top">
+        <span class="label">Low-fidelity H5 prototype</span>
+        <h1>Keep Premium Active</h1>
+        <p class="sub">Review your next renewal and update payment before benefits pause.</p>
+      </div>
+
+      <div id="screen-main" class="screen active">
+        <div class="content">
+          <div id="warning-state" class="state warning active">
+            Your saved payment method may fail at renewal. Update it now to avoid losing benefits.
+          </div>
+
+          <div id="success-state" class="state success">
+            Payment updated. Your next renewal is scheduled for Jun 18, 2026.
+          </div>
+
+          <div id="error-state" class="state error">
+            Payment update failed because the provider declined the attempt. You can retry or use another method.
+          </div>
+
+          <div class="card">
+            <div class="row"><span>Plan</span><span>Premium Monthly</span></div>
+            <div class="row"><span>Renewal date</span><span>Jun 18, 2026</span></div>
+            <div class="row"><span>Price</span><span>$9.99 / month</span></div>
+            <div class="row"><span>Payment</span><span>Card ending 24</span></div>
+          </div>
+
+          <div class="card">
+            <ul class="benefits">
+              <li>Unlimited premium content access</li>
+              <li>Member-only downloads and saved collections</li>
+              <li>Priority support for account and billing questions</li>
+            </ul>
+          </div>
+
+          <div class="notice">
+            Renewal terms, cancellation access, and refund policy remain available before any billing action.
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="primary-action" class="primary" type="button">Update payment method</button>
+          <button id="simulate-failure" class="secondary" type="button">Simulate failed update</button>
+          <div class="link-row">
+            <a href="#terms" class="policy-link" id="terms-link">Renewal terms</a>
+            <a href="#cancel" class="policy-link" id="cancel-link">Cancel auto-renewal</a>
+            <a href="#refund" class="policy-link" id="refund-link">Refund policy</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="info-modal" class="modal">
+    <div class="modal-panel">
+      <h2 id="modal-title">Policy detail</h2>
+      <p id="modal-copy">Policy information appears here for review.</p>
+      <button id="close-modal" class="primary" type="button">Back to renewal</button>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    const primary = document.getElementById('primary-action');
+    const failure = document.getElementById('simulate-failure');
+    const warningState = document.getElementById('warning-state');
+    const successState = document.getElementById('success-state');
+    const errorState = document.getElementById('error-state');
+    const modal = document.getElementById('info-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalCopy = document.getElementById('modal-copy');
+    const closeModal = document.getElementById('close-modal');
+
+    function showState(target) {
+      [warningState, successState, errorState].forEach((item) => item.classList.remove('active'));
+      target.classList.add('active');
+    }
+
+    primary.addEventListener('click', () => {
+      showState(successState);
+      primary.textContent = 'Payment updated';
+      primary.disabled = true;
+      failure.textContent = 'Try another scenario';
+    });
+
+    failure.addEventListener('click', () => {
+      if (primary.disabled) {
+        primary.disabled = false;
+        primary.textContent = 'Update payment method';
+        failure.textContent = 'Simulate failed update';
+        showState(warningState);
+      } else {
+        showState(errorState);
+      }
+    });
+
+    document.querySelectorAll('.policy-link').forEach((link) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const type = link.id.replace('-link', '');
+        const content = {
+          terms: ['Renewal terms', 'Your membership renews monthly unless canceled before the next billing date. Final copy requires legal review.'],
+          cancel: ['Cancel auto-renewal', 'Cancellation remains available from account settings. This prototype does not hide or block cancellation.'],
+          refund: ['Refund policy', 'Refund eligibility depends on the approved policy for your region and plan.']
+        }[type];
+        modalTitle.textContent = content[0];
+        modalCopy.textContent = content[1];
+        modal.classList.add('active');
+      });
+    });
+
+    closeModal.addEventListener('click', () => modal.classList.remove('active'));
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) modal.classList.remove('active');
+    });
+  </script>
+</body>
+</html>

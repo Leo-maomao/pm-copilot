@@ -1,0 +1,94 @@
+# Copy this file and replace placeholders with your own product context.
+
+product:
+  name: "Example Product"
+  category: "Consumer internet product"
+  platforms:
+    - "Web"
+    - "H5"
+    - "App"
+    - "Mini Program"
+  business_model:
+    - "Subscription"
+    - "Advertising"
+    - "Transaction fee"
+  maturity_stage: "Growth"
+
+users:
+  primary_segments:
+    - name: "New users"
+      goals:
+        - "Understand product value quickly"
+      pain_points:
+        - "Unclear onboarding path"
+    - name: "Paying users"
+      goals:
+        - "Use premium benefits with low friction"
+      pain_points:
+        - "Renewal and payment details are hard to find"
+  excluded_segments: []
+
+business_goals:
+  north_star_metric: "Weekly active paying users"
+  current_focus:
+    - "Improve subscription retention"
+    - "Reduce avoidable churn"
+  guardrail_metrics:
+    - "Refund rate"
+    - "Support ticket rate"
+    - "Payment failure rate"
+
+prd_preferences:
+  default_style: "Review-ready"
+  audience:
+    - "Product"
+    - "Design"
+    - "Engineering"
+    - "QA"
+    - "Analytics"
+  required_sections:
+    - "Background"
+    - "Problem"
+    - "Goals"
+    - "Non-goals"
+    - "Users and scenarios"
+    - "Scope"
+    - "Requirements"
+    - "Edge cases"
+    - "Metrics"
+    - "Dependencies"
+    - "Risks"
+    - "Acceptance criteria"
+
+tracking_taxonomy:
+  event_name_case: "snake_case"
+  property_name_case: "snake_case"
+  required_event_fields:
+    - "event_name"
+    - "user_id"
+    - "anonymous_id"
+    - "platform"
+    - "timestamp"
+    - "app_version"
+  forbidden_properties:
+    - "raw_password"
+    - "full_payment_card"
+    - "government_id"
+    - "unredacted_phone"
+    - "unredacted_email"
+
+competitors:
+  known:
+    - name: "Competitor A"
+      url: "https://example.com"
+      notes: "Replace with a real competitor."
+  research_policy: "Use source-backed claims only."
+
+prototype_preferences:
+  fidelity: "Low"
+  default_output: "Local HTML"
+  platform_selection: "Choose based on scenario; generate multiple only for cross-platform needs."
+
+privacy:
+  default_mode: "Local-first"
+  sensitive_data_policy: "Use anonymized or synthetic data unless the environment is approved."
