@@ -4,7 +4,7 @@ Every generated artifact must follow the relevant contract. If a section cannot 
 
 Use the user's language for artifact prose. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
 
-Write artifacts under the active `outputs/<run-id>/` folder. Do not overwrite a previous requirement run unless the user explicitly asks to revise it.
+Write generated run artifacts under the active `outputs/<run-id>/` folder, including `task-brief.md`. Do not overwrite a previous requirement run unless the user explicitly asks to revise it. Use `examples/` only for curated scenario-library inputs, not ordinary generated runs.
 
 If must-answer questions are unresolved, generate only the task brief, clarifying questions, assumptions, and run log. Downstream artifacts must wait for user answers or explicit assumption approval.
 

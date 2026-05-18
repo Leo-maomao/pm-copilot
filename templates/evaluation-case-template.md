@@ -34,6 +34,7 @@ Paste the original realistic product request here.
 
 ## Required Artifacts
 
+- `outputs/<run-id>/task-brief.md`
 - `outputs/<run-id>/clarifying-questions.md`
 - `outputs/<run-id>/assumptions.md`
 - `outputs/<run-id>/pm-package.md`

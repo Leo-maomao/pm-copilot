@@ -29,7 +29,7 @@ Read:
 - guardrails/failover.md
 - artifacts/artifact-contracts.md
 - context/product-context.local.yaml
-- examples/<run-id>/task-brief.md
+- outputs/<run-id>/task-brief.md
 
 Follow the default workflow:
 intake -> clarification -> PRD -> metrics -> tracking -> user flow -> prototype -> review -> final package.
@@ -53,7 +53,7 @@ Read:
 - workflow/context-loading.md
 - guardrails/guardrails.md
 - context/product-context.local.yaml
-- examples/<run-id>/task-brief.md
+- outputs/<run-id>/task-brief.md
 
 Output:
 - must-answer questions
@@ -74,7 +74,7 @@ Read:
 - artifacts/prd-contract.md
 - templates/prd-template.md
 - context/product-context.local.yaml
-- examples/<run-id>/task-brief.md
+- outputs/<run-id>/task-brief.md
 - outputs/<run-id>/clarifying-questions.md
 - outputs/<run-id>/assumptions.md
 
@@ -179,19 +179,19 @@ Run python3 scripts/validate_repo.py after editing.
 Add a PM Copilot scenario named <scenario>.
 
 Create:
-- examples/<run-id>/task-brief.md
-- outputs/<run-id>/clarifying-questions.md
-- outputs/<run-id>/assumptions.md
-- outputs/<run-id>/pm-package.md
-- outputs/<run-id>/prd.md
-- outputs/<run-id>/metrics-tree.md
-- outputs/<run-id>/tracking-plan.md
-- outputs/<run-id>/tracking-plan.csv
-- outputs/<run-id>/user-flow.md
-- outputs/<run-id>/user-flow.mmd
-- outputs/<run-id>/prototype-<platform>.html
-- outputs/<run-id>/review-checklist.md
-- outputs/<run-id>/final-package-summary.md
+- examples/<scenario>/task-brief.md
+- outputs/<scenario>/clarifying-questions.md
+- outputs/<scenario>/assumptions.md
+- outputs/<scenario>/pm-package.md
+- outputs/<scenario>/prd.md
+- outputs/<scenario>/metrics-tree.md
+- outputs/<scenario>/tracking-plan.md
+- outputs/<scenario>/tracking-plan.csv
+- outputs/<scenario>/user-flow.md
+- outputs/<scenario>/user-flow.mmd
+- outputs/<scenario>/prototype-<platform>.html
+- outputs/<scenario>/review-checklist.md
+- outputs/<scenario>/final-package-summary.md
 
 Use synthetic data only.
 Run python3 scripts/validate_repo.py after adding the scenario.
