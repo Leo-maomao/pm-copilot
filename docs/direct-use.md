@@ -26,15 +26,15 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Keep requirement input, clarified answers, assumptions, research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
 - Run validation when possible.
 
-## Codex and AGENTS.md
+## Direct Entry
 
-In Codex, `AGENTS.md` is an official project instruction file. PM Copilot's `AGENTS.md` is only a thin shim for standalone mode. The canonical cross-platform entry is `PM_COPILOT.md`.
-
-If you start Codex from the `pm-copilot` folder, Codex should load `AGENTS.md`, which points it to `PM_COPILOT.md`.
+The canonical entry is:
 
 ```text
-<write your product request here>
+PM_COPILOT.md
 ```
+
+If your agent does not automatically inspect repository instructions, tell it to read `PM_COPILOT.md` before handling the request.
 
 If PM Copilot is nested inside another development repository, use `docs/embedded-use.md` and the adapter templates in `adapters/`.
 
@@ -79,6 +79,16 @@ context/product-context.local.yaml
 ```
 
 You do not need to do this before the first run. If it is missing, the agent should use the example context and mark assumptions.
+
+For long-term use, create memory files from the examples:
+
+```text
+context/product-memory.local.yaml
+context/user-preferences.local.yaml
+context/decision-log.local.yaml
+```
+
+These files let PM Copilot remember stable product facts, your writing/prototype preferences, and durable product decisions. They are ignored by Git.
 
 ## Expected Flow
 

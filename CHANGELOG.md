@@ -6,9 +6,38 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [1.0.0] - 2026-05-18
+## [1.1.0] - 2026-05-18
 
 Commit: pending current working-tree changes.
+
+### Added
+
+- Added a formal Prompt System covering prompt stack order, request classification, memory use, clarification rules, generation rules, memory update rules, tool use, and failover behavior.
+- Added local file-based memory schemas for product memory, user preferences, and durable decision logs.
+- Expanded the Memory Model into read order, priority rules, write rules, sensitive data rules, update prompts, and failover behavior.
+
+### Changed
+
+- Bumped the project version to `1.1.0` as a normal feature iteration.
+- Updated PM Copilot entry rules to load memory, apply memory priority rules, and suggest memory updates after useful runs.
+- Updated context loading rules so local memory helps reduce repeated questions while current user instruction and current product evidence remain higher priority.
+- Updated README, direct-use, embedded-use, configuration, and validator coverage for Prompt System and Memory.
+
+### Removed
+
+- Removed `AGENTS.md`; embedded and direct usage now rely on `PM_COPILOT.md` plus host adapters instead of a Codex-only shim.
+- Removed `.gitattributes`; committed HTML examples are no longer shipped, so language-stat tuning is no longer needed.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/install_adapter.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Prototype template HTML validation passes with `tidy -errors -quiet -utf8 templates/prototype-template.html`.
+
+## [1.0.0] - 2026-05-18
+
+Commit: `c77bebf` Slim PM Copilot repository structure.
 
 ### Changed
 

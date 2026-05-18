@@ -6,16 +6,34 @@ Load only the context needed for the current workflow state. Too much context ca
 
 ## Loading Order
 
-1. Task brief
+1. Current user request and explicit user answers
 2. Product context sources provided by the user
 3. Host project context, when PM Copilot is embedded in another repository
-4. Product context summary
-5. Relevant personas and user segments
-6. Relevant business model and metrics
-7. Relevant PRD style and artifact preferences
-8. Relevant tracking taxonomy
-9. Relevant competitors or research notes
-10. Historical examples only when the requested artifact style depends on them
+4. Local memory files in `context/*.local.yaml`, when present
+5. Product context summary
+6. Relevant personas and user segments
+7. Relevant business model and metrics
+8. Relevant PRD style and artifact preferences
+9. Relevant tracking taxonomy
+10. Relevant competitors or research notes
+
+Local memory should reduce repeated questions, not override current evidence. Load only relevant memory sections for the current task.
+
+## Memory Context
+
+PM Copilot supports local file-based memory:
+
+- `context/product-memory.local.yaml`
+- `context/user-preferences.local.yaml`
+- `context/decision-log.local.yaml`
+
+Use `context/*-memory.example.yaml` and `context/decision-log.example.yaml` only as schemas, not product facts.
+
+Memory can provide stable product facts, user preferences, and prior decisions. Current user instructions, current host implementation, current user-provided documents, and guardrails override memory.
+
+When memory conflicts with current context, follow the conflict table below and record or mention the conflict when it affects scope, readiness, data, privacy, payment, legal, compliance, security, analytics, or launch risk.
+
+At the end of a run, suggest memory updates only for reusable facts, preferences, or durable decisions. One-off task details stay in `run-log.yaml`.
 
 ## Context Source Modes
 
@@ -84,12 +102,16 @@ If current behavior, affected module, platform, data ownership, rollout constrai
 | Artifact contract vs template example | Artifact contract wins |
 | Source-backed research vs generic model knowledge | Source-backed research wins |
 | Current user answer vs old memory | Current user answer wins |
+| Current host implementation vs old memory | Current host implementation wins |
+| Current user-provided document vs old memory | Current user-provided document wins |
+| Guardrail vs memory | Guardrail wins |
 
 ## Context Hygiene
 
 - Do not load all examples by default.
 - Do not use old example assumptions as current task facts.
 - Do not treat PM Copilot sample outputs as host product facts.
+- Do not treat memory schema examples as host product facts.
 - Do not require a software repository when product documents can provide enough current context.
 - Mark stale, unknown, or inferred context explicitly.
 - Use anonymized data unless the environment is approved for sensitive data.

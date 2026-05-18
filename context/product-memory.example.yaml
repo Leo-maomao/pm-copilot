@@ -1,0 +1,74 @@
+schema_version: 1
+memory_type: product
+updated_at: "2026-05-18"
+owner: "PM Copilot user"
+
+product:
+  name: "Example Product"
+  category: "SaaS / H5 / App / Mini Program"
+  business_model: "subscription / transaction / ads / internal tool"
+  primary_platforms:
+    - web
+  current_stage: "growth"
+
+users:
+  primary_segments:
+    - id: admin
+      name: "Workspace admin"
+      needs:
+        - "Manage team settings safely"
+  excluded_segments: []
+
+product_surfaces:
+  - id: team_settings
+    name: "Team settings"
+    platform: web
+    entry_points:
+      - "Settings > Team"
+    navigation_visibility: "admin only"
+    permission_rules:
+      - "Only owners and admins can edit roles"
+    fallback_states:
+      - "Read-only state for users without edit permission"
+
+business_rules:
+  - id: last_owner_guard
+    rule: "The last workspace owner cannot be removed or demoted"
+    source: "Product decision"
+    confidence: confirmed
+    last_updated: "2026-05-18"
+
+analytics:
+  taxonomy_status: "example"
+  event_naming: "snake_case"
+  required_common_properties:
+    - platform
+    - user_role
+  forbidden_properties:
+    - raw_password
+    - full_card_number
+    - government_id
+
+design_system:
+  style_notes:
+    - "Use compact tables for admin workflows"
+    - "Use inline validation for form errors"
+  known_components:
+    - table
+    - drawer
+    - toast
+
+content_and_compliance:
+  sensitive_domains:
+    - payment
+    - legal
+    - privacy
+  review_requirements:
+    - "Payment and legal copy require human review before launch"
+
+memory_records:
+  - id: mem_001
+    fact: "Admin settings should prefer dense, scannable layouts over marketing-style pages."
+    source: "User preference"
+    confidence: confirmed
+    last_updated: "2026-05-18"

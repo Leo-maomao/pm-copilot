@@ -1,0 +1,42 @@
+schema_version: 1
+memory_type: decision_log
+updated_at: "2026-05-18"
+
+decisions:
+  - id: dec_001
+    date: "2026-05-18"
+    title: "Default delivery is PRD plus prototype"
+    decision: "PM-facing output should default to prd.md and prototype-<platform>.html only."
+    rationale: "Product managers should not need to assemble many small files to review one requirement."
+    scope:
+      - delivery_model
+      - artifact_contracts
+    status: active
+    source: "User-confirmed project rule"
+    supersedes: []
+
+  - id: dec_002
+    date: "2026-05-18"
+    title: "Clarification gate blocks generation"
+    decision: "Must-answer questions should be asked before generating downstream artifacts."
+    rationale: "Generating first and asking critical questions afterward causes avoidable rework."
+    scope:
+      - workflow
+      - human_in_the_loop
+    status: active
+    source: "User-confirmed project rule"
+    supersedes: []
+
+rejected_options:
+  - id: rej_001
+    date: "2026-05-18"
+    option: "Generate pm-package.md as the primary PM handoff"
+    reason: "It duplicates PRD/prototype content and makes outputs feel heavy."
+    status: rejected
+
+open_questions:
+  - id: oq_001
+    question: "Should memory updates be written automatically or only proposed to the user?"
+    owner: "PM Copilot maintainer"
+    required_before: "memory auto-write behavior"
+    status: open

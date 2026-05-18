@@ -187,4 +187,4 @@ Recommended cadence:
 - Thursday: make the smallest fixes.
 - Friday: rerun failed and regression cases.
 
-Keep a written optimization log. Do not rely on memory.
+Keep a written optimization log. Do not rely only on local memory for release decisions or regression history.

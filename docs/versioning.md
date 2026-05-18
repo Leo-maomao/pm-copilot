@@ -9,7 +9,7 @@ MAJOR.MINOR.PATCH
 Example:
 
 ```text
-1.0.0
+1.1.0
 ```
 
 ## Version Meaning

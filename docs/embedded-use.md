@@ -25,6 +25,8 @@ host-repo/
     |-- PM_COPILOT.md
     |-- agents/
     |-- skills/
+    |-- prompts/
+    |-- context/
     `-- workflow/
 ```
 
@@ -36,7 +38,7 @@ Use:
 pm-copilot/PM_COPILOT.md
 ```
 
-Do not rely on nested `pm-copilot/AGENTS.md` for embedded mode. Some tools only load instruction files from the current working directory chain, and non-Codex tools may not understand `AGENTS.md`.
+Do not rely on nested tool-specific instruction files for embedded mode. The host project's own adapter should delegate product-manager tasks to `pm-copilot/PM_COPILOT.md`.
 
 ## Trigger Without Remembering the Tool Name
 
@@ -138,11 +140,17 @@ Installer equivalent:
 python3 scripts/install_adapter.py --host /path/to/host-repo --tool cursor
 ```
 
-## Standalone Mode
+## Local Memory
 
-If you open the `pm-copilot` folder directly, Codex can use the repository's own `AGENTS.md`, which is now only a thin shim pointing to `PM_COPILOT.md`.
+For long-term use, keep private memory files inside `pm-copilot/context/`:
 
-Standalone mode is simpler for testing PM Copilot itself. Embedded mode is better when you want PM Copilot available inside a real software project.
+```text
+context/product-memory.local.yaml
+context/user-preferences.local.yaml
+context/decision-log.local.yaml
+```
+
+These files are ignored by Git. They let PM Copilot remember stable product facts, the user's working style, and durable decisions. Current host repository context and current user instructions still override memory.
 
 ## Expected Embedded Flow
 
@@ -161,6 +169,5 @@ For repeat or similar requests, PM Copilot should create a distinct timestamped 
 ## What Not to Do
 
 - Do not replace a software project's existing `AGENTS.md` with PM Copilot's full workflow.
-- Do not assume nested `pm-copilot/AGENTS.md` will be loaded by every tool.
 - Do not force users to say "Use PM Copilot" if the task clearly asks for PM work.
 - Do not generate full downstream artifacts before must-answer questions are resolved.

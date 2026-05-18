@@ -1,0 +1,62 @@
+schema_version: 1
+memory_type: user_preferences
+updated_at: "2026-05-18"
+
+language:
+  default_artifact_language: "match_user_request"
+  heading_language: "match_user_request"
+  machine_identifiers: "ascii"
+
+delivery:
+  default_artifacts:
+    - prd.md
+    - prototype-<platform>.html
+  optional_artifacts:
+    - run-log.yaml
+    - tracking-plan.csv
+    - user-flow.mmd
+  avoid_split_markdown_by_default: true
+
+prd_preferences:
+  structure:
+    - version_history
+    - requirement_input_and_confirmation_record
+    - background
+    - research_and_reference_findings
+    - project_goals_and_metrics
+    - scope
+    - requirement_list
+    - requirement_details
+    - flow_diagrams
+    - tracking_plan
+    - prototype_reference
+    - risks_and_open_confirmations
+    - acceptance_criteria
+    - validation_results
+  style:
+    - "Use tables for dense requirement details"
+    - "Avoid long undifferentiated bullet lists"
+    - "Keep launch blockers visible"
+
+prototype_preferences:
+  default_fidelity: "mid"
+  prefer_existing_ui_delta: true
+  annotation_style: "left prototype with numbered callouts and right-side page-specific notes"
+  callout_rules:
+    - "Use matching numbers on UI and notes"
+    - "Keep notes concise"
+    - "Use hover or click for expanded detail when useful"
+
+interaction_preferences:
+  clarification_style: "ask must-answer questions before generation"
+  risk_tolerance: "do not proceed with engineering-blocking unknowns unless explicitly approved"
+  tone: "direct, practical, product-manager oriented"
+
+memory_update_preferences:
+  ask_before_writing_sensitive_memory: true
+  auto_suggest_reusable_memory_updates: true
+  never_store:
+    - raw_personal_data
+    - credentials
+    - payment_secrets
+    - confidential_partner_terms

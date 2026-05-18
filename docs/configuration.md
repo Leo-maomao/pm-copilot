@@ -14,6 +14,16 @@ context/product-context.local.yaml
 
 Do not commit private product context to a public repository.
 
+PM Copilot also supports local memory files:
+
+```text
+context/product-memory.example.yaml
+context/user-preferences.example.yaml
+context/decision-log.example.yaml
+```
+
+Copy them to `.local.yaml` files when you want PM Copilot to remember stable product facts, your working preferences, and durable decisions across runs. `.local.yaml` files are ignored by Git.
+
 ## Required Fields
 
 | Field | Required | Purpose |

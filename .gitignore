@@ -8,3 +8,4 @@ build/
 *.log
 context/*.local.yaml
 context/*.private.yaml
+outputs/

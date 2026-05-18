@@ -47,10 +47,12 @@ The user should not need to manually copy templates or create folders. Do that f
    - `README.md`
    - `workflow/main-workflow.md`
    - `workflow/context-loading.md`
+   - `prompts/prompt-system.md`
    - `guardrails/guardrails.md`
    - `guardrails/failover.md`
    - `artifacts/artifact-contracts.md`
    - `artifacts/trace-contract.md`
+   - `context/memory-model.md`
 
 2. Match the user's language:
    - If the user writes in Chinese, use Chinese for user-facing replies and generated PM artifacts.
@@ -61,7 +63,15 @@ The user should not need to manually copy templates or create folders. Do that f
    - For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them.
    - Keep file names and machine-readable identifiers in ASCII kebab-case or snake_case.
 
-3. Load product context from the best available source:
+3. Load memory and product context from the best available source:
+   - Load local memory files when present:
+     - `context/product-memory.local.yaml`
+     - `context/user-preferences.local.yaml`
+     - `context/decision-log.local.yaml`
+   - Use memory to reduce repeated questions and match the user's working style.
+   - Do not use memory as authority over current user instructions, current host repository facts, current user-provided documents, or guardrails.
+   - If memory conflicts with current context in a way that affects scope, readiness, privacy, payment, legal, compliance, security, analytics, or launch risk, state the conflict and ask or choose the higher-priority current source.
+   - If reusable product facts, user preferences, or durable decisions are learned during a run, suggest memory updates at the end. Do not silently store sensitive memory.
    - Prefer `context/product-context.local.yaml` if it exists.
    - Otherwise use `context/product-context.example.yaml`.
    - If using the example context, tell the user it is a generic placeholder and ask only for missing context that materially affects the task.
@@ -137,9 +147,16 @@ The user should not need to manually copy templates or create folders. Do that f
    - HTML checks with `tidy -errors -quiet -utf8` if available.
    - Record the exact command, result, and limitation in `run-log.yaml` and the PRD validation section. Do not claim validation was executed if it was skipped, and do not say validation "should be run" after it has already run.
 
+11. Suggest memory updates after a run when useful:
+   - Stable product facts belong in `context/product-memory.local.yaml`.
+   - User working preferences belong in `context/user-preferences.local.yaml`.
+   - Durable decisions and rejected options belong in `context/decision-log.local.yaml`.
+   - One-off task details stay in `outputs/<run-id>/run-log.yaml`.
+   - Ask before writing sensitive, strategic, legal, financial, customer, partner, or private data.
+
 ## Embedded Repository Mode
 
-If PM Copilot is stored inside another software repository, do not assume nested `AGENTS.md` files are loaded by every tool.
+If PM Copilot is stored inside another software repository, do not assume nested tool-specific instruction files are loaded by every tool.
 
 Instead, the host repository should contain a tiny adapter instruction that says:
 

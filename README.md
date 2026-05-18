@@ -2,7 +2,7 @@
 
 PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into two practical handoff artifacts: a complete PRD and a clickable annotated prototype.
 
-The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, artifact contracts, workflow rules, guardrails, and templates that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
+The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, prompt rules, memory rules, artifact contracts, workflow rules, guardrails, and templates that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
 
 PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `brief-only`. The agent should choose the mode from available inputs before drafting, so it does not require a code repository when product documents or a short brief are the actual starting point.
 
@@ -21,9 +21,9 @@ PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `
 For direct agent usage, see `docs/direct-use.md`. For embedded project usage, see `docs/embedded-use.md`.
 
 1. Open this repository in your agent-enabled workspace.
-2. Say your product-manager request naturally, for example: `I need a PRD and tracking plan for checkout coupon optimization.`
-3. The agent should follow `PM_COPILOT.md`, inspect relevant context, ask must-answer clarification questions before generation, then create `prd.md` and a prototype automatically.
-4. Optional: create `context/product-context.local.yaml` later for better product-specific results.
+2. Ask the agent to read `PM_COPILOT.md`, then say your product-manager request naturally, for example: `I need a PRD and tracking plan for checkout coupon optimization.`
+3. The agent should inspect relevant context, ask must-answer clarification questions before generation, then create `prd.md` and a prototype automatically.
+4. Optional: create local memory files later for better product-specific results and personal working preferences.
 
 Suggested prompt:
 
@@ -83,11 +83,11 @@ PM Copilot should read those documents as the current product context, ask must-
 
 ```text
 PM_COPILOT.md  Canonical cross-platform PM Copilot entry
-AGENTS.md      Thin Codex shim for directly opening this repository
 adapters/      Host-project adapters for Codex, Claude Code, Cursor
 agents/        Agent roles, responsibilities, inputs, outputs, handoffs
 skills/        Reusable PM methods and task skills
-context/       Product memory, user preferences, business rules, metrics
+prompts/       Prompt assembly, memory use, clarification, and generation rules
+context/       Product memory, user preferences, decisions, business rules, metrics
 workflow/      State machine, human checkpoints, execution order
 artifacts/     Output contracts and quality bars
 tools/         Tool-use protocol and capability matrix
@@ -118,11 +118,16 @@ Each real requirement run gets one generated-artifact folder under `outputs/<run
 
 PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese headings, labels, statuses, notes, and PM content; English requests should produce English equivalents. File names and machine-readable identifiers stay ASCII.
 
-## About AGENTS.md
+## Memory
 
-`AGENTS.md` is included only because Codex treats it as a repository instruction file when this repository is opened directly. It is a thin shim that points Codex to `PM_COPILOT.md`.
+PM Copilot uses local file-based memory so repeated use can become smoother without a hosted service:
 
-For real embedded use, do not rely on the nested `pm-copilot/AGENTS.md`. Run `scripts/install_adapter.py` so the host project's own agent instruction file delegates PM work to `pm-copilot/PM_COPILOT.md`.
+- `context/product-memory.local.yaml` for stable product facts
+- `context/user-preferences.local.yaml` for the user's working style
+- `context/decision-log.local.yaml` for durable product decisions
+- `outputs/<run-id>/run-log.yaml` for single-run traces
+
+The repository ships `.example.yaml` schemas only. `.local.yaml` memory files are ignored by Git and should stay private. Current user instructions and current product context always override memory.
 
 ## Platform-Neutral Design
 
@@ -130,6 +135,7 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 
 - Agents define ownership, inputs, outputs, decision points, handoffs, and failover behavior.
 - Skills define reusable procedures, standards, and artifact rules.
+- Prompt rules define request classification, memory use, clarification behavior, and generation boundaries.
 - Artifact contracts define required output shape and minimum quality.
 - Guardrails define what the agent must not fabricate or silently assume.
 
