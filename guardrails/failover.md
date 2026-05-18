@@ -41,8 +41,9 @@ If context conflicts:
 
 1. Current user instruction
 2. Current task brief
-3. Product context
-4. Artifact contract
-5. Repository default
+3. Current product context from repository or user-provided documents
+4. Product context config
+5. Artifact contract
+6. Repository default
 
 Use the highest-priority source and record the conflict.

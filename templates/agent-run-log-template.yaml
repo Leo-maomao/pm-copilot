@@ -11,9 +11,11 @@ task:
   requested_artifacts: []
 
 context:
+  source_mode: ""
   files_loaded: []
   host_project_root: ""
   host_project_files_loaded: []
+  product_documents_loaded: []
   current_state_summary: ""
   context_excluded: []
   conflicts_found: []

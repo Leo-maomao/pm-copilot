@@ -4,6 +4,10 @@ This is the canonical cross-platform entry for PM Copilot.
 
 Use this file when an agent needs to run product manager work such as PRD, tracking plan, product requirements, prototype, competitor research, metrics, review checklist, or full product review package generation.
 
+## Product Principle
+
+PM Copilot's north star is an end-to-end product-manager agent that ordinary PMs can use, whether or not they have an engineering repository. The workflow must support repo-backed products, document-backed products, and early ideas that only have a short brief.
+
 ## Activation
 
 Activate PM Copilot when the user asks for work involving:
@@ -54,12 +58,14 @@ The user should not need to manually copy templates or create folders. Do that f
    - If the request mixes languages, use the dominant language unless the user asks otherwise.
    - Keep file names and machine-readable identifiers in ASCII kebab-case or snake_case.
 
-3. Load product and project context:
+3. Load product context from the best available source:
    - Prefer `context/product-context.local.yaml` if it exists.
    - Otherwise use `context/product-context.example.yaml`.
    - If using the example context, tell the user it is a generic placeholder and ask only for missing context that materially affects the task.
-   - In embedded repository mode, inspect the host project's relevant current state before proposing a new requirement. Existing product behavior, routes, data models, UI patterns, APIs, permissions, analytics conventions, and docs are constraints for the new requirement.
-   - Do not make the existing project adapt to an invented greenfield solution. Fit the requirement into the current product unless the user explicitly asks for a redesign.
+   - Repo-backed mode: if PM Copilot is embedded in a software repository, inspect the host project's relevant current state before proposing a new requirement. Existing product behavior, routes, data models, UI patterns, APIs, permissions, analytics conventions, and docs are constraints for the new requirement.
+   - Document-backed mode: if there is no software repository but the user provides historical PRDs, specs, research notes, product docs, meeting notes, screenshots, support tickets, analytics exports, or other product documents, treat those documents as the current product context.
+   - Brief-only mode: if neither a repository nor product documents are available, proceed only after clarifying the minimum context needed for the requested artifact. Use explicit assumptions for low-risk unknowns.
+   - Do not make the existing product adapt to an invented greenfield solution. Fit the requirement into the current product context unless the user explicitly asks for a redesign or greenfield exploration.
    - Do not treat PM Copilot's examples as facts about the host product.
 
 4. Infer a scenario slug and run id:
@@ -81,7 +87,7 @@ The user should not need to manually copy templates or create folders. Do that f
      - Target user
      - Scope
      - Platform
-     - Existing product fit or affected modules in embedded mode
+     - Existing product fit, affected modules, or relevant historical product decisions
      - Metrics
      - Tracking
      - Prototype direction
@@ -127,7 +133,7 @@ For product-manager tasks such as PRD, requirements, tracking plans, prototypes,
 
 See `adapters/` for Codex, Claude Code, and Cursor examples.
 
-When embedded, first identify the host project root and load only relevant host context before drafting. Typical sources include the host README, product docs, route definitions, API contracts, existing PRDs, analytics conventions, package metadata, and nearby UI or service modules. If the agent cannot determine the current product state, it must ask the user for that context before generating the full package.
+When embedded, first identify the host project root and load only relevant host context before drafting. Typical sources include the host README, product docs, route definitions, API contracts, existing PRDs, analytics conventions, package metadata, and nearby UI or service modules. If there is no host project or the agent cannot determine the current product state, it must ask for available product documents or the minimum missing context before generating the full package.
 
 ## Output Style
 

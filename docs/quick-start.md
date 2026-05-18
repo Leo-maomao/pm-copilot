@@ -10,6 +10,7 @@ Recommended direct prompt:
 If important information is missing, ask me first.
 If enough information is available, create the full review-ready package.
 If must-answer information is missing, stop and wait for my answer before generating downstream artifacts.
+Use any product docs I provide as current context; a software repository is optional.
 ```
 
 ## 1. Choose an Agent Workspace
@@ -53,6 +54,8 @@ Then fill in:
 See `docs/configuration.md` for field-by-field guidance.
 
 This step is optional for the first direct run. If `context/product-context.local.yaml` is missing, the agent should use `context/product-context.example.yaml` and mark assumptions.
+
+If you do not have a code repository, collect any available product documents instead: historical PRDs, specs, screenshots, research notes, support tickets, analytics exports, tracking plans, meeting notes, or release notes. PM Copilot should use those documents as product context.
 
 ## 3. Create a Task Brief
 

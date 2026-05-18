@@ -19,14 +19,15 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 
 - Raw task brief
 - Product context
-- Relevant host project context in embedded mode
+- Relevant host project context in repo-backed mode
+- Historical PRDs, specs, research notes, screenshots, analytics exports, support tickets, or meeting notes, when provided
 - Existing assumptions or stakeholder notes
 
 ## Outputs
 
 - Clarifying questions
 - Assumption log
-- Current-state summary in embedded mode
+- Current-state summary when repository or document context is available
 - Problem statement
 - User and scenario summary
 - Initial scope and non-goal candidates

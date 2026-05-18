@@ -12,7 +12,8 @@ Use this simple version first:
 If important information is missing, ask me first.
 If enough information is available, create the full review-ready package.
 Use my local product context if it exists; otherwise use the example context and mark assumptions.
-If this is inside an existing project, inspect the relevant current project context before drafting.
+Inspect the relevant current product context before drafting.
+If there is no code repository, use any PRDs, product docs, screenshots, analytics exports, or other documents I provide as current product context.
 ```
 
 Use this explicit version when the agent does not automatically follow `PM_COPILOT.md`:
@@ -38,8 +39,9 @@ outputs/<run-id>/
 
 Use a unique run id. If the scenario folder already exists, append a local timestamp.
 
-Ask clarification questions before generation if missing information materially changes current project fit, scope, metrics, privacy, payment, legal, or prototype direction.
+Ask clarification questions before generation if missing information materially changes current product fit, scope, metrics, privacy, payment, legal, or prototype direction.
 If must-answer questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer or explicitly tell you to proceed with assumptions.
+Do not require a software repository if product documents provide enough context.
 ```
 
 ## Create Only Clarifying Questions
@@ -57,7 +59,7 @@ Output:
 - must-answer questions
 - assumptions that can be used for a draft
 - questions that can be decided later
-- current-state fit summary, if embedded in a host project
+- current-state fit summary, if repository or document context is available
 - recommended next agent
 
 Do not generate the PRD yet.

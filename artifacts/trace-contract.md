@@ -13,6 +13,8 @@ agent_platform:
 model:
 task_brief:
 context_files:
+context_source_mode:
+product_documents:
 host_project_context:
 current_state_summary:
 workflow_states:
@@ -36,7 +38,9 @@ final_status:
 - Record tool limitations instead of hiding them.
 - Record assumptions separately from confirmed facts.
 - Record whether must-answer questions blocked generation or were explicitly accepted as assumption risk.
-- In embedded mode, record relevant host project files and current-state facts used for project-fit decisions.
+- Record whether the run was repo-backed, document-backed, or brief-only.
+- In repo-backed mode, record relevant host project files and current-state facts used for product-fit decisions.
+- In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.
 - Record the artifact language chosen from the user's request.
 - Record files created or modified.
 - Record review scores when quality review is performed.

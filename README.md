@@ -4,6 +4,8 @@ PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product ma
 
 The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, artifact contracts, workflow rules, guardrails, templates, and examples that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
 
+PM Copilot is designed for PMs with or without a software repository. It can work from an embedded codebase, historical PRDs, product docs, screenshots, research notes, analytics exports, support tickets, meeting notes, or a short early-stage brief.
+
 ## What It Produces
 
 - Clarifying questions and explicit assumptions
@@ -64,6 +66,20 @@ Help me write the PRD, metrics tree, tracking plan, and prototype for team permi
 
 For details and manual adapter snippets, see `docs/embedded-use.md`.
 
+## Use Without a Code Repository
+
+PMs do not need a software repository to use PM Copilot. If the product context lives in documents, place or attach the relevant files in the workspace and ask naturally.
+
+Useful context can include:
+
+- Historical PRDs, specs, and release notes
+- Product docs, screenshots, wireframes, and prototype notes
+- Research summaries, user feedback, support tickets, and meeting notes
+- Analytics exports, KPI definitions, and existing tracking plans
+- Business rules, compliance constraints, pricing notes, and rollout plans
+
+PM Copilot should read those documents as the current product context, ask must-answer questions when the documents are insufficient, and then generate the review-ready package after the clarification gate passes.
+
 ## Repository Structure
 
 ```text
@@ -89,7 +105,7 @@ scripts/       Lightweight local validation
 
 ```text
 Request intake
--> Current context and host project scan
+-> Current product context scan
 -> Requirement clarification
 -> User answer or explicit assumption approval
 -> PRD

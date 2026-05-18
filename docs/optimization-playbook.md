@@ -2,6 +2,8 @@
 
 This playbook explains how to improve PM Copilot from a good workflow kit into a reliable agent workflow for real product work.
 
+North star: PM Copilot should become an end-to-end product-manager agent that ordinary PMs can use with a code repository, product documents, or only an early brief.
+
 The core idea: do not tune by feeling. Tune from traces, failures, and regression cases.
 
 ## What Is Hard After the Skeleton
@@ -47,6 +49,7 @@ Use a mix:
 - Legal, privacy, or payment-sensitive request
 - Backend or admin workflow
 - Growth or experiment workflow
+- Document-only product context, with no software repository
 
 Do not only test clean demo prompts. Real tasks should contain missing information, unclear goals, and stakeholder shorthand.
 

@@ -17,8 +17,9 @@
 
 ## Existing Product Fit
 
-- In embedded mode, treat the host repository's current product behavior and constraints as source material.
-- Do not invent a greenfield product architecture, flow, taxonomy, or data model when the host project already has one.
+- Treat available current product context as source material. This can come from a host repository, historical PRDs, specs, product docs, screenshots, analytics exports, support tickets, meeting notes, or direct user answers.
+- Do not require a software repository when product documents provide enough context.
+- Do not invent a greenfield product architecture, flow, taxonomy, or data model when the current product context already defines one.
 - If the current product state is unclear and it affects scope or feasibility, ask before generation.
 - Separate observed current-state facts from inferred product intent.
 

@@ -54,6 +54,20 @@ Put `pm-copilot` in a place your agent can access, for example:
 
 Then open the folder in your agent environment.
 
+## Using Product Documents Instead of a Repository
+
+You can use PM Copilot without a software repository. Put relevant product documents in the workspace or attach them in the agent conversation, then ask for the PM artifact package.
+
+Good context sources include:
+
+- Historical PRDs, specs, release notes, and roadmap docs
+- Screenshots, wireframes, prototype notes, and UX review notes
+- Research summaries, customer feedback, support tickets, and meeting notes
+- Analytics exports, KPI definitions, and tracking plans
+- Business rules, pricing notes, compliance constraints, and rollout plans
+
+The agent should treat those documents as current product context, ask must-answer questions if they do not answer core product-fit questions, and wait before downstream generation when critical context is missing.
+
 ## Optional Product Context
 
 For better results, create:

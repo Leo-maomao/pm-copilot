@@ -21,8 +21,8 @@ S0 Intake
 | State | Owner | Entry Criteria | Exit Criteria |
 |---|---|---|---|
 | S0 Intake | PM Orchestrator | Task brief received | Request goal and artifact needs are identified |
-| S1 Context loading | PM Orchestrator | Product context path is known | Relevant PM Copilot context and host project context are loaded |
-| S2 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs project-fit validation | Critical questions, assumptions, and open decisions are captured |
+| S1 Context loading | PM Orchestrator | Product context source is known or needs discovery | Relevant PM Copilot context and available product context are loaded |
+| S2 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
 | S3 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly accepts assumptions |
 | S4 Optional research | Research Agent | External context is needed and tools are available | Source-backed research brief is produced or limitation is stated |
 | S5 PRD drafting | Requirements Agent | Discovery output is usable | PRD contract is satisfied |
@@ -37,7 +37,7 @@ S0 Intake
 Human confirmation is required before drafting downstream artifacts when:
 
 - The product goal or target user is unclear.
-- The current host project state is unknown and could change the proposed solution.
+- The current product state is unknown and could change the proposed solution.
 - Scope materially affects engineering effort, payment, privacy, legal, or compliance.
 - The agent must choose between materially different product directions.
 - Platform, affected module, primary user journey, or rollout surface is unclear.
@@ -54,16 +54,20 @@ If any must-answer question exists, stop after creating only:
 
 Do not create PRD, metrics, tracking, flow, prototype, review, or final package until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
 
-## Embedded Project Fit
+## Current Product Fit
 
-When PM Copilot is used inside a host repository, the new requirement must fit the current product instead of assuming a greenfield product. Before S2 exits, capture:
+The new requirement must fit the current product instead of assuming a greenfield product, unless the user explicitly asks for a greenfield exploration.
+
+Current product context can come from a host software repository, historical PRDs, specs, product docs, screenshots, analytics exports, support tickets, meeting notes, or direct user answers. A software repository is useful but not required.
+
+Before S2 exits, capture:
 
 - Existing product area or module likely affected.
-- Relevant current behavior, routes, UI patterns, API contracts, data models, permission rules, and analytics conventions.
-- Gaps between the user's requested change and the current implementation.
+- Relevant current behavior, user journeys, UI patterns, API contracts, data models, permission rules, analytics conventions, or documented historical decisions.
+- Gaps between the user's requested change and the current product context.
 - Project constraints that should shape scope, rollout, migration, and acceptance criteria.
 
-If the agent cannot determine the current product state from available files, ask for the missing context as must-answer questions.
+If the agent cannot determine the current product state from available repositories, documents, or user answers, ask for the missing context as must-answer questions.
 
 ## Run Folder Rules
 
