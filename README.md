@@ -21,7 +21,7 @@ For direct agent usage, see `docs/direct-use.md`. For manual setup, see `docs/qu
 
 1. Open this repository in your agent-enabled workspace.
 2. Say your product-manager request naturally, for example: `I need a PRD and tracking plan for checkout coupon optimization.`
-3. The agent should follow `PM_COPILOT.md`, ask clarification questions if needed, then create scenario files and outputs automatically.
+3. The agent should follow `PM_COPILOT.md`, inspect relevant context, ask must-answer clarification questions before generation, then create scenario files and outputs automatically.
 4. Optional: create `context/product-context.local.yaml` later for better product-specific results.
 
 Suggested prompt:
@@ -53,6 +53,8 @@ python3 scripts/install_adapter.py --host .. --tool all
 ```
 
 The adapter is required for reliable embedded use. Simply placing the `pm-copilot/` folder inside another project does not guarantee that Codex, Claude Code, Cursor, or another agent will automatically discover nested instructions.
+
+In embedded mode, PM Copilot should inspect the current host project before drafting. Existing routes, data models, UI patterns, permissions, analytics conventions, and docs should shape the new requirement; the agent should not assume a greenfield product unless you ask for one.
 
 After the adapter is installed, users can ask natural PM requests from the host project without naming PM Copilot:
 
@@ -87,7 +89,9 @@ scripts/       Lightweight local validation
 
 ```text
 Request intake
+-> Current context and host project scan
 -> Requirement clarification
+-> User answer or explicit assumption approval
 -> PRD
 -> Metrics tree
 -> Tracking plan
@@ -97,7 +101,11 @@ Request intake
 -> Final package
 ```
 
-The default interaction mode is "clarify before generation." If the user does not answer, the agent may continue only after writing explicit assumptions.
+The default interaction mode is "clarify before generation." If must-answer information is missing, the agent should stop after creating the brief, clarifying questions, assumptions, and run log. It should continue only after the user answers or explicitly accepts assumption risk.
+
+Each requirement run gets its own folder under `examples/<run-id>/` and `outputs/<run-id>/`. If the inferred scenario already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
+
+PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese PM outputs, English requests should produce English PM outputs. File names and machine-readable identifiers stay ASCII.
 
 ## Platform-Neutral Design
 

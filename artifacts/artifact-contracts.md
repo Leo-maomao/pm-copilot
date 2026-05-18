@@ -2,6 +2,12 @@
 
 Every generated artifact must follow the relevant contract. If a section cannot be completed, keep the section and mark it as `Unknown`, `Assumed`, or `Not applicable`.
 
+Use the user's language for artifact prose. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
+
+Write artifacts under the active `outputs/<run-id>/` folder. Do not overwrite a previous requirement run unless the user explicitly asks to revise it.
+
+If must-answer questions are unresolved, generate only the task brief, clarifying questions, assumptions, and run log. Downstream artifacts must wait for user answers or explicit assumption approval.
+
 ## PRD
 
 Required sections:

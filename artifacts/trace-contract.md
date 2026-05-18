@@ -8,11 +8,15 @@ Every serious PM Copilot run should produce a trace or run log. A trace explains
 run_id:
 date:
 scenario:
+language:
 agent_platform:
 model:
 task_brief:
 context_files:
+host_project_context:
+current_state_summary:
 workflow_states:
+clarification_gate:
 agents_used:
 skills_used:
 tools_used:
@@ -31,6 +35,9 @@ final_status:
 - Do not include sensitive raw user data.
 - Record tool limitations instead of hiding them.
 - Record assumptions separately from confirmed facts.
+- Record whether must-answer questions blocked generation or were explicitly accepted as assumption risk.
+- In embedded mode, record relevant host project files and current-state facts used for project-fit decisions.
+- Record the artifact language chosen from the user's request.
 - Record files created or modified.
 - Record review scores when quality review is performed.
 

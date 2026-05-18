@@ -11,6 +11,16 @@
 - Mark every material assumption explicitly.
 - Explain why the assumption is reasonable.
 - Keep assumptions separate from confirmed user input.
+- Do not use assumptions to bypass a must-answer question.
+- Do not continue from clarification into PRD, metrics, tracking, flow, prototype, review, or final packaging until must-answer questions are answered or the user explicitly accepts assumption risk.
+- User silence is not consent to proceed with material assumptions.
+
+## Existing Product Fit
+
+- In embedded mode, treat the host repository's current product behavior and constraints as source material.
+- Do not invent a greenfield product architecture, flow, taxonomy, or data model when the host project already has one.
+- If the current product state is unclear and it affects scope or feasibility, ask before generation.
+- Separate observed current-state facts from inferred product intent.
 
 ## Privacy and Sensitive Data
 

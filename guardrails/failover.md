@@ -4,10 +4,12 @@
 
 If the user does not answer clarification questions:
 
-1. Continue only if assumptions are low risk.
+1. Continue only if no `must answer now` question is open.
 2. Mark assumptions visibly.
 3. Add open questions to the final package.
 4. Require review before engineering starts.
+
+If any `must answer now` question is open, stop before downstream generation. Continue only after the user answers or explicitly says to proceed with assumptions.
 
 ## Research Unavailable
 

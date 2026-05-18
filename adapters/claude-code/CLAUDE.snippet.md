@@ -9,7 +9,9 @@ When the user asks for product-manager work such as PRD, requirements, user stor
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
 
-Write generated PM Copilot artifacts under `pm-copilot/outputs/<scenario>/` unless the user asks for another location.
+Before generating PM artifacts, inspect relevant host project context and ask must-answer questions if current product fit, scope, platform, metrics, or risk is unclear. Do not generate the full package until those questions are answered or the user explicitly accepts assumptions.
+
+Write generated PM Copilot artifacts under `pm-copilot/outputs/<run-id>/` unless the user asks for another location.
 ```
 
 ## Usage

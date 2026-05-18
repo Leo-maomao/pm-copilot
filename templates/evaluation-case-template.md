@@ -34,15 +34,15 @@ Paste the original realistic product request here.
 
 ## Required Artifacts
 
-- `outputs/<scenario>/clarifying-questions.md`
-- `outputs/<scenario>/assumptions.md`
-- `outputs/<scenario>/prd.md`
-- `outputs/<scenario>/metrics-tree.md`
-- `outputs/<scenario>/tracking-plan.csv`
-- `outputs/<scenario>/user-flow.mmd`
-- `outputs/<scenario>/prototype-<platform>.html`
-- `outputs/<scenario>/review-checklist.md`
-- `outputs/<scenario>/final-package-summary.md`
+- `outputs/<run-id>/clarifying-questions.md`
+- `outputs/<run-id>/assumptions.md`
+- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/metrics-tree.md`
+- `outputs/<run-id>/tracking-plan.csv`
+- `outputs/<run-id>/user-flow.mmd`
+- `outputs/<run-id>/prototype-<platform>.html`
+- `outputs/<run-id>/review-checklist.md`
+- `outputs/<run-id>/final-package-summary.md`
 
 ## Known Risks
 
@@ -66,7 +66,8 @@ Paste the original realistic product request here.
 ## Pass Criteria
 
 - The agent asks or records high-impact clarification questions.
-- All required artifacts are generated.
+- The agent stops before downstream generation when must-answer questions remain open.
+- All required artifacts are generated after the clarification gate passes.
 - Assumptions are explicit.
 - Tracking plan avoids forbidden sensitive properties.
 - Prototype matches selected platform.

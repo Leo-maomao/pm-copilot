@@ -1,6 +1,6 @@
 # Prompt Recipes
 
-Use these prompts as copy-paste starting points. Replace `<scenario>` and file paths as needed.
+Use these prompts as copy-paste starting points. Replace `<run-id>` and file paths as needed.
 
 ## Run a New PM Copilot Task
 
@@ -12,6 +12,7 @@ Use this simple version first:
 If important information is missing, ask me first.
 If enough information is available, create the full review-ready package.
 Use my local product context if it exists; otherwise use the example context and mark assumptions.
+If this is inside an existing project, inspect the relevant current project context before drafting.
 ```
 
 Use this explicit version when the agent does not automatically follow `PM_COPILOT.md`:
@@ -27,16 +28,18 @@ Read:
 - guardrails/failover.md
 - artifacts/artifact-contracts.md
 - context/product-context.local.yaml
-- examples/<scenario>/task-brief.md
+- examples/<run-id>/task-brief.md
 
 Follow the default workflow:
 intake -> clarification -> PRD -> metrics -> tracking -> user flow -> prototype -> review -> final package.
 
 Write all outputs under:
-outputs/<scenario>/
+outputs/<run-id>/
 
-Ask clarification questions before generation if missing information materially changes scope, metrics, privacy, payment, legal, or prototype direction.
-If I do not answer, continue only with explicit assumptions and mark open questions.
+Use a unique run id. If the scenario folder already exists, append a local timestamp.
+
+Ask clarification questions before generation if missing information materially changes current project fit, scope, metrics, privacy, payment, legal, or prototype direction.
+If must-answer questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer or explicitly tell you to proceed with assumptions.
 ```
 
 ## Create Only Clarifying Questions
@@ -48,12 +51,13 @@ Read:
 - workflow/context-loading.md
 - guardrails/guardrails.md
 - context/product-context.local.yaml
-- examples/<scenario>/task-brief.md
+- examples/<run-id>/task-brief.md
 
 Output:
 - must-answer questions
 - assumptions that can be used for a draft
 - questions that can be decided later
+- current-state fit summary, if embedded in a host project
 - recommended next agent
 
 Do not generate the PRD yet.
@@ -68,12 +72,12 @@ Read:
 - artifacts/prd-contract.md
 - templates/prd-template.md
 - context/product-context.local.yaml
-- examples/<scenario>/task-brief.md
-- outputs/<scenario>/clarifying-questions.md
-- outputs/<scenario>/assumptions.md
+- examples/<run-id>/task-brief.md
+- outputs/<run-id>/clarifying-questions.md
+- outputs/<run-id>/assumptions.md
 
 Generate:
-- outputs/<scenario>/prd.md
+- outputs/<run-id>/prd.md
 
 Keep goals measurable, scope explicit, non-goals visible, and acceptance criteria testable.
 ```
@@ -86,11 +90,11 @@ Use PM Copilot's Analytics Agent, metrics-tree skill, and tracking-plan skill.
 Read:
 - artifacts/tracking-plan-contract.md
 - context/product-context.local.yaml
-- outputs/<scenario>/prd.md
+- outputs/<run-id>/prd.md
 
 Generate:
-- outputs/<scenario>/metrics-tree.md
-- outputs/<scenario>/tracking-plan.csv
+- outputs/<run-id>/metrics-tree.md
+- outputs/<run-id>/tracking-plan.csv
 
 Do not include forbidden sensitive properties.
 Add privacy notes for each event.
@@ -105,13 +109,13 @@ Read:
 - artifacts/prototype-contract.md
 - tools/prototype-tooling.md
 - context/product-context.local.yaml
-- outputs/<scenario>/prd.md
+- outputs/<run-id>/prd.md
 
 Choose the correct platform: Web, H5, App, Mini Program, or multiple if the scenario requires cross-platform output.
 
 Generate:
-- outputs/<scenario>/user-flow.mmd
-- outputs/<scenario>/prototype-<platform>.html
+- outputs/<run-id>/user-flow.mmd
+- outputs/<run-id>/prototype-<platform>.html
 
 The prototype must be local, low-fidelity, self-contained, and interactive for the main path.
 ```
@@ -124,10 +128,10 @@ Use PM Copilot's Review Agent and review-checklist skill.
 Read:
 - artifacts/artifact-contracts.md
 - guardrails/guardrails.md
-- outputs/<scenario>/
+- outputs/<run-id>/
 
 Generate or update:
-- outputs/<scenario>/review-checklist.md
+- outputs/<run-id>/review-checklist.md
 
 Lead with findings by severity.
 Check PRD, metrics, tracking, flow, prototype, assumptions, privacy, and human confirmation points.
@@ -141,10 +145,10 @@ Use PM Copilot's PM Orchestrator Agent and artifact-packaging skill.
 Read:
 - workflow/package-workflow.md
 - artifacts/final-package-contract.md
-- outputs/<scenario>/
+- outputs/<run-id>/
 
 Generate:
-- outputs/<scenario>/final-package-summary.md
+- outputs/<run-id>/final-package-summary.md
 
 Include artifact index, key decisions, assumptions, open questions, risks, review status, and recommended review agenda.
 ```
@@ -168,16 +172,16 @@ Run python3 scripts/validate_repo.py after editing.
 Add a PM Copilot scenario named <scenario>.
 
 Create:
-- examples/<scenario>/task-brief.md
-- outputs/<scenario>/clarifying-questions.md
-- outputs/<scenario>/assumptions.md
-- outputs/<scenario>/prd.md
-- outputs/<scenario>/metrics-tree.md
-- outputs/<scenario>/tracking-plan.csv
-- outputs/<scenario>/user-flow.mmd
-- outputs/<scenario>/prototype-<platform>.html
-- outputs/<scenario>/review-checklist.md
-- outputs/<scenario>/final-package-summary.md
+- examples/<run-id>/task-brief.md
+- outputs/<run-id>/clarifying-questions.md
+- outputs/<run-id>/assumptions.md
+- outputs/<run-id>/prd.md
+- outputs/<run-id>/metrics-tree.md
+- outputs/<run-id>/tracking-plan.csv
+- outputs/<run-id>/user-flow.mmd
+- outputs/<run-id>/prototype-<platform>.html
+- outputs/<run-id>/review-checklist.md
+- outputs/<run-id>/final-package-summary.md
 
 Use synthetic data only.
 Run python3 scripts/validate_repo.py after adding the scenario.

@@ -9,6 +9,7 @@ Recommended direct prompt:
 
 If important information is missing, ask me first.
 If enough information is available, create the full review-ready package.
+If must-answer information is missing, stop and wait for my answer before generating downstream artifacts.
 ```
 
 ## 1. Choose an Agent Workspace
@@ -64,7 +65,7 @@ templates/task-brief-template.md
 To:
 
 ```text
-examples/<your-scenario>/task-brief.md
+examples/<run-id>/task-brief.md
 ```
 
 Write the raw request exactly as you received it. Do not over-polish the request. The Discovery Agent is expected to clarify it.
@@ -83,13 +84,13 @@ Read:
 - guardrails/failover.md
 - artifacts/artifact-contracts.md
 - context/product-context.local.yaml
-- examples/<your-scenario>/task-brief.md
+- examples/<run-id>/task-brief.md
 
 Follow the workflow and produce a review-ready package under:
-outputs/<your-scenario>/
+outputs/<run-id>/
 
 Ask clarification questions before generation if high-impact information is missing.
-If I do not answer, continue only with explicit assumptions.
+If must-answer questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer or explicitly tell you to proceed with assumptions.
 ```
 
 ## 5. Review the Package

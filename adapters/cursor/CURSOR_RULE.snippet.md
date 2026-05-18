@@ -14,4 +14,6 @@ If the project uses a legacy `.cursorrules` file, add this snippet instead:
 When the user asks for product-manager work such as PRD, requirements, user stories, acceptance criteria, metrics, tracking plans, analytics events, user flows, prototypes, competitor research, review checklists, or equivalent Chinese-language PM tasks, read `pm-copilot/PM_COPILOT.md` and follow that workflow.
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
+
+Before generating PM artifacts, inspect relevant host project context and ask must-answer questions if current product fit, scope, platform, metrics, or risk is unclear. Do not generate the full package until those questions are answered or the user explicitly accepts assumptions.
 ```

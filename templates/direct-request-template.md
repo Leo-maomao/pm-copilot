@@ -13,6 +13,8 @@ Context I know:
 - Constraints:
 - Existing data:
 
-Please ask clarification questions first if any missing information materially affects scope, metrics, tracking, prototype, privacy, payment, legal, compliance, or security.
-If enough information is available, proceed with explicit assumptions and create the full review-ready package.
+Please inspect relevant current product context first if this is inside an existing project.
+Please ask clarification questions first if any missing information materially affects current project fit, scope, metrics, tracking, prototype, privacy, payment, legal, compliance, or security.
+If must-answer questions exist, stop and wait for my answer before generating downstream artifacts.
+If enough information is available, proceed with explicit assumptions and create the full review-ready package in my request language.
 ```

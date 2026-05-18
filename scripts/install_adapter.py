@@ -24,6 +24,12 @@ def build_block(pm_path: str, tool: str) -> str:
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
+            "Before generating PM artifacts, inspect relevant host project context and ask "
+            "must-answer questions if current product fit, scope, platform, metrics, or risk "
+            "is unclear. Do not generate the full package until those questions are answered "
+            "or the user explicitly accepts assumptions.\n\n"
+            f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
+            "unless the user asks for another location.\n\n"
             "Keep normal software-engineering tasks governed by this host repository's "
             "regular instructions."
         )
@@ -36,7 +42,11 @@ def build_block(pm_path: str, tool: str) -> str:
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
-            f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<scenario>/` "
+            "Before generating PM artifacts, inspect relevant host project context and ask "
+            "must-answer questions if current product fit, scope, platform, metrics, or risk "
+            "is unclear. Do not generate the full package until those questions are answered "
+            "or the user explicitly accepts assumptions.\n\n"
+            f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location."
         )
     elif tool == "cursor":
@@ -48,8 +58,12 @@ def build_block(pm_path: str, tool: str) -> str:
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
+            "Before generating PM artifacts, inspect relevant host project context and ask "
+            "must-answer questions if current product fit, scope, platform, metrics, or risk "
+            "is unclear. Do not generate the full package until those questions are answered "
+            "or the user explicitly accepts assumptions.\n\n"
             "Keep normal software-engineering tasks governed by the host repository's regular rules.\n\n"
-            f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<scenario>/` "
+            f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location."
         )
     else:
@@ -94,9 +108,11 @@ When the user asks for product-manager work such as PRD, requirements, user stor
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
 
+Before generating PM artifacts, inspect relevant host project context and ask must-answer questions if current product fit, scope, platform, metrics, or risk is unclear. Do not generate the full package until those questions are answered or the user explicitly accepts assumptions.
+
 Keep normal software-engineering tasks governed by the host repository's regular rules.
 
-Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<scenario>/` unless the user asks for another location.
+Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` unless the user asks for another location.
 """
     path.parent.mkdir(parents=True, exist_ok=True)
     action = "updated" if path.exists() else "installed"

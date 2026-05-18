@@ -1,6 +1,7 @@
 run_id: ""
 date: ""
 scenario: ""
+language: ""
 agent_platform: ""
 model: ""
 
@@ -11,6 +12,9 @@ task:
 
 context:
   files_loaded: []
+  host_project_root: ""
+  host_project_files_loaded: []
+  current_state_summary: ""
   context_excluded: []
   conflicts_found: []
   conflict_resolution: []
@@ -19,6 +23,10 @@ workflow:
   states_completed: []
   states_skipped: []
   skip_reasons: []
+  clarification_gate:
+    required: false
+    status: ""
+    stopped_before_generation: false
   revision_loops: 0
 
 agents_used:

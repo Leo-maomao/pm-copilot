@@ -2,6 +2,8 @@
 
 PM Copilot includes example scenarios across common product surfaces.
 
+Scenario library folders are stable examples for regression and documentation. Real user runs should use `examples/<run-id>/` and `outputs/<run-id>/`, with a timestamp appended when a similar run already exists.
+
 ## Included Scenarios
 
 | Scenario | Platform | Purpose |
