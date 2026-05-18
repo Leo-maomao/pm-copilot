@@ -5,73 +5,124 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{localized_prototype_title}}</title>
   <style type="text/css">
-    body { margin: 0; font-family: Arial, sans-serif; background: #f4f5f7; color: #1f2937; }
-    .shell { display: grid; grid-template-columns: minmax(320px, 420px) minmax(260px, 360px); gap: 20px; max-width: 900px; margin: 24px auto; padding: 0 16px; }
-    .frame { min-height: 760px; background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
-    .bar { padding: 12px 16px; border-bottom: 1px solid #eaecf0; font-weight: 700; }
-    .content { padding: 16px; }
-    .screen-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
-    .screen-tabs button { border: 1px solid #d0d5dd; background: #fff; padding: 8px 10px; cursor: pointer; }
-    .screen-tabs button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #eef2ef; color: #17211d; }
+    .shell { display: grid; grid-template-columns: minmax(320px, 420px) minmax(300px, 420px); gap: 28px; max-width: 940px; margin: 24px auto; padding: 0 16px; }
+    .frame { position: relative; min-height: 760px; overflow: hidden; background: var(--surface, #fbfdfb); border: 10px solid #16201d; border-radius: 34px; box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12); }
+    .bar { display: flex; justify-content: space-between; padding: 14px 22px 8px; font-size: 12px; font-weight: 700; }
+    .content { position: relative; padding: 42px 18px 110px; }
+    .screen-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .screen-tabs button { border: 1px solid #d8dfda; border-radius: 16px; background: #fff; padding: 8px 14px; cursor: pointer; }
+    .screen-tabs button.active { background: #e8f5ef; color: #10906f; border-color: #dcefe6; }
     .screen { display: none; }
     .screen.active { display: block; }
-    .button { width: 100%; border: 0; padding: 12px; background: #2563eb; color: #fff; font-weight: 700; cursor: pointer; }
-    .muted { color: #667085; font-size: 13px; }
-    .hotspot { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: 8px; border-radius: 50%; border: 0; background: #f59e0b; color: #111827; font-weight: 700; cursor: pointer; }
-    .note-panel { background: #fff; border: 1px solid #d0d5dd; padding: 16px; }
-    .note-panel h2 { margin: 0 0 12px; font-size: 16px; }
-    .note-panel h3 { margin: 16px 0 8px; font-size: 14px; }
-    .note-panel button { display: block; width: 100%; margin: 8px 0; padding: 10px; border: 1px solid #d0d5dd; background: #fff; text-align: left; cursor: pointer; }
-    .annotation { margin-top: 12px; padding: 12px; background: #f9fafb; border: 1px solid #eaecf0; font-size: 13px; }
+    .button { width: 100%; border: 0; border-radius: 14px; padding: 12px; background: var(--primary, #12a67f); color: #fff; font-weight: 700; cursor: pointer; }
+    .muted { color: #6f7a75; font-size: 13px; line-height: 1.5; }
+    .card { position: relative; margin-top: 16px; padding: 18px; border-radius: 16px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
+    .callout { position: absolute; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 0; border-radius: 999px; background: #ffcf5a; color: #17211d; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18); }
+    .callout.active { background: #12a67f; color: #fff; }
+    .tabbar { position: absolute; left: 18px; right: 18px; bottom: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px; border-radius: 28px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); color: #6f7a75; font-size: 12px; text-align: center; }
+    .tabbar .active { border-radius: 22px; background: #e8f5ef; color: #10906f; font-weight: 700; padding: 8px; }
+    .note-panel { max-height: 760px; overflow: auto; border-radius: 8px; background: #fff; border: 1px solid #d8dfda; padding: 22px; box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08); }
+    .note-panel h2 { margin: 0 0 8px; font-size: 22px; }
+    .note-panel h3 { margin: 22px 0 10px; font-size: 15px; }
+    .note-card { display: block; width: 100%; margin: 10px 0; padding: 12px; border: 1px solid #e3e8e4; border-radius: 8px; background: #fff; text-align: left; cursor: pointer; }
+    .note-card.active { border-color: #12a67f; background: #f0faf5; }
+    .note-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 700; }
+    .note-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; background: #ffcf5a; }
+    .note-card.active .note-number { background: #12a67f; color: #fff; }
+    .note-card ul { margin: 0; padding-left: 18px; color: #4c5953; font-size: 13px; line-height: 1.65; }
+    .annotation { margin-top: 14px; padding: 12px; border-radius: 8px; background: #f7faf8; border: 1px solid #e3e8e4; font-size: 13px; color: #4c5953; }
     @media (max-width: 760px) { .shell { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <!-- Template note: localize all visible labels, annotations, button text, and status copy before generating a real artifact. Prototype only. Not production code. -->
+  <!-- Template note: match the current product style before filling this file. Replace placeholders with localized copy. Mark every logic/interaction explanation with the same number on the prototype and in the right panel. Prototype only. Not production code. -->
   <div class="shell">
     <div class="frame">
-      <div class="bar">{{localized_feature_title}}</div>
+      <div class="bar"><span>9:41</span><span>{{localized_mini_program_brand}}</span></div>
       <div class="content">
-        <p class="muted">{{localized_prototype_boundary_note}}</p>
         <div class="screen-tabs">
           <button id="tab-current" class="active" type="button" onclick="showScreen('current')">{{localized_current_page}}</button>
           <button id="tab-new" type="button" onclick="showScreen('new')">{{localized_new_state}}</button>
         </div>
         <div id="screen-current" class="screen active">
-          <h1>{{localized_existing_page_surface}} <button class="hotspot" type="button" onclick="showNote('current', 'entry')">1</button></h1>
+          <h1>{{localized_existing_page_surface}}</h1>
+          <button id="callout-current-entry" class="callout" type="button" style="top: 88px; right: 26px;" onclick="showNote('current', 'entry')">①</button>
           <p class="muted">{{localized_existing_page_note}}</p>
+          <div class="card">
+            <button id="callout-current-card" class="callout" type="button" style="top: 16px; right: 16px;" onclick="showNote('current', 'card')">②</button>
+            <strong>{{localized_existing_card_title}}</strong>
+            <p class="muted">{{localized_existing_card_summary}}</p>
+          </div>
           <button class="button" type="button" onclick="showScreen('new')">{{localized_open_new_state}}</button>
         </div>
         <div id="screen-new" class="screen">
-          <h1>{{localized_new_requirement_state}} <button class="hotspot" type="button" onclick="showNote('new', 'primary')">2</button></h1>
+          <h1>{{localized_new_requirement_state}}</h1>
           <p class="muted">{{localized_new_state_note}}</p>
+          <div class="card">
+            <button id="callout-new-content" class="callout" type="button" style="top: 16px; right: 16px;" onclick="showNote('new', 'content')">③</button>
+            <strong>{{localized_new_component_title}}</strong>
+            <p class="muted">{{localized_new_component_summary}}</p>
+          </div>
           <button class="button" type="button" onclick="showNote('new', 'submit')">{{localized_primary_action}}</button>
+          <button id="callout-new-submit" class="callout" type="button" style="right: 28px; bottom: 128px;" onclick="showNote('new', 'submit')">④</button>
         </div>
         <div class="annotation" id="annotation">{{localized_annotation_prompt}}</div>
       </div>
+      <div class="tabbar">
+        <div>{{localized_tab_one}}</div>
+        <div class="active">{{localized_tab_current}}</div>
+        <div>{{localized_tab_three}}</div>
+      </div>
     </div>
     <div class="note-panel">
-      <h2>{{localized_annotations}}</h2>
+      <h2>{{localized_prototype_title}}</h2>
+      <p class="muted">{{localized_prototype_boundary_note}}</p>
       <h3>{{localized_current_page}}</h3>
-      <button type="button" onclick="showNote('current', 'entry')">1. {{localized_existing_entry_note_label}}</button>
+      <button id="note-current-entry" class="note-card" type="button" onclick="showNote('current', 'entry')">
+        <span class="note-heading"><span class="note-number">①</span>{{localized_existing_entry_note_label}}</span>
+        <ul>
+          <li>{{localized_note_1_text_limit_rule}}</li>
+          <li>{{localized_note_1_tap_hover_long_press_rule}}</li>
+          <li>{{localized_note_1_data_permission_tracking_rule}}</li>
+        </ul>
+      </button>
+      <button id="note-current-card" class="note-card" type="button" onclick="showNote('current', 'card')">
+        <span class="note-heading"><span class="note-number">②</span>{{localized_existing_card_note_label}}</span>
+        <ul>
+          <li>{{localized_note_2_text_limit_rule}}</li>
+          <li>{{localized_note_2_state_rule}}</li>
+          <li>{{localized_note_2_tracking_rule}}</li>
+        </ul>
+      </button>
       <h3>{{localized_new_state}}</h3>
-      <button type="button" onclick="showNote('new', 'primary')">2. {{localized_added_component_note_label}}</button>
-      <button type="button" onclick="showNote('new', 'submit')">3. {{localized_submit_tracking_note_label}}</button>
-      <h3>{{localized_global_notes}}</h3>
-      <button type="button" onclick="showNote('global', 'engineering')">{{localized_implementation_boundary}}</button>
+      <button id="note-new-content" class="note-card" type="button" onclick="showNote('new', 'content')">
+        <span class="note-heading"><span class="note-number">③</span>{{localized_added_component_note_label}}</span>
+        <ul>
+          <li>{{localized_note_3_text_limit_rule}}</li>
+          <li>{{localized_note_3_empty_error_rule}}</li>
+          <li>{{localized_note_3_data_rule}}</li>
+        </ul>
+      </button>
+      <button id="note-new-submit" class="note-card" type="button" onclick="showNote('new', 'submit')">
+        <span class="note-heading"><span class="note-number">④</span>{{localized_submit_tracking_note_label}}</span>
+        <ul>
+          <li>{{localized_note_4_tap_rule}}</li>
+          <li>{{localized_note_4_loading_error_rule}}</li>
+          <li>{{localized_note_4_tracking_rule}}</li>
+        </ul>
+      </button>
     </div>
   </div>
   <script type="text/javascript">
     var notes = {
       current: {
-        entry: '{{localized_current_page_annotation}}'
+        entry: '{{localized_note_1_expanded_annotation}}',
+        card: '{{localized_note_2_expanded_annotation}}'
       },
       new: {
-        primary: '{{localized_new_state_annotation}}',
-        submit: '{{localized_submit_annotation}}'
-      },
-      global: {
-        engineering: '{{localized_global_engineering_annotation}}'
+        content: '{{localized_note_3_expanded_annotation}}',
+        submit: '{{localized_note_4_expanded_annotation}}'
       }
     };
     function showScreen(name) {
@@ -84,6 +135,15 @@
     function showNote(page, key) {
       if (page === 'new') showScreen('new');
       if (page === 'current') showScreen('current');
+      var activeId = 'note-' + page + '-' + key;
+      var noteCards = document.querySelectorAll('.note-card');
+      for (var i = 0; i < noteCards.length; i += 1) {
+        noteCards[i].classList.toggle('active', noteCards[i].id === activeId);
+      }
+      var callouts = document.querySelectorAll('.callout');
+      for (var j = 0; j < callouts.length; j += 1) {
+        callouts[j].classList.toggle('active', callouts[j].id === ('callout-' + page + '-' + key));
+      }
       document.getElementById('annotation').textContent = notes[page][key];
     }
   </script>

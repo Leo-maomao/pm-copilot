@@ -4,6 +4,8 @@ Prototypes are local HTML artifacts used for product review, UI reference, and e
 
 If a current demo, screenshot, route, component, or design system is available, the prototype must extend that existing surface. It should show what changes, what stays the same, and where the new requirement fits. Do not create a new product shell unless the user explicitly asks for a redesign or no current surface exists.
 
+Visual style fit is part of the contract, not a polish step. When current UI evidence exists, match the existing navigation structure, platform chrome, tab bar, typography scale, spacing rhythm, color tokens, icon style, card density, border radius, shadows, and copy tone before adding the new requirement. Record the style sources used and the intended delta. If no style source is available and the user expects a product-specific prototype, ask for a screenshot, demo, route, or design reference before creating a mid- or high-fidelity prototype.
+
 ## Fidelity
 
 Choose the highest useful fidelity the available context supports:
@@ -21,7 +23,7 @@ Even low-fidelity prototypes must be clean, clickable, and implementation-orient
 | Web | Desktop admin, SaaS, dashboards, content management | Desktop viewport, sidebar or top navigation, tables/forms |
 | H5 | Mobile browser, landing pages, lightweight checkout, campaigns | Mobile browser frame, URL/header hint, single-column layout |
 | App | Native mobile product flows | App frame, top bar, bottom tabs or native navigation |
-| Mini Program | Mini-program style flows | Capsule area, page stack feel, authorization and lightweight forms |
+| Mini Program | Mini-program style flows | Status bar, capsule area, current mini-program navigation, existing tab bar style, page stack feel, authorization and lightweight forms |
 
 ## Required Interaction
 
@@ -32,6 +34,7 @@ Even low-fidelity prototypes must be clean, clickable, and implementation-orient
 - The prototype must include realistic screen states: loading, empty, error, permission, confirmation, success, or rollback where relevant.
 - Important controls should expose annotations through clickable hotspots, side panels, tooltips, or inline markers.
 - Annotation state should update by page or screen, so reviewers can tell which note belongs to which UI element.
+- Numbered callouts should not cover critical copy or controls. Use compact markers such as `①`, `②`, and `③` beside or above the element being explained.
 
 ## Required Annotations
 
@@ -45,10 +48,14 @@ Include annotations for:
 
 Annotation rules:
 
-- Each page or screen has its own annotation group.
-- Each annotation references a concrete UI element, state, or transition.
+- The default annotation layout is left-side prototype, right-side annotation panel.
+- Each page or screen has its own annotation group in the right-side panel.
+- Each annotation references a concrete UI element, state, or transition and uses the same visible number as the callout marker in the prototype, for example `①`.
+- Annotation text must be implementation-grade and specific. Include details such as text length limits and ellipsis behavior, tap/hover/long-press behavior, empty/error state handling, permission rules, data source, and tracking hook when relevant.
+- Long annotation content should be summarized in the panel and expanded by click, hover, or disclosure. Do not dump every page's notes into one long generic paragraph.
 - Cross-page notes belong in a separate `Global notes` group.
 - Annotations must be reachable from the prototype UI, not only listed beside it.
+- A generic implementation-note card without numbered markers is not sufficient.
 
 ## Output Rule
 
