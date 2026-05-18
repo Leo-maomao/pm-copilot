@@ -8,13 +8,20 @@
 
 ### Must Answer Before Generation
 
+| Question | Why It Blocks | Owner |
+|---|---|---|
+
 ### Can Draft With Stated Assumption
+
+| Assumption | Why Reasonable | Risk |
+|---|---|---|
 
 ### Must Confirm Before Development Or Launch
 
-## PRD
+| Item | Why It Matters | Owner |
+|---|---|---|
 
-## Key Product Decisions
+## PRD
 
 ## Metrics Tree
 
@@ -40,23 +47,19 @@ flowchart TD
   C -- No --> E[Fallback]
 ```
 
-## Prototype Summary
+## Prototype
+
+- File:
+- Fidelity:
+- Main interactions:
+- Key annotations:
+- Implementation notes:
 
 ## Review Checklist
-
-## Review Status
 
 ## Artifact Index
 
 | Artifact | File | Purpose |
 |---|---|---|
 
-## Assumptions
-
-## Open Questions
-
-## Risks
-
-## Recommended Review Agenda
-
-## Next Actions
+## Risks And Next Actions

@@ -96,10 +96,12 @@ Read:
 
 Generate:
 - outputs/<run-id>/metrics-tree.md
+- outputs/<run-id>/tracking-plan.md
 - outputs/<run-id>/tracking-plan.csv
 
 Do not include forbidden sensitive properties.
-Add privacy notes for each event.
+Use a Markdown event table and property dictionary as the primary review artifact.
+Add privacy notes and validation notes for each event.
 ```
 
 ## Generate User Flow and Prototype
@@ -116,10 +118,12 @@ Read:
 Choose the correct platform: Web, H5, App, Mini Program, or multiple if the scenario requires cross-platform output.
 
 Generate:
+- outputs/<run-id>/user-flow.md
 - outputs/<run-id>/user-flow.mmd
 - outputs/<run-id>/prototype-<platform>.html
 
-The prototype must be local, low-fidelity, self-contained, and interactive for the main path.
+The user flow must be a renderable Mermaid diagram in Markdown, not a prose list.
+The prototype must be local, self-contained, clickable, annotated, and fidelity-appropriate for UI and engineering reference.
 ```
 
 ## Review an Existing Package
@@ -150,9 +154,10 @@ Read:
 - outputs/<run-id>/
 
 Generate:
+- outputs/<run-id>/pm-package.md
 - outputs/<run-id>/final-package-summary.md
 
-Include artifact index, key decisions, assumptions, open questions, risks, review status, and recommended review agenda.
+Make `pm-package.md` the primary review artifact. Include PRD, metrics, tracking table, user flow diagram, prototype notes, artifact index, key decisions, assumptions, open questions, risks, review status, and recommended review agenda.
 ```
 
 ## Improve an Existing Skill
@@ -177,9 +182,12 @@ Create:
 - examples/<run-id>/task-brief.md
 - outputs/<run-id>/clarifying-questions.md
 - outputs/<run-id>/assumptions.md
+- outputs/<run-id>/pm-package.md
 - outputs/<run-id>/prd.md
 - outputs/<run-id>/metrics-tree.md
+- outputs/<run-id>/tracking-plan.md
 - outputs/<run-id>/tracking-plan.csv
+- outputs/<run-id>/user-flow.md
 - outputs/<run-id>/user-flow.mmd
 - outputs/<run-id>/prototype-<platform>.html
 - outputs/<run-id>/review-checklist.md

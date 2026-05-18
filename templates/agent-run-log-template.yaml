@@ -17,6 +17,10 @@ context:
   host_project_files_loaded: []
   product_documents_loaded: []
   current_state_summary: ""
+  current_state_facts:
+    - fact: ""
+      source: ""
+      confidence: ""
   context_excluded: []
   conflicts_found: []
   conflict_resolution: []
@@ -29,6 +33,8 @@ workflow:
     required: false
     status: ""
     stopped_before_generation: false
+    assumption_risk_accepted: false
+    evidence: ""
   revision_loops: 0
 
 agents_used:
@@ -49,7 +55,11 @@ tools_used:
     limitation: ""
 
 human_inputs:
-  clarification_questions: []
+  clarification_questions:
+    - id: ""
+      question: ""
+      classification: "" # must answer before generation | can draft with stated assumption | must confirm before development or launch
+      rationale: ""
   answers_received: []
   unanswered_questions: []
   confirmations_required: []
@@ -59,24 +69,44 @@ assumptions:
     assumption: ""
     reason: ""
     risk: ""
+    source: "" # user confirmed | inferred from context | low-impact default
+    blocks_generation: false
 
 artifacts:
   clarifying_questions: ""
   assumptions: ""
+  pm_package: ""
   prd: ""
   metrics_tree: ""
+  tracking_plan_markdown: ""
   tracking_plan: ""
+  user_flow_markdown: ""
   user_flow: ""
   prototype: ""
   review_checklist: ""
   final_package: ""
 
 review_scores:
-  package: null
-  prd: null
-  metrics_and_tracking: null
-  prototype: null
-  review_checklist: null
+  package:
+    score: null
+    max_score: 20
+    status: ""
+  prd:
+    score: null
+    max_score: 24
+    status: ""
+  metrics_and_tracking:
+    score: null
+    max_score: 24
+    status: ""
+  prototype:
+    score: null
+    max_score: 20
+    status: ""
+  review_checklist:
+    score: null
+    max_score: 16
+    status: ""
 
 failures:
   - id: ""

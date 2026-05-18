@@ -1,6 +1,6 @@
 # PM Copilot
 
-PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into a review-ready package: clarified requirements, PRD, metrics, tracking plan, user flow, low-fidelity multi-platform prototype, review checklist, and final handoff summary.
+PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into a review-ready package: clarified requirements, PRD, metrics, tracking plan, user flow, clickable multi-platform prototype, review checklist, and final handoff summary.
 
 The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, artifact contracts, workflow rules, guardrails, templates, and examples that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
 
@@ -13,7 +13,8 @@ PM Copilot is designed for PMs with or without a software repository. It can wor
 - KPI tree and success metrics
 - Tracking plan with events, properties, triggers, and validation notes
 - Mermaid user flow
-- Local low-fidelity HTML prototype for Web, H5, App, or Mini Program scenarios
+- Local clickable HTML prototype for Web, H5, App, or Mini Program scenarios
+- Consolidated `pm-package.md` for review, plus source/export files when useful
 - Review checklist and risk log
 - Final package summary
 
@@ -112,14 +113,14 @@ Request intake
 -> Metrics tree
 -> Tracking plan
 -> User flow
--> Multi-platform low-fidelity prototype
+-> Multi-platform clickable prototype
 -> Review checklist
 -> Final package
 ```
 
 The default interaction mode is "clarify before generation." If must-answer information is missing, the agent should stop after creating the brief, clarifying questions, assumptions, and run log. It should continue only after the user answers or explicitly accepts assumption risk.
 
-Each requirement run gets its own folder under `examples/<run-id>/` and `outputs/<run-id>/`. If the inferred scenario already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
+Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, including the task brief and run log. The `examples/` directory is reserved for curated scenario-library inputs and regression fixtures. If the inferred scenario already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
 
 PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese PM outputs, English requests should produce English PM outputs. File names and machine-readable identifiers stay ASCII.
 

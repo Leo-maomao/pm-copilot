@@ -9,7 +9,7 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 - Identify missing information that materially changes the product solution.
 - Inspect relevant current-state product context before framing a solution.
 - Ask concise clarification questions before generation.
-- Classify questions as `must answer now`, `can assume`, or `can decide later`.
+- Classify questions as `must answer before generation`, `can draft with stated assumption`, or `must confirm before development or launch`.
 - Stop the workflow when must-answer questions remain unanswered.
 - Separate facts, assumptions, and open decisions.
 - Detect privacy, legal, payment, data, or compliance topics that require human confirmation.
@@ -37,7 +37,8 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 
 - The Requirements Agent can draft a PRD without inventing business-critical facts.
 - High-impact unknowns are either answered or explicitly accepted by the user as assumption risk.
-- No `must answer now` question remains unanswered.
+- No `must answer before generation` question remains unanswered.
+- No single unknown appears in more than one clarification bucket.
 
 ## Handoffs
 

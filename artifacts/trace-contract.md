@@ -11,18 +11,40 @@ scenario:
 language:
 agent_platform:
 model:
-task_brief:
-context_files:
-context_source_mode:
-product_documents:
-host_project_context:
-current_state_summary:
-workflow_states:
-clarification_gate:
+task:
+  brief_path:
+  raw_request:
+  requested_artifacts:
+context:
+  source_mode:
+  files_loaded:
+  host_project_root:
+  host_project_files_loaded:
+  product_documents_loaded:
+  current_state_summary:
+  current_state_facts:
+  context_excluded:
+  conflicts_found:
+  conflict_resolution:
+workflow:
+  states_completed:
+  states_skipped:
+  skip_reasons:
+  clarification_gate:
+    required:
+    status:
+    stopped_before_generation:
+    assumption_risk_accepted:
+    evidence:
+  revision_loops:
 agents_used:
 skills_used:
 tools_used:
 human_inputs:
+  clarification_questions:
+  answers_received:
+  unanswered_questions:
+  confirmations_required:
 assumptions:
 open_questions:
 artifacts:
@@ -30,6 +52,7 @@ guardrail_events:
 review_scores:
 failures:
 final_status:
+next_actions:
 ```
 
 ## Rules
@@ -44,6 +67,14 @@ final_status:
 - Record the artifact language chosen from the user's request.
 - Record files created or modified.
 - Record review scores when quality review is performed.
+- Every unresolved question must be classified as exactly one of:
+  - `must answer before generation`
+  - `can draft with stated assumption`
+  - `must confirm before development or launch`
+- If any `must answer before generation` question is unresolved and the user has not explicitly accepted assumption risk, `workflow.clarification_gate.stopped_before_generation` must be `true` and downstream artifacts must be empty or omitted.
+- If the user explicitly accepts assumption risk, record the exact confirmation in `human_inputs.answers_received` or `workflow.clarification_gate.evidence` and set final status to `Draft with assumption risk`.
+- Review scores should use numeric rubric scores when a rubric exists. Descriptive labels may be added, but should not replace the score.
+- Use `templates/agent-run-log-template.yaml` as the canonical run-log shape.
 
 ## Why This Matters
 

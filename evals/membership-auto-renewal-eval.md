@@ -36,9 +36,12 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 
 - `outputs/membership-auto-renewal/clarifying-questions.md`
 - `outputs/membership-auto-renewal/assumptions.md`
+- `outputs/membership-auto-renewal/pm-package.md`
 - `outputs/membership-auto-renewal/prd.md`
 - `outputs/membership-auto-renewal/metrics-tree.md`
+- `outputs/membership-auto-renewal/tracking-plan.md`
 - `outputs/membership-auto-renewal/tracking-plan.csv`
+- `outputs/membership-auto-renewal/user-flow.md`
 - `outputs/membership-auto-renewal/user-flow.mmd`
 - `outputs/membership-auto-renewal/prototype-h5.html`
 - `outputs/membership-auto-renewal/review-checklist.md`
@@ -57,7 +60,7 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 |---|---|
 | Package | 14 / 20 |
 | PRD | 18 / 24 |
-| Metrics and tracking | 15 / 20 |
+| Metrics and tracking | 18 / 24 |
 | Prototype | 14 / 20 |
 | Review checklist | 12 / 16 |
 
@@ -72,7 +75,9 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 - Clarifying questions ask for baseline metrics, legal copy, payment failure categories, channels, and region/payment scope.
 - PRD includes visible cancellation and policy access.
 - Tracking plan avoids raw payment data.
-- H5 prototype is local, low fidelity, and interactive.
+- Tracking plan uses complete event and property tables.
+- User flow renders as a standard Mermaid flowchart.
+- H5 prototype is local, clickable, annotated, and clearly not production code.
 - Review checklist blocks launch until legal copy, baseline metrics, and payment failure categories are confirmed.
 
 ## Latest Result

@@ -47,12 +47,22 @@ Human confirmation is required before drafting downstream artifacts when:
 
 If any must-answer question exists, stop after creating only:
 
-- `examples/<run-id>/task-brief.md`
+- `outputs/<run-id>/task-brief.md`
 - `outputs/<run-id>/clarifying-questions.md`
 - `outputs/<run-id>/assumptions.md`
 - `outputs/<run-id>/run-log.yaml`
 
 Do not create PRD, metrics, tracking, flow, prototype, review, or final package until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
+
+## Clarification Semantics
+
+Avoid contradictory clarification output. A single unknown must belong to exactly one bucket:
+
+- `Must answer before generation`: blocks PRD, metrics, tracking, flow, prototype, review, and final package.
+- `Can draft with stated assumption`: can be assumed for a draft package, but the assumption must be visible and reviewable.
+- `Must confirm before development or launch`: does not block draft generation, but the final package must clearly say it is not engineering-ready or launch-ready until confirmed.
+
+If the user asks to proceed with assumptions while must-answer questions remain, downgrade the package status to `Draft with assumption risk`. Do not call it development-ready.
 
 ## Current Product Fit
 
@@ -71,9 +81,20 @@ If the agent cannot determine the current product state from available repositor
 
 ## Run Folder Rules
 
-Use `examples/<run-id>/` and `outputs/<run-id>/` for each requirement run. The run id is the scenario slug unless that folder already exists. For repeat or similar requirements, append a local timestamp such as `team-permissions-20260518-1430`.
+Use `outputs/<run-id>/` as the single generated-artifact folder for each real requirement run. The run id is the scenario slug unless that output folder already exists or the slug collides with a curated scenario under `examples/`. For repeat, similar, or scenario-library-colliding requirements, append a local timestamp such as `team-permissions-20260518-1430`.
 
 Only update an existing run folder when the user explicitly names that folder or asks to revise the existing requirement.
+
+Do not create `examples/<run-id>/` for ordinary user runs. The `examples/` directory is reserved for stable scenario-library inputs, documentation, and regression fixtures.
+
+## Packaging Rules
+
+Default delivery should optimize for reviewability, not file count.
+
+- Create `outputs/<run-id>/pm-package.md` as the primary reviewer-facing artifact.
+- Keep source or export files only when they are useful for implementation, analytics import, rendering, or iteration.
+- `pm-package.md` should include or link the PRD, metrics tree, tracking plan table, rendered-flow section, prototype link and notes, review checklist, assumptions, and confirmations.
+- Avoid making the user open many small Markdown files to understand one requirement.
 
 ## Language Rules
 
@@ -93,17 +114,13 @@ Use the user's language for conversation and generated artifacts. Chinese reques
 
 ## Trace Format
 
-```yaml
-task_id:
-current_state:
-loaded_context:
-agents_used:
-skills_used:
-tools_used:
-artifacts_created:
-assumptions:
-open_questions:
-human_confirmations:
-guardrail_events:
-review_result:
-```
+Use `templates/agent-run-log-template.yaml` as the canonical trace shape.
+
+Minimum trace requirements:
+
+- Record `context.source_mode` as `repo-backed`, `document-backed`, or `brief-only`.
+- In repo-backed mode, record host files inspected and current-state facts used for product-fit decisions.
+- Record `workflow.clarification_gate.required`, `status`, `stopped_before_generation`, and `assumption_risk_accepted`.
+- Classify every unresolved question as exactly one of `must answer before generation`, `can draft with stated assumption`, or `must confirm before development or launch`.
+- Record numeric review scores when a quality rubric exists.
+- If S5-S10 artifacts are generated while unresolved must-answer questions remain, record the user's explicit assumption-risk confirmation as evidence.

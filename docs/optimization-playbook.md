@@ -81,7 +81,7 @@ Minimum useful alpha thresholds:
 |---|---|
 | Package | 14 / 20 |
 | PRD | 18 / 24 |
-| Metrics and tracking | 15 / 20 |
+| Metrics and tracking | 18 / 24 |
 | Prototype | 14 / 20 |
 | Review checklist | 12 / 16 |
 

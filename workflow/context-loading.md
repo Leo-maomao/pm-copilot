@@ -61,7 +61,7 @@ When the user has no repository and no product documents, do not block forever. 
 
 After the user answers or explicitly accepts assumptions, generate a useful first package with visible assumptions and open questions.
 
-If current behavior, affected module, platform, data ownership, rollout constraints, or historical product decisions remain unclear and materially affect the solution, classify the missing information as `must answer now` and stop at the clarification gate.
+If current behavior, affected module, platform, data ownership, rollout constraints, or historical product decisions remain unclear and materially affect the solution, classify the missing information as `must answer before generation` and stop at the clarification gate.
 
 ## Conflict Resolution
 

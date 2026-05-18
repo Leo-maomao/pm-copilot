@@ -3,23 +3,44 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Low-Fidelity Prototype</title>
+  <title>Implementation-Oriented Prototype</title>
   <style type="text/css">
     body { margin: 0; font-family: Arial, sans-serif; background: #f4f5f7; color: #1f2937; }
-    .frame { width: 390px; min-height: 760px; margin: 24px auto; background: #fff; border: 1px solid #d0d5dd; }
+    .shell { display: grid; grid-template-columns: minmax(320px, 420px) minmax(260px, 360px); gap: 20px; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .frame { min-height: 760px; background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
     .bar { padding: 12px 16px; border-bottom: 1px solid #eaecf0; font-weight: 700; }
     .content { padding: 16px; }
     .button { width: 100%; border: 0; padding: 12px; background: #2563eb; color: #fff; font-weight: 700; cursor: pointer; }
     .muted { color: #667085; font-size: 13px; }
+    .note-panel { background: #fff; border: 1px solid #d0d5dd; padding: 16px; }
+    .note-panel h2 { margin: 0 0 12px; font-size: 16px; }
+    .note-panel button { display: block; width: 100%; margin: 8px 0; padding: 10px; border: 1px solid #d0d5dd; background: #fff; text-align: left; cursor: pointer; }
+    .annotation { margin-top: 12px; padding: 12px; background: #f9fafb; border: 1px solid #eaecf0; font-size: 13px; }
+    @media (max-width: 760px) { .shell { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <div class="frame">
-    <div class="bar">Low-fidelity prototype</div>
-    <div class="content">
-      <p class="muted">Replace this template with feature-specific screens and interactions.</p>
-      <button class="button" type="button">Primary action</button>
+  <div class="shell">
+    <div class="frame">
+      <div class="bar">Prototype - replace with feature title</div>
+      <div class="content">
+        <p class="muted">Prototype only. Not production code. Replace this template with feature-specific screens, states, and interactions.</p>
+        <button class="button" type="button" onclick="showNote('Primary action should show the next state, validation, loading, success, and error behavior.')">Primary action</button>
+        <div class="annotation" id="annotation">Click an annotation item to view UI, data, tracking, and implementation notes.</div>
+      </div>
+    </div>
+    <div class="note-panel">
+      <h2>Annotations</h2>
+      <button type="button" onclick="showNote('UI: describe layout, component behavior, responsive rules, and copy requirements.')">UI behavior</button>
+      <button type="button" onclick="showNote('Data: list required fields, validation rules, empty states, and error states.')">Data and validation</button>
+      <button type="button" onclick="showNote('Tracking: list important event hooks and property notes.')">Tracking hooks</button>
+      <button type="button" onclick="showNote('Engineering: note API dependencies, permission checks, rollout, and assumptions.')">Engineering notes</button>
     </div>
   </div>
+  <script>
+    function showNote(text) {
+      document.getElementById('annotation').textContent = text;
+    }
+  </script>
 </body>
 </html>

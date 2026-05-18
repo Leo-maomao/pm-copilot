@@ -68,7 +68,7 @@ templates/task-brief-template.md
 To:
 
 ```text
-examples/<run-id>/task-brief.md
+outputs/<run-id>/task-brief.md
 ```
 
 Write the raw request exactly as you received it. Do not over-polish the request. The Discovery Agent is expected to clarify it.
@@ -87,7 +87,7 @@ Read:
 - guardrails/failover.md
 - artifacts/artifact-contracts.md
 - context/product-context.local.yaml
-- examples/<run-id>/task-brief.md
+- outputs/<run-id>/task-brief.md
 
 Follow the workflow and produce a review-ready package under:
 outputs/<run-id>/
@@ -102,11 +102,12 @@ Check that the output includes:
 
 - Clarifying questions
 - Assumptions
+- Consolidated PM package
 - PRD
 - Metrics tree
-- Tracking plan
-- Mermaid user flow
-- Platform-specific low-fidelity HTML prototype
+- Tracking plan Markdown table and CSV export
+- Renderable user flow diagram and Mermaid source
+- Platform-specific clickable annotated HTML prototype
 - Review checklist
 - Final package summary
 

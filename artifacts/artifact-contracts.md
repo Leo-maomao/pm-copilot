@@ -8,6 +8,33 @@ Write artifacts under the active `outputs/<run-id>/` folder. Do not overwrite a 
 
 If must-answer questions are unresolved, generate only the task brief, clarifying questions, assumptions, and run log. Downstream artifacts must wait for user answers or explicit assumption approval.
 
+The primary reviewer-facing artifact is `pm-package.md`. Separate files may still be generated as source files, exports, or focused handoff artifacts, but the user should be able to review the whole requirement from the package.
+
+Clarification output must not contradict itself. Do not mark one question as both blocking and assumed. Use distinct buckets: `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
+
+## PM Package
+
+Required sections:
+
+- Executive summary
+- Context and current-state fit
+- Clarification status
+- PRD
+- Metrics tree
+- Tracking plan table
+- User flow diagram
+- Prototype link, annotations, and implementation notes
+- Review checklist
+- Assumptions and confirmations
+- Open risks and next actions
+
+Minimum quality bar:
+
+- A reviewer can understand the whole requirement without opening every source file.
+- Source files and exports are linked from the package.
+- Status is explicit: `Blocked`, `Draft with assumptions`, `Ready for review`, or `Ready for engineering`.
+- Items that must be confirmed before development or launch are separate from assumptions used for draft generation.
+
 ## PRD
 
 Required sections:
@@ -57,7 +84,12 @@ Minimum quality bar:
 
 ## Tracking Plan
 
-Required columns:
+Primary output:
+
+- `tracking-plan.md` with Markdown tables.
+- `tracking-plan.csv` as a machine-readable export when analytics or engineering needs importable data.
+
+Required event table columns:
 
 - event_name
 - description
@@ -70,15 +102,33 @@ Required columns:
 - validation_notes
 - privacy_notes
 
+Required property table columns:
+
+- property_name
+- type
+- required
+- example
+- description
+- allowed_values
+- privacy_level
+- source
+
 Minimum quality bar:
 
 - Event names follow the configured taxonomy.
 - Each core user action has coverage or an explicit omission reason.
+- Each event lists complete required and optional properties.
+- Property definitions are centralized so engineering and analytics do not infer field meaning.
 - Sensitive properties are flagged and minimized.
 
-## Mermaid User Flow
+## User Flow Diagram
 
-Required elements:
+Primary output:
+
+- `user-flow.md` containing a renderable Mermaid diagram block plus legend and notes.
+- `user-flow.mmd` as the Mermaid source export.
+
+Required diagram elements:
 
 - Entry point
 - Main success path
@@ -88,9 +138,11 @@ Required elements:
 
 Minimum quality bar:
 
-- The diagram renders as Mermaid.
+- The artifact is a standard flowchart, not a prose list.
+- The diagram renders as Mermaid in GitHub-compatible Markdown or another stated renderer.
 - Branch labels are meaningful.
 - The flow matches the PRD scope.
+- Notes explain only assumptions or edge cases that cannot fit cleanly in the diagram.
 
 ## HTML Prototype
 
@@ -100,13 +152,17 @@ Required elements:
 - Simulates the selected platform container.
 - Includes key screens and states.
 - Includes interaction for the main path.
-- Labels itself as low-fidelity.
+- States its fidelity level: `low`, `mid`, or `high`.
+- Includes clickable annotations or an annotation panel for UI, interaction, data, edge case, and implementation notes.
+- Includes enough spacing, hierarchy, copy, states, and component behavior for UI and engineering reference.
 
 Minimum quality bar:
 
 - No external assets are required.
 - Text fits in the layout.
 - The prototype does not claim to be production code.
+- The prototype is implementation-oriented: it shows real screens, state changes, validation, errors, empty states, permissions, and success feedback where relevant.
+- Use high-fidelity direction when the request provides enough brand, visual, and interaction context; otherwise use a polished mid-fidelity prototype rather than a bare wireframe.
 
 ## Review Checklist
 

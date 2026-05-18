@@ -36,7 +36,7 @@ The intended experience is:
 User: I need a PRD for checkout coupon optimization.
 Agent: I will inspect the relevant product context, then clarify the key unknowns before generation.
 Agent: <asks must-answer questions and stops if blocking unknowns exist>
-Agent: <after answers or explicit permission to assume, creates examples/<run-id>/ and outputs/<run-id>/>
+Agent: <after answers or explicit permission to assume, creates outputs/<run-id>/>
 ```
 
 The user should not need to manually copy templates or create folders. Do that for them.
@@ -71,12 +71,13 @@ The user should not need to manually copy templates or create folders. Do that f
 4. Infer a scenario slug and run id:
    - Use a short lowercase kebab-case name.
    - Example: `membership-renewal`, `checkout-coupon`, `team-permissions`.
-   - Use the slug as the run id when no matching folder exists.
-   - If `examples/<slug>/` or `outputs/<slug>/` already exists, create a unique run id by appending the local timestamp, for example `checkout-coupon-20260518-1430`.
+   - Use the slug as the run id when no matching output folder exists and the slug does not collide with a curated example scenario.
+   - If `outputs/<slug>/` already exists, or if `examples/<slug>/` exists as a curated scenario, create a unique run id by appending the local timestamp, for example `checkout-coupon-20260518-1430`.
    - Reuse an existing output folder only when the user explicitly asks to update that requirement.
+   - For real user runs, keep all generated run artifacts under `outputs/<run-id>/`. Use `examples/` only for curated scenario-library inputs.
 
 5. Before the clarification gate, create or update only:
-   - `examples/<run-id>/task-brief.md`
+   - `outputs/<run-id>/task-brief.md`
    - `outputs/<run-id>/clarifying-questions.md`
    - `outputs/<run-id>/assumptions.md`
    - `outputs/<run-id>/run-log.yaml`
@@ -94,19 +95,24 @@ The user should not need to manually copy templates or create folders. Do that f
      - Payment, privacy, legal, compliance, security, or financial risk
    - If any must-answer question exists, write only the task brief, clarifying questions, assumption log, and run log, then stop and wait for the user's answer.
    - Do not treat user silence as approval to continue.
+   - Do not label the same unknown as both `must answer before generation` and `can draft with stated assumption`.
+   - Use three distinct buckets: `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
 
 7. After the clarification gate passes, create or update:
+   - `outputs/<run-id>/pm-package.md`
    - `outputs/<run-id>/prd.md`
    - `outputs/<run-id>/metrics-tree.md`
+   - `outputs/<run-id>/tracking-plan.md`
    - `outputs/<run-id>/tracking-plan.csv`
    - `outputs/<run-id>/user-flow.mmd`
+   - `outputs/<run-id>/user-flow.md`
    - `outputs/<run-id>/prototype-<platform>.html`
    - `outputs/<run-id>/review-checklist.md`
    - `outputs/<run-id>/final-package-summary.md`
 
 8. Continue with assumptions only when:
    - The user explicitly says to proceed without answers, or
-   - The unknown is clearly low-impact and listed as `can decide later`.
+   - The unknown is clearly low-impact and listed as `can draft with stated assumption` or `must confirm before development or launch`.
    - Keep every unanswered must-answer question visible in the final package if the user explicitly accepts the risk.
    - Keep unanswered questions visible in the final package.
 
@@ -153,5 +159,5 @@ Final response should include:
 - Do not claim a tool was used if it was not.
 - Do not collect forbidden sensitive tracking properties.
 - Do not hide assumptions.
-- Do not present low-fidelity HTML prototypes as production code.
+- Do not present HTML prototypes as production code.
 - Require human confirmation for payment, privacy, legal, compliance, financial, or security-sensitive decisions.

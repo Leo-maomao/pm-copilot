@@ -28,9 +28,12 @@ Create:
 examples/<scenario>/task-brief.md
 outputs/<scenario>/clarifying-questions.md
 outputs/<scenario>/assumptions.md
+outputs/<scenario>/pm-package.md
 outputs/<scenario>/prd.md
 outputs/<scenario>/metrics-tree.md
+outputs/<scenario>/tracking-plan.md
 outputs/<scenario>/tracking-plan.csv
+outputs/<scenario>/user-flow.md
 outputs/<scenario>/user-flow.mmd
 outputs/<scenario>/prototype-<platform>.html
 outputs/<scenario>/review-checklist.md
@@ -41,6 +44,8 @@ outputs/<scenario>/final-package-summary.md
 
 - The raw request should be realistic and slightly ambiguous.
 - The output should include assumptions, not pretend all information is known.
-- The prototype should match the selected platform.
-- Tracking should include privacy notes.
+- `pm-package.md` should let reviewers understand the requirement without opening every source file.
+- The prototype should match the selected platform, be clickable, and include annotations or implementation notes.
+- Tracking should use Markdown event and property tables with privacy notes.
+- User flow should be a renderable Mermaid diagram in Markdown.
 - Review checklist should identify at least one realistic open decision.

@@ -66,6 +66,6 @@ Map PM Copilot folders to your platform concepts:
 
 - Loading all examples as current product facts.
 - Letting the agent skip clarification for ambiguous requests.
-- Treating low-fidelity HTML prototypes as production implementation.
+- Treating HTML prototypes as production implementation.
 - Allowing source-free competitor claims.
 - Adding sensitive tracking properties without privacy review.

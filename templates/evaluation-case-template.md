@@ -36,9 +36,12 @@ Paste the original realistic product request here.
 
 - `outputs/<run-id>/clarifying-questions.md`
 - `outputs/<run-id>/assumptions.md`
+- `outputs/<run-id>/pm-package.md`
 - `outputs/<run-id>/prd.md`
 - `outputs/<run-id>/metrics-tree.md`
+- `outputs/<run-id>/tracking-plan.md`
 - `outputs/<run-id>/tracking-plan.csv`
+- `outputs/<run-id>/user-flow.md`
 - `outputs/<run-id>/user-flow.mmd`
 - `outputs/<run-id>/prototype-<platform>.html`
 - `outputs/<run-id>/review-checklist.md`
@@ -54,7 +57,7 @@ Paste the original realistic product request here.
 |---|---|
 | Package | 14 / 20 |
 | PRD | 18 / 24 |
-| Metrics and tracking | 15 / 20 |
+| Metrics and tracking | 18 / 24 |
 | Prototype | 14 / 20 |
 | Review checklist | 12 / 16 |
 

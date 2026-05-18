@@ -17,11 +17,11 @@ Use my local product context if it exists; otherwise use the example context and
 The agent should automatically follow `PM_COPILOT.md` and:
 
 - Infer a scenario name and unique run id.
-- Create `examples/<run-id>/task-brief.md`.
-- Create `outputs/<run-id>/`.
+- Create `outputs/<run-id>/task-brief.md`.
+- Create all generated run artifacts under `outputs/<run-id>/`.
 - Ask must-answer clarification questions before downstream generation.
 - Stop and wait when critical information is missing.
-- Generate PRD, metrics, tracking plan, flow, prototype, review checklist, final package, and run log.
+- Generate a consolidated `pm-package.md`, plus PRD, metrics, tracking plan tables, flow diagram, prototype, review checklist, exports, and run log.
 - Run validation when possible.
 
 ## Codex and AGENTS.md
@@ -86,7 +86,7 @@ User gives request
 -> Agent loads workflow, guardrails, contracts, and context
 -> Agent asks high-impact clarification questions before generation
 -> User answers or explicitly says to proceed with assumptions
--> Agent creates scenario brief and outputs
+-> Agent creates the task brief and outputs under one run folder
 -> Agent reviews package
 -> Agent returns artifact paths and blockers
 ```
@@ -100,14 +100,14 @@ We want to improve coupon usage on checkout. Users say they cannot find where to
 Expected generated paths:
 
 ```text
-examples/checkout-coupon/task-brief.md
+outputs/checkout-coupon/task-brief.md
 outputs/checkout-coupon/
 ```
 
 If the same scenario already exists, the agent should create a timestamped run folder such as:
 
 ```text
-examples/checkout-coupon-20260518-1430/task-brief.md
+outputs/checkout-coupon-20260518-1430/task-brief.md
 outputs/checkout-coupon-20260518-1430/
 ```
 

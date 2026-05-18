@@ -46,8 +46,9 @@ Minimum recommended PRD score: 18 / 24.
 | Trigger precision | Ambiguous triggers | Some triggers specific | Every event has precise trigger timing |
 | Property quality | Sensitive or vague properties | Mostly usable | Required/optional properties are minimal, useful, and privacy-aware |
 | Validation | Missing | Basic notes | QA and analytics validation notes are actionable |
+| Table completeness | Events are prose or fragmented | Event table exists but fields are incomplete | Event table and property dictionary are complete and reviewable |
 
-Minimum recommended analytics score: 15 / 20.
+Minimum recommended analytics score: 18 / 24.
 
 ## Prototype Rubric
 
@@ -57,7 +58,7 @@ Minimum recommended analytics score: 15 / 20.
 | Core flow | Missing | Main path visible | Main path is interactable |
 | States | Only happy path | Some states | Relevant loading, empty, error, permission, confirmation, or success states |
 | Local usability | Does not open | Opens with issues | Self-contained HTML with no build step |
-| Fidelity boundary | Pretends to be production | Some ambiguity | Clearly labeled low-fidelity prototype |
+| Fidelity and handoff clarity | Pretends to be production or is too vague to implement | Prototype is usable but lacks annotations or key states | Clearly labeled prototype with appropriate fidelity, annotations, and implementation notes |
 
 Minimum recommended prototype score: 14 / 20.
 
@@ -108,13 +109,14 @@ Minimum recommended review score: 12 / 16.
 - Trigger precision:
 - Property quality:
 - Validation:
+- Table completeness:
 
 ## Prototype
 - Platform fit:
 - Core flow:
 - States:
 - Local usability:
-- Fidelity boundary:
+- Fidelity and handoff clarity:
 
 ## Review Checklist
 - Severity:

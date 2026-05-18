@@ -25,9 +25,12 @@ Use this checklist before tagging or publishing a release.
 - Every output folder has:
   - `clarifying-questions.md`
   - `assumptions.md`
+  - `pm-package.md`
   - `prd.md`
   - `metrics-tree.md`
+  - `tracking-plan.md`
   - `tracking-plan.csv`
+  - `user-flow.md`
   - `user-flow.mmd`
   - `review-checklist.md`
   - `final-package-summary.md`
@@ -53,7 +56,7 @@ tidy -q -e outputs/membership-auto-renewal/prototype-h5.html
 - Tracking plans avoid forbidden sensitive properties.
 - Research claims include sources or are labeled as assumptions.
 - Human confirmation points are visible for privacy, payment, legal, finance, or compliance issues.
-- Prototypes are labeled low fidelity.
+- Prototypes are labeled as prototypes, state the production-code boundary, and include enough annotations for UI and engineering review.
 - Serious real-task failures are added to `evals/` as regression cases.
 
 ## Release Notes

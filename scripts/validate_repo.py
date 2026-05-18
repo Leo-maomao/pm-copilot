@@ -54,6 +54,9 @@ REQUIRED_FILES = [
     "templates/agent-run-log-template.yaml",
     "templates/evaluation-case-template.md",
     "templates/direct-request-template.md",
+    "templates/pm-package-template.md",
+    "templates/tracking-plan-template.md",
+    "templates/user-flow-template.md",
     "scripts/install_adapter.py",
     "adapters/codex/AGENTS.snippet.md",
     "adapters/claude-code/CLAUDE.snippet.md",
@@ -64,9 +67,12 @@ REQUIRED_FILES = [
 REQUIRED_OUTPUT_FILES = [
     "clarifying-questions.md",
     "assumptions.md",
+    "pm-package.md",
     "prd.md",
     "metrics-tree.md",
+    "tracking-plan.md",
     "tracking-plan.csv",
+    "user-flow.md",
     "user-flow.mmd",
     "review-checklist.md",
     "final-package-summary.md",
@@ -84,6 +90,24 @@ TRACKING_COLUMNS = [
     "validation_notes",
     "privacy_notes",
 ]
+
+BINARY_SUFFIXES = {
+    ".avif",
+    ".docx",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".pdf",
+    ".png",
+    ".pptx",
+    ".webp",
+    ".xls",
+    ".xlsx",
+    ".zip",
+}
+
+MACHINE_PATH_RE = re.compile(r"^[A-Za-z0-9._@+/-]+$")
+PROPERTY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def fail(message: str) -> None:
@@ -155,8 +179,11 @@ def check_examples() -> None:
 
         for prototype in prototypes:
             text = prototype.read_text(encoding="utf-8")
-            if "Low-fidelity" not in text and "low-fidelity" not in text:
-                fail(f"Prototype is not labeled low-fidelity: {prototype.relative_to(ROOT)}")
+            lowered = text.lower()
+            if "prototype" not in lowered:
+                fail(f"Prototype is not labeled as a prototype: {prototype.relative_to(ROOT)}")
+            if "production" not in lowered:
+                fail(f"Prototype must state production boundary: {prototype.relative_to(ROOT)}")
 
 
 def check_tracking_plans() -> None:
@@ -170,13 +197,51 @@ def check_tracking_plans() -> None:
                 fail(f"Tracking plan has no rows: {csv_path.relative_to(ROOT)}")
             for row in rows:
                 event_name = row["event_name"]
-                if not re.match(r"^[a-z][a-z0-9_]*$", event_name):
+                if not PROPERTY_NAME_RE.match(event_name):
                     fail(f"Invalid event name '{event_name}' in {csv_path.relative_to(ROOT)}")
+                for column in ("required_properties", "optional_properties"):
+                    for property_name in parse_property_list(row[column]):
+                        if not PROPERTY_NAME_RE.match(property_name):
+                            fail(
+                                f"Invalid property name '{property_name}' in "
+                                f"{csv_path.relative_to(ROOT)}"
+                            )
+
+    for md_path in sorted((ROOT / "outputs").glob("*/tracking-plan.md")):
+        text = md_path.read_text(encoding="utf-8")
+        required_headers = [
+            "event_name",
+            "description",
+            "trigger",
+            "required_properties",
+            "privacy_notes",
+            "property_name",
+            "privacy_level",
+        ]
+        for header in required_headers:
+            if header not in text:
+                fail(f"Tracking markdown missing '{header}' in {md_path.relative_to(ROOT)}")
 
 
-def check_ascii() -> None:
+def parse_property_list(value: str) -> list[str]:
+    if not value:
+        return []
+    normalized = value.replace(";", ",").replace("|", ",")
+    return [part.strip() for part in normalized.split(",") if part.strip()]
+
+
+def check_user_flows() -> None:
+    for md_path in sorted((ROOT / "outputs").glob("*/user-flow.md")):
+        text = md_path.read_text(encoding="utf-8")
+        if "```mermaid" not in text or "flowchart" not in text:
+            fail(f"User flow markdown must include renderable Mermaid flowchart: {md_path.relative_to(ROOT)}")
+
+
+def check_text_files_are_utf8() -> None:
     for path in ROOT.rglob("*"):
         if path.is_dir() or ".git" in path.parts:
+            continue
+        if path.suffix.lower() in BINARY_SUFFIXES:
             continue
         try:
             text = path.read_text(encoding="utf-8")
@@ -187,8 +252,17 @@ def check_ascii() -> None:
         for index, char in enumerate(text):
             if char == "\n" or char == "\r" or char == "\t":
                 continue
-            if ord(char) < 32 or ord(char) > 126:
-                fail(f"Non-ASCII character in {path.relative_to(ROOT)} at offset {index}")
+            if ord(char) < 32:
+                fail(f"Control character in {path.relative_to(ROOT)} at offset {index}")
+
+
+def check_machine_readable_paths() -> None:
+    for path in ROOT.rglob("*"):
+        if ".git" in path.parts:
+            continue
+        relative_path = path.relative_to(ROOT).as_posix()
+        if not MACHINE_PATH_RE.match(relative_path):
+            fail(f"Non-ASCII or unsupported character in path: {relative_path}")
 
 
 def main() -> None:
@@ -197,7 +271,9 @@ def main() -> None:
     check_skills()
     check_examples()
     check_tracking_plans()
-    check_ascii()
+    check_user_flows()
+    check_text_files_are_utf8()
+    check_machine_readable_paths()
     print("PM Copilot repository validation passed.")
 
 
