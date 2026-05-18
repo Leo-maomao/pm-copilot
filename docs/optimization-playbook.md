@@ -2,7 +2,7 @@
 
 This playbook explains how to improve PM Copilot from a good workflow kit into a reliable agent workflow for real product work.
 
-North star: PM Copilot should become an end-to-end product-manager agent that ordinary PMs can use with a code repository, product documents, or only an early brief.
+Evaluation must cover all supported context modes: `repo-backed`, `document-backed`, and `brief-only`. A workflow change is incomplete if it only works for code repositories.
 
 The core idea: do not tune by feeling. Tune from traces, failures, and regression cases.
 

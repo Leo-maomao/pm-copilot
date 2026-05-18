@@ -4,9 +4,9 @@ This is the canonical cross-platform entry for PM Copilot.
 
 Use this file when an agent needs to run product manager work such as PRD, tracking plan, product requirements, prototype, competitor research, metrics, review checklist, or full product review package generation.
 
-## Product Principle
+## Context Source Rule
 
-PM Copilot's north star is an end-to-end product-manager agent that ordinary PMs can use, whether or not they have an engineering repository. The workflow must support repo-backed products, document-backed products, and early ideas that only have a short brief.
+Do not assume the product context comes from a code repository. Classify every run as `repo-backed`, `document-backed`, or `brief-only`, then load context and apply the clarification gate according to that mode.
 
 ## Activation
 

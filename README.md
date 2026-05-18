@@ -4,7 +4,7 @@ PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product ma
 
 The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, artifact contracts, workflow rules, guardrails, templates, and examples that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
 
-PM Copilot is designed for PMs with or without a software repository. It can work from an embedded codebase, historical PRDs, product docs, screenshots, research notes, analytics exports, support tickets, meeting notes, or a short early-stage brief.
+PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `brief-only`. The agent should choose the mode from available inputs before drafting, so it does not require a code repository when product documents or a short brief are the actual starting point.
 
 ## What It Produces
 
