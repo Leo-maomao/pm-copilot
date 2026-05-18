@@ -29,12 +29,8 @@ Example: checkout, onboarding, retention, admin, booking, content.
 ## Required artifacts
 
 - PRD
-- Metrics tree
-- Tracking plan
-- User flow
-- Prototype
-- Review checklist
-- Final package
+- Annotated prototype
+- Optional export needs, if any
 
 ## Sensitive data note
 

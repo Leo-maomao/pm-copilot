@@ -1,6 +1,6 @@
 # Delivery Check Workflow
 
-This workflow replaces the old default `pm-package.md` packaging step. It verifies that the PM-facing deliverables are complete and consistent.
+This workflow verifies that the PM-facing deliverables are complete and consistent.
 
 ## Inputs
 
@@ -29,4 +29,4 @@ This workflow replaces the old default `pm-package.md` packaging step. It verifi
 
 ## Legacy Files
 
-Do not generate `pm-package.md`, `final-package-summary.md`, `review-checklist.md`, `tracking-plan.md`, `user-flow.md`, or other split Markdown files by default. They are legacy or explicit-request outputs.
+Do not generate `pm-package.md`, `final-package-summary.md`, `review-checklist.md`, `tracking-plan.md`, `user-flow.md`, or other split Markdown files by default. Keep the handoff centered on `prd.md` and the prototype unless the user explicitly asks for an export.

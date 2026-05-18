@@ -17,7 +17,7 @@ Make the final PM delivery easy to review, share, and continue without creating 
 4. Verify the PRD contains version history, confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, tracking plan, prototype reference, risks/open confirmations, acceptance criteria, and validation results.
 5. Verify optional exports are useful or explicitly requested.
 6. Mark readiness separately: PRD status, engineering handoff status, and launch status.
-7. Do not create `pm-package.md` or `final-package-summary.md` unless the user explicitly asks for a legacy consolidated package.
+7. Do not create `pm-package.md` or `final-package-summary.md` unless the user explicitly asks for a separate consolidated summary.
 
 ## Output
 

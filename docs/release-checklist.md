@@ -19,13 +19,11 @@ Use this checklist before tagging or publishing a release.
 - Artifact contracts match templates.
 - Optimization docs and eval templates are present.
 
-## Examples
+## Regression Cases
 
-- Every scenario in `examples/` has matching output folder in `outputs/`.
-- Every output folder has:
-  - `prd.md`
-  - optional split source or export files only when needed
-- At least one platform-specific prototype exists when the scenario is user-facing.
+- Real failures that should not regress are captured in `evals/`.
+- Evaluation cases describe expected artifacts without committing generated runtime outputs.
+- Generated `outputs/` folders are not shipped as repository examples.
 
 ## Validation
 
@@ -38,12 +36,12 @@ python3 scripts/validate_repo.py
 Optional:
 
 ```bash
-tidy -errors -quiet -utf8 outputs/membership-auto-renewal/prototype-h5.html
+tidy -errors -quiet -utf8 templates/prototype-template.html
 ```
 
 ## Content Quality
 
-- Examples use synthetic or anonymized data.
+- Evals use synthetic or anonymized data.
 - Tracking plans avoid forbidden sensitive properties.
 - Tracking plans record taxonomy source and mark proposed events when no existing convention is loaded.
 - Research claims include sources or are labeled as assumptions.

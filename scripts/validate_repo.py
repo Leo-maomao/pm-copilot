@@ -21,8 +21,6 @@ REQUIRED_DIRS = [
     "tools",
     "guardrails",
     "templates",
-    "examples",
-    "outputs",
     "evals",
     "docs",
     "scripts",
@@ -41,7 +39,6 @@ REQUIRED_FILES = [
     "workflow/main-workflow.md",
     "workflow/context-loading.md",
     "artifacts/artifact-contracts.md",
-    "artifacts/final-package-contract.md",
     "artifacts/prd-contract.md",
     "artifacts/prototype-contract.md",
     "artifacts/trace-contract.md",
@@ -58,53 +55,13 @@ REQUIRED_FILES = [
     "templates/agent-run-log-template.yaml",
     "templates/evaluation-case-template.md",
     "templates/direct-request-template.md",
-    "templates/evaluation-case-template.md",
-    "templates/final-package-template.md",
-    "templates/pm-package-template.md",
     "templates/prd-template.md",
-    "templates/review-checklist-template.md",
-    "templates/tracking-plan-template.md",
     "templates/tracking-plan-template.csv",
-    "templates/user-flow-template.md",
     "scripts/install_adapter.py",
     "adapters/codex/AGENTS.snippet.md",
     "adapters/claude-code/CLAUDE.snippet.md",
     "adapters/cursor/.cursor/rules/pm-copilot.mdc",
     "adapters/cursor/CURSOR_RULE.snippet.md",
-]
-
-REQUIRED_OUTPUT_FILES = [
-    "prd.md",
-]
-
-FORBIDDEN_DEFAULT_OUTPUT_FILES = [
-    "assumptions.md",
-    "clarifying-questions.md",
-    "final-package-summary.md",
-    "metrics-tree.md",
-    "pm-package.md",
-    "review-checklist.md",
-    "tracking-plan.md",
-    "user-flow.md",
-]
-
-REQUIRED_PRD_SECTIONS = [
-    "Version History",
-    "Requirement Input and Confirmation Record",
-    "Readiness",
-    "Background",
-    "Research and Reference Findings",
-    "Project Goals and Metrics",
-    "Scope",
-    "Requirement List",
-    "Requirement Details",
-    "Flow Diagram",
-    "Tracking Plan",
-    "Prototype Reference",
-    "Risks and Open Confirmations",
-    "Acceptance Criteria",
-    "Delivery Review Findings",
-    "Validation Results",
 ]
 
 TRACKING_COLUMNS = [
@@ -157,7 +114,7 @@ REQUIRED_TEXT_TOKENS = {
         "Requirement details",
         "Tracking Plan",
         "HTML Prototype",
-        "Legacy Optional Artifacts",
+        "Optional Exports",
     ],
     "artifacts/trace-contract.md": [
         "request_source:",
@@ -181,23 +138,6 @@ REQUIRED_TEXT_TOKENS = {
         "<localized research and reference findings>",
         "<localized requirement details>",
         "<localized prototype reference>",
-        "<localized validation results>",
-    ],
-    "templates/pm-package-template.md": [
-        "<localized canonical PRD>",
-        "<localized canonical prototype>",
-        "<localized readiness summary>",
-    ],
-    "templates/final-package-template.md": [
-        "<localized canonical deliverables>",
-        "<localized readiness>",
-        "<localized validation>",
-    ],
-    "templates/review-checklist-template.md": [
-        "<localized evidence>",
-        "<localized owner>",
-        "<localized required before>",
-        "<localized content source and launch review>",
         "<localized validation results>",
     ],
     "templates/evaluation-case-template.md": [
@@ -239,7 +179,7 @@ def check_contract_template_alignment() -> None:
 def check_version() -> None:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     if not re.match(r"^\d+\.\d+\.\d+$", version):
-        fail(f"VERSION must use MAJOR.MINOR.DEBUG format: {version}")
+        fail(f"VERSION must use MAJOR.MINOR.PATCH format: {version}")
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     if version not in changelog:
@@ -262,50 +202,6 @@ def check_skills() -> None:
             fail(f"Skill missing name: {skill_file.relative_to(ROOT)}")
         if not re.search(r"^description:\s*.+", text, re.MULTILINE):
             fail(f"Skill missing description: {skill_file.relative_to(ROOT)}")
-
-
-def check_examples() -> None:
-    example_dirs = sorted(path for path in (ROOT / "examples").iterdir() if path.is_dir())
-    if not example_dirs:
-        fail("No examples found")
-
-    for example_dir in example_dirs:
-        scenario = example_dir.name
-        brief = example_dir / "task-brief.md"
-        output_dir = ROOT / "outputs" / scenario
-        if not brief.is_file():
-            fail(f"Missing task brief for scenario: {scenario}")
-        if not output_dir.is_dir():
-            fail(f"Missing output directory for scenario: {scenario}")
-
-        for required in REQUIRED_OUTPUT_FILES:
-            if not (output_dir / required).is_file():
-                fail(f"Missing {required} for scenario: {scenario}")
-
-        for forbidden in FORBIDDEN_DEFAULT_OUTPUT_FILES:
-            if (output_dir / forbidden).exists():
-                fail(
-                    f"Default example output must consolidate {forbidden} into "
-                    f"prd.md for scenario: {scenario}"
-                )
-
-        prd_text = (output_dir / "prd.md").read_text(encoding="utf-8")
-        lowered_prd = prd_text.lower()
-        for section in REQUIRED_PRD_SECTIONS:
-            if section.lower() not in lowered_prd:
-                fail(f"PRD missing section '{section}' for scenario: {scenario}")
-
-        prototypes = list(output_dir.glob("prototype-*.html"))
-        if not prototypes:
-            fail(f"Missing prototype HTML for scenario: {scenario}")
-
-        for prototype in prototypes:
-            text = prototype.read_text(encoding="utf-8")
-            lowered = text.lower()
-            if "prototype" not in lowered:
-                fail(f"Prototype is not labeled as a prototype: {prototype.relative_to(ROOT)}")
-            if "production" not in lowered:
-                fail(f"Prototype must state production boundary: {prototype.relative_to(ROOT)}")
 
 
 def check_tracking_plans() -> None:
@@ -392,7 +288,6 @@ def main() -> None:
     check_contract_template_alignment()
     check_version()
     check_skills()
-    check_examples()
     check_tracking_plans()
     check_user_flows()
     check_text_files_are_utf8()

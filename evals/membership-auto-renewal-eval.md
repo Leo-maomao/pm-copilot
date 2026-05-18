@@ -32,9 +32,9 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 
 ## Required Artifacts
 
-- `outputs/membership-auto-renewal/prd.md`
-- `outputs/membership-auto-renewal/prototype-h5.html`
-- `outputs/membership-auto-renewal/run-log.yaml` when a persistent trace is useful
+- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prototype-h5.html`
+- `outputs/<run-id>/run-log.yaml` when a persistent trace is useful
 - Optional split source or export files only when useful
 
 ## Known Risks

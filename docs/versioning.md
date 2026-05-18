@@ -3,26 +3,26 @@
 PM Copilot uses three-segment semantic versioning:
 
 ```text
-MAJOR.MINOR.DEBUG
+MAJOR.MINOR.PATCH
 ```
 
 Example:
 
 ```text
-0.1.10
+1.0.0
 ```
 
 ## Version Meaning
 
 | Segment | Meaning |
 |---|---|
-| MAJOR | Breaking changes to repository structure, artifact contracts, workflow states, or agent interfaces |
-| MINOR | New agents, skills, artifact types, examples, templates, or backward-compatible workflow capabilities |
-| DEBUG | Fixes, documentation improvements, example corrections, non-breaking template refinements, and commit-by-commit maintenance updates |
+| MAJOR | Broad refactors or core model changes that reshape repository structure, workflow, default deliverables, artifact contracts, or agent/skill/tool boundaries |
+| MINOR | Normal feature iterations, new capabilities, new eval coverage, new platform behavior, or backward-compatible workflow improvements |
+| PATCH | Patches, small fixes, copy edits, local documentation corrections, validator bug fixes, and narrow prompt refinements |
 
 ## Current Stability
 
-`0.1.x` means:
+`1.x` means:
 
 - Suitable for early users and contributors.
 - Interfaces may still change.
@@ -44,16 +44,16 @@ Non-breaking changes include:
 
 - Adding optional artifact sections.
 - Adding new skills.
-- Adding new examples.
+- Adding new eval cases.
 - Improving wording in existing prompts.
 - Adding new guardrails.
 - Adding optional validation checks.
 
 ## Increment Rules
 
-- Increment `MAJOR` for breaking repository structure, artifact contract, workflow state, or agent interface changes.
-- Increment `MINOR` for new backward-compatible capabilities, artifact types, agent/skill additions, examples, or workflow features.
-- Increment `DEBUG` for each normal committed change, including fixes, docs, templates, guardrails, eval updates, and validation refinements.
+- Increment `MAJOR` for broad refactors, default delivery changes, repository slimming that removes public files, artifact contract changes, workflow state changes, or agent/skill/tool boundary changes.
+- Increment `MINOR` for normal feature iterations, new backward-compatible capabilities, agent/skill additions, eval additions, platform behavior improvements, or workflow enhancements.
+- Increment `PATCH` for small fixes, copy edits, narrow docs updates, validator bug fixes, and localized prompt/template refinements.
 - Do not use prerelease suffixes or release-candidate labels.
 
 ## Upgrade Rules
@@ -81,7 +81,7 @@ Every release should update:
 - `CHANGELOG.md`
 - `docs/release-checklist.md` if release rules changed
 - README links if new major docs are added
-- Example outputs if artifact contracts changed
+- Evals or templates if artifact contracts changed
 
 ## Deprecation Policy
 

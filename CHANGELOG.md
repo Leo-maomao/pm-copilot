@@ -2,9 +2,35 @@
 
 All notable changes to PM Copilot are documented in this file.
 
-The project uses three-segment semantic versioning: `MAJOR.MINOR.DEBUG`.
+The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
+
+## [1.0.0] - 2026-05-18
+
+Commit: pending current working-tree changes.
+
+### Changed
+
+- Adopted the project versioning rule that broad refactors change the first segment, normal feature iterations change the second segment, and patches change the third segment.
+- Bumped the project version from `0.1.10` to `1.0.0` because this release slims the repository structure and removes public example/package files.
+- Clarified that `AGENTS.md` is only a Codex compatibility shim for directly opening this repository; embedded users should rely on the adapter installed into the host project.
+- Updated README, direct-use, embedded-use, contribution, release, workflow, context, artifact, guardrail, and validation docs for the slimmer repository model.
+- Merged local privacy guidance into `guardrails/guardrails.md`.
+
+### Removed
+
+- Removed committed example inputs and generated example outputs from `examples/` and `outputs/`.
+- Removed scenario-library, quick-start, platform-guide, and prompt-recipe docs that duplicated the direct/embedded usage path.
+- Removed legacy package contracts and templates for `pm-package.md`, `final-package-summary.md`, split tracking Markdown, split user-flow Markdown, review checklist Markdown, and task-brief Markdown.
+- Removed the standalone `guardrails/privacy.md` file after merging its rules into the main guardrails.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/install_adapter.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Prototype template HTML validation passes with `tidy -errors -quiet -utf8 templates/prototype-template.html`.
 
 ## [0.1.10] - 2026-05-18
 

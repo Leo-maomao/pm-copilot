@@ -7,7 +7,7 @@ model: ""
 
 task:
   request_source: "" # conversation | file | example task brief | other
-  brief_path: "" # optional legacy or scenario-library input
+  brief_path: "" # optional user-provided input file
   raw_request: ""
   requested_artifacts: []
 

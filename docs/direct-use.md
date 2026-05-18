@@ -113,13 +113,12 @@ outputs/checkout-coupon-20260518-1430/prd.md
 outputs/checkout-coupon-20260518-1430/prototype-h5.html
 ```
 
-## When to Use Manual Mode
+## When to Prepare Extra Context
 
-Manual setup is still useful when:
+Extra setup is still useful when:
 
 - You want to prepare a carefully written task brief before running the agent.
 - You are building regression evals.
-- You are contributing examples to the repository.
 - You want to compare outputs across multiple agent platforms.
 
-For manual mode, see `docs/quick-start.md`.
+In those cases, put the extra source material in the workspace and reference it in the request. The default delivery should still be `prd.md` plus a prototype unless you ask for a specific export.

@@ -70,15 +70,15 @@ The user should not need to manually copy templates or create folders. Do that f
    - Brief-only mode: if neither a repository nor product documents are available, proceed only after clarifying the minimum context needed for the requested artifact. Use explicit assumptions for low-risk unknowns.
    - If no existing analytics taxonomy or event naming convention is found, say so explicitly. Treat generated tracking events as a proposed taxonomy, not as the product's existing standard.
    - Do not make the existing product adapt to an invented greenfield solution. Fit the requirement into the current product context unless the user explicitly asks for a redesign or greenfield exploration.
-   - Do not treat PM Copilot's examples as facts about the host product.
+   - Do not treat PM Copilot's templates or eval cases as facts about the host product.
 
 4. Infer a scenario slug and run id:
    - Use a short lowercase kebab-case name.
    - Example: `membership-renewal`, `checkout-coupon`, `team-permissions`.
    - Use the slug as the run id when no matching output folder exists and the slug does not collide with a curated example scenario.
-   - If `outputs/<slug>/` already exists, or if `examples/<slug>/` exists as a curated scenario, create a unique run id by appending the local timestamp, for example `checkout-coupon-20260518-1430`.
+   - If `outputs/<slug>/` already exists, create a unique run id by appending the local timestamp, for example `checkout-coupon-20260518-1430`.
    - Reuse an existing output folder only when the user explicitly asks to update that requirement.
-   - For real user runs, keep all generated run artifacts under `outputs/<run-id>/`. Use `examples/` only for curated scenario-library inputs.
+   - For real user runs, keep all generated run artifacts under `outputs/<run-id>/`. The repository does not ship example output folders.
 
 5. Before the clarification gate:
    - Ask blocking questions in the conversation.
@@ -114,7 +114,7 @@ The user should not need to manually copy templates or create folders. Do that f
      - `outputs/<run-id>/tracking-plan.csv`
      - `outputs/<run-id>/user-flow.mmd`
    - Do not create `pm-package.md`, `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
-   - Treat `pm-package.md` and split Markdown files as legacy or explicit-request exports only.
+   - Avoid split Markdown handoff files unless the user explicitly asks for them.
    - Keep confirmed MVP scope, optional scope, and future scope separate. Do not place an unconfirmed optional capability in MVP requirements or acceptance criteria.
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the prototype, PRD, and engineering handoff agree.
 

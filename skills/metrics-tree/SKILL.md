@@ -32,4 +32,4 @@ Define how success will be measured inside the PRD before or alongside the track
 - The primary metric maps to the stated goal.
 - Guardrails capture negative side effects.
 - Metrics can be instrumented or calculated.
-- Default delivery keeps metric content in `prd.md`; do not create `metrics-tree.md` unless the user asks for a split legacy file.
+- Default delivery keeps metric content in `prd.md`; do not create `metrics-tree.md` unless the user explicitly asks for a split file.

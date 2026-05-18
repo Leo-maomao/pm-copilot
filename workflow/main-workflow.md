@@ -105,11 +105,11 @@ If the agent cannot determine the current product state from available repositor
 
 ## Run Folder Rules
 
-Use `outputs/<run-id>/` as the single generated-artifact folder for each real requirement run. The run id is the scenario slug unless that output folder already exists or the slug collides with a curated scenario under `examples/`. For repeat, similar, or scenario-library-colliding requirements, append a local timestamp such as `team-permissions-20260518-1430`.
+Use `outputs/<run-id>/` as the single generated-artifact folder for each real requirement run. The run id is the scenario slug unless that output folder already exists. For repeat or similar requirements, append a local timestamp such as `team-permissions-20260518-1430`.
 
 Only update an existing run folder when the user explicitly names that folder or asks to revise the existing requirement.
 
-Do not create `examples/<run-id>/` for ordinary user runs. The `examples/` directory is reserved for stable scenario-library inputs, documentation, and regression fixtures.
+The repository does not ship example output folders. `outputs/` is generated at runtime by real user runs and should not be treated as product context.
 
 ## Delivery Rules
 

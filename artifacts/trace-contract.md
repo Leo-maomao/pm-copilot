@@ -75,7 +75,7 @@ next_actions:
 - Do not include sensitive raw user data.
 - Record tool limitations instead of hiding them.
 - Record assumptions separately from confirmed facts.
-- Record whether the raw request came from conversation, a file, a scenario-library task brief, or another source.
+- Record whether the raw request came from conversation, a file, a pasted brief, or another source.
 - Record whether must-answer or pre-development confirmation questions blocked generation, or were explicitly accepted as draft risk.
 - Record PRD, engineering handoff, and launch readiness separately. Do not use a single ready/not-ready label for all phases.
 - Record whether the run was repo-backed, document-backed, or brief-only.

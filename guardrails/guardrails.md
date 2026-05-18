@@ -27,6 +27,8 @@
 
 ## Privacy and Sensitive Data
 
+PM Copilot is local-first in v1. The repository does not include cloud storage, authentication, telemetry, or a hosted data service.
+
 Require human confirmation before processing or generating details involving:
 
 - Personal data
@@ -37,6 +39,10 @@ Require human confirmation before processing or generating details involving:
 - Confidential partner or customer information
 
 Never request or store raw passwords, full payment card numbers, government IDs, or unnecessary personal identifiers.
+
+Prefer synthetic, anonymized, sampled, or aggregated data. Do not commit real customer names, emails, phone numbers, payment details, partner secrets, private product strategy, or unreleased financial details to a public fork.
+
+Tracking plans must include privacy notes. Prefer aggregated metrics over raw user-level data, and use placeholder values in public examples or generated drafts unless the user explicitly provides approved data.
 
 ## Reference and Regulated Content
 

@@ -27,7 +27,7 @@ Create an analytics plan that engineering and analytics can implement and QA can
 
 - Tracking plan section for `prd.md` with event table and property dictionary
 - Taxonomy source status
-- Optional `tracking-plan.md` legacy split handoff file only when requested
+- Optional `tracking-plan.md` split handoff file only when requested
 - Optional `tracking-plan.csv` export
 - Validation checklist
 - Privacy notes

@@ -28,7 +28,7 @@ Add a better approval flow for team changes.
 - Inspect relevant host project context before proposing a solution.
 - Infer a unique run id.
 - Ask blocking questions in the conversation and create only `run-log.yaml` if a persistent trace is useful when must-answer questions remain open.
-- Stop before `prd.md`, metrics/tracking sections, flow sections, prototype, delivery review, and legacy package files.
+- Stop before `prd.md`, metrics/tracking sections, flow sections, prototype, delivery review, and separate summary files.
 
 ## Must-Answer Questions
 

@@ -25,8 +25,7 @@ host-repo/
     |-- PM_COPILOT.md
     |-- agents/
     |-- skills/
-    |-- workflow/
-    `-- outputs/
+    `-- workflow/
 ```
 
 ## Canonical Entry
@@ -164,5 +163,4 @@ For repeat or similar requests, PM Copilot should create a distinct timestamped 
 - Do not replace a software project's existing `AGENTS.md` with PM Copilot's full workflow.
 - Do not assume nested `pm-copilot/AGENTS.md` will be loaded by every tool.
 - Do not force users to say "Use PM Copilot" if the task clearly asks for PM work.
-- Do not load all PM Copilot examples as product facts for the host project.
 - Do not generate full downstream artifacts before must-answer questions are resolved.

@@ -2,7 +2,7 @@
 
 PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into two practical handoff artifacts: a complete PRD and a clickable annotated prototype.
 
-The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, artifact contracts, workflow rules, guardrails, templates, and examples that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
+The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, artifact contracts, workflow rules, guardrails, and templates that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
 
 PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `brief-only`. The agent should choose the mode from available inputs before drafting, so it does not require a code repository when product documents or a short brief are the actual starting point.
 
@@ -18,7 +18,7 @@ PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `
 
 ## Quick Start
 
-For direct agent usage, see `docs/direct-use.md`. For manual setup, see `docs/quick-start.md`.
+For direct agent usage, see `docs/direct-use.md`. For embedded project usage, see `docs/embedded-use.md`.
 
 1. Open this repository in your agent-enabled workspace.
 2. Say your product-manager request naturally, for example: `I need a PRD and tracking plan for checkout coupon optimization.`
@@ -83,7 +83,7 @@ PM Copilot should read those documents as the current product context, ask must-
 
 ```text
 PM_COPILOT.md  Canonical cross-platform PM Copilot entry
-AGENTS.md      Thin Codex shim for standalone mode
+AGENTS.md      Thin Codex shim for directly opening this repository
 adapters/      Host-project adapters for Codex, Claude Code, Cursor
 agents/        Agent roles, responsibilities, inputs, outputs, handoffs
 skills/        Reusable PM methods and task skills
@@ -93,8 +93,6 @@ artifacts/     Output contracts and quality bars
 tools/         Tool-use protocol and capability matrix
 guardrails/    Safety, privacy, source, assumption, and failover rules
 templates/     Reusable artifact templates
-examples/      Input briefs and scenario setup
-outputs/       Complete example outputs
 evals/         Regression-oriented evaluation cases
 docs/          User, maintainer, and release documentation
 scripts/       Lightweight local validation
@@ -116,9 +114,15 @@ The default interaction mode is "clarify before generation." If must-answer info
 
 For reference, policy, medical, legal, financial, safety, or operational content, PM Copilot records source status, review owner, review status, disclaimer status, and launch impact. Unreviewed content must be labeled as placeholder or draft even when the surrounding product framework is ready for engineering.
 
-Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, `prototype-<platform>.html`, and optionally `run-log.yaml`. The `examples/` directory is reserved for curated scenario-library inputs and regression fixtures. If the inferred scenario already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
+Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, `prototype-<platform>.html`, and optionally `run-log.yaml`. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the inferred run id already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
 
 PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese headings, labels, statuses, notes, and PM content; English requests should produce English equivalents. File names and machine-readable identifiers stay ASCII.
+
+## About AGENTS.md
+
+`AGENTS.md` is included only because Codex treats it as a repository instruction file when this repository is opened directly. It is a thin shim that points Codex to `PM_COPILOT.md`.
+
+For real embedded use, do not rely on the nested `pm-copilot/AGENTS.md`. Run `scripts/install_adapter.py` so the host project's own agent instruction file delegates PM work to `pm-copilot/PM_COPILOT.md`.
 
 ## Platform-Neutral Design
 
@@ -129,29 +133,14 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 - Artifact contracts define required output shape and minimum quality.
 - Guardrails define what the agent must not fabricate or silently assume.
 
-## Included Scenarios
-
-| Scenario | Platform | Purpose |
-|---|---|---|
-| `membership-auto-renewal` | H5 | Subscription renewal and payment recovery |
-| `team-permissions` | Web | Admin/SaaS permission management |
-| `content-save-app` | App | Native mobile content save and offline reading |
-| `mini-program-booking` | Mini Program | Appointment booking with authorization and forms |
-
-See `docs/scenario-library.md`.
-
 ## Documentation
 
 - `docs/direct-use.md` - direct one-shot agent usage
 - `docs/embedded-use.md` - using PM Copilot inside another development repository
-- `docs/quick-start.md` - first run guide
 - `docs/configuration.md` - product context configuration
-- `docs/platform-guides.md` - Codex, Claude Code, Cursor, and internal platform usage
-- `docs/prompt-recipes.md` - copy-paste prompts for common workflows
 - `docs/quality-rubric.md` - manual scoring rubric for generated PRD/prototype deliveries
 - `docs/optimization-playbook.md` - real-task optimization loop
 - `docs/failure-taxonomy.md` - failure classification and fix mapping
-- `docs/scenario-library.md` - available examples and how to add more
 - `docs/versioning.md` - versioning and compatibility policy
 - `docs/release-checklist.md` - release readiness checklist
 - `CONTRIBUTING.md` - contribution rules
