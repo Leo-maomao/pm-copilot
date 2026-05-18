@@ -1,0 +1,5 @@
+# Keep generated PM artifacts from dominating GitHub Linguist language stats.
+outputs/** linguist-generated=true
+examples/** linguist-documentation=true
+templates/** linguist-documentation=true
+*.mmd linguist-documentation=true
