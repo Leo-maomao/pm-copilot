@@ -26,14 +26,7 @@ Use this checklist before tagging or publishing a release.
   - `clarifying-questions.md`
   - `assumptions.md`
   - `pm-package.md`
-  - `prd.md`
-  - `metrics-tree.md`
-  - `tracking-plan.md`
-  - `tracking-plan.csv`
-  - `user-flow.md`
-  - `user-flow.mmd`
-  - `review-checklist.md`
-  - `final-package-summary.md`
+  - optional split source or export files only when needed
 - At least one platform-specific prototype exists when the scenario is user-facing.
 
 ## Validation

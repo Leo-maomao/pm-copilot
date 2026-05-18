@@ -37,15 +37,8 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 - `outputs/membership-auto-renewal/clarifying-questions.md`
 - `outputs/membership-auto-renewal/assumptions.md`
 - `outputs/membership-auto-renewal/pm-package.md`
-- `outputs/membership-auto-renewal/prd.md`
-- `outputs/membership-auto-renewal/metrics-tree.md`
-- `outputs/membership-auto-renewal/tracking-plan.md`
-- `outputs/membership-auto-renewal/tracking-plan.csv`
-- `outputs/membership-auto-renewal/user-flow.md`
-- `outputs/membership-auto-renewal/user-flow.mmd`
 - `outputs/membership-auto-renewal/prototype-h5.html`
-- `outputs/membership-auto-renewal/review-checklist.md`
-- `outputs/membership-auto-renewal/final-package-summary.md`
+- Optional split source or export files only when useful
 
 ## Known Risks
 
@@ -58,10 +51,10 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 
 | Area | Minimum Score |
 |---|---|
-| Package | 14 / 20 |
-| PRD | 18 / 24 |
+| Package | 17 / 24 |
+| PRD | 21 / 28 |
 | Metrics and tracking | 18 / 24 |
-| Prototype | 14 / 20 |
+| Prototype | 21 / 28 |
 | Review checklist | 12 / 16 |
 
 ## Failure History
@@ -79,11 +72,12 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 - User flow renders as a standard Mermaid flowchart.
 - H5 prototype is local, clickable, annotated, and clearly not production code.
 - Review checklist blocks launch until legal copy, baseline metrics, and payment failure categories are confirmed.
+- Package status is not `Ready for engineering` while required billing or payment confirmations remain unresolved.
 
 ## Latest Result
 
 | Field | Value |
 |---|---|
 | Run ID |  |
-| Status | Pass |
-| Notes | Initial curated output passes repository structure validation. |
+| Status | Pending |
+| Notes | Needs rerun against consolidated package and confirmation-risk readiness rules. |

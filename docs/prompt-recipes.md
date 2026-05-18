@@ -10,10 +10,11 @@ Use this simple version first:
 <write your product request here>
 
 If important information is missing, ask me first.
-If enough information is available, create the full review-ready package.
+If enough information is available, create the full review-ready package in `outputs/<run-id>/pm-package.md`.
 Use my local product context if it exists; otherwise use the example context and mark assumptions.
 Inspect the relevant current product context before drafting.
 If there is no code repository, use any PRDs, product docs, screenshots, analytics exports, or other documents I provide as current product context.
+Use my request language for headings, table labels, statuses, notes, and prototype annotations.
 ```
 
 Use this explicit version when the agent does not automatically follow `PM_COPILOT.md`:
@@ -32,7 +33,7 @@ Read:
 - outputs/<run-id>/task-brief.md
 
 Follow the default workflow:
-intake -> clarification -> PRD -> metrics -> tracking -> user flow -> prototype -> review -> final package.
+intake -> clarification -> consolidated PM package -> prototype -> validation.
 
 Write all outputs under:
 outputs/<run-id>/
@@ -40,8 +41,9 @@ outputs/<run-id>/
 Use a unique run id. If the scenario folder already exists, append a local timestamp.
 
 Ask clarification questions before generation if missing information materially changes current product fit, scope, metrics, privacy, payment, legal, or prototype direction.
-If must-answer questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer or explicitly tell you to proceed with assumptions.
+If must-answer questions or pre-development confirmation questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer. If I explicitly ask you to proceed without answers, mark unresolved must-answer items as draft assumption risk and unresolved pre-development confirmations as draft confirmation risk.
 Do not require a software repository if product documents provide enough context.
+Do not create split Markdown files unless I ask for them or they are needed as exports. Put PRD, metrics, tracking table, user flow, review checklist, assumptions, and next actions inside `pm-package.md`.
 ```
 
 ## Create Only Clarifying Questions
@@ -57,15 +59,15 @@ Read:
 
 Output:
 - must-answer questions
-- assumptions that can be used for a draft
-- questions that can be decided later
+- assumptions that can be used only in a draft
+- items that must be confirmed before development or launch
 - current-state fit summary, if repository or document context is available
 - recommended next agent
 
 Do not generate the PRD yet.
 ```
 
-## Generate a PRD From an Existing Brief
+## Generate A Split PRD File
 
 ```text
 Use PM Copilot's Requirements Agent and PRD-related skills.
@@ -81,10 +83,12 @@ Read:
 Generate:
 - outputs/<run-id>/prd.md
 
+Use this only when a separate PRD file is needed. Otherwise place the PRD section in `pm-package.md`.
 Keep goals measurable, scope explicit, non-goals visible, and acceptance criteria testable.
+Use tables and stable requirement IDs instead of long unordered lists.
 ```
 
-## Generate Metrics and Tracking Plan
+## Generate Split Metrics And Tracking Files
 
 ```text
 Use PM Copilot's Analytics Agent, metrics-tree skill, and tracking-plan skill.
@@ -99,12 +103,13 @@ Generate:
 - outputs/<run-id>/tracking-plan.md
 - outputs/<run-id>/tracking-plan.csv
 
+Use split files only when analytics or engineering needs separate exports. Otherwise place the metrics tree and tracking tables in `pm-package.md`.
 Do not include forbidden sensitive properties.
 Use a Markdown event table and property dictionary as the primary review artifact.
 Add privacy notes and validation notes for each event.
 ```
 
-## Generate User Flow and Prototype
+## Generate User Flow Export And Prototype
 
 ```text
 Use PM Copilot's Prototype Agent, user-flow skill, and multi-platform-prototype skill.
@@ -124,6 +129,7 @@ Generate:
 
 The user flow must be a renderable Mermaid diagram in Markdown, not a prose list.
 The prototype must be local, self-contained, clickable, annotated, and fidelity-appropriate for UI and engineering reference.
+If existing UI or demo context is available, adapt that surface and show the new requirement delta instead of creating a new product.
 ```
 
 ## Review an Existing Package
@@ -136,7 +142,7 @@ Read:
 - guardrails/guardrails.md
 - outputs/<run-id>/
 
-Generate or update:
+Generate or update only when a separate review file is needed:
 - outputs/<run-id>/review-checklist.md
 
 Lead with findings by severity.
@@ -155,9 +161,9 @@ Read:
 
 Generate:
 - outputs/<run-id>/pm-package.md
-- outputs/<run-id>/final-package-summary.md
 
 Make `pm-package.md` the primary review artifact. Include PRD, metrics, tracking table, user flow diagram, prototype notes, artifact index, key decisions, assumptions, open questions, risks, review status, and recommended review agenda.
+Do not create `final-package-summary.md` unless I ask for a legacy summary.
 ```
 
 ## Improve an Existing Skill
@@ -183,16 +189,9 @@ Create:
 - outputs/<scenario>/clarifying-questions.md
 - outputs/<scenario>/assumptions.md
 - outputs/<scenario>/pm-package.md
-- outputs/<scenario>/prd.md
-- outputs/<scenario>/metrics-tree.md
-- outputs/<scenario>/tracking-plan.md
-- outputs/<scenario>/tracking-plan.csv
-- outputs/<scenario>/user-flow.md
-- outputs/<scenario>/user-flow.mmd
 - outputs/<scenario>/prototype-<platform>.html
-- outputs/<scenario>/review-checklist.md
-- outputs/<scenario>/final-package-summary.md
 
+Create optional split source or export files such as `tracking-plan.csv`, `user-flow.mmd`, or `prd.md` only when the scenario needs them.
 Use synthetic data only.
 Run python3 scripts/validate_repo.py after adding the scenario.
 ```

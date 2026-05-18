@@ -38,15 +38,8 @@ Paste the original realistic product request here.
 - `outputs/<run-id>/clarifying-questions.md`
 - `outputs/<run-id>/assumptions.md`
 - `outputs/<run-id>/pm-package.md`
-- `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/metrics-tree.md`
-- `outputs/<run-id>/tracking-plan.md`
-- `outputs/<run-id>/tracking-plan.csv`
-- `outputs/<run-id>/user-flow.md`
-- `outputs/<run-id>/user-flow.mmd`
 - `outputs/<run-id>/prototype-<platform>.html`
-- `outputs/<run-id>/review-checklist.md`
-- `outputs/<run-id>/final-package-summary.md`
+- Optional exports such as `tracking-plan.csv` or `user-flow.mmd` when useful
 
 ## Known Risks
 
@@ -56,10 +49,10 @@ Paste the original realistic product request here.
 
 | Area | Minimum Score |
 |---|---|
-| Package | 14 / 20 |
-| PRD | 18 / 24 |
+| Package | 17 / 24 |
+| PRD | 21 / 28 |
 | Metrics and tracking | 18 / 24 |
-| Prototype | 14 / 20 |
+| Prototype | 21 / 28 |
 | Review checklist | 12 / 16 |
 
 ## Failure History
@@ -71,6 +64,7 @@ Paste the original realistic product request here.
 
 - The agent asks or records high-impact clarification questions.
 - The agent stops before downstream generation when must-answer questions remain open.
+- The agent stops before `Ready for engineering` when pre-development or pre-launch confirmations remain open, unless the user explicitly asks for a draft with confirmation risk.
 - All required artifacts are generated after the clarification gate passes.
 - Assumptions are explicit.
 - Tracking plan avoids forbidden sensitive properties.

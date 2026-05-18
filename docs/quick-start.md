@@ -9,8 +9,9 @@ Recommended direct prompt:
 
 If important information is missing, ask me first.
 If enough information is available, create the full review-ready package.
-If must-answer information is missing, stop and wait for my answer before generating downstream artifacts.
+If must-answer or pre-development confirmation information is missing, stop and wait for my answer before generating downstream artifacts.
 Use any product docs I provide as current context; a software repository is optional.
+Use my request language for headings, labels, statuses, notes, and prototype annotations.
 ```
 
 ## 1. Choose an Agent Workspace
@@ -93,7 +94,8 @@ Follow the workflow and produce a review-ready package under:
 outputs/<run-id>/
 
 Ask clarification questions before generation if high-impact information is missing.
-If must-answer questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer or explicitly tell you to proceed with assumptions.
+If must-answer or pre-development confirmation questions exist, stop after writing the task brief, clarifying questions, assumptions, and run log. Continue only after I answer. If I explicitly ask you to proceed without answers, mark unresolved must-answer items as draft assumption risk and unresolved pre-development confirmations as draft confirmation risk.
+Put PRD, metrics, tracking table, user flow, review checklist, assumptions, and next actions inside `pm-package.md` by default. Create split files only if needed or requested.
 ```
 
 ## 5. Review the Package
@@ -103,13 +105,13 @@ Check that the output includes:
 - Clarifying questions
 - Assumptions
 - Consolidated PM package
-- PRD
-- Metrics tree
-- Tracking plan Markdown table and CSV export
-- Renderable user flow diagram and Mermaid source
+- PRD section inside `pm-package.md`
+- Metrics tree section inside `pm-package.md`
+- Tracking plan table inside `pm-package.md`
+- Renderable user flow diagram inside `pm-package.md`
 - Platform-specific clickable annotated HTML prototype
-- Review checklist
-- Final package summary
+- Review checklist section inside `pm-package.md`
+- Optional exports such as CSV or Mermaid source when useful
 
 ## 6. Validate Repository Structure
 

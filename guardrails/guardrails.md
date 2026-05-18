@@ -13,6 +13,7 @@
 - Keep assumptions separate from confirmed user input.
 - Do not use assumptions to bypass a must-answer question.
 - Do not continue from clarification into PRD, metrics, tracking, flow, prototype, review, or final packaging until must-answer questions are answered or the user explicitly accepts assumption risk.
+- Do not produce a `Ready for engineering` package while pre-development or pre-launch confirmation items remain unanswered. Ask first, or downgrade to `Draft with confirmation risk` only when the user explicitly asks to proceed.
 - User silence is not consent to proceed with material assumptions.
 
 ## Existing Product Fit

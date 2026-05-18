@@ -1,62 +1,64 @@
-# PM Package
+# <localized package title>
 
-## Executive Summary
+<!-- Template note: this file defines semantic sections, not literal English headings. Replace every <localized ...> placeholder with the user's language before generating a real artifact. Keep file names, event names, property names, and IDs in ASCII. Remove this note from generated artifacts. -->
 
-## Context And Current-State Fit
+## <localized executive summary>
 
-## Clarification Status
+## <localized context and current-state fit>
 
-### Must Answer Before Generation
+## <localized clarification status>
 
-### Can Draft With Stated Assumption
+### <localized must answer before generation>
 
-### Must Confirm Before Development Or Launch
+### <localized can draft with stated assumption>
 
-## PRD
+### <localized must confirm before development or launch>
 
-## Key Product Decisions
+## <localized PRD>
 
-## Metrics Tree
+## <localized key product decisions>
 
-## Tracking Plan
+## <localized metrics tree>
 
-### Event Table
+## <localized tracking plan>
 
-| event_name | description | trigger | platform | actor | required_properties | optional_properties | success_criteria | validation_notes | privacy_notes |
+### <localized event table>
+
+| <localized event name> (`event_name`) | <localized event description> (`description`) | <localized trigger> (`trigger`) | <localized platform> (`platform`) | <localized actor> (`actor`) | <localized required properties> (`required_properties`) | <localized optional properties> (`optional_properties`) | <localized success criteria> (`success_criteria`) | <localized validation notes> (`validation_notes`) | <localized privacy notes> (`privacy_notes`) |
 |---|---|---|---|---|---|---|---|---|---|
 
-### Property Dictionary
+### <localized property dictionary>
 
-| property_name | type | required | example | description | allowed_values | privacy_level | source |
+| <localized property name> (`property_name`) | <localized type> (`type`) | <localized required> (`required`) | <localized example> (`example`) | <localized description> (`description`) | <localized allowed values> (`allowed_values`) | <localized privacy level> (`privacy_level`) | <localized source> (`source`) |
 |---|---|---|---|---|---|---|---|
 
-## User Flow
+## <localized user flow>
 
 ```mermaid
 flowchart TD
-  A[Entry point] --> B[Main action]
-  B --> C{Decision}
-  C -- Yes --> D[Success]
-  C -- No --> E[Fallback]
+  A[<localized entry point>] --> B[<localized main action>]
+  B --> C{<localized decision>}
+  C -- <localized yes> --> D[<localized success>]
+  C -- <localized no> --> E[<localized fallback>]
 ```
 
-## Prototype Summary
+## <localized prototype summary>
 
-## Review Checklist
+## <localized review checklist>
 
-## Review Status
+## <localized review status>
 
-## Artifact Index
+## <localized artifact index>
 
-| Artifact | File | Purpose |
+| <localized artifact> | <localized file> | <localized purpose> |
 |---|---|---|
 
-## Assumptions
+## <localized assumptions>
 
-## Open Questions
+## <localized open questions>
 
-## Risks
+## <localized risks>
 
-## Recommended Review Agenda
+## <localized recommended review agenda>
 
-## Next Actions
+## <localized next actions>

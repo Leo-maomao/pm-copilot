@@ -4,12 +4,13 @@ The tracking plan must be reviewable by product, analytics, engineering, and QA.
 
 ## Required Outputs
 
-- `tracking-plan.md` as the primary human-readable artifact.
-- `tracking-plan.csv` as the machine-readable export.
+- Markdown event and property tables as the primary human-readable artifact. By default, place them in `pm-package.md`.
+- Create `tracking-plan.md` only when a separate analytics or engineering handoff file is useful or requested.
+- Create `tracking-plan.csv` only when a machine-readable export is useful or requested.
 
 ## Event Table Columns
 
-The Markdown plan must include a complete event table:
+The Markdown plan must include a complete event table. Localize reviewer-facing labels, and keep these machine names visible in code formatting when the artifact is not a CSV export:
 
 ```csv
 event_name,description,trigger,platform,actor,required_properties,optional_properties,success_criteria,validation_notes,privacy_notes
@@ -17,7 +18,7 @@ event_name,description,trigger,platform,actor,required_properties,optional_prope
 
 ## Property Dictionary Columns
 
-The Markdown plan must include a property dictionary:
+The Markdown plan must include a property dictionary. Localize reviewer-facing labels, and keep these machine names visible in code formatting when the artifact is not a CSV export:
 
 ```csv
 property_name,type,required,example,description,allowed_values,privacy_level,source

@@ -34,6 +34,7 @@ Use relevant files only. Typical sources include:
 - Host README and product docs.
 - Existing PRDs, specs, issues, or roadmap notes.
 - Route definitions, pages, screens, navigation, and UI components near the affected area.
+- Existing demos, screenshots, Storybook stories, preview pages, design-system examples, and component states.
 - API contracts, service modules, data models, permission rules, and feature flags.
 - Analytics conventions, event naming, existing tracking plans, and metric definitions.
 - Package metadata or framework config when it reveals platform and app structure.
@@ -47,6 +48,7 @@ When no engineering repository is available, use the user's documents as the pro
 Extract only decision-relevant information:
 
 - Current product behavior and known constraints.
+- Existing UI screens, demos, screenshots, or prototype references.
 - Target users, scenarios, and pain points.
 - Prior decisions, rejected directions, and open questions.
 - Existing metrics, tracking taxonomy, and baseline data.
@@ -59,7 +61,7 @@ Mark document facts separately from inferred assumptions. If documents conflict,
 
 When the user has no repository and no product documents, do not block forever. Ask only the minimum must-answer questions needed to avoid a misleading package. Common must-answer fields are product goal, target user, platform, scope boundary, success metric, and major risk area.
 
-After the user answers or explicitly accepts assumptions, generate a useful first package with visible assumptions and open questions.
+After the user answers or explicitly asks for a draft with assumption or confirmation risk, generate a useful first package with visible assumptions, open questions, and non-ready status.
 
 If current behavior, affected module, platform, data ownership, rollout constraints, or historical product decisions remain unclear and materially affect the solution, classify the missing information as `must answer before generation` and stop at the clarification gate.
 

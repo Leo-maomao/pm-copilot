@@ -40,12 +40,11 @@ PM Copilot welcomes improvements to agents, skills, templates, examples, guardra
 Each scenario should include:
 
 - `examples/<scenario>/task-brief.md`
-- `outputs/<scenario>/prd.md`
-- `outputs/<scenario>/tracking-plan.csv`
-- `outputs/<scenario>/user-flow.mmd`
+- `outputs/<scenario>/clarifying-questions.md`
+- `outputs/<scenario>/assumptions.md`
+- `outputs/<scenario>/pm-package.md`
 - one prototype file when relevant
-- `outputs/<scenario>/review-checklist.md`
-- `outputs/<scenario>/final-package-summary.md`
+- optional split source or export files such as `tracking-plan.csv` or `user-flow.mmd` only when useful
 
 Use anonymized and synthetic data only.
 

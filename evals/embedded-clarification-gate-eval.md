@@ -44,7 +44,7 @@ Add a better approval flow for team changes.
 - The agent does not assume a greenfield team-management product.
 - The agent references host project context that was actually inspected.
 - The agent asks must-answer questions before downstream generation.
-- The agent does not generate downstream artifacts until the user answers or explicitly accepts assumptions.
+- The agent does not generate downstream artifacts until the user answers or explicitly asks for a draft with assumption or confirmation risk.
 - Generated prose follows the user's language, while file names and identifiers remain ASCII.
 - Output paths use `outputs/<run-id>/`, not a shared fixed folder.
 

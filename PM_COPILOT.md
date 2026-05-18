@@ -56,6 +56,9 @@ The user should not need to manually copy templates or create folders. Do that f
    - If the user writes in Chinese, use Chinese for user-facing replies and generated PM artifacts.
    - If the user writes in English, use English.
    - If the request mixes languages, use the dominant language unless the user asks otherwise.
+   - Localize human-facing headings, table column labels, status labels, prototype annotations, button text, and review labels into the user's language.
+   - Do not copy English headings from repository templates into Chinese deliverables.
+   - For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them.
    - Keep file names and machine-readable identifiers in ASCII kebab-case or snake_case.
 
 3. Load product context from the best available source:
@@ -83,7 +86,8 @@ The user should not need to manually copy templates or create folders. Do that f
    - `outputs/<run-id>/run-log.yaml`
 
 6. Enforce the clarification gate before generation:
-   - Ask must-answer questions before creating PRD, metrics, tracking, user flow, prototype, review checklist, or final package when missing information materially changes:
+   - The default target is a package that can be used for product review and engineering handoff, not a speculative draft.
+   - Ask blocking questions before creating downstream artifacts when missing information materially changes:
      - Product goal
      - Target user
      - Scope
@@ -94,27 +98,27 @@ The user should not need to manually copy templates or create folders. Do that f
      - Prototype direction
      - Payment, privacy, legal, compliance, security, or financial risk
    - If any must-answer question exists, write only the task brief, clarifying questions, assumption log, and run log, then stop and wait for the user's answer.
+   - If any item is classified as `must confirm before development or launch`, ask it before generating a `Ready for engineering` package. Continue only if the user answers or explicitly asks for a draft with unresolved confirmation risk.
    - Do not treat user silence as approval to continue.
    - Do not label the same unknown as both `must answer before generation` and `can draft with stated assumption`.
    - Use three distinct buckets: `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
 
 7. After the clarification gate passes, create or update:
    - `outputs/<run-id>/pm-package.md`
-   - `outputs/<run-id>/prd.md`
-   - `outputs/<run-id>/metrics-tree.md`
-   - `outputs/<run-id>/tracking-plan.md`
-   - `outputs/<run-id>/tracking-plan.csv`
-   - `outputs/<run-id>/user-flow.mmd`
-   - `outputs/<run-id>/user-flow.md`
    - `outputs/<run-id>/prototype-<platform>.html`
-   - `outputs/<run-id>/review-checklist.md`
-   - `outputs/<run-id>/final-package-summary.md`
+   - `outputs/<run-id>/run-log.yaml`
+   - Optional exports only when useful or requested:
+     - `outputs/<run-id>/tracking-plan.csv`
+     - `outputs/<run-id>/user-flow.mmd`
+     - Split source files such as `prd.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md`
+   - Do not create split Markdown files by default if the same content is already complete inside `pm-package.md`.
 
 8. Continue with assumptions only when:
-   - The user explicitly says to proceed without answers, or
-   - The unknown is clearly low-impact and listed as `can draft with stated assumption` or `must confirm before development or launch`.
-   - Keep every unanswered must-answer question visible in the final package if the user explicitly accepts the risk.
-   - Keep unanswered questions visible in the final package.
+   - The user explicitly says to proceed as a draft without answers, or
+   - The unknown is clearly low-impact and listed as `can draft with stated assumption`.
+   - Items classified as `must confirm before development or launch` are not draft assumptions; they may remain open only when the user explicitly asks for a draft with confirmation risk.
+   - If unresolved confirmations remain, status must be `Draft with confirmation risk`, not `Ready for engineering`.
+   - Keep unanswered questions visible in `pm-package.md`.
 
 9. Choose prototype platform:
    - Web for desktop admin, SaaS, dashboards, tables, complex forms.
@@ -122,6 +126,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - App for native mobile product flows.
    - Mini Program for mini-program containers, authorization, booking, ordering, and lightweight forms.
    - Generate multiple prototypes only for true cross-platform requirements.
+   - If an existing demo, screenshot, page, route, design system, or component implementation is available, adapt that current surface and show the delta for the new requirement. Do not create a new unrelated product shell.
 
 10. Run validation after file changes when possible:
    - `python3 scripts/validate_repo.py`

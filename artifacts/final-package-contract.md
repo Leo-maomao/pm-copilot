@@ -12,6 +12,8 @@ outputs/<run-id>/pm-package.md
 
 `final-package-summary.md` may remain as a short index or legacy summary, but `pm-package.md` is the primary reviewer-facing artifact.
 
+Default runs should not create many separate Markdown files. Generate split source files only when the user requests them, when an external workflow needs them, or when an export is materially useful.
+
 ## Required Sections
 
 - Executive summary
@@ -39,4 +41,6 @@ outputs/<run-id>/pm-package.md
 - Keep unresolved items visible.
 - Do not mark the package as ready if critical issues remain.
 - Separate `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
+- Do not mark the package as `Ready for engineering` while any `must confirm before development or launch` item is unresolved.
 - Do not make the reviewer assemble the core story from many separate files.
+- Localize all human-facing headings and labels to the user's language.

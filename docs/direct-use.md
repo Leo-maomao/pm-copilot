@@ -11,7 +11,9 @@ Instead of manually copying templates and creating task folders, open this repos
 
 If important information is missing, ask me first.
 If enough information is available, create the full review-ready package.
+If must-answer or pre-development confirmation information is missing, stop and wait for my answer before generating downstream artifacts.
 Use my local product context if it exists; otherwise use the example context and mark assumptions.
+Use my request language for headings, labels, statuses, notes, and prototype annotations.
 ```
 
 The agent should automatically follow `PM_COPILOT.md` and:
@@ -20,8 +22,9 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Create `outputs/<run-id>/task-brief.md`.
 - Create all generated run artifacts under `outputs/<run-id>/`.
 - Ask must-answer clarification questions before downstream generation.
-- Stop and wait when critical information is missing.
-- Generate a consolidated `pm-package.md`, plus PRD, metrics, tracking plan tables, flow diagram, prototype, review checklist, exports, and run log.
+- Stop and wait when critical information or pre-development confirmation is missing.
+- Generate a consolidated `pm-package.md`, a prototype when relevant, optional exports when useful, and a run log.
+- Keep PRD, metrics, tracking plan tables, flow diagram, review checklist, assumptions, and next actions inside `pm-package.md` by default.
 - Run validation when possible.
 
 ## Codex and AGENTS.md
@@ -85,7 +88,7 @@ User gives request
 -> Agent reads PM_COPILOT.md directly or through an adapter
 -> Agent loads workflow, guardrails, contracts, and context
 -> Agent asks high-impact clarification questions before generation
--> User answers or explicitly says to proceed with assumptions
+-> User answers or explicitly says to proceed as a draft with assumption or confirmation risk
 -> Agent creates the task brief and outputs under one run folder
 -> Agent reviews package
 -> Agent returns artifact paths and blockers

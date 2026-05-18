@@ -19,13 +19,14 @@ Generate a local clickable HTML prototype that matches the selected product plat
 ## Workflow
 
 1. Choose the platform based on PRD scenario.
-2. Explain the platform choice.
-3. Choose fidelity: high when enough visual context exists, mid by default, low only for exploratory work.
-4. Create a single self-contained HTML file.
-5. Include main path interaction.
-6. Include relevant non-happy states.
-7. Add clickable annotations or an annotation panel for UI, data, tracking, edge cases, and implementation notes.
-8. Label the artifact as prototype-only, not production code.
+2. Inspect existing demos, screenshots, routes, components, or design-system files when available.
+3. Explain whether the prototype extends an existing surface or creates a new surface, and why.
+4. Choose fidelity: high when enough visual context exists, mid by default, low only for exploratory work.
+5. Create a single self-contained HTML file.
+6. Include main path interaction.
+7. Include relevant non-happy states.
+8. Add page-scoped clickable annotations or annotation panels for UI, data, tracking, edge cases, and implementation notes.
+9. Label the artifact as prototype-only, not production code.
 
 ## Output
 
@@ -33,6 +34,7 @@ Generate a local clickable HTML prototype that matches the selected product plat
 - Platform rationale
 - Fidelity rationale
 - Annotation notes
+- Existing-surface mapping and change summary
 - Interaction notes
 - Cross-platform differences if multiple prototypes are needed
 
@@ -44,3 +46,5 @@ Generate a local clickable HTML prototype that matches the selected product plat
 - Text fits inside the frame.
 - The UI is polished enough to guide UI and engineering; avoid bare placeholders when product context exists.
 - Main states, validation, errors, empty states, permission states, and success feedback are represented when relevant.
+- If current product UI exists, the prototype preserves the existing structure and shows the new requirement as a delta.
+- Annotations are tied to specific pages, components, or interactions, not mixed into one generic notes list.

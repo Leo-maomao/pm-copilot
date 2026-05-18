@@ -79,10 +79,10 @@ Minimum useful alpha thresholds:
 
 | Area | Minimum |
 |---|---|
-| Package | 14 / 20 |
-| PRD | 18 / 24 |
+| Package | 17 / 24 |
+| PRD | 21 / 28 |
 | Metrics and tracking | 18 / 24 |
-| Prototype | 14 / 20 |
+| Prototype | 21 / 28 |
 | Review checklist | 12 / 16 |
 
 If a package misses a threshold, classify why before editing anything.

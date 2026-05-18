@@ -23,7 +23,7 @@ S0 Intake
 | S0 Intake | PM Orchestrator | Task brief received | Request goal and artifact needs are identified |
 | S1 Context loading | PM Orchestrator | Product context source is known or needs discovery | Relevant PM Copilot context and available product context are loaded |
 | S2 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
-| S3 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly accepts assumptions |
+| S3 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
 | S4 Optional research | Research Agent | External context is needed and tools are available | Source-backed research brief is produced or limitation is stated |
 | S5 PRD drafting | Requirements Agent | Discovery output is usable | PRD contract is satisfied |
 | S6 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | KPI tree and tracking plan contracts are satisfied |
@@ -44,6 +44,7 @@ Human confirmation is required before drafting downstream artifacts when:
 - The tracking plan includes sensitive properties.
 - Research sources are unavailable but competitor claims would affect the solution.
 - The final package contains high-severity open risks.
+- An item is marked `must confirm before development or launch` and the requested output is expected to be ready for engineering handoff.
 
 If any must-answer question exists, stop after creating only:
 
@@ -60,9 +61,9 @@ Avoid contradictory clarification output. A single unknown must belong to exactl
 
 - `Must answer before generation`: blocks PRD, metrics, tracking, flow, prototype, review, and final package.
 - `Can draft with stated assumption`: can be assumed for a draft package, but the assumption must be visible and reviewable.
-- `Must confirm before development or launch`: does not block draft generation, but the final package must clearly say it is not engineering-ready or launch-ready until confirmed.
+- `Must confirm before development or launch`: blocks a `Ready for engineering` package. It only permits generation when the user explicitly asks for a draft or accepts confirmation risk.
 
-If the user asks to proceed with assumptions while must-answer questions remain, downgrade the package status to `Draft with assumption risk`. Do not call it development-ready.
+If the user asks to proceed with assumptions while must-answer or pre-development confirmation questions remain, downgrade the package status to `Draft with assumption risk` or `Draft with confirmation risk`. Do not call it development-ready.
 
 ## Current Product Fit
 
@@ -92,13 +93,17 @@ Do not create `examples/<run-id>/` for ordinary user runs. The `examples/` direc
 Default delivery should optimize for reviewability, not file count.
 
 - Create `outputs/<run-id>/pm-package.md` as the primary reviewer-facing artifact.
-- Keep source or export files only when they are useful for implementation, analytics import, rendering, or iteration.
-- `pm-package.md` should include or link the PRD, metrics tree, tracking plan table, rendered-flow section, prototype link and notes, review checklist, assumptions, and confirmations.
+- Create `outputs/<run-id>/prototype-<platform>.html` when a user-facing prototype is relevant.
+- Keep source or export files only when they are useful for implementation, analytics import, rendering, review workflow, or iteration.
+- `pm-package.md` must include the PRD, metrics tree, tracking plan table, rendered-flow section, prototype link and notes, review checklist, assumptions, and confirmations.
+- Do not create separate `prd.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default when `pm-package.md` already contains complete versions of those sections.
 - Avoid making the user open many small Markdown files to understand one requirement.
 
 ## Language Rules
 
-Use the user's language for conversation and generated artifacts. Chinese requests should produce Chinese PM outputs; English requests should produce English PM outputs. Keep file names, event names, and other machine-readable identifiers in ASCII.
+Use the user's language for conversation and generated artifacts. Chinese requests should produce Chinese headings, table labels, statuses, narrative text, prototype notes, and review labels; English requests should produce English equivalents. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
+
+Repository templates are structural examples, not literal copy. Translate headings and labels before writing user-facing artifacts.
 
 ## Skippable Steps
 
@@ -123,4 +128,4 @@ Minimum trace requirements:
 - Record `workflow.clarification_gate.required`, `status`, `stopped_before_generation`, and `assumption_risk_accepted`.
 - Classify every unresolved question as exactly one of `must answer before generation`, `can draft with stated assumption`, or `must confirm before development or launch`.
 - Record numeric review scores when a quality rubric exists.
-- If S5-S10 artifacts are generated while unresolved must-answer questions remain, record the user's explicit assumption-risk confirmation as evidence.
+- If S5-S10 artifacts are generated while unresolved must-answer or pre-development confirmation questions remain, record the user's explicit draft-risk acceptance as evidence and downgrade package readiness.

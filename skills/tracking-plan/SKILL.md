@@ -18,12 +18,14 @@ Create an analytics plan that engineering and analytics can implement and QA can
 5. Create a property dictionary table for every field used by any event.
 6. Add validation notes for QA and analytics.
 7. Add privacy notes for sensitive fields.
-8. Export CSV only as the machine-readable companion.
+8. Put the reviewable tables in `pm-package.md` by default.
+9. Export CSV only when analytics or engineering needs a machine-readable companion.
 
 ## Output
 
-- `tracking-plan.md` with event table and property dictionary
-- `tracking-plan.csv` export
+- Tracking plan section for `pm-package.md` with event table and property dictionary
+- Optional `tracking-plan.md` split handoff file
+- Optional `tracking-plan.csv` export
 - Validation checklist
 - Privacy notes
 

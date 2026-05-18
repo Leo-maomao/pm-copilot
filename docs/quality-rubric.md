@@ -21,8 +21,9 @@ Use this rubric for manual evaluation. PM Copilot v1 does not include automated 
 | Cross-functional readiness | Only product can understand it | Some functions can review | Product, design, engineering, QA, and analytics can review |
 | Guardrail compliance | Fabricates or hides risk | Some risks listed | Privacy, legal, payment, source, and tool limits are explicit |
 | Artifact consistency | Artifacts contradict each other | Minor inconsistencies | PRD, metrics, tracking, flow, and prototype align |
+| Language consistency | Headings and body mix languages unintentionally | Mostly localized with some template leakage | Headings, labels, statuses, notes, and body match the user's language |
 
-Minimum recommended package score for alpha usage: 14 / 20.
+Minimum recommended package score for alpha usage: 17 / 24.
 
 ## PRD Rubric
 
@@ -34,8 +35,9 @@ Minimum recommended package score for alpha usage: 14 / 20.
 | Requirements | Vague ideas | Mostly testable | Requirements are specific, prioritized, and testable |
 | Edge cases | Missing | Some common cases | Error, empty, permission, payment, rollback, and platform cases where relevant |
 | Acceptance criteria | Missing | Some criteria | QA-ready pass/fail criteria |
+| Readability | Wall of bullets | Some tables and structure | Scannable tables, IDs, priorities, owners, and short narrative sections |
 
-Minimum recommended PRD score: 18 / 24.
+Minimum recommended PRD score: 21 / 28.
 
 ## Metrics and Tracking Rubric
 
@@ -59,8 +61,10 @@ Minimum recommended analytics score: 18 / 24.
 | States | Only happy path | Some states | Relevant loading, empty, error, permission, confirmation, or success states |
 | Local usability | Does not open | Opens with issues | Self-contained HTML with no build step |
 | Fidelity and handoff clarity | Pretends to be production or is too vague to implement | Prototype is usable but lacks annotations or key states | Clearly labeled prototype with appropriate fidelity, annotations, and implementation notes |
+| Existing surface fit | Invents unrelated product UI | Some existing context reflected | Preserves existing UI structure and shows the new requirement delta |
+| Annotation mapping | Notes are detached from UI | Some notes tied to controls | Page-scoped annotations are reachable from specific UI elements or transitions |
 
-Minimum recommended prototype score: 14 / 20.
+Minimum recommended prototype score: 21 / 28.
 
 ## Review Checklist Rubric
 

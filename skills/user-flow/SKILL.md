@@ -16,13 +16,13 @@ Produce a standard rendered-friendly flowchart that makes the product path and k
 3. Add decision points and failure branches.
 4. Add completion, cancellation, and retry states.
 5. Keep node labels short and clear.
-6. Generate `user-flow.md` with a Mermaid code block so GitHub-compatible tools render it as a diagram.
-7. Generate `user-flow.mmd` as the source export.
+6. Add the Mermaid code block to the user-flow section of `pm-package.md` so GitHub-compatible tools render it as a diagram.
+7. Generate `user-flow.md` or `user-flow.mmd` only when a separate export is useful or requested.
 
 ## Output
 
-- `user-flow.md` with rendered-friendly Mermaid diagram block
-- `user-flow.mmd` Mermaid source
+- Rendered-friendly Mermaid diagram block for `pm-package.md`
+- Optional `user-flow.md` or `user-flow.mmd` export
 - Flow notes
 - Branch assumptions
 

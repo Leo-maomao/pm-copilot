@@ -1,58 +1,60 @@
-# <Feature Name> PRD
+# <localized feature name> PRD
 
-## Status and Owners
+<!-- Template note: this file defines semantic sections, not literal English headings. Replace every <localized ...> placeholder with the user's language before generating a real artifact. Keep requirement IDs in ASCII. Remove this note from generated artifacts. -->
 
-| Field | Value |
+## <localized status and owners>
+
+| <localized field> | <localized value> |
 |---|---|
-| Status | Draft |
-| Product owner | TBD |
-| Design owner | TBD |
-| Engineering owner | TBD |
-| Analytics owner | TBD |
-| Last updated | TBD |
+| <localized status> | <localized draft> |
+| <localized product owner> | TBD |
+| <localized design owner> | TBD |
+| <localized engineering owner> | TBD |
+| <localized analytics owner> | TBD |
+| <localized last updated> | TBD |
 
-## Background
+## <localized background>
 
-## Problem Statement
+## <localized problem statement>
 
-## Goals
+## <localized goals>
 
-| Goal | Metric | Target | Notes |
+| <localized goal> | <localized metric> | <localized target> | <localized notes> |
 |---|---|---|---|
 
-## Non-goals
+## <localized non-goals>
 
-## Target Users
+## <localized target users>
 
-## User Scenarios
+## <localized user scenarios>
 
-| Scenario | Entry Point | User Need | Expected Outcome |
+| <localized scenario> | <localized entry point> | <localized user need> | <localized expected outcome> |
 |---|---|---|---|
 
-## Scope
+## <localized scope>
 
-| Area | In Scope | Out of Scope |
+| <localized area> | <localized in scope> | <localized out of scope> |
 |---|---|---|
 
-## Requirements
+## <localized requirements>
 
-| ID | Requirement | Priority | Notes |
+| ID | <localized requirement> | <localized priority> | <localized notes> |
 |---|---|---|---|
 
-## Edge Cases
+## <localized edge cases>
 
-| Case | Expected Behavior | Owner |
+| <localized case> | <localized expected behavior> | <localized owner> |
 |---|---|---|
 
-## Metrics
+## <localized metrics>
 
-## Dependencies
+## <localized dependencies>
 
-## Risks
+## <localized risks>
 
-## Open Questions
+## <localized open questions>
 
-## Acceptance Criteria
+## <localized acceptance criteria>
 
-| Requirement ID | Criteria | Verification |
+| <localized requirement id> | <localized criteria> | <localized verification> |
 |---|---|---|

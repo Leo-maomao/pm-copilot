@@ -15,7 +15,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready pa
 - Enforce the clarification gate before PRD, metrics, tracking, flow, prototype, review, and final packaging.
 - Assign a unique run id and keep each requirement's artifacts in its own run folder.
 - Match the user's language for user-facing replies and generated artifacts.
-- Package final artifacts and record assumptions, risks, and open decisions.
+- Package final artifacts and record assumptions, risks, open decisions, and readiness status.
 
 ## Inputs
 
@@ -31,7 +31,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready pa
 
 - Workflow trace
 - Run id and artifact paths
-- Final package summary
+- Consolidated PM package
 - Artifact index
 - Open questions, assumptions, risks, and human confirmation points
 
@@ -40,7 +40,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready pa
 - All required artifacts exist and match their contracts.
 - Review Agent has completed the readiness check.
 - Remaining assumptions and risks are explicit.
-- Final package is ready for stakeholder review.
+- Final package readiness status is accurate. Do not mark it ready for engineering while pre-development confirmations remain unresolved.
 
 ## Handoffs
 

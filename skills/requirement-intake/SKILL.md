@@ -17,8 +17,9 @@ Convert a vague product request into a usable brief without inventing business-c
 4. Ask only high-impact clarification questions.
 5. Split unknowns into `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
 6. Stop before PRD generation if any `must answer before generation` question is unanswered.
-7. Write explicit assumptions only after the user says to proceed with assumptions or the unknown is low-impact.
-8. Do not put the same unknown in more than one bucket.
+7. Stop before a `Ready for engineering` package if any `must confirm before development or launch` item is unanswered.
+8. Write explicit assumptions only after the user says to proceed with a draft or the unknown is low-impact.
+9. Do not put the same unknown in more than one bucket.
 
 ## Output
 
@@ -38,6 +39,7 @@ Convert a vague product request into a usable brief without inventing business-c
 - Assumptions are labeled and reasonable.
 - Must-answer questions are resolved before downstream artifacts are generated.
 - Draft assumptions and pre-development confirmations are clearly separated.
+- Pre-development confirmations are resolved before the package is marked ready for engineering.
 - Output fits the current product context instead of assuming a greenfield product.
 - The workflow remains usable when the PM has documents but no software repository.
 - The PRD writer can proceed without guessing the core intent.

@@ -16,7 +16,7 @@ PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `
 - Local clickable HTML prototype for Web, H5, App, or Mini Program scenarios
 - Consolidated `pm-package.md` for review, plus source/export files when useful
 - Review checklist and risk log
-- Final package summary
+- Final handoff and readiness summary inside `pm-package.md`
 
 ## Quick Start
 
@@ -118,11 +118,11 @@ Request intake
 -> Final package
 ```
 
-The default interaction mode is "clarify before generation." If must-answer information is missing, the agent should stop after creating the brief, clarifying questions, assumptions, and run log. It should continue only after the user answers or explicitly accepts assumption risk.
+The default interaction mode is "clarify before generation." If must-answer information is missing, the agent should stop after creating the brief, clarifying questions, assumptions, and run log. It should continue only after the user answers or explicitly accepts assumption risk. If pre-development or pre-launch confirmations remain open, the package cannot be marked ready for engineering unless the user answers them.
 
 Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, including the task brief and run log. The `examples/` directory is reserved for curated scenario-library inputs and regression fixtures. If the inferred scenario already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
 
-PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese PM outputs, English requests should produce English PM outputs. File names and machine-readable identifiers stay ASCII.
+PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese headings, labels, statuses, notes, and PM content; English requests should produce English equivalents. File names and machine-readable identifiers stay ASCII.
 
 ## Platform-Neutral Design
 

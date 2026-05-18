@@ -35,6 +35,7 @@ workflow:
     status:
     stopped_before_generation:
     assumption_risk_accepted:
+    confirmation_risk_accepted:
     evidence:
   revision_loops:
 agents_used:
@@ -60,7 +61,7 @@ next_actions:
 - Do not include sensitive raw user data.
 - Record tool limitations instead of hiding them.
 - Record assumptions separately from confirmed facts.
-- Record whether must-answer questions blocked generation or were explicitly accepted as assumption risk.
+- Record whether must-answer or pre-development confirmation questions blocked generation, or were explicitly accepted as draft risk.
 - Record whether the run was repo-backed, document-backed, or brief-only.
 - In repo-backed mode, record relevant host project files and current-state facts used for product-fit decisions.
 - In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.
@@ -72,7 +73,8 @@ next_actions:
   - `can draft with stated assumption`
   - `must confirm before development or launch`
 - If any `must answer before generation` question is unresolved and the user has not explicitly accepted assumption risk, `workflow.clarification_gate.stopped_before_generation` must be `true` and downstream artifacts must be empty or omitted.
-- If the user explicitly accepts assumption risk, record the exact confirmation in `human_inputs.answers_received` or `workflow.clarification_gate.evidence` and set final status to `Draft with assumption risk`.
+- If any `must confirm before development or launch` item is unresolved and the user has not explicitly accepted draft risk, `workflow.clarification_gate.stopped_before_generation` must be `true` before creating a `Ready for engineering` package.
+- If the user explicitly accepts assumption or confirmation risk, record the exact confirmation in `human_inputs.answers_received` or `workflow.clarification_gate.evidence` and set final status to `Draft with assumption risk` or `Draft with confirmation risk`.
 - Review scores should use numeric rubric scores when a rubric exists. Descriptive labels may be added, but should not replace the score.
 - Use `templates/agent-run-log-template.yaml` as the canonical run-log shape.
 

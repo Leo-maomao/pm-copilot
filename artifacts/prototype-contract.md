@@ -2,6 +2,8 @@
 
 Prototypes are local HTML artifacts used for product review, UI reference, and engineering handoff. They are not production implementation, but they should be concrete enough to guide implementation.
 
+If a current demo, screenshot, route, component, or design system is available, the prototype must extend that existing surface. It should show what changes, what stays the same, and where the new requirement fits. Do not create a new product shell unless the user explicitly asks for a redesign or no current surface exists.
+
 ## Fidelity
 
 Choose the highest useful fidelity the available context supports:
@@ -29,6 +31,7 @@ Even low-fidelity prototypes must be clean, clickable, and implementation-orient
 - Copy must fit on mobile-sized frames.
 - The prototype must include realistic screen states: loading, empty, error, permission, confirmation, success, or rollback where relevant.
 - Important controls should expose annotations through clickable hotspots, side panels, tooltips, or inline markers.
+- Annotation state should update by page or screen, so reviewers can tell which note belongs to which UI element.
 
 ## Required Annotations
 
@@ -39,6 +42,13 @@ Include annotations for:
 - Tracking hooks when relevant.
 - Permission, privacy, payment, compliance, or operational notes.
 - Engineering handoff notes and known assumptions.
+
+Annotation rules:
+
+- Each page or screen has its own annotation group.
+- Each annotation references a concrete UI element, state, or transition.
+- Cross-page notes belong in a separate `Global notes` group.
+- Annotations must be reachable from the prototype UI, not only listed beside it.
 
 ## Output Rule
 

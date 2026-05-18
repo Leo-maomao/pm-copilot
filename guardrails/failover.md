@@ -4,12 +4,14 @@
 
 If the user does not answer clarification questions:
 
-1. Continue only if no `must answer before generation` question is open.
+1. Continue only if no `must answer before generation` question is open and no unresolved `must confirm before development or launch` item is required for the requested readiness level.
 2. Mark assumptions visibly.
 3. Add open questions to the final package.
 4. Require review before engineering starts.
 
 If any `must answer before generation` question is open, stop before downstream generation. Continue only after the user answers or explicitly says to proceed with assumptions. If the user accepts assumption risk, mark the package as `Draft with assumption risk`, not development-ready.
+
+If any `must confirm before development or launch` item is open, stop before producing a `Ready for engineering` package. Continue only if the user answers or explicitly asks for a draft with confirmation risk.
 
 ## Research Unavailable
 

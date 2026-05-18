@@ -34,6 +34,7 @@ workflow:
     status: ""
     stopped_before_generation: false
     assumption_risk_accepted: false
+    confirmation_risk_accepted: false
     evidence: ""
   revision_loops: 0
 
@@ -73,27 +74,27 @@ assumptions:
     blocks_generation: false
 
 artifacts:
+  task_brief: ""
   clarifying_questions: ""
   assumptions: ""
   pm_package: ""
-  prd: ""
-  metrics_tree: ""
-  tracking_plan_markdown: ""
-  tracking_plan: ""
-  user_flow_markdown: ""
-  user_flow: ""
   prototype: ""
-  review_checklist: ""
-  final_package: ""
+  optional_exports:
+    - file: ""
+      purpose: ""
+      reason: ""
+  omitted_split_files:
+    - file: ""
+      reason: ""
 
 review_scores:
   package:
     score: null
-    max_score: 20
+    max_score: 24
     status: ""
   prd:
     score: null
-    max_score: 24
+    max_score: 28
     status: ""
   metrics_and_tracking:
     score: null
@@ -101,7 +102,7 @@ review_scores:
     status: ""
   prototype:
     score: null
-    max_score: 20
+    max_score: 28
     status: ""
   review_checklist:
     score: null

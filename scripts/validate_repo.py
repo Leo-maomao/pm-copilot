@@ -68,14 +68,6 @@ REQUIRED_OUTPUT_FILES = [
     "clarifying-questions.md",
     "assumptions.md",
     "pm-package.md",
-    "prd.md",
-    "metrics-tree.md",
-    "tracking-plan.md",
-    "tracking-plan.csv",
-    "user-flow.md",
-    "user-flow.mmd",
-    "review-checklist.md",
-    "final-package-summary.md",
 ]
 
 TRACKING_COLUMNS = [

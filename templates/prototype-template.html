@@ -1,45 +1,90 @@
 <!doctype html>
-<html lang="en">
+<html lang="und">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Implementation-Oriented Prototype</title>
+  <title>{{localized_prototype_title}}</title>
   <style type="text/css">
     body { margin: 0; font-family: Arial, sans-serif; background: #f4f5f7; color: #1f2937; }
     .shell { display: grid; grid-template-columns: minmax(320px, 420px) minmax(260px, 360px); gap: 20px; max-width: 900px; margin: 24px auto; padding: 0 16px; }
     .frame { min-height: 760px; background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
     .bar { padding: 12px 16px; border-bottom: 1px solid #eaecf0; font-weight: 700; }
     .content { padding: 16px; }
+    .screen-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .screen-tabs button { border: 1px solid #d0d5dd; background: #fff; padding: 8px 10px; cursor: pointer; }
+    .screen-tabs button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .screen { display: none; }
+    .screen.active { display: block; }
     .button { width: 100%; border: 0; padding: 12px; background: #2563eb; color: #fff; font-weight: 700; cursor: pointer; }
     .muted { color: #667085; font-size: 13px; }
+    .hotspot { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: 8px; border-radius: 50%; border: 0; background: #f59e0b; color: #111827; font-weight: 700; cursor: pointer; }
     .note-panel { background: #fff; border: 1px solid #d0d5dd; padding: 16px; }
     .note-panel h2 { margin: 0 0 12px; font-size: 16px; }
+    .note-panel h3 { margin: 16px 0 8px; font-size: 14px; }
     .note-panel button { display: block; width: 100%; margin: 8px 0; padding: 10px; border: 1px solid #d0d5dd; background: #fff; text-align: left; cursor: pointer; }
     .annotation { margin-top: 12px; padding: 12px; background: #f9fafb; border: 1px solid #eaecf0; font-size: 13px; }
     @media (max-width: 760px) { .shell { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
+  <!-- Template note: localize all visible labels, annotations, button text, and status copy before generating a real artifact. Prototype only. Not production code. -->
   <div class="shell">
     <div class="frame">
-      <div class="bar">Prototype - replace with feature title</div>
+      <div class="bar">{{localized_feature_title}}</div>
       <div class="content">
-        <p class="muted">Prototype only. Not production code. Replace this template with feature-specific screens, states, and interactions.</p>
-        <button class="button" type="button" onclick="showNote('Primary action should show the next state, validation, loading, success, and error behavior.')">Primary action</button>
-        <div class="annotation" id="annotation">Click an annotation item to view UI, data, tracking, and implementation notes.</div>
+        <p class="muted">{{localized_prototype_boundary_note}}</p>
+        <div class="screen-tabs">
+          <button id="tab-current" class="active" type="button" onclick="showScreen('current')">{{localized_current_page}}</button>
+          <button id="tab-new" type="button" onclick="showScreen('new')">{{localized_new_state}}</button>
+        </div>
+        <div id="screen-current" class="screen active">
+          <h1>{{localized_existing_page_surface}} <button class="hotspot" type="button" onclick="showNote('current', 'entry')">1</button></h1>
+          <p class="muted">{{localized_existing_page_note}}</p>
+          <button class="button" type="button" onclick="showScreen('new')">{{localized_open_new_state}}</button>
+        </div>
+        <div id="screen-new" class="screen">
+          <h1>{{localized_new_requirement_state}} <button class="hotspot" type="button" onclick="showNote('new', 'primary')">2</button></h1>
+          <p class="muted">{{localized_new_state_note}}</p>
+          <button class="button" type="button" onclick="showNote('new', 'submit')">{{localized_primary_action}}</button>
+        </div>
+        <div class="annotation" id="annotation">{{localized_annotation_prompt}}</div>
       </div>
     </div>
     <div class="note-panel">
-      <h2>Annotations</h2>
-      <button type="button" onclick="showNote('UI: describe layout, component behavior, responsive rules, and copy requirements.')">UI behavior</button>
-      <button type="button" onclick="showNote('Data: list required fields, validation rules, empty states, and error states.')">Data and validation</button>
-      <button type="button" onclick="showNote('Tracking: list important event hooks and property notes.')">Tracking hooks</button>
-      <button type="button" onclick="showNote('Engineering: note API dependencies, permission checks, rollout, and assumptions.')">Engineering notes</button>
+      <h2>{{localized_annotations}}</h2>
+      <h3>{{localized_current_page}}</h3>
+      <button type="button" onclick="showNote('current', 'entry')">1. {{localized_existing_entry_note_label}}</button>
+      <h3>{{localized_new_state}}</h3>
+      <button type="button" onclick="showNote('new', 'primary')">2. {{localized_added_component_note_label}}</button>
+      <button type="button" onclick="showNote('new', 'submit')">3. {{localized_submit_tracking_note_label}}</button>
+      <h3>{{localized_global_notes}}</h3>
+      <button type="button" onclick="showNote('global', 'engineering')">{{localized_implementation_boundary}}</button>
     </div>
   </div>
-  <script>
-    function showNote(text) {
-      document.getElementById('annotation').textContent = text;
+  <script type="text/javascript">
+    var notes = {
+      current: {
+        entry: '{{localized_current_page_annotation}}'
+      },
+      new: {
+        primary: '{{localized_new_state_annotation}}',
+        submit: '{{localized_submit_annotation}}'
+      },
+      global: {
+        engineering: '{{localized_global_engineering_annotation}}'
+      }
+    };
+    function showScreen(name) {
+      document.getElementById('screen-current').classList.toggle('active', name === 'current');
+      document.getElementById('screen-new').classList.toggle('active', name === 'new');
+      document.getElementById('tab-current').classList.toggle('active', name === 'current');
+      document.getElementById('tab-new').classList.toggle('active', name === 'new');
+      document.getElementById('annotation').textContent = '{{localized_viewing_screen_annotations}}';
+    }
+    function showNote(page, key) {
+      if (page === 'new') showScreen('new');
+      if (page === 'current') showScreen('current');
+      document.getElementById('annotation').textContent = notes[page][key];
     }
   </script>
 </body>

@@ -153,7 +153,7 @@ User gives a product-manager request from the host project
 -> Agent reads relevant PM Copilot workflow files
 -> Agent inspects relevant host project context
 -> Agent asks must-answer questions if goal, scope, platform, affected module, metrics, or risk is unclear
--> Agent stops until the user answers or explicitly accepts assumptions
+-> Agent stops until the user answers or explicitly asks for a draft with assumption or confirmation risk
 -> Agent writes artifacts under pm-copilot/outputs/<run-id>/
 ```
 
