@@ -1,10 +1,6 @@
 # PM Copilot
 
-<h2 align="center">
-  <a href="#zh-cn">简体中文</a>
-  ·
-  <a href="#english">English</a>
-</h2>
+<h2 align="center">简体中文 | <a href="#english">English</a></h2>
 
 <a id="zh-cn"></a>
 
@@ -289,11 +285,7 @@ MIT License。见 `LICENSE`。
 
 # PM Copilot
 
-<h2 align="center">
-  <a href="#zh-cn">简体中文</a>
-  ·
-  <a href="#english">English</a>
-</h2>
+<h2 align="center"><a href="#zh-cn">简体中文</a> | English</h2>
 
 <a id="english"></a>
 
