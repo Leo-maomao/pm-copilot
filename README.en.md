@@ -1,6 +1,12 @@
 # PM Copilot
 
-Language: English | [简体中文版本](README.md)
+<h2 align="center">
+  <a href="https://github.com/Leo-maomao/pm-copilot#zh-cn">简体中文</a>
+  ·
+  <a href="#english">English</a>
+</h2>
+
+<a id="english"></a>
 
 PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into two practical handoff artifacts: a complete PRD and a clickable annotated prototype.
 
