@@ -1,36 +1,40 @@
-# Security and Privacy
+# 安全和隐私
 
-PM Copilot is local-first and does not include a cloud service, database, account system, or telemetry.
+<h2 align="center">简体中文 | <a href="SECURITY.en.md">English</a></h2>
 
-## Supported Versions
+<a id="zh-cn"></a>
 
-| Version | Supported |
+PM Copilot 默认本地优先，不包含云服务、数据库、账号系统或遥测。
+
+## 支持版本
+
+| 版本 | 支持状态 |
 |---|---|
-| 2.x | Best-effort |
-| 1.x | Best-effort |
+| 2.x | 尽力支持 |
+| 1.x | 尽力支持 |
 
-## Reporting Issues
+## 报告问题
 
-For now, report security or privacy issues through the repository issue tracker or maintainer contact listed by the project owner.
+目前请通过仓库 issue tracker，或项目所有者列出的维护者联系方式，报告安全或隐私问题。
 
-## Sensitive Data Rules
+## 敏感数据规则
 
-Do not commit:
+不要提交：
 
-- Real passwords or API keys
-- Full payment card numbers
-- Government IDs
-- Raw personal identifiers
-- Confidential partner agreements
-- Private customer data
-- Unreleased financial data
+- 真实密码或 API key
+- 完整支付卡号
+- 政府证件号码
+- 原始个人标识符
+- 保密合作方协议
+- 私有客户数据
+- 未公开财务数据
 
-## Agent Safety Expectations
+## Agent 安全期望
 
-Agents using this repository should:
+使用本仓库的 Agent 应：
 
-- Warn before processing sensitive data.
-- Use synthetic or anonymized examples by default.
-- Avoid collecting unnecessary personal properties in tracking plans.
-- Mark assumptions and tool limitations clearly.
-- Never fabricate source-backed claims.
+- 在处理敏感数据前给出提醒。
+- 默认使用合成或匿名化示例。
+- 避免在埋点方案中收集不必要的个人属性。
+- 清晰标记假设和工具限制。
+- 不要编造带来源背书的结论。

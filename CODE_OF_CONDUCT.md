@@ -1,22 +1,26 @@
-# Code of Conduct
+# 行为准则
 
-PM Copilot contributors should keep discussion practical, respectful, and focused on improving the project for product managers.
+<h2 align="center">简体中文 | <a href="CODE_OF_CONDUCT.en.md">English</a></h2>
 
-## Expected Behavior
+<a id="zh-cn"></a>
 
-- Be clear and constructive.
-- Critique artifacts, not people.
-- Respect privacy and confidentiality.
-- Avoid sharing private business information.
-- Help keep examples broadly reusable.
+PM Copilot 贡献者应保持讨论务实、尊重，并聚焦于把项目改进成更适合产品经理使用的工具。
 
-## Unacceptable Behavior
+## 期望行为
 
-- Harassment or personal attacks.
-- Publishing private data.
-- Misrepresenting generated content as source-backed research.
-- Adding examples that encourage deceptive billing, cancellation, or consent patterns.
+- 表达清晰，并保持建设性。
+- 评价产物，而不是评价个人。
+- 尊重隐私和保密要求。
+- 避免分享私有业务信息。
+- 帮助示例保持通用、可复用。
 
-## Enforcement
+## 不可接受的行为
 
-Maintainers may edit, close, or remove issues, discussions, or contributions that violate these rules.
+- 骚扰或人身攻击。
+- 发布私有数据。
+- 将生成内容误导性地描述为有来源支撑的调研结论。
+- 添加鼓励欺骗性计费、取消流程或同意授权模式的示例。
+
+## 执行
+
+维护者可以编辑、关闭或移除违反这些规则的 issue、讨论或贡献。

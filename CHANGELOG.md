@@ -20,6 +20,7 @@ Commit: pending release commit.
 - Extended output validation to fail prototype deliveries that skip the prototype skill, omit design calibration, omit repo-backed style evidence, or lack traceable top-right component annotation markers.
 - Strengthened prototype visual validation with DOM smoke evidence for visible text, interactive controls, horizontal overflow, console errors, and page errors; duplicate visual skips must reuse a passed report with that evidence.
 - Updated repository validation to ignore local system/cache files such as `.DS_Store`, `Thumbs.db`, `.pytest_cache`, and `__pycache__`.
+- Localized the default GitHub community documents to Chinese and added English switch pages for the code of conduct, contributing guide, security policy, and license.
 
 ### Validation
 
