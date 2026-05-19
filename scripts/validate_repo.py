@@ -29,6 +29,7 @@ REQUIRED_DIRS = [
 
 REQUIRED_FILES = [
     "README.md",
+    "README.en.md",
     "PM_COPILOT.md",
     "LICENSE",
     "VERSION",
@@ -107,6 +108,22 @@ REQUIRED_TEXT_TOKENS = {
         "content source",
         "navigation visibility",
         "product-memory.local.yaml",
+    ],
+    "README.md": [
+        "README.en.md",
+        "语言支持",
+        "validate_outputs.py",
+        "validate_prototype_visual.py",
+        "dev-tasks.yaml",
+        "launch-decision.yaml",
+    ],
+    "README.en.md": [
+        "README.md",
+        "Language Support",
+        "validate_outputs.py",
+        "validate_prototype_visual.py",
+        "dev-tasks.yaml",
+        "launch-decision.yaml",
     ],
     "prompts/prompt-system.md": [
         "Prompt Stack",
