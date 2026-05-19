@@ -8,7 +8,7 @@ S0 Intake
 -> S2 Context loading
 -> S3 Discovery and clarification
 -> S4 Clarification gate
--> S5 Optional research
+-> S5 External product research
 -> S6 PRD drafting
 -> S7 Metrics and tracking
 -> S8 Flow and prototype
@@ -27,7 +27,7 @@ S0 Intake
 | S2 Context loading | PM Orchestrator | Product context source is known or needs discovery | Relevant PM Copilot context and available product context are loaded |
 | S3 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
 | S4 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
-| S5 Optional research | Research Agent | External context is needed and tools are available | Source-backed research brief is produced or limitation is stated |
+| S5 External product research | Research Agent | PRD solution shaping needs competitor, benchmark, comparable feature, market, policy, pricing, or source-backed context | Source-backed research brief is produced or limitation is stated |
 | S6 PRD drafting | Requirements Agent | Discovery output is usable | `prd.md` contract is satisfied |
 | S7 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | Metrics and tracking sections are complete inside `prd.md` |
 | S8 Flow and prototype | Prototype Agent | Core flow and platform are known | Flow sections are complete inside `prd.md`; HTML prototype contract is satisfied |
@@ -103,6 +103,14 @@ Human confirmation is required before drafting downstream artifacts when:
 If any must-answer question exists, ask the user and stop before creating `prd.md` or prototype HTML. Create or update only `outputs/<run-id>/run-log.yaml` when a persistent trace is useful.
 
 Do not create PRD, metrics, tracking, flow, prototype, review, or delivery artifacts until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
+
+## External Product Research
+
+For PRD deliveries, S5 is expected by default when a product solution, feature design, copy, metrics, or prototype direction can benefit from competitor or comparable-product evidence. Repository files are current-state context, not external product research. Do not fill the PRD "research/reference findings" section only with host implementation facts.
+
+Use Research Agent to look for relevant competitors, benchmark products, comparable feature patterns, public docs, help center pages, product screenshots/articles, or official policy/pricing sources. Record source-backed findings and product implications. If browsing is unavailable or the user explicitly says not to research, record `external_research.status: skipped` or `degraded`, the reason, and the impact on recommendation confidence.
+
+Current host files still matter, but they belong in current-state facts, background, product-fit decisions, or the engineering implementation map. Keep external research and repository context separate so reviewers can tell which product decisions are market-informed and which are implementation constraints.
 
 ## Evaluation And Default-Option Mode
 

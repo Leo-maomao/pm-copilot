@@ -30,6 +30,7 @@ context:
   context_excluded:
   conflicts_found:
   conflict_resolution:
+external_research:
 readiness:
   prd_status:
   engineering_handoff_status:
@@ -100,9 +101,11 @@ next_actions:
 - For repo-backed UI prototype deliveries, record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation. Do not claim pixel-level parity when no visual comparison ran.
 - In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.
 - Record whether an analytics taxonomy was found. If none was found, tracking artifacts must be marked as proposed.
+- Record external product research separately from repository context. `external_research` should include status, research question, sources, observed facts, product implications, limitations, and recommendation impact.
 - Record the artifact language chosen from the user's request.
 - Record files created or modified.
 - Record agent transitions with status, input evidence, artifact delta, validation delta, readiness impact, conflict resolution, and next expected output.
+- Agent transition deltas must use the canonical structured keys from `templates/agent-run-log-template.yaml`; do not record `artifact_delta: none`, list-only file paths, or prose-only `validation_delta` values.
 - If a run is resumed, record `workflow.last_reliable_state` and `workflow.resume_source`.
 - Before full-loop iteration, final delivery, or release checks, record tool preflight status from `python3 scripts/preflight_tools.py`.
 - Record tool results using `artifacts/tool-result-contract.md` and tool IDs from `tools/tool-registry.yaml` where possible.
@@ -116,6 +119,7 @@ next_actions:
 - Record content source and review status when reference, policy, medical, legal, financial, safety, or operational content appears in the scope or prototype.
 - Record review scores when quality review is performed.
 - Review score maximums and thresholds must match `docs/quality-rubric.md`.
+- `review_scores`, `quality_thresholds`, `handoff_artifacts`, `content_sources`, `guardrail_events`, and `security_and_audit` must keep the canonical field names from `templates/agent-run-log-template.yaml` so `validate_outputs.py` can reject ad hoc trace shapes.
 - Every unresolved question must be classified as exactly one of:
   - `must answer before generation`
   - `can draft with stated assumption`

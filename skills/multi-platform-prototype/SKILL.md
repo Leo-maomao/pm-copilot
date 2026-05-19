@@ -31,15 +31,16 @@ Generate a local clickable HTML prototype that matches the selected product plat
 11. Include main path interaction and make every visible primary control produce a visible state change.
 12. Include relevant non-happy states.
 13. Show eligible and ineligible user states when access depends on account, role, setup, plan, consent, location, or permission.
-14. Label placeholder or unreviewed reference content as draft and avoid presenting it as approved final content.
-15. Build an annotation map before writing HTML: number, page/screen, UI element, logic note, interaction note, data or permission note, and tracking note when relevant.
-16. Add numbered callout markers on the prototype surface and matching numbered notes in a right-side panel. Default markers are small red circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` placed at the annotated component's top-right corner. If that covers key text or controls, offset the badge just outside the same corner. The right panel uses matching circled numbers such as `①`, `②`, and `③`.
-17. Label the artifact as prototype-only, not production code.
-18. For personalization, ordering, layout, or preference features, show the edit mode, save/apply behavior, reset/default behavior, unavailable items, and sync or persistence failure state when relevant.
-19. For Web prototypes, run a shell/responsive checklist before delivery: desktop navigation visible, page header visible, content density matches the host app, mobile breakpoint or responsive notes are present, touch target and mis-tap risks are considered for mobile Web, desktop regression risk is named, and visitor/signed-in/permission states are represented when relevant.
-20. For public Web or SEO surfaces, annotate indexable content, metadata/structured-data expectations, noindex/private-page boundary, and cache/fallback behavior when relevant.
-21. For Mini Program prototypes, run a chrome/page-level checklist before delivery: status or capsule area visible, primary tab pages use the existing tab bar style, secondary pages show page-header/back behavior, and ineligible/setup states are represented when relevant.
-22. When validation scripts are available, run prototype visual validation or the delivery checks and record the evidence.
+14. Check access-state coherence before delivery: logged-out, guest, and no-permission controls must not reveal signed-in-only profile data, user IDs, account-management actions, sync actions, logout actions, or privileged navigation.
+15. Label placeholder or unreviewed reference content as draft and avoid presenting it as approved final content.
+16. Build an annotation map before writing HTML: number, page/screen, UI element, logic note, interaction note, data or permission note, and tracking note when relevant.
+17. Add numbered callout markers on the prototype surface and matching notes in marker-triggered dialogs. Default markers are small red circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` placed at the annotated component's top-right corner. If that covers key text or controls, offset the badge just outside the same corner. Clicking a marker opens an `annotation-dialog`; a top-right `annotation-toggle` opens an `annotation-list` overlay for all markers in the current page/state.
+18. Label the artifact as prototype-only, not production code.
+19. For personalization, ordering, layout, or preference features, show the edit mode, save/apply behavior, reset/default behavior, unavailable items, and sync or persistence failure state when relevant.
+20. For Web prototypes, run a shell/responsive checklist before delivery: desktop navigation visible, page header visible, content density matches the host app, mobile breakpoint or responsive notes are present, touch target and mis-tap risks are considered for mobile Web, desktop regression risk is named, and visitor/signed-in/permission states are represented when relevant.
+21. For public Web or SEO surfaces, annotate indexable content, metadata/structured-data expectations, noindex/private-page boundary, and cache/fallback behavior when relevant.
+22. For Mini Program prototypes, run a chrome/page-level checklist before delivery: status or capsule area visible, primary tab pages use the existing tab bar style, secondary pages show page-header/back behavior, and ineligible/setup states are represented when relevant.
+23. When validation scripts are available, run prototype visual validation or the delivery checks and record the evidence.
 
 ## Output
 
@@ -69,10 +70,13 @@ Generate a local clickable HTML prototype that matches the selected product plat
 - Primary controls are not dead ends; every click either changes state or is clearly disabled.
 - Text, callouts, and controls do not overlap at desktop or mobile-sized widths.
 - Access-gated surfaces include eligible and ineligible states or an explicit not-applicable note.
+- Access-gated controls do not leak authenticated account data or actions from logged-out, guest, or no-permission states.
 - Placeholder or unreviewed content is visibly labeled and does not look launch-approved.
 - If current product UI exists, the prototype preserves the existing structure and shows the new requirement as a delta.
 - If host frontend source exists, the prototype reuses the current app shell, component density, design tokens, and class patterns; it must not use a generic new shell or unrelated palette unless the user requested a redesign.
 - If an existing UI screenshot or rendered host app is available, the prototype uses it as a visual baseline for unchanged regions. If not available, the run log records the limitation and does not claim pixel parity.
+- Keep the product surface full width. Do not reserve a persistent annotation board or shrink the layout for notes; annotations live in markers, dialogs, and the top-right list overlay.
+- For many pages, many states, or content beyond one screen, preserve the host product's real scroll behavior and state structure. Do not place the product inside an artificial fixed-height frame that clips dialogs or long content.
 - Design calibration improves the existing surface without overriding it. Do not import React, Next.js, Tailwind, Framer Motion, icon libraries, fonts, or external assets into the HTML prototype unless the artifact is intentionally production-code-oriented and dependencies are verified.
 - Avoid generic AI UI signatures: unrelated hero layouts, equal 3-card feature rows, decorative gradient blobs, invented palettes, default avatars/names, fake round numbers, dead controls, and static success-only screens.
 - Use complete interaction states: loading skeletons shaped like the final layout, empty states, inline form errors, disabled/loading/success feedback, and tactile active states where they match the host style.

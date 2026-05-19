@@ -151,6 +151,10 @@ def existing_visual_report_check(
             failures.append(f"visual report has page errors for {viewport_name}")
         if int(dom.get("horizontal_overflow_px") or 0) > 2:
             failures.append(f"visual report has horizontal overflow for {viewport_name}")
+        if "access_state_issues" not in dom:
+            failures.append(f"visual report missing access-state smoke evidence for {viewport_name}")
+        elif dom.get("access_state_issues"):
+            failures.append(f"visual report has access-state issues for {viewport_name}")
 
     return {
         "tool": "validate_prototype_visual",

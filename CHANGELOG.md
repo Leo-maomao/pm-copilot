@@ -6,6 +6,24 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.0.3] - 2026-05-19
+
+Commit: pending release commit.
+
+### Changed
+
+- Bumped the project version to `2.0.3` for stricter post-run artifact validation after the latest ai-video regression run.
+- Made PRD solution shaping record `external_research` separately from repository context, so implementation facts cannot be used as a substitute for competitor, benchmark, comparable-feature, or other source-backed product research.
+- Updated prototype annotation guidance toward full-width product surfaces with red component callouts, marker dialogs, and a top-right annotation list instead of persistent side panels that shrink or crop the product UI.
+- Added access-state coherence requirements for Prototype Agent and Review Agent so logged-out, guest, or no-permission controls must not reveal signed-in-only account data or actions.
+
+### Validation
+
+- `validate_outputs.py` now rejects ad hoc run-log shapes for `agent_transitions`, `review_scores`, `quality_thresholds`, `handoff_artifacts`, `content_sources`, `guardrail_events`, and `security_and_audit`.
+- `validate_prototype_visual.py` now records access-state smoke evidence and fails when an unauthenticated account trigger reveals signed-in-only data or actions.
+- `run_delivery_checks.py` now rejects reused visual reports that lack the new access-state evidence.
+- The latest ai-video `phone-email-account-auth` output is expected to fail the stricter gates until regenerated: its run log lacks canonical `external_research` / score / transition structure, and its initial “登录” state opens a signed-in demo user menu.
+
 ## [2.0.2] - 2026-05-19
 
 Commit: pending release commit.
@@ -15,7 +33,10 @@ Commit: pending release commit.
 - Bumped the project version to `2.0.2` for prototype validation and repo-backed prototype quality gates.
 - Strengthened repo-backed prototype generation so UI deliveries must load Prototype Agent plus `multi-platform-prototype`, record style evidence, and reuse host frontend component/style sources instead of inventing a new shell.
 - Added an existing UI visual baseline requirement for repo-backed prototypes so runs must capture or record a running-app/demo/screenshot reference, comparison method, and limitation before claiming visual fit.
-- Updated prototype annotation guidance and template markers to use red `annotation-marker` badges with stable `data-annotation-id` mappings to right-side circled-number notes.
+- Updated prototype annotation guidance and template markers to use red `annotation-marker` badges with stable `data-annotation-id` mappings to circled-number notes.
+- Changed prototype annotations from a persistent side-board pattern to component-corner red badge markers, marker-triggered dialogs, and a top-right current-state annotation list.
+- Added PRD research guidance so “Research and reference findings” uses source-backed competitor, benchmark, or comparable-product research for solution shaping, while repository files stay under current-state context or engineering implementation notes.
+- Added prototype geometry guidance for long pages, multi-state screens, and modals so generated HTML preserves real scrolling behavior instead of clipping content inside artificial frames.
 - Integrated a design calibration pass from the reviewed external design skill: prototypes now record visual density, layout variance, motion intensity, and anti-generic UI choices while preserving host style precedence.
 - Extended output validation to fail prototype deliveries that skip the prototype skill, omit design calibration, omit repo-backed style evidence, or lack traceable top-right component annotation markers.
 - Strengthened prototype visual validation with DOM smoke evidence for visible text, interactive controls, horizontal overflow, console errors, and page errors; duplicate visual skips must reuse a passed report with that evidence.

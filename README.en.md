@@ -20,7 +20,7 @@ PM Copilot treats English and Chinese as first-class user-facing languages. Gene
 
 - `prd.md` suitable for product, design, engineering, QA, and analytics review
 - Version history, requirement input, clarified answers, assumptions, and open confirmations inside the PRD
-- Research and reference findings, including competitor, user, historical PRD, current implementation, or technical solution references when useful
+- Research and reference findings, prioritizing external competitor, comparable feature, user-research, or public solution sources; current implementation is treated as product context and engineering constraint
 - Requirement list and detailed requirement tables with logic, content, rules, interactions, data, permissions, edge states, tracking links, and acceptance links
 - Goals, metrics, tracking plan, and flow diagrams inside the PRD
 - Local clickable annotated HTML prototype for Web, H5, App, or Mini Program scenarios

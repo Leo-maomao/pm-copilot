@@ -34,7 +34,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 - Prototype preserves the current page structure, navigation, layout density, and component style.
 - Prototype clearly shows the new requirement as a delta on the existing page.
 - Each page or screen has its own annotation group.
-- Each annotation is reachable from a hotspot, tooltip, side panel item, or inline marker tied to a specific UI element.
+- Each annotation is reachable from a marker or hotspot tied to a specific UI element, with details in a marker-triggered dialog and the current-state annotation list.
 - Cross-page notes are separated from page-specific notes.
 - The PRD records which existing files or screenshots informed the prototype.
 

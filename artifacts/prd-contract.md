@@ -2,7 +2,7 @@
 
 Use this contract when generating or reviewing `outputs/<run-id>/prd.md`.
 
-The PRD is the primary product-manager handoff artifact. It contains the requirement, research, goals, requirement details, tracking plan, flow diagrams when useful, prototype reference, risks, open confirmations, acceptance criteria, and validation results.
+The PRD is the primary product-manager handoff artifact. It contains the requirement, external product research, goals, requirement details, tracking plan, flow diagrams when useful, prototype reference, risks, open confirmations, acceptance criteria, and validation results.
 
 ## Required Output
 
@@ -67,7 +67,9 @@ For repo-backed product changes, include a localized engineering implementation 
 ## Rules
 
 - Use tables for version history, confirmations, goals, scope, requirement list, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
-- Put competitor research, user research, historical PRD findings, screenshots, existing implementation findings, and technical solution references under `Research and reference findings`.
+- Put source-backed competitor, benchmark, comparable feature, user research, public product docs, screenshots, and technical solution references under `Research and reference findings`.
+- Do not use repository file reading as the only content in `Research and reference findings`. Repo facts are current-product context and should appear in background, current-state notes, product-fit decisions, or the repo-backed engineering map.
+- If external research is skipped or degraded, the research section must say why, identify the confidence impact, and avoid claiming a market-informed recommendation.
 - Keep project goals and metrics near the top so the rest of the PRD can be judged against them.
 - Include PRD status, engineering handoff status, and launch status as separate readiness fields.
 - Keep confirmed MVP scope separate from optional, conditional, future scope, and non-goals.

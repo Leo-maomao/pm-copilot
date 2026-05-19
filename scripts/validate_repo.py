@@ -278,6 +278,7 @@ REQUIRED_TEXT_TOKENS = {
     "artifacts/trace-contract.md": [
         "request_source:",
         "readiness:",
+        "external_research:",
         "style_evidence:",
         "existing_ui_visual_baseline:",
         "design_calibration:",
@@ -295,6 +296,7 @@ REQUIRED_TEXT_TOKENS = {
     "templates/agent-run-log-template.yaml": [
         "request_source:",
         "readiness:",
+        "external_research:",
         "engineering_handoff_status:",
         "launch_status:",
         "surface_decisions:",

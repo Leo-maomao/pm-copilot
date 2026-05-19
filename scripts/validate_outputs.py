@@ -58,6 +58,22 @@ PROTOTYPE_FILE_NAMES = (
 
 ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
 
+EXPECTED_REVIEW_SCORES = {
+    "delivery": 32,
+    "prd": 40,
+    "metrics_and_tracking": 28,
+    "prototype": 32,
+    "review_checklist": 20,
+}
+
+EXPECTED_QUALITY_THRESHOLDS = {
+    "delivery": 23,
+    "prd": 31,
+    "metrics_and_tracking": 21,
+    "prototype": 24,
+    "review_checklist": 15,
+}
+
 
 def fail(message: str) -> None:
     print(f"FAIL: {message}")
@@ -66,6 +82,19 @@ def fail(message: str) -> None:
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def section_text(text: str, name: str) -> str:
+    match = re.search(rf"^{re.escape(name)}:\s*(?:[^#\n]*)?(?:#.*)?$", text, re.MULTILINE)
+    if not match:
+        return ""
+    next_match = re.search(
+        r"^[A-Za-z_][A-Za-z0-9_-]*:\s*(?:[^#\n]*)?(?:#.*)?$",
+        text[match.end():],
+        re.MULTILINE,
+    )
+    end = match.end() + next_match.start() if next_match else len(text)
+    return text[match.start():end]
 
 
 def generated_prototypes(path: Path) -> list[Path]:
@@ -156,10 +185,168 @@ def check_context_trace(path: Path) -> None:
         "host_project_files_loaded:",
         "current_state_facts:",
         "analytics_taxonomy_source:",
+        "external_research:",
     )
     for marker in required:
         if marker not in run_log:
             fail(f"Run log missing context marker: {marker}")
+
+
+def check_structured_run_log_trace(path: Path) -> None:
+    run_log = read(path / "run-log.yaml")
+    check_external_research_shape(run_log)
+    check_agent_transition_shape(run_log)
+    check_handoff_artifact_shape(run_log)
+    check_content_source_shape(run_log)
+    check_guardrail_event_shape(run_log)
+    check_security_and_audit_shape(run_log)
+    check_review_score_shape(run_log)
+    check_quality_threshold_shape(run_log)
+
+
+def check_external_research_shape(run_log: str) -> None:
+    section = section_text(run_log, "external_research")
+    if not section:
+        fail("Run log missing external_research section")
+    for marker in ("status:", "question:", "sources:", "limitations:", "recommendation_impact:"):
+        if marker not in section:
+            fail(f"external_research missing marker: {marker}")
+    if re.search(r"^\s*status:\s*(completed|degraded)\b", section, re.MULTILINE):
+        for marker in ("title:", "url:", "observed_fact:", "product_implication:", "confidence:"):
+            if marker not in section:
+                fail(f"source-backed external_research missing marker: {marker}")
+
+
+def check_agent_transition_shape(run_log: str) -> None:
+    section = section_text(run_log, "agent_transitions")
+    if not section:
+        fail("Run log missing agent_transitions section")
+    if re.search(r"^\s+artifact_delta:\s*(none|\"none\"|'none')\s*$", section, re.MULTILINE):
+        fail("agent_transitions artifact_delta must be structured, not raw none")
+    if re.search(r"^\s+validation_delta:\s*(none|\"none\"|'none')\s*$", section, re.MULTILINE):
+        fail("agent_transitions validation_delta must be structured, not raw none")
+    if re.search(r"^\s+artifact_delta:\s*\n\s+-\s+", section, re.MULTILINE):
+        fail("agent_transitions artifact_delta must use files_created/files_changed/files_unchanged")
+    if re.search(r"^\s+validation_delta:\s*\n\s+-\s+", section, re.MULTILINE):
+        fail("agent_transitions validation_delta must use commands_run/commands_skipped/required_later")
+    for marker in ("files_created:", "files_changed:", "files_unchanged:"):
+        if marker not in section:
+            fail(f"agent_transitions artifact_delta missing marker: {marker}")
+    for marker in ("commands_run:", "commands_skipped:", "required_later:"):
+        if marker not in section:
+            fail(f"agent_transitions validation_delta missing marker: {marker}")
+
+    for scalar_name in ("artifact_delta", "validation_delta"):
+        scalar_re = re.compile(rf"^\s+{scalar_name}:\s+.+$", re.MULTILINE)
+        for match in scalar_re.finditer(section):
+            fail(f"agent_transitions {scalar_name} must not be a prose scalar")
+
+
+def check_handoff_artifact_shape(run_log: str) -> None:
+    section = section_text(run_log, "handoff_artifacts")
+    if not section:
+        fail("Run log missing handoff_artifacts section")
+    for marker in ("dev_tasks:", "launch_decision:", "generation_mode:", "status:"):
+        if marker not in section:
+            fail(f"handoff_artifacts missing marker: {marker}")
+
+
+def check_content_source_shape(run_log: str) -> None:
+    section = section_text(run_log, "content_sources")
+    if not section:
+        fail("Run log missing content_sources section")
+    if re.search(r"^content_sources:\s*\[\]\s*$", section, re.MULTILINE):
+        return
+    if "- content_area:" not in section:
+        fail("content_sources must be a list with content_area entries or []")
+    for marker in (
+        "source_status:",
+        "source_reference:",
+        "review_owner:",
+        "review_status:",
+        "disclaimer_status:",
+        "launch_impact:",
+    ):
+        if marker not in section:
+            fail(f"content_sources missing marker: {marker}")
+
+
+def check_guardrail_event_shape(run_log: str) -> None:
+    section = section_text(run_log, "guardrail_events")
+    if not section or re.search(r"^guardrail_events:\s*\[\]\s*$", section, re.MULTILINE):
+        return
+    for marker in ("type:", "decision:", "rationale:"):
+        if marker not in section:
+            fail(f"guardrail_events missing marker: {marker}")
+
+
+def check_security_and_audit_shape(run_log: str) -> None:
+    section = section_text(run_log, "security_and_audit")
+    if not section:
+        fail("Run log missing security_and_audit section")
+    for marker in (
+        "boundary:",
+        "audit_visibility:",
+        "identity_confirmation_expectation:",
+        "redaction_expectation:",
+        "retention_or_deletion_assumption:",
+        "unresolved_approval_owner:",
+    ):
+        if marker not in section:
+            fail(f"security_and_audit missing canonical marker: {marker}")
+    for stale_marker in ("security_boundary:", "retention_deletion_assumption:"):
+        if stale_marker in section:
+            fail(f"security_and_audit uses stale marker: {stale_marker}")
+
+
+def check_review_score_shape(run_log: str) -> None:
+    section = section_text(run_log, "review_scores")
+    if not section:
+        fail("Run log missing review_scores section")
+    for key, max_score in EXPECTED_REVIEW_SCORES.items():
+        pattern = (
+            rf"^\s+{re.escape(key)}:\s*\n"
+            rf"(?:\s+[A-Za-z_][A-Za-z0-9_-]*:\s*[^\n]*\n)*?"
+            rf"\s+score:\s*\d+\s*\n"
+            rf"(?:\s+[A-Za-z_][A-Za-z0-9_-]*:\s*[^\n]*\n)*?"
+            rf"\s+max_score:\s*{max_score}\b"
+        )
+        if not re.search(pattern, section, re.MULTILINE):
+            fail(f"review_scores must include numeric {key}.score and max_score {max_score}")
+        if not re.search(
+            rf"^\s+{re.escape(key)}:\s*\n(?:\s+[A-Za-z_][A-Za-z0-9_-]*:\s*[^\n]*\n)*?\s+status:\s*.+$",
+            section,
+            re.MULTILINE,
+        ):
+            fail(f"review_scores {key} missing status")
+
+
+def check_quality_threshold_shape(run_log: str) -> None:
+    section = section_text(run_log, "quality_thresholds")
+    if not section:
+        fail("Run log missing quality_thresholds section")
+    for key, threshold in EXPECTED_QUALITY_THRESHOLDS.items():
+        if not re.search(rf"^\s+{re.escape(key)}:\s+{threshold}\b", section, re.MULTILINE):
+            fail(f"quality_thresholds must include {key}: {threshold}")
+    for stale_marker in ("minimum_score_per_category:", "blocking_findings_allowed:"):
+        if stale_marker in section:
+            fail(f"quality_thresholds uses non-rubric marker: {stale_marker}")
+
+
+def check_external_research_trace(path: Path) -> None:
+    if not (path / "prd.md").is_file():
+        return
+    run_log = read(path / "run-log.yaml")
+    for marker in (
+        "external_research:",
+        "status:",
+        "question:",
+        "sources:",
+        "limitations:",
+        "recommendation_impact:",
+    ):
+        if marker not in run_log:
+            fail(f"Run log missing external research marker: {marker}")
 
 
 def check_default_option_trace(path: Path) -> None:
@@ -258,14 +445,22 @@ def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
         fail(f"{prototype_name} missing top-right annotation placement metadata")
     if "annotation-target" not in text:
         fail(f"{prototype_name} missing annotation-target wrappers for component-corner markers")
+    for marker in ("annotation-toggle", "annotation-dialog", "annotation-list"):
+        if marker not in text:
+            fail(f"{prototype_name} missing marker-dialog annotation control: {marker}")
+    if "note-panel" in text or "annotation-panel" in text:
+        fail(f"{prototype_name} should not use a persistent side annotation panel")
+    for marker in ("prototype-viewport", "data-prototype-state"):
+        if marker not in text:
+            fail(f"{prototype_name} missing full-surface state/viewport marker: {marker}")
 
     annotation_ids = set(re.findall(r"data-annotation-id=[\"']([0-9]+)[\"']", text))
     if not annotation_ids:
         fail(f"{prototype_name} missing annotation ID values")
     if not ANNOTATION_NUMERAL_RE.search(text):
-        fail(f"{prototype_name} missing circled annotation numbers in side-panel notes")
+        fail(f"{prototype_name} missing circled annotation numbers in annotation dialogs or list")
     if len(annotation_ids) >= 2 and "②" not in text:
-        fail(f"{prototype_name} missing matching side-panel ② note for the second marker")
+        fail(f"{prototype_name} missing matching ② note for the second marker")
 
 
 def check_chinese_prd(path: Path) -> None:
@@ -368,13 +563,16 @@ def check_mini_program_prototype(path: Path) -> None:
         "mini-capsule",
         "tabbar",
         "page-header",
-        "note-group-title",
-        "showScreen(",
+        "annotation-toggle",
+        "annotation-dialog",
+        "annotation-list",
         "onclick=",
     ]
     for marker in required:
         if marker not in text:
             fail(f"Mini Program prototype missing marker: {marker}")
+    if "showScreen(" not in text and "showView(" not in text:
+        fail("Mini Program prototype missing screen/state switching function")
     if "不是生产代码" not in text and "not production code" not in text.lower():
         fail("Prototype missing not-production-code label")
     if "待产包" in text:
@@ -396,7 +594,10 @@ def check_web_prototype(path: Path) -> None:
     required = [
         "prototype-shell",
         "desktop-nav",
-        "annotation-panel",
+        "prototype-viewport",
+        "annotation-toggle",
+        "annotation-dialog",
+        "annotation-list",
         "note-group-title",
         "showView(",
         "onclick=",
@@ -487,6 +688,7 @@ def main() -> None:
     check_stale_validation(folder)
     check_readiness_trace(folder)
     check_context_trace(folder)
+    check_structured_run_log_trace(folder)
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
     check_visual_validation_trace(folder)

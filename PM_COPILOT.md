@@ -131,7 +131,14 @@ The user should not need to manually copy templates or create folders. Do that f
    - Do not keep a conditional risk as an unresolved confirmation when the generated scope explicitly excludes the triggering behavior. Record it as a non-goal or guardrail instead. Example: if the MVP does not save health data, health-data retention review is a future-scope blocker, not a current launch blocker.
    - For reference, policy, medical, legal, financial, safety, or operational content, record content source, review owner, review status, and disclaimer status. Unreviewed or placeholder content must be labeled as such and must block launch, even when the surrounding product framework is ready for engineering.
 
-7. After the clarification gate passes, create or update the product-manager delivery artifacts:
+7. Run external product research for PRD solution shaping unless the user explicitly says to skip it or tooling/network access is unavailable:
+   - The PRD's research/reference section should include source-backed competitor, benchmark, or comparable feature research that helps choose a better product solution.
+   - Repository files are current-product context, not competitor or feature research. Put implementation facts in background, current-state context, or the engineering implementation map; do not use repo file reading as the only content under "调研与参考结论".
+   - Use `Research Agent` and `tools/research-tooling.md` when competitor, market, benchmark, pricing, policy, compliance, or comparable product behavior can materially shape scope, copy, metrics, or prototype direction.
+   - If web research cannot run, record `external_research.status: skipped` or `degraded`, the exact limitation, and make product recommendations visibly assumption-based.
+   - Record source title, URL, access date when available, observed fact, implication, and confidence in `run-log.yaml`.
+
+8. After the clarification gate passes, create or update the product-manager delivery artifacts:
    - `outputs/<run-id>/prd.md`
    - `outputs/<run-id>/prototype-<platform>.html`
    - `outputs/<run-id>/run-log.yaml`
@@ -144,13 +151,13 @@ The user should not need to manually copy templates or create folders. Do that f
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the prototype, PRD, and engineering handoff agree.
    - Each specialist step must follow `agents/agent-interface.md`: record status, confidence, artifact delta, validation delta, risks, and next expected output. PM Orchestrator owns final readiness labels and resolves contradictions before delivery.
 
-8. Continue with assumptions only when:
+9. Continue with assumptions only when:
    - The user explicitly says to proceed as a draft without answers, or
    - The unknown is clearly low-impact and listed as `can draft with stated assumption`.
    - Items classified as `must confirm before development or launch` are not draft assumptions. If an unresolved item blocks engineering, status must be `Draft with confirmation risk`, not `Ready for engineering`, unless the user explicitly accepts that draft risk. If the item blocks launch only, engineering status may be ready only when the launch blocker is visible and excluded from engineering acceptance criteria.
    - Keep unanswered questions visible in `prd.md`.
 
-9. Choose prototype platform:
+10. Choose prototype platform:
    - Web for desktop admin, SaaS, dashboards, tables, complex forms.
    - H5 for mobile web, landing pages, campaigns, lightweight checkout.
    - App for native mobile product flows.
@@ -164,9 +171,11 @@ The user should not need to manually copy templates or create folders. Do that f
    - Record `style_evidence` in `run-log.yaml`, including source files, reused components, reused tokens or class patterns, the intended new-requirement delta, and limitations. Add a hidden `style-source-summary` comment or `data-style-source` attribute in the prototype so reviewers can trace the visual source.
    - Record `existing_ui_visual_baseline` in `run-log.yaml`: status, source, target page or component, screenshot paths when captured, comparison method, and limitation. If screenshots are available, use them as review evidence for unchanged regions; do not claim pixel-level parity unless a visual comparison actually ran.
    - If the existing frontend style source cannot be inspected and the user expects a product-specific prototype, ask for the missing screenshot/demo/component reference or mark the Prototype Agent output `degraded`; do not mark the prototype `complete`.
-   - Use visible numbered annotation markers on the UI element being explained. The default UI marker is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`; place it at the annotated component's top-right corner, or just outside that corner when it would cover important content. The right-side annotation panel uses the matching circled number such as `②`.
+   - Use visible numbered annotation markers on the UI element being explained. The default UI marker is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`; place it at the annotated component's top-right corner, or just outside that corner when it would cover important content. Clicking a marker opens an `annotation-dialog`, and a top-right `annotation-toggle` opens the current page/state `annotation-list`.
+   - Do not use a persistent side annotation board by default. Keep the product UI full-width and preserve the host product's real page, state, scroll, and modal behavior, especially for long forms, multi-screen flows, and dialogs that exceed one viewport.
+   - Keep access states coherent. Logged-out, guest, or no-permission controls must not reveal signed-in-only account data, user IDs, account-management links, sync actions, logout actions, or privileged navigation when clicked.
 
-10. Run tool preflight and validation after file changes when possible:
+11. Run tool preflight and validation after file changes when possible:
    - `python3 scripts/preflight_tools.py` before full-loop iteration, embedded host evaluation, or final delivery; use `--strict` for PM Copilot release validation.
    - `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict` when source-backed research is required.
    - `python3 scripts/validate_repo.py`
@@ -181,12 +190,12 @@ The user should not need to manually copy templates or create folders. Do that f
    - After validation commands finish, do a validation-finalization pass: replace any earlier placeholder such as `pending`, `待执行`, `should run`, or `to be verified` in both `prd.md` and `run-log.yaml` with the actual pass/fail/skipped result and the observed limitation.
    - On resumed runs, load `outputs/<run-id>/run-log.yaml` first, continue from `workflow.last_reliable_state`, and keep prior blockers visible until answered, explicitly accepted as draft risk, or moved out of current scope.
 
-11. Create execution handoff artifacts when requested:
+12. Create execution handoff artifacts when requested:
    - For development tasks, issue planning, or engineering handoff, follow `workflow/execution-handoff-workflow.md` and create `outputs/<run-id>/dev-tasks.yaml`.
    - For release readiness, launch decision support, or go/no-go checks, create `outputs/<run-id>/launch-decision.yaml`.
    - These artifacts may be generated unattended as `unattended_candidate`, but they must preserve blockers and required approvals. Do not mark `ready_to_launch` unless explicit human approval evidence exists for every required gate.
 
-12. Suggest memory updates after a run when useful:
+13. Suggest memory updates after a run when useful:
    - Stable product facts belong in `context/product-memory.local.yaml`.
    - User working preferences belong in `context/user-preferences.local.yaml`.
    - Durable decisions and rejected options belong in `context/decision-log.local.yaml`.

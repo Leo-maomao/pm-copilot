@@ -19,10 +19,12 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, existing preview/demo screenshot, Storybook screenshot, or user-provided image. If unavailable, record the limitation and downgrade visual confidence.
 - Run a design calibration pass after style evidence is captured: choose visual density, layout variance, and motion intensity from the host product and scenario; improve craft without overriding the current style.
 - Include key states: normal, loading, empty, error, permission, confirmation, and success when relevant.
+- Keep access-state data coherent: unauthenticated or guest entry points must not expose signed-in-only profile data, user IDs, account-management actions, sync actions, logout actions, or privileged navigation when clicked.
 - Choose fidelity based on available context: high when visual and interaction direction are known, mid by default, low only for exploratory work.
-- Include page-scoped clickable annotations or annotation panels for UI, data, tracking, edge cases, and implementation notes.
+- Include page-scoped clickable annotation markers, marker dialogs, and a current-state annotation list for UI, data, tracking, edge cases, and implementation notes.
 - Group annotation notes by page or screen; do not collapse multi-screen behavior into one generic note list.
-- Use numbered callout markers on the prototype surface and matching numbered notes in the side panel for logic or interaction details. Default UI markers should be small red circular badges using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` at the annotated component's top-right corner; the side panel should show the matching circled numeral such as `②`.
+- Use numbered callout markers on the prototype surface and matching marker-triggered dialogs for logic or interaction details. Default UI markers should be small red circular badges using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` at the annotated component's top-right corner; `annotation-toggle` opens all current page/state annotations.
+- Preserve real page and modal geometry for multi-page, multi-state, or over-one-screen surfaces. Avoid artificial frames or persistent annotation boards that shrink, crop, or horizontally scroll the product UI.
 - Clearly label the prototype as not production code.
 - Keep prototypes deterministic and self-contained so browser screenshot validation can capture stable desktop/mobile views.
 - Use `tools/prototype-tooling.md` and `tools/validation-tooling.md` for prototype verification expectations.
@@ -59,14 +61,15 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 - The selected platform shape matches the product scenario.
 - Mini Program primary and secondary page hierarchy is visually distinguishable.
 - Core user path and critical states are visible or interactable.
+- Access-gated controls respect the current simulated state; guest or unauthenticated surfaces do not leak authenticated account data or actions.
 - Browser screenshot validation can capture nonblank desktop/mobile views; setup is attempted before any skipped status is recorded.
 - UI and engineering can use the prototype as a reference without treating it as production implementation.
 - If existing UI context is available, the prototype looks like an extension of that UI rather than a new product.
 - If existing frontend code is available, style evidence is recorded and the prototype reuses the current app shell, components, tokens, and density instead of an invented palette or layout.
 - If a visual baseline is available, unchanged regions are checked against it or explicitly reviewed; if no baseline is available, the handoff says visual parity is limited.
 - Design calibration avoids generic AI UI signatures while preserving host style: no unrelated hero sections, invented palettes, gratuitous cards, decorative blobs, fake round numbers, dead controls, or success-only states.
-- Annotation markers and side-panel notes use matching numbers and explain concrete behavior such as truncation, tap, hover, long-press, permission, data, tracking, and state rules.
-- Annotation markers use traceable IDs such as `data-annotation-id="2"` and placement metadata such as `data-annotation-placement="top-right"` so each visible UI marker maps to the component corner and the right-side `②` note.
+- Annotation markers, marker dialogs, and current-state list notes use matching numbers and explain concrete behavior such as truncation, tap, hover, long-press, permission, data, tracking, and state rules.
+- Annotation markers use traceable IDs such as `data-annotation-id="2"` and placement metadata such as `data-annotation-placement="top-right"` so each visible UI marker maps to the component corner, marker dialog, and current-state annotation list.
 - Variable text fields have stable dimensions or notes so reviewers can see how long names, labels, and duplicate display values behave.
 - Handoff payload includes status, artifact delta, validation delta, risks, and next expected output.
 

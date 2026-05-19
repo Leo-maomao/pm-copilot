@@ -48,12 +48,16 @@ For browser extension prototypes, show the extension container instead of a full
 - Copy must fit on mobile-sized frames.
 - The prototype must include realistic screen states: loading, empty, error, permission, confirmation, success, or rollback where relevant.
 - Loading states should match the final layout shape where possible instead of using generic spinners; form errors should be inline and close to the field.
+- Multi-page or multi-state prototypes should let reviewers switch state without shrinking the product surface. Use a lightweight overlay control outside the product layout when needed.
+- Long pages and modal dialogs must preserve real scrolling behavior. Use viewport-based max heights and internal scroll only when the host product does; do not clip important fields, buttons, or bottom content.
 - If access depends on account, role, eligibility, plan, location, consent, or setup state, show the eligible and ineligible states or state why one is not relevant.
+- Access-state behavior must be internally coherent. A logged-out, guest, or no-permission entry point must not reveal authenticated profile data, user IDs, account-management links, sync actions, logout actions, or privileged navigation when interacted with.
 - If the feature contains unreviewed reference or regulated content, label it as placeholder or draft in the prototype and do not present it as approved final content.
-- Important controls should expose annotations through clickable hotspots, side panels, tooltips, or inline markers.
+- Important controls should expose annotations through clickable markers or hotspots tied to the concrete UI element being explained.
 - Annotation state should update by page or screen, so reviewers can tell which note belongs to which UI element.
 - Numbered callouts should not cover critical copy or controls. Place compact markers at the annotated component's top-right corner by default; offset them just outside that same corner when needed to avoid covering key content.
-- The default callout shape is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` on the prototype surface. The side panel should use the matching circled number such as `①`, `②`, and `③`.
+- The default callout shape is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` on the prototype surface. Clicking a marker opens an `annotation-dialog` or popover with the matching circled number such as `①`, `②`, and `③`.
+- A fixed top-right `annotation-toggle` should open an `annotation-list` overlay showing all annotations for the current page/state.
 
 ## Required Annotations
 
@@ -67,12 +71,12 @@ Include annotations for:
 
 Annotation rules:
 
-- The default annotation layout is left-side prototype, right-side annotation panel.
-- Each page or screen has its own annotation group in the right-side panel.
+- The default annotation layout keeps the prototype full-width and uses marker-triggered dialogs or popovers. Do not add a persistent side panel unless the user explicitly asks for one.
+- Each page or screen has its own annotation group in the top-right `annotation-list` overlay.
 - Each annotation references a concrete UI element, state, or transition and uses the same visible number as the callout marker in the prototype, for example `①`.
-- Each prototype marker and side-panel note must share a stable annotation ID, for example `data-annotation-id="2"` on the UI badge and the matching `②` note in the panel. UI badges should also declare `data-annotation-placement="top-right"` unless a documented exception is needed.
+- Each prototype marker and dialog/list note must share a stable annotation ID, for example `data-annotation-id="2"` on the UI badge and the matching `②` note in the marker dialog or current-state list. UI badges should also declare `data-annotation-placement="top-right"` unless a documented exception is needed.
 - Annotation text must be implementation-grade and specific. Include details such as text length limits and ellipsis behavior, tap/hover/long-press behavior, empty/error state handling, permission rules, data source, and tracking hook when relevant.
-- Long annotation content should be summarized in the panel and expanded by click, hover, or disclosure. Do not dump every page's notes into one long generic paragraph.
+- Long annotation content should be summarized in marker dialogs and expanded through the `annotation-list` overlay. Do not dump every page's notes into one long generic paragraph.
 - Cross-page notes belong in a separate `Global notes` group.
 - Annotations must be reachable from the prototype UI, not only listed beside it.
 - A generic implementation-note card without numbered markers is not sufficient.
@@ -95,7 +99,7 @@ Validate generated prototypes with:
 python3 scripts/validate_prototype_visual.py outputs/<run-id>
 ```
 
-The check should capture at least desktop/default and constrained/mobile screenshots when relevant, confirm the view is not blank, run DOM smoke checks for visible text, interactive controls, horizontal overflow, console errors, and page errors, and compare against visual baselines when the run is part of a regression suite. When multiple platform prototypes exist, the command validates all supported prototype files unless `--prototype <file>` is supplied. Store screenshots and `visual-report.json` under `outputs/<run-id>/visual-review/`. If Playwright or browser tooling is unavailable, run or guide `python3 scripts/setup_visual_validation.py` first; if a system browser launch fails, use the bundled/default Chromium fallback before recording a limitation. Record a skipped check only when setup fails, browser launch is forbidden, or the user declines installation.
+The check should capture at least desktop/default and constrained/mobile screenshots when relevant, confirm the view is not blank, run DOM smoke checks for visible text, interactive controls, horizontal overflow, console errors, page errors, and access-state leakage, and compare against visual baselines when the run is part of a regression suite. When multiple platform prototypes exist, the command validates all supported prototype files unless `--prototype <file>` is supplied. Store screenshots and `visual-report.json` under `outputs/<run-id>/visual-review/`. If Playwright or browser tooling is unavailable, run or guide `python3 scripts/setup_visual_validation.py` first; if a system browser launch fails, use the bundled/default Chromium fallback before recording a limitation. Record a skipped check only when setup fails, browser launch is forbidden, or the user declines installation.
 
 For final delivery, prefer the delivery orchestrator so HTML parsing and output validation are recorded with the visual evidence:
 

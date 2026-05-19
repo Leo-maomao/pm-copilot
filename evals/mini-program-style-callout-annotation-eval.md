@@ -9,7 +9,7 @@
 | Platform | Mini Program |
 | Product Area | Public resources and common tab entry |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-18 |
+| Last Updated | 2026-05-19 |
 
 ## Raw Request
 
@@ -28,16 +28,16 @@
 - Classify the run as `repo-backed` or `document-backed` based on available inputs.
 - Inspect current mini-program UI evidence before prototyping.
 - Preserve the current mini-program style and show the new requirement as a delta.
-- Generate a local HTML prototype with left-side page preview and right-side numbered annotation panel.
+- Generate a local HTML prototype that keeps the mini-program page at its natural width, with numbered red badge markers on the relevant components, marker-triggered dialogs, and a top-right current-state annotation list.
 
 ## Pass Criteria
 
 - Prototype matches the current mini-program visual style: status bar, capsule/header, tab bar, colors, spacing, typography, icon style, card radius, shadows, and layout density.
 - Prototype does not look like a newly invented product shell when existing UI evidence is available.
 - Every element requiring logic or interaction explanation has a visible numbered marker such as `①`, `②`, and `③` placed near that element.
-- The right-side annotation panel contains matching numbered notes grouped by page or state.
+- Marker dialogs and the top-right annotation list contain matching numbered notes grouped by page or state.
 - Annotation notes are concrete and implementation-grade, for example text length limit and ellipsis rule, tap behavior, hover or tooltip behavior when applicable, long-press behavior, empty/error state, data source, permission rule, and tracking hook.
-- Long notes are summarized in the panel and expanded through click, hover, or disclosure instead of being dumped into one generic paragraph.
+- Long notes are summarized in marker dialogs and expanded through the annotation list instead of being dumped into one generic paragraph.
 - Markers and notes do not obscure key page content or controls.
 - PRD records the style sources used and any style limitations.
 
@@ -46,7 +46,7 @@
 | Date | Failure Code | Severity | Symptom | Fix |
 |---|---|---|---|---|
 | 2026-05-18 | mini-program-style-drift | High | Prototype ignored the current mini-program style and looked like a different product. | Require style-source inspection and existing-surface visual matching. |
-| 2026-05-18 | generic-annotation-panel | High | Notes were generic implementation paragraphs without numbered markers tied to UI elements. | Require left-side numbered callouts and matching right-side annotation notes. |
+| 2026-05-18 | generic-annotation-panel | High | Notes were generic implementation paragraphs without numbered markers tied to UI elements. | Require component-corner numbered callouts, marker dialogs, and a current-state annotation list. |
 
 ## Latest Result
 

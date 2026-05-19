@@ -17,6 +17,7 @@ Check whether the generated PRD and prototype delivery is ready for stakeholder 
 - Verify tool preflight ran for full-loop/final delivery or that the absence is explicitly justified.
 - Verify `scripts/run_delivery_checks.py` ran for generated run folders or that individual equivalent checks are recorded.
 - Verify prototype visual validation is recorded for UI deliveries, including screenshot paths, diff status, or a skipped reason that shows setup was attempted, browser launch was forbidden, or installation was declined.
+- Verify access-state coherence in prototypes: logged-out, guest, no-permission, and eligible states must not contradict each other or reveal signed-in-only account data/actions from unauthenticated entry points.
 - Verify the default output folder contains only allowed artifacts and that `validate_outputs.py` or `run_delivery_checks.py` passed; if either cannot run, record the tool failure.
 - Check that default-option selections, quality thresholds, failure classifications, and validation commands are present in the run log.
 - Review `dev-tasks.yaml` and `launch-decision.yaml` against their contracts when present.

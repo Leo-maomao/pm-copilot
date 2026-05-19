@@ -95,7 +95,8 @@ Minimum quality bar:
 
 - A PM, designer, engineer, QA, and analytics reviewer can understand the requirement from `prd.md` plus the prototype.
 - Goals are measurable or tied to a measurement plan.
-- Research and reference findings explain why the solution is shaped this way. This section may include user research, competitor research, historical PRDs, screenshots, current implementation findings, or technical solution references.
+- Research and reference findings explain why the solution is shaped this way using source-backed competitor, benchmark, comparable feature, user research, public docs, screenshots, or technical solution references.
+- Current implementation findings from the host repository are product context, not a substitute for external product research. Put them in background, current-state notes, or the engineering implementation map unless they are clearly labeled as implementation constraints.
 - Requirements are testable.
 - Edge cases include error, empty, permission, payment, rollback, content-review, and launch-blocking cases where relevant.
 - Open questions and launch blockers are visible, not hidden inside prose.
@@ -170,9 +171,9 @@ Required elements:
 - Includes key screens and states.
 - Includes interaction for the main path.
 - States its fidelity level: `low`, `mid`, or `high`.
-- Uses left-side prototype and right-side numbered annotation panel by default.
+- Does not reserve a side annotation board by default. The product UI should keep its real layout width and height.
 - Places compact numbered callouts at the top-right corner of the concrete UI component, state, or transition being explained, offset just outside the corner when needed to avoid covering content.
-- Uses small red `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface and matching circled notes such as `①`, `②`, and `③` in the side panel.
+- Uses small red `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface. Clicking a marker opens an `annotation-dialog` or popover for that marker. A fixed top-right `annotation-toggle` opens an `annotation-list` overlay for all markers in the current page/state.
 
 Prototype annotations must cover the relevant subset of:
 
@@ -191,10 +192,12 @@ Minimum quality bar:
 - No external assets are required.
 - Text fits in the layout.
 - Callouts do not cover critical copy or controls.
+- Prototype annotation overlays must not change product layout, reserve persistent side space, or shrink the product viewport.
 - The prototype does not claim to be production code.
 - The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
 - When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
 - When host frontend code exists, the prototype reuses the current app shell, component structure, tokens, spacing density, and copy tone rather than introducing a separate visual system.
+- For long pages, multi-state flows, and modals, preserve the product's real scrolling behavior. Do not clip modal contents or force the whole product into a fixed-height frame unless the host product does that.
 - When existing screenshots or a runnable host app are available, unchanged regions are compared or reviewed against that visual baseline; without baseline evidence, the artifact must not claim pixel-level parity.
 - Browser screenshot validation covers at least one primary desktop or default viewport and one constrained/mobile viewport when the platform has responsive behavior. Visual diff baselines are required for regression suites and optional for first-run exploratory artifacts.
 

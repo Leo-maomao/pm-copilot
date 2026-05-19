@@ -320,7 +320,7 @@ def capture_screenshots(
 
 def inspect_page_dom(page) -> dict[str, object]:
     return page.evaluate(
-        """() => {
+        """async () => {
             const styleVisible = (node) => {
                 const style = window.getComputedStyle(node);
                 const rect = node.getBoundingClientRect();
@@ -338,7 +338,7 @@ def inspect_page_dom(page) -> dict[str, object]:
                 .filter(styleVisible).length;
             const visibleLinks = Array.from(document.querySelectorAll("a"))
                 .filter(styleVisible).length;
-            return {
+            const result = {
                 inner_width: window.innerWidth,
                 scroll_width: scrollWidth,
                 horizontal_overflow_px: Math.max(0, scrollWidth - window.innerWidth),
@@ -346,7 +346,43 @@ def inspect_page_dom(page) -> dict[str, object]:
                 visible_links: visibleLinks,
                 body_text_length: (document.body?.innerText || "").trim().length,
                 has_doctype: document.doctype?.name === "html",
+                access_state_issues: [],
             };
+            const textOf = (node) => [
+                node.innerText || "",
+                node.getAttribute("aria-label") || "",
+                node.getAttribute("title") || "",
+            ].join(" ").replace(/\\s+/g, " ").trim();
+            const unauthRe = /(\\u767b\\u5f55|\\u672a\\u767b\\u5f55|\\u6e38\\u5ba2|sign in|log in|guest)/i;
+            const explicitUnauthBodyRe = /(\\u672a\\u767b\\u5f55|\\u6e38\\u5ba2|not signed in|signed out|guest)/i;
+            const accountTriggerRe = /(\\u4e2a\\u4eba\\u4e2d\\u5fc3|\\u8d26\\u53f7|\\u8d26\\u6237|profile|account)/i;
+            const signedInLeakRe = /(user_id\\s*:|[A-Za-z0-9._%+-]+\\*{2,}@[A-Za-z0-9.-]+|\\u7528\\u6237\\u7ba1\\u7406|\\u9000\\u51fa\\u767b\\u5f55|log out|account management)/i;
+            const controls = Array.from(document.querySelectorAll("button,[role='button'],a"))
+                .filter(styleVisible)
+                .filter((node) => {
+                    const label = textOf(node);
+                    return unauthRe.test(label) || accountTriggerRe.test(label);
+                })
+                .slice(0, 8);
+            for (const control of controls) {
+                const beforeText = (document.body?.innerText || "").trim();
+                const label = textOf(control);
+                try {
+                    control.click();
+                    await new Promise((resolve) => setTimeout(resolve, 80));
+                } catch (_error) {
+                    continue;
+                }
+                const afterText = (document.body?.innerText || "").trim();
+                const unauthContext = unauthRe.test(label) || explicitUnauthBodyRe.test(beforeText.slice(0, 1200));
+                if (unauthContext && signedInLeakRe.test(afterText)) {
+                    result.access_state_issues.push(
+                        "unauthenticated account trigger reveals signed-in-only account data or actions",
+                    );
+                    break;
+                }
+            }
+            return result;
         }"""
     )
 
@@ -488,6 +524,11 @@ def main() -> None:
             if dom.get("page_errors"):
                 prototype_failures.append(
                     f"{screenshot.name} has page errors: {dom.get('page_errors')}"
+                )
+            if dom.get("access_state_issues"):
+                prototype_failures.append(
+                    f"{screenshot.name} has access-state issues: "
+                    f"{dom.get('access_state_issues')}"
                 )
 
             if baseline_dir:

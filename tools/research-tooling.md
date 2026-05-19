@@ -1,6 +1,8 @@
 # Research Tooling
 
-Research tools are required when the output makes source-backed claims or when competitor, benchmark, policy, pricing, medical, legal, financial, safety, or regulated content affects the product decision.
+Research tools are required when the output makes source-backed claims or when competitor, benchmark, comparable feature behavior, policy, pricing, medical, legal, financial, safety, or regulated content affects the product decision.
+
+For PRD solution shaping, external product research is expected unless the user explicitly skips it or tooling/network access is unavailable. Host repository files are current-product context, not external research evidence.
 
 ## Required Evidence
 
@@ -10,6 +12,7 @@ For each source-backed claim, record:
 - URL or document path
 - access date
 - observed fact
+- product implication
 - confidence and limitation
 
 ## Rules

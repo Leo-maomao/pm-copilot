@@ -5,152 +5,170 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{localized_prototype_title}}</title>
   <style type="text/css">
-    body { margin: 0; font-family: Arial, sans-serif; background: #eef2ef; color: #17211d; }
-    .shell { display: grid; grid-template-columns: minmax(320px, 420px) minmax(300px, 420px); gap: 28px; max-width: 940px; margin: 24px auto; padding: 0 16px; }
-    .frame { position: relative; min-height: 760px; overflow: hidden; background: var(--surface, #fbfdfb); border: 10px solid #16201d; border-radius: 34px; box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12); }
-    .bar { display: flex; justify-content: space-between; padding: 14px 22px 8px; font-size: 12px; font-weight: 700; }
-    .content { position: relative; padding: 42px 18px 110px; }
-    .screen-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-    .screen-tabs button { border: 1px solid #d8dfda; border-radius: 16px; background: #fff; padding: 8px 14px; cursor: pointer; }
-    .screen-tabs button.active { background: #e8f5ef; color: #10906f; border-color: #dcefe6; }
+    :root { --surface: #fbfdfb; --text: #17211d; --muted: #6f7a75; --line: #d8dfda; --primary: #12a67f; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100dvh; font-family: Arial, sans-serif; background: #eef2ef; color: var(--text); }
+    button, input { font: inherit; }
+    .prototype-shell { min-height: 100dvh; position: relative; }
+    .prototype-viewport { min-height: 100dvh; overflow: auto; }
+    .product-surface { min-height: 100dvh; background: var(--surface); }
+    .desktop-nav { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, white); }
+    .prototype-toolbar { position: fixed; top: 12px; right: 12px; z-index: 30; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+    .prototype-toolbar > * { pointer-events: auto; }
+    .prototype-state-tabs { display: inline-flex; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.9); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
+    .prototype-state-tabs button, .annotation-toggle { min-height: 34px; border: 0; border-radius: 999px; padding: 0 12px; background: transparent; color: var(--text); cursor: pointer; }
+    .prototype-state-tabs button.active, .annotation-toggle { background: var(--primary); color: #fff; }
     .screen { display: none; }
     .screen.active { display: block; }
-    .button { width: 100%; border: 0; border-radius: 14px; padding: 12px; background: var(--primary, #12a67f); color: #fff; font-weight: 700; cursor: pointer; }
-    .muted { color: #6f7a75; font-size: 13px; line-height: 1.5; }
-    .card { margin-top: 16px; padding: 18px; border-radius: 16px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
+    .page-content { width: min(100%, 980px); margin: 0 auto; padding: 48px 20px 120px; }
+    .button { width: 100%; border: 0; border-radius: 14px; padding: 12px; background: var(--primary); color: #fff; font-weight: 700; cursor: pointer; }
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .card { margin-top: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
     .annotation-target { position: relative; }
-    .annotation-marker { position: absolute; top: -9px; right: -9px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
-    .annotation-marker.active { background: #12a67f; color: #fff; }
-    .tabbar { position: absolute; left: 18px; right: 18px; bottom: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px; border-radius: 28px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); color: #6f7a75; font-size: 12px; text-align: center; }
-    .tabbar .active { border-radius: 22px; background: #e8f5ef; color: #10906f; font-weight: 700; padding: 8px; }
-    .note-panel { max-height: 760px; overflow: auto; border-radius: 8px; background: #fff; border: 1px solid #d8dfda; padding: 22px; box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08); }
-    .note-panel h2 { margin: 0 0 8px; font-size: 22px; }
-    .note-panel h3 { margin: 22px 0 10px; font-size: 15px; }
-    .note-card { display: block; width: 100%; margin: 10px 0; padding: 12px; border: 1px solid #e3e8e4; border-radius: 8px; background: #fff; text-align: left; cursor: pointer; }
-    .note-card.active { border-color: #12a67f; background: #f0faf5; }
-    .note-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 700; }
-    .note-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; background: #ff3b30; color: #fff; }
-    .note-card.active .note-number { background: #12a67f; color: #fff; }
-    .note-card ul { margin: 0; padding-left: 18px; color: #4c5953; font-size: 13px; line-height: 1.65; }
-    .annotation { margin-top: 14px; padding: 12px; border-radius: 8px; background: #f7faf8; border: 1px solid #e3e8e4; font-size: 13px; color: #4c5953; }
-    @media (max-width: 760px) { .shell { grid-template-columns: 1fr; } }
+    .annotation-marker { position: absolute; top: -9px; right: -9px; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
+    .annotation-marker.active { background: var(--primary); }
+    .annotation-backdrop { position: fixed; inset: 0; z-index: 40; display: none; background: rgba(15, 23, 42, 0.32); }
+    .annotation-backdrop.active { display: block; }
+    .annotation-dialog { position: fixed; top: 50%; left: 50%; z-index: 41; display: none; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; transform: translate(-50%, -50%); border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 18px; box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28); }
+    .annotation-dialog.active { display: block; }
+    .annotation-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+    .annotation-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 8px; border-radius: 999px; background: #ff3b30; color: #fff; font-weight: 800; }
+    .annotation-close { border: 0; border-radius: 8px; background: #f1f5f2; padding: 6px 10px; cursor: pointer; }
+    .annotation-list { display: grid; gap: 10px; }
+    .annotation-list-item { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 12px; text-align: left; cursor: pointer; }
+    .note-group-title { margin: 10px 0 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    @media (max-width: 760px) {
+      .prototype-toolbar { left: 8px; right: 8px; justify-content: flex-end; flex-wrap: wrap; }
+      .page-content { padding: 72px 16px 96px; }
+    }
   </style>
 </head>
 <body>
-  <!-- Template note: match the current product style before filling this file. Replace placeholders with localized copy. Mark every logic/interaction explanation with an annotation-marker red badge at the annotated component's top-right corner and a matching circled number in the right panel. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
+  <!-- Template note: match the current product style before filling this file. Keep annotations in marker dialogs and the top-right annotation-list overlay, not a persistent side board. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
   <!-- style-source-summary: {{localized_style_source_summary}} -->
-  <div class="shell">
-    <div class="frame">
-      <div class="bar"><span>9:41</span><span>{{localized_mini_program_brand}}</span></div>
-      <div class="content">
-        <div class="screen-tabs">
-          <button id="tab-current" class="active" type="button" onclick="showScreen('current')">{{localized_current_page}}</button>
-          <button id="tab-new" type="button" onclick="showScreen('new')">{{localized_new_state}}</button>
-        </div>
-        <div id="screen-current" class="screen active">
-          <div class="annotation-target">
-            <h1>{{localized_existing_page_surface}}</h1>
-            <button id="callout-current-entry" class="annotation-marker" data-annotation-id="1" data-annotation-placement="top-right" type="button" onclick="showNote('current', 'entry')">1</button>
-          </div>
-          <p class="muted">{{localized_existing_page_note}}</p>
-          <div class="card annotation-target">
-            <button id="callout-current-card" class="annotation-marker" data-annotation-id="2" data-annotation-placement="top-right" type="button" onclick="showNote('current', 'card')">2</button>
-            <strong>{{localized_existing_card_title}}</strong>
-            <p class="muted">{{localized_existing_card_summary}}</p>
-          </div>
-          <button class="button" type="button" onclick="showScreen('new')">{{localized_open_new_state}}</button>
-        </div>
-        <div id="screen-new" class="screen">
-          <h1>{{localized_new_requirement_state}}</h1>
-          <p class="muted">{{localized_new_state_note}}</p>
-          <div class="card annotation-target">
-            <button id="callout-new-content" class="annotation-marker" data-annotation-id="3" data-annotation-placement="top-right" type="button" onclick="showNote('new', 'content')">3</button>
-            <strong>{{localized_new_component_title}}</strong>
-            <p class="muted">{{localized_new_component_summary}}</p>
-          </div>
-          <div class="annotation-target">
-            <button class="button" type="button" onclick="showNote('new', 'submit')">{{localized_primary_action}}</button>
-            <button id="callout-new-submit" class="annotation-marker" data-annotation-id="4" data-annotation-placement="top-right" type="button" onclick="showNote('new', 'submit')">4</button>
-          </div>
-        </div>
-        <div class="annotation" id="annotation">{{localized_annotation_prompt}}</div>
+  <div class="prototype-shell" data-style-source="{{localized_style_source_summary}}">
+    <div class="prototype-toolbar" aria-label="{{localized_prototype_controls}}">
+      <div class="prototype-state-tabs">
+        <button id="tab-current" class="active" type="button" onclick="showView('current')">{{localized_current_page}}</button>
+        <button id="tab-new" type="button" onclick="showView('new')">{{localized_new_state}}</button>
       </div>
-      <div class="tabbar">
-        <div>{{localized_tab_one}}</div>
-        <div class="active">{{localized_tab_current}}</div>
-        <div>{{localized_tab_three}}</div>
+      <button class="annotation-toggle" type="button" onclick="showAnnotationList()">{{localized_show_annotations}}</button>
+    </div>
+
+    <main class="prototype-viewport">
+      <div class="product-surface">
+        <div class="desktop-nav">
+          <strong>{{localized_product_name}}</strong>
+          <span class="muted">{{localized_prototype_boundary_note}}</span>
+        </div>
+
+        <section id="screen-current" class="screen active" data-prototype-state="current">
+          <div class="page-content">
+            <div class="annotation-target">
+              <h1>{{localized_existing_page_surface}}</h1>
+              <button id="marker-1" class="annotation-marker" data-annotation-id="1" data-annotation-placement="top-right" type="button" onclick="showAnnotation('1')">1</button>
+            </div>
+            <p class="muted">{{localized_existing_page_note}}</p>
+            <div class="card annotation-target">
+              <button id="marker-2" class="annotation-marker" data-annotation-id="2" data-annotation-placement="top-right" type="button" onclick="showAnnotation('2')">2</button>
+              <strong>{{localized_existing_card_title}}</strong>
+              <p class="muted">{{localized_existing_card_summary}}</p>
+            </div>
+            <button class="button" type="button" onclick="showView('new')">{{localized_open_new_state}}</button>
+          </div>
+        </section>
+
+        <section id="screen-new" class="screen" data-prototype-state="new">
+          <div class="page-content">
+            <div class="annotation-target">
+              <h1>{{localized_new_requirement_state}}</h1>
+              <button id="marker-3" class="annotation-marker" data-annotation-id="3" data-annotation-placement="top-right" type="button" onclick="showAnnotation('3')">3</button>
+            </div>
+            <p class="muted">{{localized_new_state_note}}</p>
+            <div class="card annotation-target">
+              <button id="marker-4" class="annotation-marker" data-annotation-id="4" data-annotation-placement="top-right" type="button" onclick="showAnnotation('4')">4</button>
+              <strong>{{localized_new_component_title}}</strong>
+              <p class="muted">{{localized_new_component_summary}}</p>
+            </div>
+            <div class="annotation-target">
+              <button class="button" type="button" onclick="showAnnotation('5')">{{localized_primary_action}}</button>
+              <button id="marker-5" class="annotation-marker" data-annotation-id="5" data-annotation-placement="top-right" type="button" onclick="showAnnotation('5')">5</button>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
-    <div class="note-panel">
-      <h2>{{localized_prototype_title}}</h2>
-      <p class="muted">{{localized_prototype_boundary_note}}</p>
-      <h3>{{localized_current_page}}</h3>
-      <button id="note-current-entry" class="note-card" data-annotation-id="1" type="button" onclick="showNote('current', 'entry')">
-        <span class="note-heading"><span class="note-number">①</span>{{localized_existing_entry_note_label}}</span>
-        <ul>
-          <li>{{localized_note_1_text_limit_rule}}</li>
-          <li>{{localized_note_1_tap_hover_long_press_rule}}</li>
-          <li>{{localized_note_1_data_permission_tracking_rule}}</li>
-        </ul>
-      </button>
-      <button id="note-current-card" class="note-card" data-annotation-id="2" type="button" onclick="showNote('current', 'card')">
-        <span class="note-heading"><span class="note-number">②</span>{{localized_existing_card_note_label}}</span>
-        <ul>
-          <li>{{localized_note_2_text_limit_rule}}</li>
-          <li>{{localized_note_2_state_rule}}</li>
-          <li>{{localized_note_2_tracking_rule}}</li>
-        </ul>
-      </button>
-      <h3>{{localized_new_state}}</h3>
-      <button id="note-new-content" class="note-card" data-annotation-id="3" type="button" onclick="showNote('new', 'content')">
-        <span class="note-heading"><span class="note-number">③</span>{{localized_added_component_note_label}}</span>
-        <ul>
-          <li>{{localized_note_3_text_limit_rule}}</li>
-          <li>{{localized_note_3_empty_error_rule}}</li>
-          <li>{{localized_note_3_data_rule}}</li>
-        </ul>
-      </button>
-      <button id="note-new-submit" class="note-card" data-annotation-id="4" type="button" onclick="showNote('new', 'submit')">
-        <span class="note-heading"><span class="note-number">④</span>{{localized_submit_tracking_note_label}}</span>
-        <ul>
-          <li>{{localized_note_4_tap_rule}}</li>
-          <li>{{localized_note_4_loading_error_rule}}</li>
-          <li>{{localized_note_4_tracking_rule}}</li>
-        </ul>
-      </button>
-    </div>
+    </main>
+
+    <div id="annotation-backdrop" class="annotation-backdrop" onclick="closeAnnotation()"></div>
+    <section id="annotation-dialog" class="annotation-dialog" role="dialog" aria-modal="true" aria-live="polite"></section>
   </div>
+
   <script type="text/javascript">
-    var notes = {
-      current: {
-        entry: '{{localized_note_1_expanded_annotation}}',
-        card: '{{localized_note_2_expanded_annotation}}'
-      },
-      new: {
-        content: '{{localized_note_3_expanded_annotation}}',
-        submit: '{{localized_note_4_expanded_annotation}}'
-      }
-    };
-    function showScreen(name) {
+    var currentView = 'current';
+    var annotations = [
+      { id: '1', view: 'current', number: '①', title: '{{localized_existing_entry_note_label}}', detail: '{{localized_note_1_expanded_annotation}}' },
+      { id: '2', view: 'current', number: '②', title: '{{localized_existing_card_note_label}}', detail: '{{localized_note_2_expanded_annotation}}' },
+      { id: '3', view: 'new', number: '③', title: '{{localized_added_page_note_label}}', detail: '{{localized_note_3_expanded_annotation}}' },
+      { id: '4', view: 'new', number: '④', title: '{{localized_added_component_note_label}}', detail: '{{localized_note_4_expanded_annotation}}' },
+      { id: '5', view: 'new', number: '⑤', title: '{{localized_submit_tracking_note_label}}', detail: '{{localized_note_5_expanded_annotation}}' }
+    ];
+
+    function activeAnnotations() {
+      return annotations.filter(function (item) { return item.view === currentView; });
+    }
+
+    function showView(name) {
+      currentView = name;
       document.getElementById('screen-current').classList.toggle('active', name === 'current');
       document.getElementById('screen-new').classList.toggle('active', name === 'new');
       document.getElementById('tab-current').classList.toggle('active', name === 'current');
       document.getElementById('tab-new').classList.toggle('active', name === 'new');
-      document.getElementById('annotation').textContent = '{{localized_viewing_screen_annotations}}';
+      closeAnnotation();
     }
-    function showNote(page, key) {
-      if (page === 'new') showScreen('new');
-      if (page === 'current') showScreen('current');
-      var activeId = 'note-' + page + '-' + key;
-      var noteCards = document.querySelectorAll('.note-card');
-      for (var i = 0; i < noteCards.length; i += 1) {
-        noteCards[i].classList.toggle('active', noteCards[i].id === activeId);
+
+    function setActiveMarker(id) {
+      var markers = document.querySelectorAll('.annotation-marker');
+      for (var i = 0; i < markers.length; i += 1) {
+        markers[i].classList.toggle('active', markers[i].getAttribute('data-annotation-id') === id);
       }
-      var callouts = document.querySelectorAll('.annotation-marker');
-      for (var j = 0; j < callouts.length; j += 1) {
-        callouts[j].classList.toggle('active', callouts[j].id === ('callout-' + page + '-' + key));
+    }
+
+    function showAnnotation(id) {
+      var item = annotations.find(function (entry) { return entry.id === id; });
+      if (!item) return;
+      setActiveMarker(id);
+      renderDialog(
+        '<header><h2><span class="annotation-number">' + item.number + '</span>' + item.title + '</h2>' +
+        '<button class="annotation-close" type="button" onclick="closeAnnotation()">{{localized_close}}</button></header>' +
+        '<p class="muted">' + item.detail + '</p>'
+      );
+    }
+
+    function showAnnotationList() {
+      var items = activeAnnotations();
+      var html = '<header><h2>{{localized_current_state_annotations}}</h2>' +
+        '<button class="annotation-close" type="button" onclick="closeAnnotation()">{{localized_close}}</button></header>' +
+        '<div class="note-group-title">{{localized_current_page}}</div><div class="annotation-list">';
+      for (var i = 0; i < items.length; i += 1) {
+        html += '<button class="annotation-list-item" type="button" data-annotation-id="' + items[i].id + '" onclick="showAnnotation(\'' + items[i].id + '\')">' +
+          '<span class="annotation-number">' + items[i].number + '</span><strong>' + items[i].title + '</strong>' +
+          '<p class="muted">' + items[i].detail + '</p></button>';
       }
-      document.getElementById('annotation').textContent = notes[page][key];
+      html += '</div>';
+      setActiveMarker('');
+      renderDialog(html);
+    }
+
+    function renderDialog(html) {
+      document.getElementById('annotation-dialog').innerHTML = html;
+      document.getElementById('annotation-dialog').classList.add('active');
+      document.getElementById('annotation-backdrop').classList.add('active');
+    }
+
+    function closeAnnotation() {
+      document.getElementById('annotation-dialog').classList.remove('active');
+      document.getElementById('annotation-backdrop').classList.remove('active');
+      setActiveMarker('');
     }
   </script>
 </body>

@@ -7,6 +7,8 @@ Gather and summarize source-backed competitor, market, or benchmark information 
 ## Responsibilities
 
 - Define the research question before searching.
+- For PRD solution shaping, prioritize comparable products, competitor flows, benchmark feature patterns, public docs, help centers, policy/pricing pages, or credible product writeups over host repository files.
+- Keep repository implementation facts out of the external research brief unless they are explicitly labeled as current-product constraints from context loading.
 - Use only accessible and attributable sources.
 - Capture source titles, URLs, dates when available, and confidence level.
 - Follow `tools/research-tooling.md` and record source-backed tool results with `artifacts/tool-result-contract.md`.
@@ -27,6 +29,7 @@ Gather and summarize source-backed competitor, market, or benchmark information 
 - Source list
 - Competitor comparison table
 - Implications for PRD, metrics, or prototype
+- Separation between external product findings and current-product implementation constraints
 - Unknowns and confidence notes
 - Source freshness and access limitation notes
 

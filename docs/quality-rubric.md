@@ -90,6 +90,7 @@ Minimum recommended review score: 15 / 20.
 - PRD looks complete but goals cannot be measured.
 - Tracking plan includes events but trigger timing is vague.
 - Prototype shows screens but not state transitions.
+- Logged-out or guest prototype states reveal signed-in account data or account-management actions.
 - Competitor claims have no sources.
 - Legal or payment risk is buried in prose.
 - Launch blockers are hidden behind `Ready for engineering`.

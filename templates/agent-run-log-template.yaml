@@ -32,6 +32,19 @@ context:
   conflicts_found: []
   conflict_resolution: []
 
+external_research:
+  status: "" # completed | degraded | skipped | not_applicable
+  question: ""
+  sources:
+    - title: ""
+      url: ""
+      access_date: ""
+      observed_fact: ""
+      product_implication: ""
+      confidence: ""
+  limitations: []
+  recommendation_impact: ""
+
 readiness:
   prd_status: "" # blocked | draft with assumptions | draft with confirmation risk | ready for review | ready for engineering
   engineering_handoff_status: "" # ready | blocked | not applicable

@@ -39,9 +39,9 @@ For UI prototypes, the delivery orchestrator runs:
 python3 scripts/validate_prototype_visual.py outputs/<run-id>
 ```
 
-The visual validator checks every supported prototype file in the run folder unless `--prototype <file>` is used to isolate one platform. It captures screenshots and records DOM smoke evidence for each viewport: body text length, visible interactive controls, horizontal overflow, console errors, and page errors. If an auto-detected system browser fails to launch, it should fall back to Playwright's default/bundled Chromium path and attempt setup before reporting a browser limitation.
+The visual validator checks every supported prototype file in the run folder unless `--prototype <file>` is used to isolate one platform. It captures screenshots and records DOM smoke evidence for each viewport: body text length, visible interactive controls, horizontal overflow, console errors, page errors, and access-state leakage from unauthenticated account triggers. If an auto-detected system browser fails to launch, it should fall back to Playwright's default/bundled Chromium path and attempt setup before reporting a browser limitation.
 
-When `run_delivery_checks.py` skips a duplicate visual run because a previous visual validation already passed, it must read `visual-review/visual-report.json` and confirm that the report is passed, covers every prototype, and includes DOM smoke evidence. A legacy report that only proves nonblank screenshots is not enough for reuse.
+When `run_delivery_checks.py` skips a duplicate visual run because a previous visual validation already passed, it must read `visual-review/visual-report.json` and confirm that the report is passed, covers every prototype, and includes DOM smoke evidence, including access-state evidence. A legacy report that only proves nonblank screenshots is not enough for reuse.
 
 If Playwright or a browser is missing, run:
 

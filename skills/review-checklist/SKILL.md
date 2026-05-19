@@ -19,10 +19,11 @@ Decide whether the PRD and prototype delivery is ready for stakeholder review, e
 6. Route each finding to the responsible agent or artifact.
 7. Separate required fixes from optional improvements.
 8. State PRD, engineering handoff, and launch readiness separately.
-9. For HTML prototypes, verify numbered callouts are grouped by page or screen in the annotation panel. A single generic annotation list is a finding unless the prototype has only one screen.
-10. For operational workflows such as feedback, moderation, support, release checks, or admin review, verify the state machine, owner role, SLA or timing assumption, user-visible status, internal-only status, reply/content review, reopen/cancel path, and notification behavior.
-11. For comparison, ranking, scoring, or recommendation-adjacent experiences, verify neutral default ordering, no unexplained winner/highlight, source/fee/risk definitions, disclaimer visibility, and whether any wording implies advice or guaranteed superiority.
-12. For launch-sensitive packages, verify required human approvals are present before any ready-to-launch wording is allowed.
+9. For HTML prototypes, verify numbered callouts are grouped by page or screen through marker-triggered dialogs and the top-right current-state annotation list. A single generic all-screen annotation list is a finding unless the prototype has only one screen.
+10. For access-gated prototypes, verify logged-out, guest, no-permission, and eligible states do not reveal signed-in-only data or actions from the wrong state.
+11. For operational workflows such as feedback, moderation, support, release checks, or admin review, verify the state machine, owner role, SLA or timing assumption, user-visible status, internal-only status, reply/content review, reopen/cancel path, and notification behavior.
+12. For comparison, ranking, scoring, or recommendation-adjacent experiences, verify neutral default ordering, no unexplained winner/highlight, source/fee/risk definitions, disclaimer visibility, and whether any wording implies advice or guaranteed superiority.
+13. For launch-sensitive packages, verify required human approvals are present before any ready-to-launch wording is allowed.
 
 ## Output
 
@@ -42,6 +43,6 @@ Decide whether the PRD and prototype delivery is ready for stakeholder review, e
 - Each finding includes enough evidence for the owner to reproduce or inspect it.
 - Critical issues block the relevant readiness phase.
 - No-Critical-or-High reviews still record what was checked and any residual risk.
-- Prototype review confirms page-scoped annotations, platform chrome, eligible/ineligible states, and placeholder-content labels when relevant.
+- Prototype review confirms page-scoped annotations, platform chrome, eligible/ineligible states, access-state coherence, and placeholder-content labels when relevant.
 - Operational workflows identify who acts next and what status the user sees while waiting, after closure, and after failure.
 - Comparison and ranking reviews flag hidden recommendations, biased defaults, and missing methodology as readiness blockers.
