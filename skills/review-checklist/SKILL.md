@@ -19,7 +19,7 @@ Decide whether the PRD and prototype delivery is ready for stakeholder review, e
 6. Route each finding to the responsible agent or artifact.
 7. Separate required fixes from optional improvements.
 8. State PRD, engineering handoff, and launch readiness separately.
-9. For HTML prototypes, verify numbered callouts are grouped by page or screen through marker-triggered dialogs and the top-right current-state annotation list. A single generic all-screen annotation list is a finding unless the prototype has only one screen.
+9. For HTML prototypes, verify JavaScript parses, primary controls change state, numbered callouts open marker dialogs, callouts are not clipped or folding compact labels, and the draggable top-right annotation list is grouped by page or screen. A single generic all-screen annotation list is a finding unless the prototype has only one screen.
 10. For access-gated prototypes, verify logged-out, guest, no-permission, and eligible states do not reveal signed-in-only data or actions from the wrong state.
 11. For operational workflows such as feedback, moderation, support, release checks, or admin review, verify the state machine, owner role, SLA or timing assumption, user-visible status, internal-only status, reply/content review, reopen/cancel path, and notification behavior.
 12. For comparison, ranking, scoring, or recommendation-adjacent experiences, verify neutral default ordering, no unexplained winner/highlight, source/fee/risk definitions, disclaimer visibility, and whether any wording implies advice or guaranteed superiority.

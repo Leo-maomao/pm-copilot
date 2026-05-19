@@ -101,7 +101,7 @@ next_actions:
 - For repo-backed UI prototype deliveries, record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation. Do not claim pixel-level parity when no visual comparison ran.
 - In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.
 - Record whether an analytics taxonomy was found. If none was found, tracking artifacts must be marked as proposed.
-- Record external product research separately from repository context. `external_research` should include status, research question, sources, observed facts, product implications, limitations, and recommendation impact.
+- Record external product research separately from repository context. `external_research` should include status, research question, competitor/comparable flow findings when relevant, sources, observed facts, product implications, limitations, and recommendation impact.
 - Record the artifact language chosen from the user's request.
 - Record files created or modified.
 - Record agent transitions with status, input evidence, artifact delta, validation delta, readiness impact, conflict resolution, and next expected output.

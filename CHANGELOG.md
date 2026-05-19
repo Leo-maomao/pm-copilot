@@ -6,6 +6,26 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.0.5] - 2026-05-19
+
+Commit: pending release commit.
+
+### Changed
+
+- Bumped the project version to `2.0.5` for phone-auth research and prototype interaction validation fixes.
+- Strengthened PRD research rules so phone/email registration-login work must include competitor or comparable-product flow evidence, not only generic security or account-management references.
+- Updated prototype guidance and the HTML template so annotation toggles are draggable, markers use safe unclipped placement, and compact tabs/buttons should not fold because of annotations.
+- Added static prototype JavaScript syntax validation to `validate_outputs.py` so broken scripts fail even when browser visual validation is skipped.
+- Extended visual-report checks to record annotation layout issues and compact-control wrapping issues alongside access-state evidence.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Prototype template HTML parser and extracted JavaScript syntax checks pass.
+- The latest ai-video `phone-email-account-auth` output now fails the stricter gates with `Phone auth PRD missing competitor/comparable auth flow research trace`; direct Node syntax checking also catches the generated prototype's broken inline-handler string.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.0.4] - 2026-05-19
 
 Commit: pending release commit.

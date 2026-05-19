@@ -68,6 +68,7 @@ For repo-backed product changes, include a localized engineering implementation 
 
 - Use tables for version history, confirmations, goals, scope, requirement list, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
 - Put source-backed competitor, benchmark, comparable feature, user research, public product docs, screenshots, and technical solution references under `Research and reference findings`.
+- For common product flows such as phone/email registration, login, onboarding, checkout, publishing, account management, or export, include a competitor/comparable flow table that names the product, entry point, required input, verification mode, fallback path, platform difference, observed fact, and implication. Generic security references are supporting evidence, not a substitute.
 - Do not use repository file reading as the only content in `Research and reference findings`. Repo facts are current-product context and should appear in background, current-state notes, product-fit decisions, or the repo-backed engineering map.
 - If external research is skipped or degraded, the research section must say why, identify the confidence impact, and avoid claiming a market-informed recommendation.
 - Keep project goals and metrics near the top so the rest of the PRD can be judged against them.

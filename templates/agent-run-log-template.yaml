@@ -35,6 +35,18 @@ context:
 external_research:
   status: "" # completed | degraded | skipped | not_applicable
   question: ""
+  competitor_flows:
+    - competitor: ""
+      product_category: ""
+      entry_point: ""
+      login_or_signup_method: ""
+      verification_mode: ""
+      fallback_path: ""
+      platform_difference: ""
+      source_url: ""
+      flow_observation: ""
+      product_implication: ""
+      confidence: ""
   sources:
     - title: ""
       url: ""

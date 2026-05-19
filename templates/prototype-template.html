@@ -16,7 +16,7 @@
     .prototype-toolbar { position: fixed; top: 12px; right: 12px; z-index: 30; display: flex; gap: 8px; align-items: center; pointer-events: none; }
     .prototype-toolbar > * { pointer-events: auto; }
     .prototype-state-tabs { display: inline-flex; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.9); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
-    .prototype-state-tabs button, .annotation-toggle { min-height: 34px; border: 0; border-radius: 999px; padding: 0 12px; background: transparent; color: var(--text); cursor: pointer; }
+    .prototype-state-tabs button, .annotation-toggle { min-height: 34px; border: 0; border-radius: 999px; padding: 0 12px; background: transparent; color: var(--text); cursor: pointer; white-space: nowrap; }
     .prototype-state-tabs button.active, .annotation-toggle { background: var(--primary); color: #fff; }
     .screen { display: none; }
     .screen.active { display: block; }
@@ -24,8 +24,8 @@
     .button { width: 100%; border: 0; border-radius: 14px; padding: 12px; background: var(--primary); color: #fff; font-weight: 700; cursor: pointer; }
     .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
     .card { margin-top: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
-    .annotation-target { position: relative; }
-    .annotation-marker { position: absolute; top: -9px; right: -9px; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
+    .annotation-target { position: relative; overflow: visible; }
+    .annotation-marker { position: absolute; top: 6px; right: 6px; z-index: 12; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
     .annotation-marker.active { background: var(--primary); }
     .annotation-backdrop { position: fixed; inset: 0; z-index: 40; display: none; background: rgba(15, 23, 42, 0.32); }
     .annotation-backdrop.active { display: block; }
@@ -52,7 +52,7 @@
         <button id="tab-current" class="active" type="button" onclick="showView('current')">{{localized_current_page}}</button>
         <button id="tab-new" type="button" onclick="showView('new')">{{localized_new_state}}</button>
       </div>
-      <button class="annotation-toggle" type="button" onclick="showAnnotationList()">{{localized_show_annotations}}</button>
+      <button id="annotation-toggle" class="annotation-toggle" type="button" data-draggable="true" aria-label="{{localized_show_annotations}}">{{localized_show_annotations}}</button>
     </div>
 
     <main class="prototype-viewport">
@@ -170,6 +170,48 @@
       document.getElementById('annotation-backdrop').classList.remove('active');
       setActiveMarker('');
     }
+
+    function initDraggableAnnotationToggle() {
+      var toggle = document.getElementById('annotation-toggle');
+      if (!toggle) return;
+      var state = { active: false, moved: false, offsetX: 0, offsetY: 0 };
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+      toggle.addEventListener('pointerdown', function (event) {
+        var rect = toggle.getBoundingClientRect();
+        state.active = true;
+        state.moved = false;
+        state.offsetX = event.clientX - rect.left;
+        state.offsetY = event.clientY - rect.top;
+        toggle.setPointerCapture(event.pointerId);
+      });
+      toggle.addEventListener('pointermove', function (event) {
+        if (!state.active) return;
+        state.moved = true;
+        var maxLeft = window.innerWidth - toggle.offsetWidth - 8;
+        var maxTop = window.innerHeight - toggle.offsetHeight - 8;
+        toggle.style.position = 'fixed';
+        toggle.style.left = clamp(event.clientX - state.offsetX, 8, maxLeft) + 'px';
+        toggle.style.top = clamp(event.clientY - state.offsetY, 8, maxTop) + 'px';
+        toggle.style.right = 'auto';
+      });
+      toggle.addEventListener('pointerup', function (event) {
+        if (state.active) toggle.releasePointerCapture(event.pointerId);
+        window.setTimeout(function () { state.moved = false; }, 0);
+        state.active = false;
+      });
+      toggle.addEventListener('click', function (event) {
+        if (state.moved) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        showAnnotationList();
+      });
+    }
+
+    initDraggableAnnotationToggle();
   </script>
 </body>
 </html>

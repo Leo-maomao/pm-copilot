@@ -8,6 +8,7 @@ Gather and summarize source-backed competitor, market, or benchmark information 
 
 - Define the research question before searching.
 - For PRD solution shaping, prioritize comparable products, competitor flows, benchmark feature patterns, public docs, help centers, policy/pricing pages, or credible product writeups over host repository files.
+- For common flows such as phone/email registration, login, onboarding, checkout, publishing, account management, or export, inspect how direct competitors or comparable products expose the same flow before summarizing generic best practices. Capture entry point, required fields, verification mode, fallback path, platform differences, and product implication.
 - Keep repository implementation facts out of the external research brief unless they are explicitly labeled as current-product constraints from context loading.
 - Use only accessible and attributable sources.
 - Capture source titles, URLs, dates when available, and confidence level.

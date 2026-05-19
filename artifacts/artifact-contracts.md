@@ -173,7 +173,7 @@ Required elements:
 - States its fidelity level: `low`, `mid`, or `high`.
 - Does not reserve a side annotation board by default. The product UI should keep its real layout width and height.
 - Places compact numbered callouts at the top-right corner of the concrete UI component, state, or transition being explained, offset just outside the corner when needed to avoid covering content.
-- Uses small red `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface. Clicking a marker opens an `annotation-dialog` or popover for that marker. A fixed top-right `annotation-toggle` opens an `annotation-list` overlay for all markers in the current page/state.
+- Uses small red `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface. Clicking a marker opens an `annotation-dialog` or popover for that marker. A draggable top-right `annotation-toggle` with `data-draggable="true"` opens an `annotation-list` overlay for all markers in the current page/state.
 
 Prototype annotations must cover the relevant subset of:
 
@@ -193,6 +193,8 @@ Minimum quality bar:
 - Text fits in the layout.
 - Callouts do not cover critical copy or controls.
 - Prototype annotation overlays must not change product layout, reserve persistent side space, or shrink the product viewport.
+- Prototype JavaScript parses and core buttons, tabs, dialogs, annotation markers, and the annotation toggle produce visible state changes.
+- Annotation markers are visible, unclipped, and do not force compact controls or tab labels to wrap.
 - The prototype does not claim to be production code.
 - The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
 - When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.

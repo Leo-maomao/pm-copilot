@@ -347,6 +347,8 @@ def inspect_page_dom(page) -> dict[str, object]:
                 body_text_length: (document.body?.innerText || "").trim().length,
                 has_doctype: document.doctype?.name === "html",
                 access_state_issues: [],
+                annotation_layout_issues: [],
+                compact_control_wrap_issues: [],
             };
             const textOf = (node) => [
                 node.innerText || "",
@@ -379,6 +381,45 @@ def inspect_page_dom(page) -> dict[str, object]:
                     result.access_state_issues.push(
                         "unauthenticated account trigger reveals signed-in-only account data or actions",
                     );
+                    break;
+                }
+            }
+            const annotationToggle = document.querySelector(".annotation-toggle");
+            if (annotationToggle && annotationToggle.getAttribute("data-draggable") !== "true") {
+                result.annotation_layout_issues.push("annotation toggle is not marked draggable");
+            }
+            const markers = Array.from(document.querySelectorAll(".annotation-marker")).filter(styleVisible);
+            for (const marker of markers) {
+                const rect = marker.getBoundingClientRect();
+                if (rect.left < 0 || rect.top < 0 || rect.right > window.innerWidth || rect.bottom > window.innerHeight) {
+                    result.annotation_layout_issues.push("annotation marker is outside the viewport or clipped");
+                    break;
+                }
+                const centerX = Math.min(window.innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
+                const centerY = Math.min(window.innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
+                const topElement = document.elementFromPoint(centerX, centerY);
+                if (topElement && topElement !== marker && !marker.contains(topElement)) {
+                    result.annotation_layout_issues.push("annotation marker is visually covered by another element");
+                    break;
+                }
+            }
+            const clippingTargets = Array.from(document.querySelectorAll(".annotation-target"))
+                .filter((node) => {
+                    const overflow = window.getComputedStyle(node).overflow;
+                    return /hidden|clip|auto|scroll/.test(overflow);
+                });
+            if (clippingTargets.length > 0) {
+                result.annotation_layout_issues.push("annotation target uses clipping overflow");
+            }
+            const compactControls = Array.from(document.querySelectorAll("button,.tab,[role='tab'],.annotation-toggle"))
+                .filter(styleVisible);
+            for (const control of compactControls) {
+                const label = textOf(control);
+                if (!label || /\\s/.test(label) || label.length > 8) continue;
+                const rect = control.getBoundingClientRect();
+                const lineHeight = parseFloat(window.getComputedStyle(control).lineHeight) || 16;
+                if (control.scrollHeight > lineHeight * 1.8 && rect.height > lineHeight * 1.8) {
+                    result.compact_control_wrap_issues.push("compact control text wraps: " + label);
                     break;
                 }
             }
@@ -529,6 +570,16 @@ def main() -> None:
                 prototype_failures.append(
                     f"{screenshot.name} has access-state issues: "
                     f"{dom.get('access_state_issues')}"
+                )
+            if dom.get("annotation_layout_issues"):
+                prototype_failures.append(
+                    f"{screenshot.name} has annotation layout issues: "
+                    f"{dom.get('annotation_layout_issues')}"
+                )
+            if dom.get("compact_control_wrap_issues"):
+                prototype_failures.append(
+                    f"{screenshot.name} has compact control wrap issues: "
+                    f"{dom.get('compact_control_wrap_issues')}"
                 )
 
             if baseline_dir:

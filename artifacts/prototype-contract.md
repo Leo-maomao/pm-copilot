@@ -56,8 +56,8 @@ For browser extension prototypes, show the extension container instead of a full
 - Important controls should expose annotations through clickable markers or hotspots tied to the concrete UI element being explained.
 - Annotation state should update by page or screen, so reviewers can tell which note belongs to which UI element.
 - Numbered callouts should not cover critical copy or controls. Place compact markers at the annotated component's top-right corner by default; offset them just outside that same corner when needed to avoid covering key content.
-- The default callout shape is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` on the prototype surface. Clicking a marker opens an `annotation-dialog` or popover with the matching circled number such as `①`, `②`, and `③`.
-- A fixed top-right `annotation-toggle` should open an `annotation-list` overlay showing all annotations for the current page/state.
+- The default callout shape is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` on the prototype surface. Place badges in a safe top-right spot that is visible, not clipped by `overflow: hidden`, and not causing labels or controls to wrap. Clicking a marker opens an `annotation-dialog` or popover with the matching circled number such as `①`, `②`, and `③`.
+- A draggable top-right `annotation-toggle` with `data-draggable="true"` should open an `annotation-list` overlay showing all annotations for the current page/state. The toggle must be movable so it can avoid covering host-product controls.
 
 ## Required Annotations
 
@@ -80,6 +80,7 @@ Annotation rules:
 - Cross-page notes belong in a separate `Global notes` group.
 - Annotations must be reachable from the prototype UI, not only listed beside it.
 - A generic implementation-note card without numbered markers is not sufficient.
+- Prototype JavaScript must parse without browser page errors. If script syntax breaks, buttons and annotation interactions are considered failed even when the HTML structure looks complete.
 
 ## Output Rule
 

@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import re
 import sys
+import tempfile
+from html.parser import HTMLParser
 from pathlib import Path
 
 
@@ -57,6 +61,7 @@ PROTOTYPE_FILE_NAMES = (
 )
 
 ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
+PHONE_AUTH_RE = re.compile(r"(手机号|手机).*(登录|注册)|(登录|注册).*(手机号|手机)")
 
 EXPECTED_REVIEW_SCORES = {
     "delivery": 32,
@@ -82,6 +87,33 @@ def fail(message: str) -> None:
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+class PrototypeScriptParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._in_script = False
+        self._current_is_js = False
+        self.scripts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "script":
+            return
+        attr_map = {name.lower(): value or "" for name, value in attrs}
+        script_type = attr_map.get("type", "").strip().lower()
+        self._current_is_js = script_type in ("", "text/javascript", "application/javascript", "module")
+        self._in_script = True
+        if self._current_is_js:
+            self.scripts.append("")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "script":
+            self._in_script = False
+            self._current_is_js = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_script and self._current_is_js and self.scripts:
+            self.scripts[-1] += data
 
 
 def section_text(text: str, name: str) -> str:
@@ -349,6 +381,26 @@ def check_external_research_trace(path: Path) -> None:
             fail(f"Run log missing external research marker: {marker}")
 
 
+def check_auth_competitor_research(path: Path) -> None:
+    prd_path = path / "prd.md"
+    if not prd_path.exists():
+        return
+    prd = read(prd_path)
+    if not PHONE_AUTH_RE.search(prd):
+        return
+
+    run_log = read(path / "run-log.yaml")
+    external_section = section_text(run_log, "external_research")
+    combined = external_section + "\n" + prd
+    if "competitor_flows:" not in external_section and "comparable_product_flows:" not in external_section:
+        fail("Phone auth PRD missing competitor/comparable auth flow research trace")
+    for marker in ("competitor:", "login_or_signup_method:", "flow_observation:", "product_implication:"):
+        if marker not in external_section:
+            fail(f"Phone auth competitor research missing marker: {marker}")
+    if not any(term in combined for term in ("竞品", "同类", "comparable", "competitor")):
+        fail("Phone auth PRD research must explicitly discuss competitor or comparable-product flows")
+
+
 def check_default_option_trace(path: Path) -> None:
     run_log = read(path / "run-log.yaml")
     if "defaults_applied" in run_log or "推荐默认" in run_log:
@@ -448,11 +500,25 @@ def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
     for marker in ("annotation-toggle", "annotation-dialog", "annotation-list"):
         if marker not in text:
             fail(f"{prototype_name} missing marker-dialog annotation control: {marker}")
+    if 'data-draggable="true"' not in text and "data-draggable='true'" not in text:
+        fail(f"{prototype_name} missing draggable annotation-toggle metadata")
+    if not re.search(r"(pointerdown|mousedown|touchstart)", text):
+        fail(f"{prototype_name} missing drag interaction handlers for annotation-toggle")
     if "note-panel" in text or "annotation-panel" in text:
         fail(f"{prototype_name} should not use a persistent side annotation panel")
     for marker in ("prototype-viewport", "data-prototype-state"):
         if marker not in text:
             fail(f"{prototype_name} missing full-surface state/viewport marker: {marker}")
+    marker_rule = re.search(r"\.annotation-marker\s*\{(?P<body>[^}]*)\}", text, re.MULTILINE | re.DOTALL)
+    if marker_rule:
+        body = marker_rule.group("body")
+        if re.search(r"\b(top|right):\s*-\d", body):
+            fail(f"{prototype_name} annotation-marker uses negative offsets that can be clipped")
+    target_rule = re.search(r"\.annotation-target\s*\{(?P<body>[^}]*)\}", text, re.MULTILINE | re.DOTALL)
+    if target_rule and re.search(r"overflow:\s*(hidden|clip|auto|scroll)", target_rule.group("body")):
+        fail(f"{prototype_name} annotation-target must not clip annotation markers")
+    if not re.search(r"white-space:\s*nowrap", text):
+        fail(f"{prototype_name} missing nowrap protection for compact controls and annotation toggles")
 
     annotation_ids = set(re.findall(r"data-annotation-id=[\"']([0-9]+)[\"']", text))
     if not annotation_ids:
@@ -461,6 +527,42 @@ def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
         fail(f"{prototype_name} missing circled annotation numbers in annotation dialogs or list")
     if len(annotation_ids) >= 2 and "②" not in text:
         fail(f"{prototype_name} missing matching ② note for the second marker")
+    check_prototype_script_syntax(text, prototype_name)
+
+
+def check_prototype_script_syntax(text: str, prototype_name: str) -> None:
+    parser = PrototypeScriptParser()
+    try:
+        parser.feed(text)
+        parser.close()
+    except Exception as error:
+        fail(f"{prototype_name} script extraction failed: {error}")
+    if not parser.scripts:
+        fail(f"{prototype_name} missing executable prototype script")
+    scripts = "\n;\n".join(parser.scripts)
+    node = shutil.which("node")
+    if node:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".js", delete=False) as temp_file:
+            temp_file.write(scripts)
+            temp_path = Path(temp_file.name)
+        try:
+            result = subprocess.run(
+                [node, "--check", str(temp_path)],
+                text=True,
+                capture_output=True,
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            fail(f"{prototype_name} script syntax check timed out")
+        finally:
+            temp_path.unlink(missing_ok=True)
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip().splitlines()
+            fail(f"{prototype_name} contains JavaScript syntax errors: {' | '.join(detail[:3])}")
+        return
+
+    if "\\'" in scripts or '\\"' in scripts:
+        fail(f"{prototype_name} contains suspicious escaped quotes in script; install node for full syntax check")
 
 
 def check_chinese_prd(path: Path) -> None:
@@ -689,6 +791,7 @@ def main() -> None:
     check_readiness_trace(folder)
     check_context_trace(folder)
     check_structured_run_log_trace(folder)
+    check_auth_competitor_research(folder)
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
     check_visual_validation_trace(folder)

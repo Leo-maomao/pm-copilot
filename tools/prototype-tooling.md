@@ -16,7 +16,7 @@ Prototypes should be generated as self-contained HTML files.
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, preview route, Storybook/demo screenshot, existing screenshot asset, or user-provided image. If unavailable, record the limitation and do not claim pixel parity.
 - After style evidence is captured, run a design calibration pass: match the host product's visual density, layout variance, and motion intensity; remove generic AI patterns that do not belong to the current surface.
 - Keep the product surface full-width; do not reserve a persistent side annotation board by default.
-- Use matching numbered callouts at the annotated component's top-right corner and marker-triggered dialogs. Default UI markers are small red circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`; `annotation-toggle` opens an `annotation-list` overlay for all markers in the current page/state.
+- Use matching numbered callouts at a safe top-right position on the annotated component and marker-triggered dialogs. Default UI markers are small red circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`; `annotation-toggle` uses `data-draggable="true"` and opens an `annotation-list` overlay for all markers in the current page/state.
 
 ## Suggested Verification
 
@@ -25,11 +25,13 @@ Prototypes should be generated as self-contained HTML files.
 - Confirm text does not overflow the mobile frame.
 - Confirm the selected platform shape is obvious.
 - Confirm long pages, multi-state screens, and modals are scrollable like the host product and are not clipped by an artificial frame.
+- Confirm prototype JavaScript parses and primary buttons, tabs, dialogs, annotation markers, and the annotation toggle all produce visible state changes.
 - Confirm repo-backed prototypes have style evidence and visibly reuse the host app shell, components, tokens, and density.
 - Confirm repo-backed prototypes include existing UI visual baseline evidence or a concrete skipped reason.
 - Confirm the prototype includes loading, empty, error, disabled, and success feedback where relevant, and does not rely on a static success-only screen.
 - Confirm motion, if any, uses stable CSS transform/opacity and does not destabilize screenshot validation.
-- Confirm numbered callouts sit at the annotated component's top-right corner and map to matching marker dialogs and the current-state annotation list.
+- Confirm numbered callouts sit at a visible, unclipped top-right position, do not make compact text wrap, and map to matching marker dialogs and the current-state annotation list.
+- Confirm the top-right annotation toggle can be dragged away from host-product controls.
 - Confirm notes describe concrete logic, interaction, text limit, data, permission, state, and tracking rules where relevant.
 - Confirm no external image, font, or script is required.
 - If `tidy` is available, run it and record its version or compatibility limitation. Older macOS `tidy` builds may report valid HTML5 elements such as `main`, `section`, `aside`, `meta charset`, or ARIA attributes as errors.

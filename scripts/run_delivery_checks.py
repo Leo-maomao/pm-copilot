@@ -155,6 +155,14 @@ def existing_visual_report_check(
             failures.append(f"visual report missing access-state smoke evidence for {viewport_name}")
         elif dom.get("access_state_issues"):
             failures.append(f"visual report has access-state issues for {viewport_name}")
+        if "annotation_layout_issues" not in dom:
+            failures.append(f"visual report missing annotation-layout smoke evidence for {viewport_name}")
+        elif dom.get("annotation_layout_issues"):
+            failures.append(f"visual report has annotation layout issues for {viewport_name}")
+        if "compact_control_wrap_issues" not in dom:
+            failures.append(f"visual report missing compact-control wrap evidence for {viewport_name}")
+        elif dom.get("compact_control_wrap_issues"):
+            failures.append(f"visual report has compact control wrap issues for {viewport_name}")
 
     return {
         "tool": "validate_prototype_visual",
