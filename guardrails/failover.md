@@ -15,6 +15,8 @@ If any engineering-blocking `must confirm before development or launch` item is 
 
 If only launch-blocking items remain open, the PRD/prototype delivery may still be engineering-ready only when those blockers are excluded from engineering acceptance criteria and launch status is explicitly blocked.
 
+In explicit evaluation or recommended-default mode, continue with conservative defaults only for the purpose of generating review artifacts. Do not convert open launch, legal, privacy, payment, security, financial, or regulated-content confirmations into approvals.
+
 ## Research Unavailable
 
 If search or source access is unavailable:

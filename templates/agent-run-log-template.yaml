@@ -4,6 +4,8 @@ scenario: ""
 language: ""
 agent_platform: ""
 model: ""
+pm_copilot_version: ""
+pm_copilot_revision: ""
 
 task:
   request_source: "" # conversation | file | example task brief | other
@@ -50,6 +52,8 @@ workflow:
   states_completed: []
   states_skipped: []
   skip_reasons: []
+  last_reliable_state: ""
+  resume_source: "" # new run | existing run-log | reconstructed from artifacts
   clarification_gate:
     required: false
     status: ""
@@ -58,6 +62,25 @@ workflow:
     confirmation_risk_accepted: false
     evidence: ""
   revision_loops: 0
+
+agent_transitions:
+  - state: ""
+    agent: ""
+    status: "" # complete | needs_input | blocked | degraded | failed
+    confidence: "" # high | medium | low
+    input_evidence: []
+    artifact_delta:
+      files_created: []
+      files_changed: []
+      files_unchanged: []
+    validation_delta:
+      commands_run: []
+      commands_skipped: []
+      required_later: []
+    readiness_impact: "" # prd | engineering | launch | none
+    conflict: ""
+    resolution: ""
+    next_expected_output: ""
 
 agents_used:
   - name: ""
@@ -71,10 +94,24 @@ skills_used:
     reason: ""
 
 tools_used:
-  - name: ""
+  - tool_id: "" # matches tools/tool-registry.yaml when applicable
+    name: ""
     purpose: ""
+    trigger: ""
+    command: ""
+    status: "" # passed | failed | skipped | setup_required | not_applicable
     result: ""
+    artifacts_created: []
     limitation: ""
+    fallback_used: ""
+
+tool_preflight:
+  command: ""
+  status: "" # passed | failed | skipped
+  report_path: ""
+  available_tools: []
+  setup_required_tools: []
+  unavailable_tools: []
 
 human_inputs:
   clarification_questions:
@@ -84,6 +121,11 @@ human_inputs:
       blocks_phase: "" # generation | engineering | launch | both | none
       rationale: ""
   answers_received: []
+  default_options_selected:
+    - id: ""
+      selected_option: ""
+      rationale: ""
+      residual_risk: ""
   unanswered_questions: []
   confirmations_required: []
 
@@ -130,6 +172,7 @@ artifacts:
   prd: ""
   prototype: ""
   run_log: ""
+  tool_results_dir: ""
   optional_exports:
     - file: ""
       purpose: ""
@@ -138,10 +181,39 @@ artifacts:
     - file: ""
       reason: ""
 
+visual_validation:
+  required: false
+  command: ""
+  status: "" # passed | failed | skipped
+  screenshots:
+    - viewport: ""
+      path: ""
+  baseline_dir: ""
+  diff_status: "" # not_applicable | passed | failed | baseline_updated
+  max_diff_ratio: null
+  observed_diff_ratio: null
+  non_blank_ratio: null
+  report_path: ""
+  limitation: ""
+
+handoff_artifacts:
+  dev_tasks: ""
+  launch_decision: ""
+  generation_mode: "" # human_confirmed | unattended_candidate | not_requested
+  status: "" # generated | blocked | not_requested
+
 guardrail_events:
   - type: ""
     decision: ""
     rationale: ""
+
+security_and_audit:
+  boundary: ""
+  audit_visibility: ""
+  identity_confirmation_expectation: ""
+  redaction_expectation: ""
+  retention_or_deletion_assumption: ""
+  unresolved_approval_owner: ""
 
 review_findings:
   - severity: "" # critical | high | medium | low | none
@@ -155,11 +227,11 @@ review_findings:
 review_scores:
   delivery:
     score: null
-    max_score: 28
+    max_score: 32
     status: ""
   prd:
     score: null
-    max_score: 36
+    max_score: 40
     status: ""
   metrics_and_tracking:
     score: null
@@ -174,11 +246,26 @@ review_scores:
     max_score: 20
     status: ""
 
+quality_thresholds:
+  delivery: 23
+  prd: 31
+  metrics_and_tracking: 21
+  prototype: 24
+  review_checklist: 15
+
+quality_decision:
+  passed: false
+  score_delta: ""
+  rationale: ""
+
 validation_results:
   - command: ""
+    tool_id: ""
+    tool_version: ""
     status: "" # passed | failed | skipped
     result: ""
     limitation: ""
+    fallback: ""
 
 failures:
   - id: ""
@@ -186,8 +273,10 @@ failures:
     category: ""
     symptom: ""
     evidence: ""
-    likely_root_cause: ""
+    root_cause: ""
     fix_location: ""
+    fix_summary: ""
+    likely_root_cause: ""
 
 final_status: ""
 next_actions: []

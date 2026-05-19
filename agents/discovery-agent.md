@@ -9,6 +9,7 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 - Identify missing information that materially changes the product solution.
 - Inspect relevant current-state product context before framing a solution.
 - Ask concise clarification questions before generation.
+- In explicit evaluation or recommended-default mode, choose conservative default answers instead of stopping, and record why each default is the safest fit for the current product context.
 - Classify questions as `must answer before generation`, `can draft with stated assumption`, or `must confirm before development or launch`.
 - For `must confirm before development or launch` items, identify whether the item blocks engineering handoff, launch, or both.
 - Stop the workflow when must-answer questions remain unanswered, and stop before `Ready for engineering` when engineering-blocking confirmations remain unanswered.
@@ -16,6 +17,9 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 - Detect privacy, legal, payment, data, or compliance topics that require human confirmation.
 - Detect reference, policy, medical, legal, financial, safety, or operational content that needs source, review owner, review status, or disclaimer confirmation.
 - Recommend whether research is needed before PRD generation.
+- Recommend which tool capabilities from `tools/tool-registry.yaml` are required for the run.
+- Return a handoff status from `agents/agent-interface.md`: `complete` only when the next agent can draft without inventing business-critical facts; `needs_input` when any must-answer question remains.
+- Assign stable IDs to questions, assumptions, and open decisions so later agents can trace or close them without duplicating the same unknown.
 
 ## Inputs
 
@@ -30,6 +34,7 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 - Clarifying questions
 - Assumption log
 - Current-state summary when repository or document context is available
+- Source-backed fact list with file, document, user answer, or tool-result references where available
 - Problem statement
 - User and scenario summary
 - Initial scope and non-goal candidates
@@ -39,10 +44,12 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 
 - The Requirements Agent can draft a PRD without inventing business-critical facts.
 - High-impact unknowns are either answered or explicitly accepted by the user as assumption risk.
+- Defaulted answers are separated from user-confirmed answers and retain residual risk labels.
 - No `must answer before generation` question remains unanswered.
 - No unresolved engineering-blocking `must confirm before development or launch` item is hidden as an assumption or treated as engineering-ready.
 - Launch-only blockers are visible with owner, required confirmation, and launch impact.
 - No single unknown appears in more than one clarification bucket.
+- Handoff payload includes status, artifact delta, validation delta, risks, and next expected output.
 
 ## Handoffs
 

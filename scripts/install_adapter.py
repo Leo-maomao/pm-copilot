@@ -27,8 +27,8 @@ def build_block(pm_path: str, tool: str) -> str:
             "Before generating PM artifacts, inspect relevant current product context. "
             "Use host project files when available, and use PRDs, specs, docs, screenshots, "
             "analytics exports, support tickets, or meeting notes when no code context exists. "
-            "Ask must-answer and pre-development confirmation questions if current product fit, "
-            "scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
+            "Ask must-answer questions and identify development or launch confirmation blockers "
+            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
             "those questions are answered, unless the user explicitly asks for a draft with risk.\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location.\n\n"
@@ -47,8 +47,8 @@ def build_block(pm_path: str, tool: str) -> str:
             "Before generating PM artifacts, inspect relevant current product context. "
             "Use host project files when available, and use PRDs, specs, docs, screenshots, "
             "analytics exports, support tickets, or meeting notes when no code context exists. "
-            "Ask must-answer and pre-development confirmation questions if current product fit, "
-            "scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
+            "Ask must-answer questions and identify development or launch confirmation blockers "
+            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
             "those questions are answered, unless the user explicitly asks for a draft with risk.\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location."
@@ -65,8 +65,8 @@ def build_block(pm_path: str, tool: str) -> str:
             "Before generating PM artifacts, inspect relevant current product context. "
             "Use host project files when available, and use PRDs, specs, docs, screenshots, "
             "analytics exports, support tickets, or meeting notes when no code context exists. "
-            "Ask must-answer and pre-development confirmation questions if current product fit, "
-            "scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
+            "Ask must-answer questions and identify development or launch confirmation blockers "
+            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
             "those questions are answered, unless the user explicitly asks for a draft with risk.\n\n"
             "Keep normal software-engineering tasks governed by the host repository's regular rules.\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
@@ -114,7 +114,7 @@ When the user asks for product-manager work such as PRD, requirements, user stor
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
 
-Before generating PM artifacts, inspect relevant current product context. Use host project files when available, and use PRDs, specs, docs, screenshots, analytics exports, support tickets, or meeting notes when no code context exists. Ask must-answer and pre-development confirmation questions if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until those questions are answered, unless the user explicitly asks for a draft with risk.
+Before generating PM artifacts, inspect relevant current product context. Use host project files when available, and use PRDs, specs, docs, screenshots, analytics exports, support tickets, or meeting notes when no code context exists. Ask must-answer questions and identify development or launch confirmation blockers if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until those questions are answered, unless the user explicitly asks for a draft with risk.
 
 Keep normal software-engineering tasks governed by the host repository's regular rules.
 

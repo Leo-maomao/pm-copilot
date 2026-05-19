@@ -1,6 +1,6 @@
 # Quality Rubric
 
-Use this rubric for manual evaluation. PM Copilot v1 does not include automated quality scoring, but every artifact should be reviewable against these standards.
+Use this rubric for manual evaluation. PM Copilot records score fields and thresholds, but it does not automatically judge artifact quality; every artifact should be reviewable against these standards.
 
 ## Scoring Scale
 
@@ -22,9 +22,10 @@ Use this rubric for manual evaluation. PM Copilot v1 does not include automated 
 | Readiness separation | One vague ready/not-ready label | Some blocker phase detail exists | PRD, engineering handoff, and launch readiness are separate and non-contradictory |
 | Guardrail compliance | Fabricates or hides risk | Some risks listed | Privacy, legal, payment, source, and tool limits are explicit |
 | Artifact consistency | Artifacts contradict each other | Minor inconsistencies | PRD, metrics, tracking, flow, and prototype align |
+| Tool evidence | Tools are claimed without evidence | Some commands recorded | Required tools have preflight, command results, artifacts, and limitations recorded |
 | Language consistency | Headings and body mix languages unintentionally | Mostly localized with some template leakage | Headings, labels, statuses, notes, and body match the user's language |
 
-Minimum recommended delivery score for early usage: 20 / 28.
+Minimum recommended delivery score for early usage: 23 / 32.
 
 ## PRD Rubric
 

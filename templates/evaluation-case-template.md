@@ -45,7 +45,7 @@ Paste the original realistic product request here.
 
 | Area | Minimum Score |
 |---|---|
-| Delivery | 20 / 28 |
+| Delivery | 23 / 32 |
 | PRD | 31 / 40 |
 | Metrics and tracking | 21 / 28 |
 | Prototype | 24 / 32 |
@@ -71,7 +71,9 @@ Paste the original realistic product request here.
 - Tracking plan avoids forbidden sensitive properties.
 - Tracking plan marks proposed taxonomy when no existing analytics convention was loaded.
 - Prototype matches selected platform.
+- Prototype visual validation is run with screenshots/diff evidence, or setup was attempted and the skipped reason is documented.
 - PRD and prototype agree on scope, logic, interactions, tracking, and blockers.
+- Development handoff and launch decision artifacts preserve blockers when generated.
 - Review findings include artifact, evidence, owner, required-before phase, and status, or an explicit no-finding summary.
 - Validation results are concrete and consistent between PRD and run log.
 

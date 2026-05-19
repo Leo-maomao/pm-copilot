@@ -1,11 +1,12 @@
 # Security and Privacy
 
-PM Copilot is local-first and does not include a cloud service, database, account system, or telemetry in v1.
+PM Copilot is local-first and does not include a cloud service, database, account system, or telemetry.
 
 ## Supported Versions
 
 | Version | Supported |
 |---|---|
+| 2.x | Best-effort |
 | 1.x | Best-effort |
 
 ## Reporting Issues

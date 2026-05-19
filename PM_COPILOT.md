@@ -24,6 +24,7 @@ Activate PM Copilot when the user asks for work involving:
 - competitor research
 - product review checklist
 - product launch review
+- development handoff, issue planning, launch decision support, or go/no-go review
 - Chinese-language requests for requirements, tracking plans, prototypes, competitor research, or review materials
 
 The user should not need to remember the project name. If the task is clearly product-manager work, run this workflow.
@@ -50,8 +51,12 @@ The user should not need to manually copy templates or create folders. Do that f
    - `prompts/prompt-system.md`
    - `guardrails/guardrails.md`
    - `guardrails/failover.md`
+   - `agents/agent-interface.md`
    - `artifacts/artifact-contracts.md`
    - `artifacts/trace-contract.md`
+   - `artifacts/tool-result-contract.md`
+   - `tools/tool-registry.yaml`
+   - `tools/tool-use-protocol.md`
    - `context/memory-model.md`
 
 2. Match the user's language:
@@ -59,6 +64,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - If the user writes in English, use English.
    - If the request mixes languages, use the dominant language unless the user asks otherwise.
    - Localize human-facing headings, table column labels, status labels, prototype annotations, button text, and review labels into the user's language.
+   - Localize readiness status values and review severity/status labels in user-facing artifacts. Machine-readable trace values may keep stable English codes, but PRD tables should not show raw labels such as `Ready for review`, `Blocked before launch`, `High`, `Medium`, or `Open` when the user requested Chinese.
    - Do not copy English headings from repository templates into Chinese deliverables.
    - For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them.
    - Keep file names and machine-readable identifiers in ASCII kebab-case or snake_case.
@@ -111,6 +117,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - If any must-answer question exists, ask it and stop before creating `prd.md` or prototype HTML. Record it in `run-log.yaml` only when a trace is being written.
    - If any item is classified as `must confirm before development or launch`, record whether it blocks engineering handoff, launch, or both. Ask before generating PRD/prototype deliverables that claim the blocked readiness. Launch-only confirmations may remain open only when the PRD clearly marks launch status as blocked and the engineering handoff scope excludes the unconfirmed item.
    - Do not treat user silence as approval to continue.
+   - If the user explicitly requests an evaluation loop or instructs the agent to choose recommended options automatically, choose conservative defaults for the loop, record them as defaulted answers, and still generate the full artifacts required by that evaluation round. Keep launch, compliance, privacy, legal, payment, security, financial, and regulated-content confirmations unresolved unless the user explicitly approves them.
    - Do not label the same unknown as both `must answer before generation` and `can draft with stated assumption`.
    - Use three distinct buckets: `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
    - Do not keep a conditional risk as an unresolved confirmation when the generated scope explicitly excludes the triggering behavior. Record it as a non-goal or guardrail instead. Example: if the MVP does not save health data, health-data retention review is a future-scope blocker, not a current launch blocker.
@@ -127,6 +134,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - Avoid split Markdown handoff files unless the user explicitly asks for them.
    - Keep confirmed MVP scope, optional scope, and future scope separate. Do not place an unconfirmed optional capability in MVP requirements or acceptance criteria.
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the prototype, PRD, and engineering handoff agree.
+   - Each specialist step must follow `agents/agent-interface.md`: record status, confidence, artifact delta, validation delta, risks, and next expected output. PM Orchestrator owns final readiness labels and resolves contradictions before delivery.
 
 8. Continue with assumptions only when:
    - The user explicitly says to proceed as a draft without answers, or
@@ -142,12 +150,27 @@ The user should not need to manually copy templates or create folders. Do that f
    - Generate multiple prototypes only for true cross-platform requirements.
    - If an existing demo, screenshot, page, route, design system, or component implementation is available, adapt that current surface and show the delta for the new requirement. Do not create a new unrelated product shell.
 
-10. Run validation after file changes when possible:
+10. Run tool preflight and validation after file changes when possible:
+   - `python3 scripts/preflight_tools.py` before full-loop iteration, embedded host evaluation, or final delivery; use `--strict` for PM Copilot release validation.
+   - `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict` when source-backed research is required.
    - `python3 scripts/validate_repo.py`
+   - `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` for Chinese generated runs, or `--language en` for English runs, when `prd.md` or prototype artifacts exist.
+   - `python3 scripts/validate_outputs.py outputs/<run-id> --pre-clarification` when a run intentionally stops before generation with only `run-log.yaml`.
+   - `python3 scripts/validate_prototype_visual.py outputs/<run-id>` for UI prototype browser screenshot and visual diff validation. Without `--prototype`, the command validates every supported prototype file in the run folder.
+   - `python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh` or `--language en` before final delivery or iteration scoring.
+   - If Playwright or browser tooling is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through the same setup. Skip visual validation only when setup fails, browser launch is forbidden, or the user declines installation; record the exact reason.
    - HTML checks with `tidy -errors -quiet -utf8` if available.
-   - Record the exact command, result, and limitation in `run-log.yaml` and the PRD validation section. Do not claim validation was executed if it was skipped, and do not say validation "should be run" after it has already run.
+   - Record the exact command, result, and limitation in `run-log.yaml` and the PRD validation section using `artifacts/tool-result-contract.md`. Do not claim validation was executed if it was skipped, and do not say validation "should be run" after it has already run.
+   - Use `tools/tool-registry.yaml` to decide whether a tool is required, optional, setup-required, or not applicable.
+   - After validation commands finish, do a validation-finalization pass: replace any earlier placeholder such as `pending`, `待执行`, `should run`, or `to be verified` in both `prd.md` and `run-log.yaml` with the actual pass/fail/skipped result and the observed limitation.
+   - On resumed runs, load `outputs/<run-id>/run-log.yaml` first, continue from `workflow.last_reliable_state`, and keep prior blockers visible until answered, explicitly accepted as draft risk, or moved out of current scope.
 
-11. Suggest memory updates after a run when useful:
+11. Create execution handoff artifacts when requested:
+   - For development tasks, issue planning, or engineering handoff, follow `workflow/execution-handoff-workflow.md` and create `outputs/<run-id>/dev-tasks.yaml`.
+   - For release readiness, launch decision support, or go/no-go checks, create `outputs/<run-id>/launch-decision.yaml`.
+   - These artifacts may be generated unattended as `unattended_candidate`, but they must preserve blockers and required approvals. Do not mark `ready_to_launch` unless explicit human approval evidence exists for every required gate.
+
+12. Suggest memory updates after a run when useful:
    - Stable product facts belong in `context/product-memory.local.yaml`.
    - User working preferences belong in `context/user-preferences.local.yaml`.
    - Durable decisions and rejected options belong in `context/decision-log.local.yaml`.

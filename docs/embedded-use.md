@@ -50,7 +50,19 @@ I need a PRD and tracking plan for checkout coupon optimization.
 
 The adapter should detect product-manager tasks and delegate to `pm-copilot/PM_COPILOT.md`.
 
-Before generating PRD, metrics, tracking, flow, or prototype artifacts, the agent should inspect relevant host project files and ask must-answer questions when the current product fit is unclear.
+Before generating PRD, metrics, tracking, flow, or prototype artifacts, the agent should run or record tool preflight, inspect relevant host project files, and ask must-answer questions when the current product fit is unclear.
+
+For UI work, embedded runs should use host context for visual validation and run `scripts/validate_prototype_visual.py`. If browser tooling is missing, run or guide `scripts/setup_visual_validation.py` before deciding to skip. Store screenshot/diff evidence under the generated run folder, not in host product source directories.
+
+Before final embedded delivery, prefer:
+
+```bash
+python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language zh
+```
+
+Record the resulting `tool-results/delivery-check-report.json` in the run log.
+
+For engineering handoff, embedded runs may create `dev-tasks.yaml` with likely host files and validation commands. For release readiness, embedded runs may create `launch-decision.yaml`, but unattended decisions must remain gate recommendations unless explicit human approvals are present.
 
 ## One-Command Install
 
@@ -165,6 +177,8 @@ User gives a product-manager request from the host project
 ```
 
 For repeat or similar requests, PM Copilot should create a distinct timestamped run folder instead of overwriting prior outputs, unless the user explicitly asks to revise an existing run.
+
+For benchmark or self-iteration runs where the host repository is only a validation target, clean up generated `pm-copilot/outputs/<run-id>/` folders after scoring and moving the learning back into PM Copilot. Do not leave stale generated requirements in the host repository unless the user asks to keep them.
 
 ## What Not to Do
 

@@ -8,7 +8,7 @@ PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product ma
 
 中文简介：PM Copilot 是面向产品经理的开源 AI Agent 工作流套件，支持生成 PRD、需求文档、埋点方案、可点击标注原型、研发交接和上线决策材料。
 
-The project is intentionally not a web app, CLI, or Figma plugin in v1. It is a reusable repository of agent definitions, skills, prompt rules, memory rules, artifact contracts, workflow rules, guardrails, and templates that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
+The project is intentionally not a web app, CLI, or Figma plugin. It is a reusable repository of agent definitions, skills, prompt rules, memory rules, artifact contracts, workflow rules, guardrails, and templates that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
 
 PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `brief-only`. The agent should choose the mode from available inputs before drafting, so it does not require a code repository when product documents or a short brief are the actual starting point.
 
@@ -25,7 +25,7 @@ PM Copilot treats English and Chinese as first-class user-facing languages. Gene
 - Goals, metrics, tracking plan, and flow diagrams inside the PRD
 - Local clickable annotated HTML prototype for Web, H5, App, or Mini Program scenarios
 - `run-log.yaml` as an internal trace when useful, not as the PM-facing deliverable
-- Browser screenshot and optional visual diff validation for HTML prototypes; missing Playwright/browser tooling should trigger setup before any skipped status is recorded
+- Tool preflight, delivery orchestration, HTML parsing, browser screenshots, and optional visual diff validation for HTML prototypes; missing Playwright/browser tooling should trigger setup before any skipped status is recorded
 - Optional `dev-tasks.yaml` and `launch-decision.yaml` for controlled engineering handoff and release decision support
 
 ## Quick Start
@@ -156,7 +156,7 @@ prompts/       Prompt assembly, memory use, clarification, and generation rules
 context/       Product memory, user preferences, decisions, business rules, metrics
 workflow/      State machine, human checkpoints, execution order
 artifacts/     Output contracts and quality bars
-tools/         Tool-use protocol and capability matrix
+tools/         Tool registry, tool-use protocol, and capability-specific tooling notes
 guardrails/    Safety, privacy, source, assumption, and failover rules
 templates/     Reusable artifact templates
 evals/         Regression-oriented evaluation cases
@@ -168,6 +168,7 @@ scripts/       Lightweight local validation
 
 ```text
 Request intake
+-> Tool preflight
 -> Current product context scan
 -> Requirement clarification
 -> User answer or explicit assumption approval
@@ -182,7 +183,7 @@ For reference, policy, medical, legal, financial, safety, or operational content
 
 Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, `prototype-<platform>.html`, and optionally `run-log.yaml`. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the inferred run id already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
 
-When UI prototypes are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
+When UI prototypes are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. Before final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` and store tool evidence under `outputs/<run-id>/tool-results/`. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
 
 PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese headings, labels, statuses, notes, and PM content; English requests should produce English equivalents. File names and machine-readable identifiers stay ASCII.
 
@@ -194,6 +195,7 @@ PM Copilot uses local file-based memory so repeated use can become smoother with
 - `context/user-preferences.local.yaml` for the user's working style
 - `context/decision-log.local.yaml` for durable product decisions
 - `outputs/<run-id>/run-log.yaml` for single-run traces
+- `outputs/<run-id>/tool-results/delivery-check-report.json` for delivery-orchestrator tool evidence
 - `outputs/<run-id>/visual-review/visual-report.json` for prototype screenshot and visual diff evidence after setup succeeds
 - `outputs/<run-id>/dev-tasks.yaml` for issue-ready engineering handoff when requested
 - `outputs/<run-id>/launch-decision.yaml` for launch decision support when requested
@@ -221,6 +223,8 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 - `docs/failure-taxonomy.md` - failure classification and fix mapping
 - `docs/versioning.md` - versioning and compatibility policy
 - `docs/release-checklist.md` - release readiness checklist
+- `tools/tool-registry.yaml` - tool capability registry
+- `artifacts/tool-result-contract.md` - tool result contract
 - `CONTRIBUTING.md` - contribution rules
 - `SECURITY.md` - security and privacy policy
 - `CHANGELOG.md` - detailed version history
@@ -250,6 +254,7 @@ After that, users can ask natural PM requests without saying the project name.
 Run:
 
 ```bash
+python3 scripts/preflight_tools.py --strict
 python3 scripts/validate_repo.py
 ```
 
@@ -258,8 +263,11 @@ The GitHub workflow in `.github/workflows/validate.yml` runs the same validator 
 To validate a generated output folder during a PM Copilot run:
 
 ```bash
-python3 scripts/validate_outputs.py outputs/<run-id> --language zh
+python3 scripts/run_delivery_checks.py outputs/<run-id> --language en
+python3 scripts/validate_outputs.py outputs/<run-id> --language en
 ```
+
+If delivery depends on external research or source checks, run `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict`. When `--prototype` is omitted, `validate_prototype_visual.py` validates every supported prototype file in the run folder.
 
 ## Optimization
 

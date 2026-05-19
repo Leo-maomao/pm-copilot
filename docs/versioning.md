@@ -9,7 +9,7 @@ MAJOR.MINOR.PATCH
 Example:
 
 ```text
-1.1.0
+2.0.0
 ```
 
 ## Version Meaning
@@ -22,11 +22,11 @@ Example:
 
 ## Current Stability
 
-`1.x` means:
+`2.x` means:
 
-- Suitable for early users and contributors.
-- Interfaces may still change.
-- Artifact contracts are usable but not final.
+- Suitable for early external users and contributors.
+- Agent handoff and trace interfaces are explicit and validator-backed.
+- Artifact contracts are usable and intended to remain backward compatible within the major version.
 - Users should copy their own `context/` and generated `outputs/` before upgrading.
 
 ## Compatibility Policy

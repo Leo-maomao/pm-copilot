@@ -20,12 +20,18 @@ This workflow verifies that the PM-facing deliverables are complete and consiste
 7. Verify content source, review status, disclaimer status, and launch impact are recorded when relevant.
 8. Verify structured review findings are reflected in the PRD with artifact, evidence, owner, required-before phase, and status.
 9. Verify validation commands and limitations are recorded consistently in PRD and run log.
+10. Verify tool preflight was run for final/full-loop delivery, or that an explicit reason is recorded.
+11. Run or verify `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` and inspect `tool-results/delivery-check-report.json`.
+12. For UI prototypes, verify browser screenshot/visual validation ran, or that setup was attempted/guided before a skipped status was recorded with the exact tooling limitation.
+13. When requested, verify `dev-tasks.yaml` follows the development task contract and `launch-decision.yaml` follows the launch decision contract.
 
 ## Default Delivery Files
 
 - `prd.md`
 - `prototype-<platform>.html`
 - `run-log.yaml` as internal trace only
+- Optional `dev-tasks.yaml` for controlled engineering handoff
+- Optional `launch-decision.yaml` for release decision support
 
 ## Legacy Files
 

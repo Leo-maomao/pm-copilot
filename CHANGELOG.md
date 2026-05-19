@@ -6,6 +6,41 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.0.0] - 2026-05-19
+
+Commit: pending current working-tree changes.
+
+### Added
+
+- Added a stable Agent Interface runtime protocol with handoff status values, output envelopes, mutation boundaries, and exit checks.
+- Added agent transition tracing to `run-log.yaml`, including artifact deltas, validation deltas, readiness impact, conflict resolution, resume source, and last reliable state.
+- Added main workflow rules for Agent state discipline, idempotent run resume, and cross-agent conflict resolution.
+- Added repository validation for required agent definition sections, Agent handoff status references, YAML template duplicate keys, and quality-threshold alignment with the rubric.
+- Added repository validation for tool registry and `preflight_tools.py` capability ID alignment.
+
+### Changed
+
+- Bumped the project version to `2.0.0` because the Agent handoff payload and trace shape changed.
+- Updated PM Orchestrator and specialist agents to use explicit status-bearing handoffs and preserve blockers through review and execution handoff.
+- Updated PM Copilot entry and Prompt System so `agents/agent-interface.md` is part of the active prompt stack for workflow handoffs.
+- Aligned evaluation thresholds, run-log score maxima, and optimization guidance with `docs/quality-rubric.md`.
+- Updated the release checklist to include Agent interface compliance, duplicate-key template checks, and quality-threshold alignment.
+
+### Fixed
+
+- Removed a duplicate `fix_location` key from `templates/agent-run-log-template.yaml`.
+- Fixed inconsistent delivery scoring references that still used `20 / 28` instead of `23 / 32`.
+- Fixed missing `Handoffs` sections in Agent definitions that previously violated the shared Agent interface.
+- Fixed stale adapter, direct-use, and tool-status wording so development/launch confirmation blockers and `external_runtime` preflight status are documented consistently.
+
+### Validation
+
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_repo.py scripts/validate_outputs.py scripts/preflight_tools.py scripts/run_delivery_checks.py scripts/setup_visual_validation.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Prototype template HTML validation passes with `tidy -errors -quiet -utf8 templates/prototype-template.html`.
+
 ## [1.1.0] - 2026-05-18
 
 Commit: pending current working-tree changes.

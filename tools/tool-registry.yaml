@@ -1,0 +1,131 @@
+version: 1
+updated: 2026-05-19
+purpose: >
+  Canonical PM Copilot tool capability registry. Agents use this file before
+  drafting or delivery checks to decide which tools must run, which tools need
+  setup, and how results must be recorded.
+
+status_values:
+  - available
+  - setup_required
+  - unavailable
+  - skipped
+  - external_runtime
+  - not_applicable
+
+capabilities:
+  - id: repo_context.file_read
+    category: context
+    required_when: "Always before repo-backed or embedded drafting."
+    command: "Agent-native file read and search tools"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:tools_used
+      - run-log.yaml:context.files_loaded
+    fallback: "Ask for context or continue only as brief-only/document-backed with explicit limitation."
+
+  - id: repo_context.git_inspection
+    category: context
+    required_when: "Repo-backed or embedded mode."
+    command: "git status --short; git rev-parse --short HEAD"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:context.host_project_root
+      - run-log.yaml:pm_copilot_revision
+    fallback: "Record git unavailable and continue with file-based context only."
+
+  - id: research.web_search
+    category: research
+    required_when: "Competitor, benchmark, pricing, policy, regulated, or source-backed claims are requested or materially affect scope."
+    command: "Agent-native web search/browser tools"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - prd.md:research_and_reference_findings
+      - run-log.yaml:tools_used
+    fallback: "Remove source-backed claims or label them as assumptions with unavailable-source limitation."
+
+  - id: validation.repo
+    category: validation
+    required_when: "PM Copilot repository files are changed."
+    command: "python3 scripts/validate_repo.py"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:validation_results
+    fallback: "Do not claim repository integrity; record command failure and fix before release."
+
+  - id: validation.outputs
+    category: validation
+    required_when: "A run folder contains prd.md, prototype HTML, dev-tasks.yaml, or launch-decision.yaml."
+    command: "python3 scripts/validate_outputs.py outputs/<run-id> --language <zh|en>"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - prd.md:validation_results
+      - run-log.yaml:validation_results
+    fallback: "Do not deliver as final; record failure and fix generated artifacts."
+
+  - id: validation.visual
+    category: validation
+    required_when: "A UI prototype HTML file is generated."
+    command: "python3 scripts/validate_prototype_visual.py outputs/<run-id>"
+    setup_command: "python3 scripts/setup_visual_validation.py"
+    behavior: "When no --prototype is provided, validates every supported prototype HTML file in the run folder."
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - prd.md:validation_results
+      - run-log.yaml:visual_validation
+      - outputs/<run-id>/visual-review/visual-report.json
+    fallback: "Run setup first. Record skipped only after setup failure, browser launch restriction, or user-declined installation."
+
+  - id: validation.html
+    category: validation
+    required_when: "A prototype HTML file is generated."
+    command: "python3 scripts/run_delivery_checks.py outputs/<run-id>"
+    optional_command: "tidy -errors -quiet -utf8 prototype-<platform>.html"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:validation_results
+    fallback: "Use Python html.parser fallback and record tidy compatibility limits separately."
+
+  - id: validation.delivery_orchestrator
+    category: validation
+    required_when: "Before final delivery or before scoring an iteration round."
+    command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - outputs/<run-id>/tool-results/delivery-check-report.json
+      - run-log.yaml:validation_results
+    fallback: "Run individual validation commands and record why the orchestrator could not run."
+
+  - id: handoff.dev_tasks
+    category: handoff
+    required_when: "The user asks for engineering handoff, issue planning, or development tasks."
+    command: "Generate outputs/<run-id>/dev-tasks.yaml from artifacts/dev-task-contract.md"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:handoff_artifacts
+      - outputs/<run-id>/dev-tasks.yaml
+    fallback: "Keep implementation tasks in PRD only and mark handoff export unavailable."
+
+  - id: launch.decision_support
+    category: launch
+    required_when: "The user asks for release readiness, go/no-go, or launch decision support."
+    command: "Generate outputs/<run-id>/launch-decision.yaml from artifacts/launch-decision-contract.md"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:handoff_artifacts
+      - outputs/<run-id>/launch-decision.yaml
+    fallback: "Return review recommendation only; do not claim launch approval."
+
+default_preflight:
+  command: "python3 scripts/preflight_tools.py"
+  strict_command: "python3 scripts/preflight_tools.py --strict"
+  network_required_command: "python3 scripts/preflight_tools.py --check-network <url> --require-network --strict"
+  required_before:
+    - full-loop iteration
+    - final delivery
+    - embedded host evaluation
+    - release of PM Copilot changes
+
+default_delivery_check:
+  command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>"
+  report_path: "outputs/<run-id>/tool-results/delivery-check-report.json"

@@ -1,0 +1,28 @@
+run_id: ""
+source_prd: "prd.md"
+handoff_status: "" # ready | blocked | draft
+generation_mode: "" # human_confirmed | unattended_candidate
+blocking_summary: []
+assumptions: []
+
+tasks:
+  - id: "T1"
+    title: ""
+    type: "" # frontend | backend | data | analytics | qa | docs | release | design
+    priority: "" # P0 | P1 | P2
+    owner_role: ""
+    source_requirements: []
+    description: ""
+    affected_surfaces: []
+    likely_files: []
+    dependencies: []
+    acceptance_criteria: []
+    validation_commands: []
+    risks: []
+    blocked_by: []
+    ready_for_issue: false
+
+release_notes:
+  user_visible_change: ""
+  migration_or_rollout_note: ""
+  rollback_note: ""

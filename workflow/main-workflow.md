@@ -4,16 +4,18 @@
 
 ```text
 S0 Intake
--> S1 Context loading
--> S2 Discovery and clarification
--> S3 Clarification gate
--> S4 Optional research
--> S5 PRD drafting
--> S6 Metrics and tracking
--> S7 Flow and prototype
--> S8 Review
--> S9 Revision loop
--> S10 Delivery check
+-> S1 Tool preflight
+-> S2 Context loading
+-> S3 Discovery and clarification
+-> S4 Clarification gate
+-> S5 Optional research
+-> S6 PRD drafting
+-> S7 Metrics and tracking
+-> S8 Flow and prototype
+-> S9 Review
+-> S10 Revision loop
+-> S11 Delivery check
+-> S12 Optional execution handoff
 ```
 
 ## State Definitions
@@ -21,16 +23,68 @@ S0 Intake
 | State | Owner | Entry Criteria | Exit Criteria |
 |---|---|---|---|
 | S0 Intake | PM Orchestrator | Task brief received | Request goal and artifact needs are identified |
-| S1 Context loading | PM Orchestrator | Product context source is known or needs discovery | Relevant PM Copilot context and available product context are loaded |
-| S2 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
-| S3 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
-| S4 Optional research | Research Agent | External context is needed and tools are available | Source-backed research brief is produced or limitation is stated |
-| S5 PRD drafting | Requirements Agent | Discovery output is usable | `prd.md` contract is satisfied |
-| S6 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | Metrics and tracking sections are complete inside `prd.md` |
-| S7 Flow and prototype | Prototype Agent | Core flow and platform are known | Flow sections are complete inside `prd.md`; HTML prototype contract is satisfied |
-| S8 Review | Review Agent | Draft PRD and prototype exist | Risks, blockers, and required fixes are reflected in PRD status and validation sections |
-| S9 Revision loop | PM Orchestrator | Review finds critical gaps | Artifacts are updated or gaps are accepted as open risks |
-| S10 Delivery check | PM Orchestrator | Critical gaps are closed or accepted | `prd.md`, prototype, and optional exports are internally consistent |
+| S1 Tool preflight | PM Orchestrator | Full-loop, embedded, or final delivery work is expected | Available, setup-required, and unavailable tools are recorded |
+| S2 Context loading | PM Orchestrator | Product context source is known or needs discovery | Relevant PM Copilot context and available product context are loaded |
+| S3 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
+| S4 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
+| S5 Optional research | Research Agent | External context is needed and tools are available | Source-backed research brief is produced or limitation is stated |
+| S6 PRD drafting | Requirements Agent | Discovery output is usable | `prd.md` contract is satisfied |
+| S7 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | Metrics and tracking sections are complete inside `prd.md` |
+| S8 Flow and prototype | Prototype Agent | Core flow and platform are known | Flow sections are complete inside `prd.md`; HTML prototype contract is satisfied |
+| S9 Review | Review Agent | Draft PRD and prototype exist | Risks, blockers, and required fixes are reflected in PRD status and validation sections |
+| S10 Revision loop | PM Orchestrator | Review finds critical gaps | Artifacts are updated or gaps are accepted as open risks |
+| S11 Delivery check | PM Orchestrator | Critical gaps are closed or accepted | `run_delivery_checks.py` passes or failures are fixed/recorded |
+| S12 Optional execution handoff | PM Orchestrator | User asks for development tasks, issue planning, release readiness, or launch decision support | `dev-tasks.yaml` and/or `launch-decision.yaml` are generated with blockers and approvals preserved |
+
+## Agent State And Handoff Discipline
+
+All specialist work follows `agents/agent-interface.md`. PM Orchestrator records each agent transition in `run-log.yaml` with:
+
+- Agent name and owner state.
+- Input evidence used.
+- Output status: `complete`, `needs_input`, `blocked`, `degraded`, or `failed`.
+- Artifact delta: files created, files changed, or `none`.
+- Validation delta: commands run, skipped, required later, or `none`.
+- Readiness impact: PRD, engineering handoff, launch, or `none`.
+- Next expected output or human confirmation.
+
+State transitions are append-only for audit purposes. If a later agent changes an earlier decision, record the superseding decision, evidence, and affected artifact rather than deleting the earlier state.
+
+PM Orchestrator is the only owner of final readiness labels. Specialist agents may recommend readiness, blockers, and fixes, but final `prd_status`, `engineering_handoff_status`, and `launch_status` must be reconciled after Review Agent and delivery checks.
+
+## Resume And Idempotency
+
+When continuing an existing run:
+
+- Load the latest `outputs/<run-id>/run-log.yaml` before editing artifacts.
+- Continue from the last reliable workflow state.
+- Do not create a new run id unless the user asks for a new iteration or the existing folder is clearly a different requirement.
+- Do not duplicate optional exports that already exist unless the new output supersedes them and the reason is recorded.
+- Preserve prior blockers until they are answered, explicitly accepted as draft risk, or moved out of current scope.
+
+If a run log is missing or malformed, continue only after recording the limitation and reconstructing the minimum safe state from existing artifacts and current user input.
+
+## Conflict Resolution
+
+If agent outputs contradict each other:
+
+1. Prefer current user instruction and current product evidence over memory or older artifacts.
+2. Prefer validated tool output over unvalidated prose when they describe the same artifact state.
+3. Keep launch-sensitive, security-sensitive, privacy-sensitive, payment-sensitive, financial, legal, and regulated-content uncertainty open unless explicit approval evidence exists.
+4. Route unresolved contradictions to Review Agent before final delivery.
+5. Record the final resolution in `run-log.yaml` and the PRD readiness or risk section when it affects reviewers.
+
+## Tool Preflight
+
+Use `tools/tool-registry.yaml` as the source of tool capability truth. Run preflight before full-loop iteration, embedded host evaluation, final delivery, or PM Copilot release validation:
+
+```bash
+python3 scripts/preflight_tools.py
+```
+
+Use `--strict` for PM Copilot release validation or other runs where missing required tooling must stop delivery. If external research is required, include `--check-network <url> --require-network --strict`.
+
+Record the result under `tool_preflight` in `run-log.yaml`. If a required tool is `setup_required`, `unavailable`, or `skipped` under strict preflight, run or guide the setup command before deciding to skip the dependent check.
 
 ## Human-in-the-Loop Checkpoints
 
@@ -49,6 +103,17 @@ Human confirmation is required before drafting downstream artifacts when:
 If any must-answer question exists, ask the user and stop before creating `prd.md` or prototype HTML. Create or update only `outputs/<run-id>/run-log.yaml` when a persistent trace is useful.
 
 Do not create PRD, metrics, tracking, flow, prototype, review, or delivery artifacts until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
+
+## Evaluation And Default-Option Mode
+
+When the user explicitly asks PM Copilot to run iterative evaluation, self-iteration, benchmark loops, or to choose recommended options automatically, do not stop the loop for clarification questions. Instead:
+
+- Select the most conservative recommended option that fits the current product context.
+- Record the chosen option and rationale in `run-log.yaml`.
+- Generate the full `prd.md`, prototype, and `run-log.yaml` for that round.
+- Keep unresolved launch or engineering confirmations visible in readiness and risks.
+- Downgrade readiness when a default option creates assumption or confirmation risk.
+- Never use default-option mode to approve payment, privacy, legal, compliance, security, financial, or regulated-content launch decisions.
 
 ## Clarification Semantics
 
@@ -91,7 +156,7 @@ The new requirement must fit the current product instead of assuming a greenfiel
 
 Current product context can come from a host software repository, historical PRDs, specs, product docs, screenshots, analytics exports, support tickets, meeting notes, or direct user answers. A software repository is useful but not required.
 
-Before S2 exits, capture:
+Before S3 exits, capture:
 
 - Existing product area or module likely affected.
 - Relevant current behavior, user journeys, UI patterns, API contracts, data models, permission rules, analytics conventions, or documented historical decisions.
@@ -99,7 +164,7 @@ Before S2 exits, capture:
 - Gaps between the user's requested change and the current product context.
 - Project constraints that should shape scope, rollout, migration, and acceptance criteria.
 
-If no analytics convention or event taxonomy is found, record that as a current-state fact. S6 may still produce a tracking proposal, but it must be labeled as proposed and must not claim to follow an existing taxonomy.
+If no analytics convention or event taxonomy is found, record that as a current-state fact. S7 may still produce a tracking proposal, but it must be labeled as proposed and must not claim to follow an existing taxonomy.
 
 If the agent cannot determine the current product state from available repositories, documents, or user answers, ask for the missing context as must-answer questions.
 
@@ -122,6 +187,36 @@ Default delivery should optimize for reviewability, not file count.
 - `prd.md` must include version history, requirement input and confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, flow diagrams when useful, tracking plan, prototype reference, risks/open confirmations, acceptance criteria, and validation results.
 - Do not create separate `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
 - Avoid making the user open many small Markdown files to understand one requirement.
+
+## Visual Prototype Validation
+
+For UI prototype deliveries, run browser-based visual validation:
+
+- `python3 scripts/validate_prototype_visual.py outputs/<run-id>`
+- Add `--baseline-dir <path>` for regression suites.
+- Add `--update-baseline` only when intentionally establishing a new baseline.
+
+Without `--prototype`, the visual validator checks every supported prototype file in the run folder. Record prototype file names, screenshots, visual report path, nonblank checks, diff status, and limitations in `run-log.yaml`. If Playwright or browser installation is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through setup. Record the check as skipped only after setup fails, browser launch is not permitted in the environment, or the user declines installation.
+
+## Delivery Orchestrator
+
+Before final delivery or iteration scoring, run the orchestrator:
+
+```bash
+python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>
+```
+
+The orchestrator records a machine-readable report under `outputs/<run-id>/tool-results/delivery-check-report.json`. If the orchestrator cannot run, run the individual validation commands and record why.
+
+## Execution Handoff
+
+When the user asks PM Copilot to turn requirements into development tasks, issue-ready work, release readiness, or a launch decision:
+
+- Follow `workflow/execution-handoff-workflow.md`.
+- Create `outputs/<run-id>/dev-tasks.yaml` for engineering handoff when requested.
+- Create `outputs/<run-id>/launch-decision.yaml` for release readiness or go/no-go support when requested.
+- In unattended mode, keep `decision_mode: unattended_candidate` and do not use `ready_to_launch` unless explicit human approval evidence exists for all required gates.
+- Keep blockers and required approvals visible; do not convert launch blockers into ready implementation tasks.
 
 ## Language Rules
 
@@ -153,8 +248,8 @@ Minimum trace requirements:
 - Record `workflow.clarification_gate.required`, `status`, `stopped_before_generation`, and `assumption_risk_accepted`.
 - Classify every unresolved question as exactly one of `must answer before generation`, `can draft with stated assumption`, or `must confirm before development or launch`.
 - Record numeric review scores when a quality rubric exists.
-- If S5-S10 artifacts are generated while unresolved must-answer or pre-development confirmation questions remain, record the user's explicit draft-risk acceptance as evidence and downgrade PRD readiness.
-- Record validation commands actually run, their results, and any skipped validation with the reason. The PRD and run log must use the same validation status.
+- If S6-S11 artifacts are generated while unresolved must-answer questions or `must confirm before development or launch` blockers remain, record the user's explicit draft-risk acceptance as evidence and downgrade PRD readiness.
+- Record tool preflight, validation commands actually run, their results, and any skipped validation with the reason. The PRD and run log must use the same validation status.
 - Record PRD, engineering handoff, and launch readiness separately, including blockers for each phase.
 - Record content source and review status when the feature includes reference, policy, medical, legal, financial, safety, or operational content.
 - Record structured review findings or an explicit no-finding review summary with evidence of the checks performed.

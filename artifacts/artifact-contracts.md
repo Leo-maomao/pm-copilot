@@ -4,6 +4,8 @@ Every generated artifact must follow the relevant contract. If a section cannot 
 
 Use the user's language for all human-facing artifact content, including headings, table column labels, status labels, notes, prototype annotations, and review labels. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
 
+Readiness values, review severity labels, and review item statuses inside `prd.md` are human-facing and must be localized. Internal traces may keep stable English codes when useful, but Chinese PRDs should use Chinese statuses such as `可进入评审`, `框架范围可进入开发`, `发布前阻塞`, `高`, `中`, `低`, `未关闭`, or equivalent localized wording.
+
 Repository templates are structure guides, not literal English copy. Translate template headings and labels when the requested output language is not English.
 
 ## Default Delivery
@@ -15,7 +17,16 @@ The default product-manager delivery contains only:
 
 `outputs/<run-id>/run-log.yaml` is an internal trace artifact for debugging, regression, and auditability. It is not a PM-facing deliverable.
 
+Generated run folders may also contain internal tool evidence under `outputs/<run-id>/tool-results/`, especially `delivery-check-report.json` from `scripts/run_delivery_checks.py`. These files are not PM-facing deliverables; they support auditability and regression scoring.
+
 Do not create separate `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default. Create split files only when the user asks, an external workflow needs them, or a machine-readable export is useful.
+
+When the user asks for engineering handoff, issue planning, unattended task planning, release readiness, or launch decision support, PM Copilot may additionally create:
+
+- `outputs/<run-id>/dev-tasks.yaml`
+- `outputs/<run-id>/launch-decision.yaml`
+
+These are controlled handoff artifacts. They must follow `artifacts/dev-task-contract.md` and `artifacts/launch-decision-contract.md`.
 
 The original request, clarified answers, low-risk assumptions, scope decisions, metrics, tracking plan, flow diagrams, risks, and validation results belong in `prd.md`.
 
@@ -89,6 +100,9 @@ Minimum quality bar:
 - Edge cases include error, empty, permission, payment, rollback, content-review, and launch-blocking cases where relevant.
 - Open questions and launch blockers are visible, not hidden inside prose.
 - Validation results list the exact command, pass/fail/skipped status, and limitation. The PRD must not conflict with `run-log.yaml` about what was validated.
+- Tool results follow `artifacts/tool-result-contract.md` and use capability IDs from `tools/tool-registry.yaml` where possible.
+- Validation results must be finalized after tools run. Do not leave placeholder statuses such as `pending`, `待执行`, `should run`, or `to be verified` in delivered artifacts once the corresponding command has already been executed or intentionally skipped.
+- Prototype validation should include browser screenshot and visual diff checks. If tooling is unavailable, PM Copilot should attempt or guide setup first. A skipped visual check must include the setup failure, environment restriction, or user-declined reason in `run-log.yaml` and the PRD validation section.
 - Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
 - Delivery review findings include artifact, evidence, owner, required-before phase, and status, or explicitly state that no Critical or High findings were found after review.
 
@@ -178,7 +192,20 @@ Minimum quality bar:
 - The prototype does not claim to be production code.
 - The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
 - When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
+- Browser screenshot validation covers at least one primary desktop or default viewport and one constrained/mobile viewport when the platform has responsive behavior. Visual diff baselines are required for regression suites and optional for first-run exploratory artifacts.
+
+## Engineering and Launch Handoff
+
+`dev-tasks.yaml` and `launch-decision.yaml` are optional controlled handoff artifacts.
+
+Minimum quality bar:
+
+- Development tasks trace to PRD requirement IDs, function IDs, or acceptance criteria IDs.
+- Blocked tasks are not marked issue-ready.
+- Launch decisions separate evidence-backed gates from missing approvals.
+- Unattended launch decisions cannot mark `ready_to_launch` unless explicit human approval evidence is present.
+- Allowed and disallowed next actions are explicit.
 
 ## Optional Exports
 
-Split PRD, split tracking Markdown, split user-flow Markdown, review checklist files, `pm-package.md`, and `final-package-summary.md` must not be generated by default. Create a separate file only when the user explicitly asks for it or an external tool requires a machine-readable export such as CSV or Mermaid source.
+Split PRD, split tracking Markdown, split user-flow Markdown, review checklist files, `pm-package.md`, and `final-package-summary.md` must not be generated by default. Create a separate file only when the user explicitly asks for it or an external tool requires a machine-readable export such as CSV, Mermaid source, development task YAML, launch decision YAML, or visual review artifacts.

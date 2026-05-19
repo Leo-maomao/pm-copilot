@@ -12,12 +12,13 @@ Use this order when building the active task prompt:
 4. Workflow rules from `workflow/`.
 5. Guardrails from `guardrails/`.
 6. Artifact contracts from `artifacts/`.
-7. Relevant agent role files from `agents/`.
-8. Relevant skills from `skills/`.
-9. Memory from `context/*.local.yaml`, when present.
-10. Current user request and current user answers.
-11. Current host repository or user-provided product documents.
-12. Tool observations from the current run.
+7. Agent interface contract from `agents/agent-interface.md`.
+8. Relevant agent role files from `agents/`.
+9. Relevant skills from `skills/`.
+10. Memory from `context/*.local.yaml`, when present.
+11. Current user request and current user answers.
+12. Current host repository or user-provided product documents.
+13. Tool observations from the current run.
 
 Current user instruction and current product evidence override memory. Memory is context, not authority.
 
@@ -37,6 +38,7 @@ Classify the request before drafting:
 
 - Keep prompts task-specific. Do not load every file by default.
 - Load only the agent and skill files needed for the current workflow step.
+- Always apply `agents/agent-interface.md` when handing work between agents, even if only one specialist role is active.
 - Use memory summaries, not full memory dumps, when only a few facts are relevant.
 - Keep the user's language for all human-facing generated content.
 - Keep file names, event names, property names, Mermaid node IDs, and other machine identifiers in ASCII.
@@ -101,9 +103,13 @@ Never silently store sensitive data. Never write `.local.yaml` examples into pub
 
 - Use file reads to inspect current context before drafting.
 - Use web research only when source-backed research is requested or needed.
-- Use validation tools after writing files when available.
+- Use `tools/tool-registry.yaml` to decide required tools. Run `scripts/preflight_tools.py` before full-loop/final delivery work; if the script is missing, record that as a tool failure.
+- Use validation tools after writing files. Prefer `scripts/run_delivery_checks.py` for generated run folders. For UI visual validation, attempt or guide Playwright/browser setup before recording a skipped status.
 - Record tool commands actually run in `run-log.yaml` and PRD validation results.
+- Record tool results using `artifacts/tool-result-contract.md` when possible.
 - Do not claim a tool was used if it was skipped.
+- Record agent transition status, artifact delta, validation delta, and conflict resolution in `run-log.yaml` for full-loop, resumed, or release-validation work.
+- Before delivery, scan generated artifacts for stale validation placeholders such as `pending`, `待执行`, `should run`, or `to be verified`. Replace them with the actual pass/fail/skipped result and limitation from the current run.
 
 ## Failover Prompt Rules
 

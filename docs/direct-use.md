@@ -11,7 +11,7 @@ Instead of manually copying templates and creating task folders, open this repos
 
 If important information is missing, ask me first.
 If enough information is available, create `prd.md` and the matching clickable prototype.
-If must-answer or pre-development confirmation information is missing, stop and wait for my answer before generating downstream artifacts.
+If must-answer questions or unresolved `must confirm before development or launch` blockers exist, stop and wait for my answer before generating downstream artifacts.
 Use my local product context if it exists; otherwise use the example context and mark assumptions.
 Use my request language for headings, labels, statuses, notes, and prototype annotations.
 ```
@@ -21,10 +21,13 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Infer a scenario name and unique run id.
 - Create all generated run artifacts under `outputs/<run-id>/`.
 - Ask must-answer clarification questions before downstream generation.
-- Stop and wait when critical information or pre-development confirmation is missing.
+- Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
 - Generate `prd.md`, a prototype when relevant, optional exports when useful, and an internal run log.
 - Keep requirement input, clarified answers, assumptions, research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
-- Run validation when possible.
+- Run tool preflight and validation when required by `tools/tool-registry.yaml`.
+- Prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` before final delivery.
+- Run browser screenshot/visual diff validation for prototypes. If Playwright/browser tooling is missing, first run or guide `python3 scripts/setup_visual_validation.py`; skip only when setup fails, the environment forbids browser launch, or the user declines installation.
+- Generate `dev-tasks.yaml` or `launch-decision.yaml` only when you ask for engineering handoff, issue planning, release readiness, or launch decision support.
 
 ## Direct Entry
 
@@ -102,6 +105,17 @@ User gives request
 -> Agent checks delivery consistency
 -> Agent returns artifact paths and blockers
 ```
+
+When `scripts/validate_outputs.py` is available, the final check should include the generated output folder:
+
+```bash
+python3 scripts/preflight_tools.py
+python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
+```
+
+For explicit self-iteration or benchmark runs where you ask the agent to choose recommended defaults, the agent should still generate the full `prd.md`, prototype, and `run-log.yaml` for each round, record the default choices in the run log, and keep unresolved launch or sensitive approvals visible.
+
+If you ask for unattended development handoff, PM Copilot can generate issue-ready task candidates, but blocked work remains blocked. If you ask for unattended launch decision support, PM Copilot can generate a conservative gate result; it cannot approve launch-sensitive gates from defaults.
 
 ## Example
 

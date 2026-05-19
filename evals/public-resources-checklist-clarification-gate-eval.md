@@ -90,8 +90,13 @@ We want to add a public resources page that stores content all users may need. T
 | 2026-05-18 | F10 | Medium | Repository validator rejected Chinese prose because it required all files to be ASCII. | Validate UTF-8 prose while keeping paths and machine-readable fields ASCII. |
 | 2026-05-18 | scope-drift | Medium | Optional PDF/image download was described as MVP while still listed as an open decision. | Separate confirmed MVP scope from optional or conditional scope. |
 | 2026-05-18 | validation-mismatch | Medium | Run log claimed validation ran while PRD said validation should be run. | Require exact validation commands and matching PRD/run-log status. |
+| 2026-05-18 | validation-placeholder-stale | Medium | Validation commands ran, but generated artifacts still contained `pending` / `待执行` placeholders. | Add validation-finalization rule before delivery. |
+| 2026-05-18 | language-status-leakage | Medium | Chinese PRD still used raw English readiness, severity, and item status labels. | Require localized readiness and review status values in user-facing artifacts. |
 | 2026-05-18 | readiness-collapse | High | Framework readiness and content launch approval were collapsed into one final status. | Require separate PRD, engineering handoff, and launch readiness fields. |
 | 2026-05-18 | unreviewed-content-finalized | High | Placeholder checklist content looked like approved public guidance. | Require source, review owner, disclaimer status, and launch impact for reference content. |
+| 2026-05-19 | agent-contract-drift | Medium | Artifact contracts required behavior that agent role files did not explicitly own. | Align orchestrator, discovery, requirements, analytics, prototype, and review agent responsibilities. |
+| 2026-05-19 | default-option-audit-gap | Medium | Evaluation rounds selected recommended options without a dedicated trace field. | Add `default_options_selected` to trace contract and run-log template. |
+| 2026-05-19 | output-validator-gap | Medium | Generated artifacts could pass repository validation while missing engineering map, output strictness, quality thresholds, or trace fields. | Add and extend `scripts/validate_outputs.py`. |
 
 ## Pass Criteria
 
@@ -110,6 +115,8 @@ We want to add a public resources page that stores content all users may need. T
 - If no analytics taxonomy is loaded, tracking events are labeled as proposed.
 - Validation results are concrete and consistent across the run log and PRD.
 - Chinese artifact prose is valid, while file paths, event names, property names, and Mermaid node IDs remain ASCII.
+- For generated final artifacts, `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` passes.
+- For pre-clarification stops, `python3 scripts/validate_outputs.py outputs/<run-id> --pre-clarification` passes.
 
 ## Latest Result
 

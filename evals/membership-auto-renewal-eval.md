@@ -48,7 +48,7 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 
 | Area | Minimum Score |
 |---|---|
-| Delivery | 20 / 28 |
+| Delivery | 23 / 32 |
 | PRD | 31 / 40 |
 | Metrics and tracking | 21 / 28 |
 | Prototype | 24 / 32 |

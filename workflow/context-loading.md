@@ -54,6 +54,9 @@ Use relevant files only. Typical sources include:
 - Route definitions, pages, screens, navigation, and UI components near the affected area.
 - Existing demos, screenshots, Storybook stories, preview pages, design-system examples, and component states.
 - API contracts, service modules, data models, permission rules, and feature flags.
+- Tenant, workspace, organization, family, account, or project identity sources such as `current_family_id`, active workspace state, cache keys, request filters, and server-side isolation checks.
+- Notification, message, announcement, reminder, or inbox sources when the feature changes user communication, including read state, priority, frequency limits, delivery channel, and public/private source boundaries.
+- Browser extension, embedded widget, iframe, or companion-app manifests and runtime constraints when the feature runs outside the main Web shell, including permissions, storage, auth/session handoff, popup size, and cache policy.
 - Analytics conventions, event naming, existing tracking plans, and metric definitions.
 - Navigation visibility, authorization gates, eligibility states, empty or ineligible states, and route fallback behavior.
 - Content sources, editorial ownership, disclaimer patterns, review cadence, or compliance notes when the feature serves reference or regulated content.
@@ -62,6 +65,8 @@ Use relevant files only. Typical sources include:
 Do not load the whole host repository by default. Start with file discovery, then read the smallest set of files that can answer product-fit questions.
 
 If analytics files or conventions are not found after a reasonable targeted search, record `analytics_taxonomy_source.status: not found` in the run log. Tracking output can still be useful, but it must be labeled as a proposed taxonomy that needs analytics or engineering approval.
+
+For multi-tenant, multi-family, workspace-switching, or account-switching products, capture the active-entity source, query filter boundary, local cache invalidation expectation, and cross-entity fallback behavior before proposing requirements. If those facts are unavailable and the feature can expose data across entities, treat the gap as a must-answer or security-sensitive confirmation.
 
 ## Document-Backed Context
 
@@ -115,3 +120,4 @@ If current behavior, affected module, platform, data ownership, rollout constrai
 - Do not require a software repository when product documents can provide enough current context.
 - Mark stale, unknown, or inferred context explicitly.
 - Use anonymized data unless the environment is approved for sensitive data.
+- In default-option or evaluation mode, recommended defaults must be derived from current user instructions and current product context. Do not use templates, example scenarios, or prior generated outputs as the source of a default product decision.

@@ -1,0 +1,45 @@
+run_id: ""
+source_prd: "prd.md"
+source_run_log: "run-log.yaml"
+decision: "" # launch_blocked | ready_for_engineering | ready_for_staging | ready_for_release_review | ready_to_launch | not_applicable
+decision_mode: "" # unattended_candidate | human_confirmed
+decision_owner_required: true
+summary: ""
+
+gates:
+  prd_complete:
+    status: "" # passed | failed | skipped
+    evidence: ""
+  engineering_handoff:
+    status: ""
+    evidence: ""
+  validation:
+    status: ""
+    evidence: ""
+  visual_validation:
+    status: ""
+    evidence: ""
+  content_approval:
+    status: ""
+    evidence: ""
+  analytics_approval:
+    status: ""
+    evidence: ""
+  privacy_security_legal:
+    status: ""
+    evidence: ""
+  rollout_and_rollback:
+    status: ""
+    evidence: ""
+
+blockers: []
+required_human_approvals: []
+allowed_next_actions: []
+disallowed_actions: []
+
+rollback_plan:
+  owner: ""
+  trigger: ""
+  steps: []
+
+residual_risks: []

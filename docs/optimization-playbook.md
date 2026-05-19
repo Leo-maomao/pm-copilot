@@ -36,6 +36,32 @@ Use this loop for every improvement cycle.
 8. Add the case to regression tests
 ```
 
+For full self-iteration or embedded-project benchmarking, every cycle must generate the complete round artifacts before judging the failure:
+
+- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prototype-<platform>.html` when the scenario is user-facing
+- `outputs/<run-id>/run-log.yaml`
+- `outputs/<run-id>/tool-results/delivery-check-report.json` from `scripts/run_delivery_checks.py`
+- `outputs/<run-id>/visual-review/visual-report.json` after Playwright/browser setup succeeds for visual validation
+- `outputs/<run-id>/dev-tasks.yaml` or `outputs/<run-id>/launch-decision.yaml` when the iteration tests execution handoff or release readiness
+
+Do not optimize from a partial clarification-only run when the user asked for full-loop iteration. If clarification would normally block the workflow, use explicitly recorded conservative default options for the evaluation round, keep residual risks visible, and still produce the full artifact set.
+
+When an external repository is used only as a validation host, remove generated requirement folders from that host after the evaluation evidence has been scored and the PM Copilot fixes have been captured. Keep regression knowledge in PM Copilot evals, validators, docs, or logs rather than leaving stale generated demand files inside the host product repository.
+
+After a fixed iteration block, for example 20 rounds, decide whether the improvement is significant from evidence rather than intuition. Use these checks:
+
+- Latest generated artifacts pass repository validation and output validation.
+- Tool preflight and delivery-orchestrator reports show required tools ran or setup/skipped reasons are explicit.
+- Scores exceed the documented minimum thresholds for delivery, PRD, metrics/tracking, prototype, and review.
+- Prototype visual checks are run after setup, or setup was attempted and explicitly failed/was declined; regression suites should compare screenshots against baselines.
+- Development handoff and launch decision artifacts preserve blockers and approvals instead of turning them into ready work.
+- Previously observed failures are either fixed by rules/tools or intentionally accepted with residual risk.
+- New failures are lower severity or narrower than the baseline failures.
+- The remaining blockers are product decisions, content approvals, or external constraints rather than PM Copilot workflow defects.
+
+If these checks are not met, run another full block of iterations.
+
 ## Step 1: Pick Real Tasks
 
 Start with 5 to 10 realistic PM tasks from your own work.
@@ -79,7 +105,7 @@ Minimum useful early-usage thresholds:
 
 | Area | Minimum |
 |---|---|
-| Delivery | 20 / 28 |
+| Delivery | 23 / 32 |
 | PRD | 31 / 40 |
 | Metrics and tracking | 21 / 28 |
 | Prototype | 24 / 32 |
