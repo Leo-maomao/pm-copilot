@@ -1,6 +1,6 @@
 # PM Copilot
 
-[简体中文](README.md) | [English](README.en.md)
+当前语言：简体中文 | [English version](README.en.md)
 
 PM Copilot 是一个开源、平台中立的产品经理 Agent Workflow Kit。它帮助产品经理把模糊的产品需求转化为两个可交接成果：完整 PRD 和带标注的可点击原型。
 
