@@ -1,6 +1,6 @@
 # Security and Privacy
 
-<h2 align="center"><a href="SECURITY.md">简体中文</a> | English</h2>
+<p align="center"><a href="../../SECURITY.md">简体中文</a> | <strong>English</strong></p>
 
 <a id="english"></a>
 

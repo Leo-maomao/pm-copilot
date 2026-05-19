@@ -1,6 +1,6 @@
 # 安全和隐私
 
-<h2 align="center">简体中文 | <a href="SECURITY.en.md">English</a></h2>
+<p align="center"><strong>简体中文</strong> | <a href="docs/en/security-policy.md">English</a></p>
 
 <a id="zh-cn"></a>
 

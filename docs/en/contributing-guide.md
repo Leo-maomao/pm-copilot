@@ -1,6 +1,6 @@
 # Contributing
 
-<h2 align="center"><a href="CONTRIBUTING.md">简体中文</a> | English</h2>
+<p align="center"><a href="../../CONTRIBUTING.md">简体中文</a> | <strong>English</strong></p>
 
 <a id="english"></a>
 

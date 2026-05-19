@@ -1,6 +1,6 @@
 # Code of Conduct
 
-<h2 align="center"><a href="CODE_OF_CONDUCT.md">简体中文</a> | English</h2>
+<p align="center"><a href="../../CODE_OF_CONDUCT.md">简体中文</a> | <strong>English</strong></p>
 
 <a id="english"></a>
 

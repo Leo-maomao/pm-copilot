@@ -1,6 +1,6 @@
 # 行为准则
 
-<h2 align="center">简体中文 | <a href="CODE_OF_CONDUCT.en.md">English</a></h2>
+<p align="center"><strong>简体中文</strong> | <a href="docs/en/code-of-conduct.md">English</a></p>
 
 <a id="zh-cn"></a>
 

@@ -1,6 +1,6 @@
 # PM Copilot
 
-<h2 align="center"><a href="README.md">简体中文</a> | English</h2>
+<p align="center"><a href="README.md">简体中文</a> | <strong>English</strong></p>
 
 <a id="english"></a>
 
@@ -225,8 +225,8 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 - `docs/release-checklist.md` - release readiness checklist
 - `tools/tool-registry.yaml` - tool capability registry
 - `artifacts/tool-result-contract.md` - tool result contract
-- `CONTRIBUTING.en.md` - contribution rules
-- `SECURITY.en.md` - security and privacy policy
+- `docs/en/contributing-guide.md` - contribution rules
+- `docs/en/security-policy.md` - security and privacy policy
 - `CHANGELOG.md` - detailed version history
 
 ## Feedback and Contributions

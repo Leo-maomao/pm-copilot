@@ -1,6 +1,6 @@
 # 贡献指南
 
-<h2 align="center">简体中文 | <a href="CONTRIBUTING.en.md">English</a></h2>
+<p align="center"><strong>简体中文</strong> | <a href="docs/en/contributing-guide.md">English</a></p>
 
 <a id="zh-cn"></a>
 
