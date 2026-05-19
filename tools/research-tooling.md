@@ -4,7 +4,7 @@ Research tools are required when the output makes source-backed claims or when c
 
 For PRD solution shaping, external product research is expected unless the user explicitly skips it or tooling/network access is unavailable. Host repository files are current-product context, not external research evidence.
 
-For common product flows such as phone/email registration, login, onboarding, checkout, publishing, account management, or export, include competitor or comparable-product flow evidence. Generic security, policy, or implementation sources can supplement the decision, but they do not replace same-flow product research.
+For common product flows, include competitor or comparable-product flow evidence. Generic security, policy, or implementation sources can supplement the decision, but they do not replace same-flow product research.
 
 ## Required Evidence
 

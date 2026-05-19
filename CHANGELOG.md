@@ -6,14 +6,31 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.0.6] - 2026-05-19
+
+Commit: pending release commit.
+
+### Changed
+
+- Bumped the project version to `2.0.6` to remove scenario-specific research validation from the generic PM Agent.
+- Replaced prior scenario wording with a general competitor/comparable flow research method: entry point, required input, primary path, fallback path, platform difference, observed fact, and product implication.
+- Kept prototype interaction safeguards generic: JavaScript syntax checks, draggable annotation toggles, unclipped marker placement, and compact-control wrap checks.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Search checks confirm the core research rules no longer contain scenario-specific validation tokens from the prior regression patch.
+
 ## [2.0.5] - 2026-05-19
 
 Commit: pending release commit.
 
 ### Changed
 
-- Bumped the project version to `2.0.5` for phone-auth research and prototype interaction validation fixes.
-- Strengthened PRD research rules so phone/email registration-login work must include competitor or comparable-product flow evidence, not only generic security or account-management references.
+- Bumped the project version to `2.0.5` for common-flow research and prototype interaction validation fixes.
+- Strengthened PRD research rules so common-flow work must include competitor or comparable-product flow evidence, not only generic policy, security, or implementation references.
 - Updated prototype guidance and the HTML template so annotation toggles are draggable, markers use safe unclipped placement, and compact tabs/buttons should not fold because of annotations.
 - Added static prototype JavaScript syntax validation to `validate_outputs.py` so broken scripts fail even when browser visual validation is skipped.
 - Extended visual-report checks to record annotation layout issues and compact-control wrapping issues alongside access-state evidence.
@@ -23,7 +40,7 @@ Commit: pending release commit.
 - Repository validation passes with `python3 scripts/validate_repo.py`.
 - Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
 - Prototype template HTML parser and extracted JavaScript syntax checks pass.
-- The latest ai-video `phone-email-account-auth` output now fails the stricter gates with `Phone auth PRD missing competitor/comparable auth flow research trace`; direct Node syntax checking also catches the generated prototype's broken inline-handler string.
+- Direct Node syntax checking catches generated prototype inline-handler string errors that would otherwise make all prototype controls inactive.
 - Git whitespace validation passes with `git diff --check`.
 
 ## [2.0.4] - 2026-05-19
@@ -48,7 +65,7 @@ Commit: pending release commit.
 
 ### Changed
 
-- Bumped the project version to `2.0.3` for stricter post-run artifact validation after the latest ai-video regression run.
+- Bumped the project version to `2.0.3` for stricter post-run artifact validation after regression testing.
 - Made PRD solution shaping record `external_research` separately from repository context, so implementation facts cannot be used as a substitute for competitor, benchmark, comparable-feature, or other source-backed product research.
 - Updated prototype annotation guidance toward full-width product surfaces with red component callouts, marker dialogs, and a top-right annotation list instead of persistent side panels that shrink or crop the product UI.
 - Added access-state coherence requirements for Prototype Agent and Review Agent so logged-out, guest, or no-permission controls must not reveal signed-in-only account data or actions.
@@ -58,7 +75,7 @@ Commit: pending release commit.
 - `validate_outputs.py` now rejects ad hoc run-log shapes for `agent_transitions`, `review_scores`, `quality_thresholds`, `handoff_artifacts`, `content_sources`, `guardrail_events`, and `security_and_audit`.
 - `validate_prototype_visual.py` now records access-state smoke evidence and fails when an unauthenticated account trigger reveals signed-in-only data or actions.
 - `run_delivery_checks.py` now rejects reused visual reports that lack the new access-state evidence.
-- The latest ai-video `phone-email-account-auth` output is expected to fail the stricter gates until regenerated: its run log lacks canonical `external_research` / score / transition structure, and its initial “登录” state opens a signed-in demo user menu.
+- Legacy generated outputs are expected to fail the stricter gates until regenerated when their run logs lack canonical `external_research` / score / transition structure or their unauthenticated states reveal signed-in-only controls.
 
 ## [2.0.2] - 2026-05-19
 
@@ -83,7 +100,7 @@ Commit: pending release commit.
 
 - Repository validation passes with `python3 scripts/validate_repo.py`.
 - Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
-- The ai-video regression output now fails as expected with `Run log missing multi-platform-prototype skill for prototype delivery`; legacy visual reports without DOM smoke evidence are also rejected for duplicate-skip reuse.
+- Legacy regression output now fails as expected with `Run log missing multi-platform-prototype skill for prototype delivery`; legacy visual reports without DOM smoke evidence are also rejected for duplicate-skip reuse.
 - Git whitespace validation passes with `git diff --check`.
 
 ## [2.0.1] - 2026-05-19

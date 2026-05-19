@@ -133,7 +133,7 @@ The user should not need to manually copy templates or create folders. Do that f
 
 7. Run external product research for PRD solution shaping unless the user explicitly says to skip it or tooling/network access is unavailable:
    - The PRD's research/reference section should include source-backed competitor, benchmark, or comparable feature research that helps choose a better product solution.
-   - When the requirement changes registration, login, onboarding, payment, publishing, or other common product flows, research the same flow in direct competitors or comparable products. For phone/email auth, capture how similar products handle phone number entry, country-code scope, SMS code vs password, QR/social alternatives, binding/unbinding, and web/desktop differences.
+   - When the requirement changes a common product flow, research the same flow in direct competitors or comparable products. Capture entry points, required inputs, primary and fallback paths, platform differences, constraints, and the implication for the proposed solution.
    - Repository files are current-product context, not competitor or feature research. Put implementation facts in background, current-state context, or the engineering implementation map; do not use repo file reading as the only content under "调研与参考结论".
    - Use `Research Agent` and `tools/research-tooling.md` when competitor, market, benchmark, pricing, policy, compliance, or comparable product behavior can materially shape scope, copy, metrics, or prototype direction.
    - If web research cannot run, record `external_research.status: skipped` or `degraded`, the exact limitation, and make product recommendations visibly assumption-based.

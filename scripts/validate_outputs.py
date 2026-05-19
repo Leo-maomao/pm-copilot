@@ -61,7 +61,6 @@ PROTOTYPE_FILE_NAMES = (
 )
 
 ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
-PHONE_AUTH_RE = re.compile(r"(手机号|手机).*(登录|注册)|(登录|注册).*(手机号|手机)")
 
 EXPECTED_REVIEW_SCORES = {
     "delivery": 32,
@@ -379,26 +378,6 @@ def check_external_research_trace(path: Path) -> None:
     ):
         if marker not in run_log:
             fail(f"Run log missing external research marker: {marker}")
-
-
-def check_auth_competitor_research(path: Path) -> None:
-    prd_path = path / "prd.md"
-    if not prd_path.exists():
-        return
-    prd = read(prd_path)
-    if not PHONE_AUTH_RE.search(prd):
-        return
-
-    run_log = read(path / "run-log.yaml")
-    external_section = section_text(run_log, "external_research")
-    combined = external_section + "\n" + prd
-    if "competitor_flows:" not in external_section and "comparable_product_flows:" not in external_section:
-        fail("Phone auth PRD missing competitor/comparable auth flow research trace")
-    for marker in ("competitor:", "login_or_signup_method:", "flow_observation:", "product_implication:"):
-        if marker not in external_section:
-            fail(f"Phone auth competitor research missing marker: {marker}")
-    if not any(term in combined for term in ("竞品", "同类", "comparable", "competitor")):
-        fail("Phone auth PRD research must explicitly discuss competitor or comparable-product flows")
 
 
 def check_default_option_trace(path: Path) -> None:
@@ -791,7 +770,6 @@ def main() -> None:
     check_readiness_trace(folder)
     check_context_trace(folder)
     check_structured_run_log_trace(folder)
-    check_auth_competitor_research(folder)
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
     check_visual_validation_trace(folder)
