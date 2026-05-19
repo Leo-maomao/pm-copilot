@@ -6,6 +6,22 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.0.4] - 2026-05-19
+
+Commit: pending release commit.
+
+### Changed
+
+- Bumped the project version to `2.0.4` for refreshed README demos and user-facing usage documentation.
+- Refreshed README and direct-use demos to show the stronger repo-backed style-reuse workflow, red component annotations, access-state validation, external research, engineering handoff, and launch decision gates.
+- Replaced the checkout coupon README demo image with a membership auto-renewal demo that better exercises payment, privacy, legal, and launch readiness behavior.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+- README demo images are verified at `1200 x 720` with `sips`.
+
 ## [2.0.3] - 2026-05-19
 
 Commit: pending release commit.

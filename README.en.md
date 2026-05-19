@@ -33,14 +33,14 @@ PM Copilot treats English and Chinese as first-class user-facing languages. Gene
 For direct agent usage, see `docs/direct-use.md`. For embedded project usage, see `docs/embedded-use.md`.
 
 1. Open this repository in your agent-enabled workspace.
-2. Ask the agent to read `PM_COPILOT.md`, then say your product-manager request naturally, for example: `I need a PRD and tracking plan for checkout coupon optimization.`
+2. Ask the agent to read `PM_COPILOT.md`, then say your product-manager request naturally, for example: `I need a PRD, tracking plan, and H5 prototype for membership auto-renewal optimization.`
 3. The agent should inspect relevant context, ask must-answer clarification questions before generation, then create `prd.md` and a prototype automatically.
 4. Optional: create local memory files later for better product-specific results and personal working preferences.
 
 Suggested prompt:
 
 ```text
-We want to improve coupon usage on checkout. Users say they cannot find where to apply coupons, and support tickets are increasing.
+We want to improve the H5 membership auto-renewal experience. Users say renewal reminders are unclear, the cancellation entry is hard to find, and support tickets are increasing.
 
 If important information is missing, ask me first.
 If enough information is available, create `prd.md` and the matching clickable prototype.
@@ -48,18 +48,19 @@ If enough information is available, create `prd.md` and the matching clickable p
 
 ## Two Practical Demos
 
-Paste either request into an agent-enabled workspace. PM Copilot should classify the context mode first, ask blocking questions when required, and generate the PRD, clickable prototype, and optional handoff artifacts only after the clarification gate passes.
+Paste either request into an agent-enabled workspace. PM Copilot should classify the context mode first, load the required agents, skills, contracts, and tooling rules, ask blocking questions when required, and generate the PRD, clickable prototype, run trace, and optional handoff artifacts only after the clarification gate passes.
 
 ### Demo 1: Team Permission Management in an Existing Project
 
-Use this to show that PM Copilot does more than write generic docs: it should inspect the current repository and fit the requirement into existing routes, role models, permission logic, and UI patterns.
+Use this to show that PM Copilot does more than write generic docs: it should inspect the current repository and fit the requirement into existing routes, role models, permission logic, UI components, and analytics conventions while separating external references from current-product context and engineering handoff work.
 
 ![Team permission management demo screenshot](docs/assets/readme-demo-team-permissions.png)
 
 ```text
 We need team permission management in the admin console.
 
-Please inspect the existing routes, role model, member management page, permission checks, and component patterns first.
+Please inspect the existing routes, role model, member management page, permission checks, analytics conventions, and component patterns first.
+Do a small amount of external comparable-product research, but do not treat repository files as competitor research.
 If important information is missing, ask me before generation.
 If enough information is available, create the PRD, a Web clickable annotated prototype, and issue-ready engineering tasks.
 ```
@@ -68,37 +69,38 @@ A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `outputs/team-permissions/prd.md` | Target users, current-product constraints, MVP/optional/future scope, member invites, role changes, permission blocking, audit logs, loading/empty/error/no-permission states |
-| `outputs/team-permissions/prototype-web.html` | Admin member list, invite drawer, role-change confirmation, permission notice, numbered product annotations |
-| `outputs/team-permissions/dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes |
-| `outputs/team-permissions/run-log.yaml` | Host project files loaded, assumptions used, blockers, validation commands and results |
+| `outputs/team-permissions/prd.md` | Target users, current-product constraints, external reference findings, MVP/optional/future scope, member invites, role changes, permission blocking, audit logs, loading/empty/error/no-permission states |
+| `outputs/team-permissions/prototype-web.html` | A Web prototype that reuses the existing admin shell and table density, with red component markers, click-open annotation dialogs, and a current-state annotation list |
+| `outputs/team-permissions/dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
+| `outputs/team-permissions/run-log.yaml` | Context mode, host project files loaded, external research sources, style evidence, existing UI baseline, tool validation, and unresolved risks |
 
-This demo highlights `repo-backed` context loading, Chinese or English PRDs, Web prototypes, tracking design, engineering handoff, and permission/edge-state coverage.
+This demo highlights `repo-backed` context loading, separation of external research from repository context, Chinese or English PRDs, existing-UI delta prototypes, red component annotations, engineering handoff, and permission/edge-state coverage.
 
-### Demo 2: Checkout Coupon Optimization Without a Code Repository
+### Demo 2: Membership Auto-Renewal Optimization Without a Code Repository
 
-Use this to show that PM Copilot can start from a brief or product documents, without requiring a code repository, and still produce review-ready product work.
+Use this to show that PM Copilot can start from a brief or product documents, without requiring a code repository, and still handle higher-risk product requirements involving payment, cancellation, reminders, tracking, privacy, and launch gates.
 
-![Checkout coupon optimization demo screenshot](docs/assets/readme-demo-checkout-coupon.png)
+![Membership auto-renewal demo screenshot](docs/assets/readme-demo-membership-renewal.png)
 
 ```text
-We want to improve the H5 checkout coupon experience. Users say they cannot find the coupon entry, and support tickets are increasing.
+We want to improve the H5 membership auto-renewal experience. Users say renewal reminders are unclear, the cancellation entry is hard to find, and support tickets are increasing.
 
-The business goal is to increase coupon usage without materially hurting payment conversion.
-If you need existing rules, coupon types, unavailable reasons, or metric definitions, ask me first.
-When enough information is available, create the PRD, H5 clickable annotated prototype, and tracking plan.
+The business goal is to reduce renewal-related complaints without materially hurting membership retention.
+If you need current billing rules, reminder timing, cancellation paths, support scripts, legal requirements, or metric definitions, ask me first.
+When enough information is available, create the PRD, H5 clickable annotated prototype, tracking plan, and launch decision recommendation.
 ```
 
 A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `outputs/checkout-coupon/prd.md` | User problem, business goals, metric definitions, coupon entry, usable/unusable coupons, default recommendation, error states, launch risks, acceptance criteria |
-| `outputs/checkout-coupon/prototype-h5.html` | Checkout entry, coupon list sheet, unavailable reasons, price refresh after selection, mobile annotations |
-| Tracking table inside the PRD | Events such as `checkout_coupon_entry_view`, `coupon_select_submit`, `coupon_apply_result`, plus a property dictionary |
-| `outputs/checkout-coupon/run-log.yaml` | Clarifying questions, default assumptions, unresolved promotion/finance/legal risks, validation records |
+| `outputs/membership-renewal/prd.md` | User problem, business goals, external references, current assumptions, reminder strategy, cancellation flow, payment/support/legal risks, acceptance criteria, and launch status |
+| `outputs/membership-renewal/prototype-h5.html` | Membership center entry, renewal reminder, auto-renewal management, cancellation confirmation, result receipt, logged-out/no-membership/API-failure states |
+| Tracking table inside the PRD | Events such as `renewal_notice_view`, `renewal_manage_open`, `renewal_cancel_submit`, `renewal_cancel_result`, plus privacy notes |
+| `outputs/membership-renewal/launch-decision.yaml` | Engineering-ready scope, launch blockers, legal/payment/support owners, rollback recommendation, and missing human approvals |
+| `outputs/membership-renewal/run-log.yaml` | Clarifying questions, default assumptions, external research status, access-state visual validation, tool results, and unresolved gates |
 
-This demo highlights `document-backed` or `brief-only` mode, localized delivery, mobile prototypes, metrics and tracking, and explicit promotion-rule risk handling.
+This demo highlights `document-backed` or `brief-only` mode, localized delivery, mobile prototypes, access-state coherence, metrics and tracking, explicit payment/privacy/legal risk handling, and separated engineering handoff versus launch decision status.
 
 ## Use Inside an Existing Project
 
@@ -181,7 +183,7 @@ The default interaction mode is "clarify before generation." If must-answer info
 
 For reference, policy, medical, legal, financial, safety, or operational content, PM Copilot records source status, review owner, review status, disclaimer status, and launch impact. Unreviewed content must be labeled as placeholder or draft even when the surrounding product framework is ready for engineering.
 
-Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, `prototype-<platform>.html`, and optionally `run-log.yaml`. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the inferred run id already exists, PM Copilot should append a local timestamp, for example `checkout-coupon-20260518-1430`.
+Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, `prototype-<platform>.html`, and optionally `run-log.yaml`. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the inferred run id already exists, PM Copilot should append a local timestamp, for example `membership-renewal-20260518-1430`.
 
 When UI prototypes are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. Before final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` and store tool evidence under `outputs/<run-id>/tool-results/`. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
 

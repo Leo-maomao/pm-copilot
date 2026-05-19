@@ -45,14 +45,20 @@ Do not rely on nested tool-specific instruction files for embedded mode. The hos
 Install an adapter into the host repository so users can say natural requests like:
 
 ```text
-I need a PRD and tracking plan for checkout coupon optimization.
+I need a PRD, tracking plan, and H5 prototype for membership auto-renewal optimization.
 ```
 
 The adapter should detect product-manager tasks and delegate to `pm-copilot/PM_COPILOT.md`.
 
 Before generating PRD, metrics, tracking, flow, or prototype artifacts, the agent should run or record tool preflight, inspect relevant host project files, and ask must-answer questions when the current product fit is unclear.
 
-For UI work, embedded runs should use host context for visual validation and run `scripts/validate_prototype_visual.py`. If browser tooling is missing, run or guide `scripts/setup_visual_validation.py` before deciding to skip. Store screenshot/diff evidence under the generated run folder, not in host product source directories.
+For solution shaping, repository files are current-product context and engineering constraints. They do not replace external competitor, benchmark, comparable-feature, policy, or public-solution research when that research materially affects the product decision.
+
+For UI work, embedded runs should reuse the host app's current surface instead of inventing a new shell. Inspect relevant routes, components, theme tokens, global styles, screenshots, Storybook/demo pages, and nearby UI modules; record `style_evidence` and, when possible, an `existing_ui_visual_baseline` in the run log.
+
+Embedded prototypes should use red component-level annotation markers, click-open annotation dialogs, and a current-state annotation list while preserving the product surface's real page width, scroll behavior, modals, and access states. They should not expose signed-in-only account data or privileged actions in logged-out, guest, or no-permission states.
+
+For UI validation, embedded runs should use host context and run `scripts/validate_prototype_visual.py`. If browser tooling is missing, run or guide `scripts/setup_visual_validation.py` before deciding to skip. Store screenshot/diff evidence under the generated run folder, not in host product source directories.
 
 Before final embedded delivery, prefer:
 

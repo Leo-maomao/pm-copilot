@@ -23,10 +23,12 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Ask must-answer clarification questions before downstream generation.
 - Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
 - Generate `prd.md`, a prototype when relevant, optional exports when useful, and an internal run log.
-- Keep requirement input, clarified answers, assumptions, research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
+- Keep requirement input, clarified answers, assumptions, source-backed research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
+- Treat repository files as current-product context, not as competitor or benchmark research. When external research is unavailable, mark recommendations as assumption-based.
+- For UI prototypes, use visible red component markers, click-open annotation dialogs, and current-state annotation lists instead of shrinking the product UI into a permanent side annotation board.
 - Run tool preflight and validation when required by `tools/tool-registry.yaml`.
 - Prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` before final delivery.
-- Run browser screenshot/visual diff validation for prototypes. If Playwright/browser tooling is missing, first run or guide `python3 scripts/setup_visual_validation.py`; skip only when setup fails, the environment forbids browser launch, or the user declines installation.
+- Run browser screenshot/visual diff validation for prototypes, including DOM smoke and access-state checks when applicable. If Playwright/browser tooling is missing, first run or guide `python3 scripts/setup_visual_validation.py`; skip only when setup fails, the environment forbids browser launch, or the user declines installation.
 - Generate `dev-tasks.yaml` or `launch-decision.yaml` only when you ask for engineering handoff, issue planning, release readiness, or launch decision support.
 
 ## Direct Entry
@@ -120,21 +122,24 @@ If you ask for unattended development handoff, PM Copilot can generate issue-rea
 ## Example
 
 ```text
-We want to improve coupon usage on checkout. Users say they cannot find where to apply coupons, and support tickets are increasing.
+We want to improve the H5 membership auto-renewal experience. Users say renewal reminders are unclear, the cancellation entry is hard to find, and support tickets are increasing.
+
+If you need current billing rules, reminder timing, cancellation paths, support scripts, legal requirements, or metric definitions, ask me first.
 ```
 
 Expected generated paths:
 
 ```text
-outputs/checkout-coupon/prd.md
-outputs/checkout-coupon/prototype-h5.html
+outputs/membership-renewal/prd.md
+outputs/membership-renewal/prototype-h5.html
+outputs/membership-renewal/run-log.yaml
 ```
 
 If the same scenario already exists, the agent should create a timestamped run folder such as:
 
 ```text
-outputs/checkout-coupon-20260518-1430/prd.md
-outputs/checkout-coupon-20260518-1430/prototype-h5.html
+outputs/membership-renewal-20260518-1430/prd.md
+outputs/membership-renewal-20260518-1430/prototype-h5.html
 ```
 
 ## When to Prepare Extra Context
