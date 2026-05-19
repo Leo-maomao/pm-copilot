@@ -1,6 +1,6 @@
 # PM Copilot
 
-<h2 align="center"><a href="https://github.com/Leo-maomao/pm-copilot#zh-cn">简体中文</a> | English</h2>
+<h2 align="center"><a href="README.md">简体中文</a> | English</h2>
 
 <a id="english"></a>
 

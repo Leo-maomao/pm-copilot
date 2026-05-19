@@ -6,9 +6,24 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.0.1] - 2026-05-19
+
+Commit: pending release commit.
+
+### Changed
+
+- Bumped the project version to `2.0.1` for release metadata and README language cleanup.
+- Simplified `README.md` so the default page is Chinese and switches to English through `README.en.md` instead of embedding a second full README.
+- Expanded changelog coverage for missed README documentation releases and replaced stale pending commit markers with actual commit references where available.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.0.0] - 2026-05-19
 
-Commit: pending current working-tree changes.
+Commit: `cb76d9d` feat: add delivery tooling and handoff workflows.
 
 ### Added
 
@@ -41,9 +56,54 @@ Commit: pending current working-tree changes.
 - Git whitespace validation passes with `git diff --check`.
 - Prototype template HTML validation passes with `tidy -errors -quiet -utf8 templates/prototype-template.html`.
 
+## [1.1.5] - 2026-05-19
+
+Commit: `f24fe62` docs: show selected README language.
+
+### Changed
+
+- Updated README language switchers to show the currently selected language as plain text.
+
+## [1.1.4] - 2026-05-19
+
+Commit: `3247561` docs: use same-page README language anchors.
+
+### Changed
+
+- Adjusted README language navigation to use in-page anchors for the bilingual README layout.
+
+## [1.1.3] - 2026-05-19
+
+Commit: `531775e` docs: clarify README language links.
+
+### Changed
+
+- Clarified README language-switch links for Chinese and English readers.
+
+## [1.1.2] - 2026-05-19
+
+Commit: `7d6f34c` docs: add README demo screenshots.
+
+### Added
+
+- Added demo screenshots for the team-permissions and checkout-coupon README examples.
+
+## [1.1.1] - 2026-05-19
+
+Commit: `f215df1` docs: add bilingual README demos.
+
+### Added
+
+- Added `README.en.md` as the English README.
+- Added bilingual practical demos to the README documentation.
+
+### Changed
+
+- Updated README validation coverage for bilingual documentation.
+
 ## [1.1.0] - 2026-05-18
 
-Commit: pending current working-tree changes.
+Commit: `ed6c896` Add prompt system and local memory.
 
 ### Added
 
@@ -98,7 +158,7 @@ Commit: `c77bebf` Slim PM Copilot repository structure.
 
 ## [0.1.10] - 2026-05-18
 
-Commit: current 0.1.10 release commit.
+Commits: `a27d66e` Improve mini program prototype annotations; `e54f2b1` Align delivery model with PRD and prototype.
 
 ### Added
 
