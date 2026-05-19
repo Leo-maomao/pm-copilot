@@ -52,6 +52,8 @@ Paste either request into an agent-enabled workspace. PM Copilot should classify
 
 Use this to show that PM Copilot does more than write generic docs: it should inspect the current repository and fit the requirement into existing routes, role models, permission logic, and UI patterns.
 
+![Team permission management demo screenshot](docs/assets/readme-demo-team-permissions.png)
+
 ```text
 We need team permission management in the admin console.
 
@@ -74,6 +76,8 @@ This demo highlights `repo-backed` context loading, Chinese or English PRDs, Web
 ### Demo 2: Checkout Coupon Optimization Without a Code Repository
 
 Use this to show that PM Copilot can start from a brief or product documents, without requiring a code repository, and still produce review-ready product work.
+
+![Checkout coupon optimization demo screenshot](docs/assets/readme-demo-checkout-coupon.png)
 
 ```text
 We want to improve the H5 checkout coupon experience. Users say they cannot find the coupon entry, and support tickets are increasing.
