@@ -43,7 +43,7 @@ prototype_preferences:
   prefer_existing_ui_delta: true
   annotation_style: "full-width product surface with numbered callouts, marker dialogs, and top-right page annotation list"
   callout_rules:
-    - "Use matching numbers on UI and notes"
+    - "Use matching numbers on UI markers, dialogs, and annotation list notes"
     - "Keep notes concise"
     - "Use hover or click for expanded detail when useful"
 
