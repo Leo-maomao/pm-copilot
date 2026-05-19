@@ -11,6 +11,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PR
 - Load `tools/tool-registry.yaml` and run tool preflight for full-loop, embedded, final-delivery, or release-validation work.
 - Load relevant current product context before drafting product artifacts. This may be host repository context, historical product documents, or direct user-provided context.
 - Decide which specialist agents and skills are required.
+- For UI prototype deliveries, require Prototype Agent plus `skills/multi-platform-prototype/SKILL.md`; do not accept a prototype-stage handoff with `skills_used: []`.
 - Keep the workflow state current and record each state transition with owner, entry evidence, exit evidence, and blocker status.
 - Route outputs between agents.
 - Resolve or escalate contradictions between agent outputs before final delivery.

@@ -65,6 +65,9 @@ human_inputs:
 assumptions:
 scope_decisions:
 surface_decisions:
+style_evidence:
+existing_ui_visual_baseline:
+design_calibration:
 content_sources:
 open_questions:
 artifacts:
@@ -93,6 +96,8 @@ next_actions:
 - Record PRD, engineering handoff, and launch readiness separately. Do not use a single ready/not-ready label for all phases.
 - Record whether the run was repo-backed, document-backed, or brief-only.
 - In repo-backed mode, record relevant host project files and current-state facts used for product-fit decisions.
+- For repo-backed UI prototype deliveries, record `style_evidence` with source files, reused components, reused tokens or class patterns, prototype delta, and limitations. Missing style evidence means the Prototype Agent output is not complete.
+- For repo-backed UI prototype deliveries, record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation. Do not claim pixel-level parity when no visual comparison ran.
 - In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.
 - Record whether an analytics taxonomy was found. If none was found, tracking artifacts must be marked as proposed.
 - Record the artifact language chosen from the user's request.

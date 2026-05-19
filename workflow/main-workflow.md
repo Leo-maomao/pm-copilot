@@ -168,6 +168,16 @@ If no analytics convention or event taxonomy is found, record that as a current-
 
 If the agent cannot determine the current product state from available repositories, documents, or user answers, ask for the missing context as must-answer questions.
 
+## Prototype Context Gate
+
+Before S8 exits for any UI prototype, PM Orchestrator must confirm that `agents/prototype-agent.md`, `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` were applied and recorded in `run-log.yaml`.
+
+For repo-backed prototypes, S8 is not complete until the run log contains `style_evidence` with source files, reused components, reused tokens or class patterns, prototype delta, and limitations. The prototype itself must include a traceable `style-source-summary` comment or `data-style-source` attribute. If existing frontend code, screenshots, or demos are available but style evidence is missing, route the work back to Prototype Agent instead of accepting a polished-looking greenfield prototype.
+
+Repo-backed S8 should also record `existing_ui_visual_baseline`. Prefer captured screenshots from a running host app, preview route, Storybook/demo, or user-provided screenshots. If the host app cannot be started or no screenshot source exists, record `status: skipped`, the exact limitation, and the expected impact on visual parity. Do not claim the prototype is pixel-identical to the existing UI unless a visual comparison actually ran.
+
+The style reuse pass should inspect the smallest relevant host files: app shell or root layout, global stylesheet or theme config, design-system components, affected routes/pages, and nearby feature components. The prototype may remain self-contained HTML, but it must emulate those inspected host patterns instead of designing a separate UI system.
+
 ## Run Folder Rules
 
 Use `outputs/<run-id>/` as the single generated-artifact folder for each real requirement run. The run id is the scenario slug unless that output folder already exists. For repeat or similar requirements, append a local timestamp such as `team-permissions-20260518-1430`.

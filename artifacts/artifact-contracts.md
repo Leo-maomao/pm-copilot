@@ -165,12 +165,14 @@ Required elements:
 - Runs locally without build tooling.
 - Simulates the selected platform container.
 - Matches existing product style when current screenshots, demos, routes, components, or design-system references are available.
+- For repo-backed frontend products, records `style_evidence` in `run-log.yaml` and includes `style-source-summary` or `data-style-source` in the HTML.
+- For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
 - Includes key screens and states.
 - Includes interaction for the main path.
 - States its fidelity level: `low`, `mid`, or `high`.
 - Uses left-side prototype and right-side numbered annotation panel by default.
-- Places compact numbered callouts such as `①`, `②`, and `③` beside the concrete UI element, state, or transition being explained.
-- Uses matching numbered notes in the side panel.
+- Places compact numbered callouts at the top-right corner of the concrete UI component, state, or transition being explained, offset just outside the corner when needed to avoid covering content.
+- Uses small red `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface and matching circled notes such as `①`, `②`, and `③` in the side panel.
 
 Prototype annotations must cover the relevant subset of:
 
@@ -192,6 +194,8 @@ Minimum quality bar:
 - The prototype does not claim to be production code.
 - The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
 - When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
+- When host frontend code exists, the prototype reuses the current app shell, component structure, tokens, spacing density, and copy tone rather than introducing a separate visual system.
+- When existing screenshots or a runnable host app are available, unchanged regions are compared or reviewed against that visual baseline; without baseline evidence, the artifact must not claim pixel-level parity.
 - Browser screenshot validation covers at least one primary desktop or default viewport and one constrained/mobile viewport when the platform has responsive behavior. Visual diff baselines are required for regression suites and optional for first-run exploratory artifacts.
 
 ## Engineering and Launch Handoff

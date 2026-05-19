@@ -115,6 +115,16 @@ BINARY_SUFFIXES = {
     ".zip",
 }
 
+IGNORED_FILE_NAMES = {
+    ".DS_Store",
+    "Thumbs.db",
+}
+
+IGNORED_DIR_NAMES = {
+    ".pytest_cache",
+    "__pycache__",
+}
+
 MACHINE_PATH_RE = re.compile(r"^[A-Za-z0-9._@+/-]+$")
 PROPERTY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -268,6 +278,9 @@ REQUIRED_TEXT_TOKENS = {
     "artifacts/trace-contract.md": [
         "request_source:",
         "readiness:",
+        "style_evidence:",
+        "existing_ui_visual_baseline:",
+        "design_calibration:",
         "content_sources:",
         "tool_preflight:",
         "agent_transitions:",
@@ -285,6 +298,9 @@ REQUIRED_TEXT_TOKENS = {
         "engineering_handoff_status:",
         "launch_status:",
         "surface_decisions:",
+        "style_evidence:",
+        "existing_ui_visual_baseline:",
+        "design_calibration:",
         "content_sources:",
         "tool_preflight:",
         "agent_transitions:",
@@ -624,7 +640,7 @@ def check_user_flows() -> None:
 
 def check_text_files_are_utf8() -> None:
     for path in ROOT.rglob("*"):
-        if path.is_dir() or ".git" in path.parts:
+        if should_skip_text_file(path):
             continue
         if path.suffix.lower() in BINARY_SUFFIXES:
             continue
@@ -643,11 +659,27 @@ def check_text_files_are_utf8() -> None:
 
 def check_machine_readable_paths() -> None:
     for path in ROOT.rglob("*"):
-        if ".git" in path.parts:
+        if should_skip_machine_path(path):
             continue
         relative_path = path.relative_to(ROOT).as_posix()
         if not MACHINE_PATH_RE.match(relative_path):
             fail(f"Non-ASCII or unsupported character in path: {relative_path}")
+
+
+def should_skip_text_file(path: Path) -> bool:
+    if path.is_dir() or ".git" in path.parts:
+        return True
+    if path.name in IGNORED_FILE_NAMES:
+        return True
+    return any(part in IGNORED_DIR_NAMES for part in path.parts)
+
+
+def should_skip_machine_path(path: Path) -> bool:
+    if ".git" in path.parts:
+        return True
+    if path.name in IGNORED_FILE_NAMES:
+        return True
+    return any(part in IGNORED_DIR_NAMES for part in path.parts)
 
 
 def main() -> None:

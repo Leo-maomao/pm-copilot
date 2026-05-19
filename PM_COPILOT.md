@@ -59,6 +59,14 @@ The user should not need to manually copy templates or create folders. Do that f
    - `tools/tool-use-protocol.md`
    - `context/memory-model.md`
 
+   When the requested delivery includes a UI prototype, also load these before S8 prototype work starts:
+   - `agents/prototype-agent.md`
+   - `skills/multi-platform-prototype/SKILL.md`
+   - `artifacts/prototype-contract.md`
+   - `tools/prototype-tooling.md`
+
+   Record the active Prototype Agent and `multi-platform-prototype` skill in `run-log.yaml`. A prototype delivery with `skills_used: []` is incomplete unless the prototype was explicitly omitted.
+
 2. Match the user's language:
    - If the user writes in Chinese, use Chinese for user-facing replies and generated PM artifacts.
    - If the user writes in English, use English.
@@ -149,6 +157,14 @@ The user should not need to manually copy templates or create folders. Do that f
    - Mini Program for mini-program containers, authorization, booking, ordering, and lightweight forms.
    - Generate multiple prototypes only for true cross-platform requirements.
    - If an existing demo, screenshot, page, route, design system, or component implementation is available, adapt that current surface and show the delta for the new requirement. Do not create a new unrelated product shell.
+   - In repo-backed UI work, perform a style reuse pass before writing HTML: inspect the host app shell, global stylesheet or theme tokens, design-system components, affected route/page/component files, and any screenshots or demos that show the current surface.
+   - Reuse existing component structure, layout density, tokens, class names, copy tone, and interaction patterns. A self-contained HTML prototype may inline CSS, but the CSS must emulate the inspected host components and tokens rather than inventing a new visual system.
+   - Capture or record an existing UI visual baseline before writing the prototype when possible. Use a running host app, existing preview route, Storybook/demo, or user-provided screenshot. If none is available, record why under `existing_ui_visual_baseline` and treat fidelity as limited.
+   - After the style reuse pass, run a design calibration pass: choose visual density, layout variance, and motion intensity from the host product and scenario; avoid generic AI UI signatures that do not belong to the current surface.
+   - Record `style_evidence` in `run-log.yaml`, including source files, reused components, reused tokens or class patterns, the intended new-requirement delta, and limitations. Add a hidden `style-source-summary` comment or `data-style-source` attribute in the prototype so reviewers can trace the visual source.
+   - Record `existing_ui_visual_baseline` in `run-log.yaml`: status, source, target page or component, screenshot paths when captured, comparison method, and limitation. If screenshots are available, use them as review evidence for unchanged regions; do not claim pixel-level parity unless a visual comparison actually ran.
+   - If the existing frontend style source cannot be inspected and the user expects a product-specific prototype, ask for the missing screenshot/demo/component reference or mark the Prototype Agent output `degraded`; do not mark the prototype `complete`.
+   - Use visible numbered annotation markers on the UI element being explained. The default UI marker is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`; place it at the annotated component's top-right corner, or just outside that corner when it would cover important content. The right-side annotation panel uses the matching circled number such as `②`.
 
 10. Run tool preflight and validation after file changes when possible:
    - `python3 scripts/preflight_tools.py` before full-loop iteration, embedded host evaluation, or final delivery; use `--strict` for PM Copilot release validation.

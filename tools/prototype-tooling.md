@@ -10,8 +10,13 @@ Prototypes should be generated as self-contained HTML files.
 - Use semantic buttons and links for interactions.
 - Include a visible prototype-only / not-production-code boundary.
 - When current product UI evidence exists, match the current surface before adding the new requirement.
+- In repo-backed frontend work, inspect the host app shell/root layout, global stylesheet or theme config, design-system components, affected route/page/component files, and screenshots or demos before writing HTML.
+- Record `style_evidence` in `run-log.yaml`: source files, reused components, reused tokens or class patterns, prototype delta, and limitations.
+- Add a hidden `style-source-summary` comment or `data-style-source` attribute in the prototype HTML.
+- Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, preview route, Storybook/demo screenshot, existing screenshot asset, or user-provided image. If unavailable, record the limitation and do not claim pixel parity.
+- After style evidence is captured, run a design calibration pass: match the host product's visual density, layout variance, and motion intensity; remove generic AI patterns that do not belong to the current surface.
 - Use left-side prototype plus right-side numbered annotation panel by default.
-- Use matching numbered callouts such as `①`, `②`, and `③` beside the UI element and in the annotation panel.
+- Use matching numbered callouts at the annotated component's top-right corner and in the annotation panel. Default UI markers are small red circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`; right-panel notes use matching circled numbers such as `①`, `②`, and `③`.
 
 ## Suggested Verification
 
@@ -19,7 +24,11 @@ Prototypes should be generated as self-contained HTML files.
 - Click through the main path.
 - Confirm text does not overflow the mobile frame.
 - Confirm the selected platform shape is obvious.
-- Confirm numbered callouts map to matching right-side notes.
+- Confirm repo-backed prototypes have style evidence and visibly reuse the host app shell, components, tokens, and density.
+- Confirm repo-backed prototypes include existing UI visual baseline evidence or a concrete skipped reason.
+- Confirm the prototype includes loading, empty, error, disabled, and success feedback where relevant, and does not rely on a static success-only screen.
+- Confirm motion, if any, uses stable CSS transform/opacity and does not destabilize screenshot validation.
+- Confirm numbered callouts sit at the annotated component's top-right corner and map to matching right-side notes.
 - Confirm notes describe concrete logic, interaction, text limit, data, permission, state, and tracking rules where relevant.
 - Confirm no external image, font, or script is required.
 - If `tidy` is available, run it and record its version or compatibility limitation. Older macOS `tidy` builds may report valid HTML5 elements such as `main`, `section`, `aside`, `meta charset`, or ARIA attributes as errors.

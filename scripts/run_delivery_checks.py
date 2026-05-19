@@ -96,6 +96,73 @@ def find_prototypes(folder: Path) -> list[Path]:
     return [folder / name for name in PROTOTYPE_NAMES if (folder / name).is_file()]
 
 
+def existing_visual_report_check(
+    output_folder: Path,
+    prototypes: list[Path],
+    skip_reason: str,
+) -> dict[str, Any] | None:
+    report = output_folder / "visual-review" / "visual-report.json"
+    if not report.is_file():
+        return None
+    try:
+        data = json.loads(report.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return {
+            "tool": "validate_prototype_visual",
+            "required": True,
+            "status": "failed",
+            "result": f"existing visual report is unreadable: {error}",
+            "report_path": str(report),
+        }
+
+    prototype_names = {prototype.name for prototype in prototypes}
+    reported_names = {
+        str(item.get("prototype", ""))
+        for item in data.get("prototypes", [])
+        if isinstance(item, dict)
+    }
+    if not reported_names and data.get("prototype"):
+        reported_names = {str(data.get("prototype"))}
+
+    failures = []
+    if data.get("status") != "passed":
+        failures.append(f"visual report status is {data.get('status')!r}")
+    missing = sorted(prototype_names - reported_names)
+    if missing:
+        failures.append("visual report missing prototypes: " + ", ".join(missing))
+    viewport_reports = [
+        viewport
+        for prototype_report in data.get("prototypes", [])
+        if isinstance(prototype_report, dict)
+        for viewport in prototype_report.get("viewports", [])
+        if isinstance(viewport, dict)
+    ]
+    if not viewport_reports:
+        failures.append("visual report missing viewport evidence")
+    for viewport in viewport_reports:
+        dom = viewport.get("dom")
+        viewport_name = str(viewport.get("name") or "unknown")
+        if not isinstance(dom, dict):
+            failures.append(f"visual report missing DOM smoke evidence for {viewport_name}")
+            continue
+        if dom.get("console_errors"):
+            failures.append(f"visual report has console errors for {viewport_name}")
+        if dom.get("page_errors"):
+            failures.append(f"visual report has page errors for {viewport_name}")
+        if int(dom.get("horizontal_overflow_px") or 0) > 2:
+            failures.append(f"visual report has horizontal overflow for {viewport_name}")
+
+    return {
+        "tool": "validate_prototype_visual",
+        "required": True,
+        "status": "failed" if failures else "passed",
+        "result": "; ".join(failures)
+        if failures
+        else f"reused existing passed visual report; skip reason: {skip_reason}",
+        "report_path": str(report),
+    }
+
+
 def html_parser_check(prototype: Path) -> dict[str, Any]:
     parser = PrototypeHTMLParser()
     text = prototype.read_text(encoding="utf-8")
@@ -208,12 +275,17 @@ def main() -> None:
 
     if output_folder and prototypes and not args.pre_clarification:
         if args.skip_visual:
-            results.append({
-                "tool": "validate_prototype_visual",
-                "required": True,
-                "status": "skipped",
-                "result": args.skip_visual_reason,
-            })
+            visual_result = existing_visual_report_check(output_folder, prototypes, args.skip_visual_reason)
+            results.append(
+                visual_result
+                if visual_result
+                else {
+                    "tool": "validate_prototype_visual",
+                    "required": True,
+                    "status": "skipped",
+                    "result": args.skip_visual_reason,
+                }
+            )
         else:
             results.append({
                 "tool": "validate_prototype_visual",

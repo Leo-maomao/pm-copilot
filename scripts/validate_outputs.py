@@ -49,6 +49,15 @@ REQUIRED_PRD_SECTIONS_ZH = [
     "验证结果",
 ]
 
+PROTOTYPE_FILE_NAMES = (
+    "prototype-mini-program.html",
+    "prototype-web.html",
+    "prototype-h5.html",
+    "prototype-app.html",
+)
+
+ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
+
 
 def fail(message: str) -> None:
     print(f"FAIL: {message}")
@@ -57,6 +66,10 @@ def fail(message: str) -> None:
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def generated_prototypes(path: Path) -> list[Path]:
+    return [path / name for name in PROTOTYPE_FILE_NAMES if (path / name).is_file()]
 
 
 def check_folder(path: Path) -> None:
@@ -72,15 +85,11 @@ def check_folder(path: Path) -> None:
     allowed = {
         "prd.md",
         "run-log.yaml",
-        "prototype-mini-program.html",
-        "prototype-web.html",
-        "prototype-h5.html",
-        "prototype-app.html",
         "tracking-plan.csv",
         "user-flow.mmd",
         "dev-tasks.yaml",
         "launch-decision.yaml",
-    }
+    } | set(PROTOTYPE_FILE_NAMES)
     unexpected = sorted(item.name for item in path.iterdir() if item.is_file() and item.name not in allowed)
     if unexpected:
         fail(f"Unexpected output files present: {', '.join(unexpected)}")
@@ -181,17 +190,82 @@ def check_scope_and_surface_trace(path: Path) -> None:
 
 
 def check_visual_validation_trace(path: Path) -> None:
-    has_prototype = any((path / name).is_file() for name in (
-        "prototype-mini-program.html",
-        "prototype-web.html",
-        "prototype-h5.html",
-        "prototype-app.html",
-    ))
-    if not has_prototype:
+    if not generated_prototypes(path):
         return
     run_log = read(path / "run-log.yaml")
     if "visual_validation:" not in run_log and "validate_prototype_visual.py" not in run_log:
         fail("Run log missing visual_validation marker for prototype delivery")
+
+
+def check_prototype_agent_and_style_trace(path: Path) -> None:
+    prototypes = generated_prototypes(path)
+    if not prototypes:
+        return
+
+    run_log = read(path / "run-log.yaml")
+    if "Prototype Agent" not in run_log:
+        fail("Run log missing Prototype Agent for prototype delivery")
+    if "multi-platform-prototype" not in run_log:
+        fail("Run log missing multi-platform-prototype skill for prototype delivery")
+    for marker in (
+        "design_calibration:",
+        "visual_density:",
+        "layout_variance:",
+        "motion_intensity:",
+    ):
+        if marker not in run_log:
+            fail(f"Prototype delivery missing design calibration marker: {marker}")
+
+    for prototype in prototypes:
+        check_annotation_marker_contract(read(prototype), prototype.name)
+
+    if "source_mode: repo-backed" in run_log:
+        for marker in (
+            "style_evidence:",
+            "source_files:",
+            "reused_components:",
+            "reused_tokens_or_classes:",
+            "prototype_delta:",
+            "limitations:",
+        ):
+            if marker not in run_log:
+                fail(f"Repo-backed prototype missing style evidence marker: {marker}")
+        for marker in (
+            "existing_ui_visual_baseline:",
+            "source:",
+            "target:",
+            "screenshots:",
+            "comparison_method:",
+        ):
+            if marker not in run_log:
+                fail(f"Repo-backed prototype missing existing UI visual baseline marker: {marker}")
+
+        for prototype in prototypes:
+            text = read(prototype)
+            if "style-source-summary" not in text and "data-style-source" not in text:
+                fail(
+                    f"Repo-backed prototype missing style-source-summary or data-style-source: "
+                    f"{prototype.name}"
+                )
+
+
+def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
+    if "annotation-marker" not in text:
+        fail(f"{prototype_name} missing red annotation-marker badges")
+    if "data-annotation-id" not in text:
+        fail(f"{prototype_name} missing data-annotation-id mapping for annotation markers")
+    if 'data-annotation-placement="top-right"' not in text and "data-annotation-placement='top-right'" not in text:
+        fail(f"{prototype_name} missing top-right annotation placement metadata")
+    if "annotation-target" not in text:
+        fail(f"{prototype_name} missing annotation-target wrappers for component-corner markers")
+
+    annotation_ids = set(re.findall(r"data-annotation-id=[\"']([0-9]+)[\"']", text))
+    if not annotation_ids:
+        fail(f"{prototype_name} missing annotation ID values")
+    if not ANNOTATION_NUMERAL_RE.search(text):
+        fail(f"{prototype_name} missing circled annotation numbers in side-panel notes")
+    if len(annotation_ids) >= 2 and "②" not in text:
+        fail(f"{prototype_name} missing matching side-panel ② note for the second marker")
 
 
 def check_chinese_prd(path: Path) -> None:
@@ -289,6 +363,7 @@ def check_mini_program_prototype(path: Path) -> None:
         return
 
     text = read(prototypes[0])
+    check_annotation_marker_contract(text, prototypes[0].name)
     required = [
         "mini-capsule",
         "tabbar",
@@ -317,6 +392,7 @@ def check_web_prototype(path: Path) -> None:
         return
 
     text = read(prototypes[0])
+    check_annotation_marker_contract(text, prototypes[0].name)
     required = [
         "prototype-shell",
         "desktop-nav",
@@ -414,6 +490,7 @@ def main() -> None:
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
     check_visual_validation_trace(folder)
+    check_prototype_agent_and_style_trace(folder)
     if args.language == "zh":
         check_chinese_prd(folder)
     check_tracking_context(folder)

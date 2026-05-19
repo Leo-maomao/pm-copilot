@@ -27,7 +27,7 @@ import subprocess
 import sys
 import zlib
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -124,6 +124,13 @@ def find_prototypes(folder: Path, explicit: str | None) -> list[Path]:
     if prototypes:
         return prototypes
     fail(f"No supported prototype found in {folder}")
+
+
+def path_for_report(path: Path, base: Path) -> str:
+    try:
+        return path.relative_to(base).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def png_chunks(data: bytes) -> Iterable[tuple[bytes, bytes]]:
@@ -279,24 +286,69 @@ def capture_screenshots(
     wait_ms: int,
     browser_channel: str | None,
     auto_setup: bool,
-) -> list[Path]:
+) -> list[dict[str, Any]]:
     sync_playwright = load_playwright(auto_setup)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    screenshots: list[Path] = []
+    captures: list[dict[str, Any]] = []
     target = prototype.resolve().as_uri()
     with sync_playwright() as playwright:
         browser = launch_browser(playwright, browser_channel, auto_setup)
         for name, width, height in viewports:
             page = browser.new_page(viewport={"width": width, "height": height})
+            console_errors: list[str] = []
+            page_errors: list[str] = []
+            page.on(
+                "console",
+                lambda message: console_errors.append(message.text)
+                if message.type == "error"
+                else None,
+            )
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
             page.goto(target, wait_until="networkidle")
             page.wait_for_timeout(wait_ms)
             screenshot_path = output_dir / f"{name}.png"
             page.screenshot(path=str(screenshot_path), full_page=True)
-            screenshots.append(screenshot_path)
+            dom = inspect_page_dom(page)
+            dom["console_errors"] = console_errors[:5]
+            dom["page_errors"] = page_errors[:5]
+            captures.append({"path": screenshot_path, "dom": dom})
             page.close()
         browser.close()
-    return screenshots
+    return captures
+
+
+def inspect_page_dom(page) -> dict[str, object]:
+    return page.evaluate(
+        """() => {
+            const styleVisible = (node) => {
+                const style = window.getComputedStyle(node);
+                const rect = node.getBoundingClientRect();
+                return style.display !== "none"
+                    && style.visibility !== "hidden"
+                    && Number(style.opacity || "1") > 0
+                    && rect.width > 0
+                    && rect.height > 0;
+            };
+            const scrollWidth = Math.max(
+                document.documentElement.scrollWidth,
+                document.body ? document.body.scrollWidth : 0,
+            );
+            const visibleButtons = Array.from(document.querySelectorAll("button"))
+                .filter(styleVisible).length;
+            const visibleLinks = Array.from(document.querySelectorAll("a"))
+                .filter(styleVisible).length;
+            return {
+                inner_width: window.innerWidth,
+                scroll_width: scrollWidth,
+                horizontal_overflow_px: Math.max(0, scrollWidth - window.innerWidth),
+                visible_buttons: visibleButtons,
+                visible_links: visibleLinks,
+                body_text_length: (document.body?.innerText || "").trim().length,
+                has_doctype: document.doctype?.name === "html",
+            };
+        }"""
+    )
 
 
 def launch_browser(playwright, browser_channel: str | None, auto_setup: bool):
@@ -398,7 +450,7 @@ def main() -> None:
         baseline_dir = None
         if args.baseline_dir:
             baseline_dir = args.baseline_dir / prototype.stem if multiple_prototypes else args.baseline_dir
-        screenshots = capture_screenshots(
+        captures = capture_screenshots(
             prototype,
             viewports,
             prototype_output_dir,
@@ -408,15 +460,35 @@ def main() -> None:
         )
         viewport_reports = []
         prototype_failures: list[str] = []
-        for screenshot in screenshots:
+        for capture in captures:
+            screenshot = Path(capture["path"])
+            dom = dict(capture.get("dom", {}))
             stats = screenshot_stats(screenshot)
             viewport_report: dict[str, object] = {
                 "name": screenshot.stem,
-                "screenshot": screenshot.relative_to(folder).as_posix(),
+                "screenshot": path_for_report(screenshot, folder),
                 "stats": stats,
+                "dom": dom,
             }
             if stats["non_blank_ratio"] < args.min_nonblank_ratio:
                 prototype_failures.append(f"{screenshot.name} appears blank")
+            if int(dom.get("body_text_length") or 0) < 20:
+                prototype_failures.append(f"{screenshot.name} has too little visible text")
+            if int(dom.get("visible_buttons") or 0) + int(dom.get("visible_links") or 0) <= 0:
+                prototype_failures.append(f"{screenshot.name} has no visible interactive controls")
+            if int(dom.get("horizontal_overflow_px") or 0) > 2:
+                prototype_failures.append(
+                    f"{screenshot.name} has horizontal overflow "
+                    f"{dom.get('horizontal_overflow_px')}px"
+                )
+            if dom.get("console_errors"):
+                prototype_failures.append(
+                    f"{screenshot.name} has console errors: {dom.get('console_errors')}"
+                )
+            if dom.get("page_errors"):
+                prototype_failures.append(
+                    f"{screenshot.name} has page errors: {dom.get('page_errors')}"
+                )
 
             if baseline_dir:
                 baseline_dir.mkdir(parents=True, exist_ok=True)
@@ -439,7 +511,7 @@ def main() -> None:
         failures.extend(f"{prototype.name}: {failure}" for failure in prototype_failures)
         prototype_report = {
             "prototype": prototype.name,
-            "output_dir": prototype_output_dir.relative_to(folder).as_posix(),
+            "output_dir": path_for_report(prototype_output_dir, folder),
             "baseline_dir": baseline_dir.as_posix() if baseline_dir else None,
             "viewports": viewport_reports,
             "status": "failed" if prototype_failures else "passed",

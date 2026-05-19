@@ -17,9 +17,10 @@
     .screen.active { display: block; }
     .button { width: 100%; border: 0; border-radius: 14px; padding: 12px; background: var(--primary, #12a67f); color: #fff; font-weight: 700; cursor: pointer; }
     .muted { color: #6f7a75; font-size: 13px; line-height: 1.5; }
-    .card { position: relative; margin-top: 16px; padding: 18px; border-radius: 16px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
-    .callout { position: absolute; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 0; border-radius: 999px; background: #ffcf5a; color: #17211d; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18); }
-    .callout.active { background: #12a67f; color: #fff; }
+    .card { margin-top: 16px; padding: 18px; border-radius: 16px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
+    .annotation-target { position: relative; }
+    .annotation-marker { position: absolute; top: -9px; right: -9px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
+    .annotation-marker.active { background: #12a67f; color: #fff; }
     .tabbar { position: absolute; left: 18px; right: 18px; bottom: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px; border-radius: 28px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); color: #6f7a75; font-size: 12px; text-align: center; }
     .tabbar .active { border-radius: 22px; background: #e8f5ef; color: #10906f; font-weight: 700; padding: 8px; }
     .note-panel { max-height: 760px; overflow: auto; border-radius: 8px; background: #fff; border: 1px solid #d8dfda; padding: 22px; box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08); }
@@ -28,7 +29,7 @@
     .note-card { display: block; width: 100%; margin: 10px 0; padding: 12px; border: 1px solid #e3e8e4; border-radius: 8px; background: #fff; text-align: left; cursor: pointer; }
     .note-card.active { border-color: #12a67f; background: #f0faf5; }
     .note-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 700; }
-    .note-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; background: #ffcf5a; }
+    .note-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; background: #ff3b30; color: #fff; }
     .note-card.active .note-number { background: #12a67f; color: #fff; }
     .note-card ul { margin: 0; padding-left: 18px; color: #4c5953; font-size: 13px; line-height: 1.65; }
     .annotation { margin-top: 14px; padding: 12px; border-radius: 8px; background: #f7faf8; border: 1px solid #e3e8e4; font-size: 13px; color: #4c5953; }
@@ -36,7 +37,8 @@
   </style>
 </head>
 <body>
-  <!-- Template note: match the current product style before filling this file. Replace placeholders with localized copy. Mark every logic/interaction explanation with the same number on the prototype and in the right panel. Prototype only. Not production code. -->
+  <!-- Template note: match the current product style before filling this file. Replace placeholders with localized copy. Mark every logic/interaction explanation with an annotation-marker red badge at the annotated component's top-right corner and a matching circled number in the right panel. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
+  <!-- style-source-summary: {{localized_style_source_summary}} -->
   <div class="shell">
     <div class="frame">
       <div class="bar"><span>9:41</span><span>{{localized_mini_program_brand}}</span></div>
@@ -46,11 +48,13 @@
           <button id="tab-new" type="button" onclick="showScreen('new')">{{localized_new_state}}</button>
         </div>
         <div id="screen-current" class="screen active">
-          <h1>{{localized_existing_page_surface}}</h1>
-          <button id="callout-current-entry" class="callout" type="button" style="top: 88px; right: 26px;" onclick="showNote('current', 'entry')">①</button>
+          <div class="annotation-target">
+            <h1>{{localized_existing_page_surface}}</h1>
+            <button id="callout-current-entry" class="annotation-marker" data-annotation-id="1" data-annotation-placement="top-right" type="button" onclick="showNote('current', 'entry')">1</button>
+          </div>
           <p class="muted">{{localized_existing_page_note}}</p>
-          <div class="card">
-            <button id="callout-current-card" class="callout" type="button" style="top: 16px; right: 16px;" onclick="showNote('current', 'card')">②</button>
+          <div class="card annotation-target">
+            <button id="callout-current-card" class="annotation-marker" data-annotation-id="2" data-annotation-placement="top-right" type="button" onclick="showNote('current', 'card')">2</button>
             <strong>{{localized_existing_card_title}}</strong>
             <p class="muted">{{localized_existing_card_summary}}</p>
           </div>
@@ -59,13 +63,15 @@
         <div id="screen-new" class="screen">
           <h1>{{localized_new_requirement_state}}</h1>
           <p class="muted">{{localized_new_state_note}}</p>
-          <div class="card">
-            <button id="callout-new-content" class="callout" type="button" style="top: 16px; right: 16px;" onclick="showNote('new', 'content')">③</button>
+          <div class="card annotation-target">
+            <button id="callout-new-content" class="annotation-marker" data-annotation-id="3" data-annotation-placement="top-right" type="button" onclick="showNote('new', 'content')">3</button>
             <strong>{{localized_new_component_title}}</strong>
             <p class="muted">{{localized_new_component_summary}}</p>
           </div>
-          <button class="button" type="button" onclick="showNote('new', 'submit')">{{localized_primary_action}}</button>
-          <button id="callout-new-submit" class="callout" type="button" style="right: 28px; bottom: 128px;" onclick="showNote('new', 'submit')">④</button>
+          <div class="annotation-target">
+            <button class="button" type="button" onclick="showNote('new', 'submit')">{{localized_primary_action}}</button>
+            <button id="callout-new-submit" class="annotation-marker" data-annotation-id="4" data-annotation-placement="top-right" type="button" onclick="showNote('new', 'submit')">4</button>
+          </div>
         </div>
         <div class="annotation" id="annotation">{{localized_annotation_prompt}}</div>
       </div>
@@ -79,7 +85,7 @@
       <h2>{{localized_prototype_title}}</h2>
       <p class="muted">{{localized_prototype_boundary_note}}</p>
       <h3>{{localized_current_page}}</h3>
-      <button id="note-current-entry" class="note-card" type="button" onclick="showNote('current', 'entry')">
+      <button id="note-current-entry" class="note-card" data-annotation-id="1" type="button" onclick="showNote('current', 'entry')">
         <span class="note-heading"><span class="note-number">①</span>{{localized_existing_entry_note_label}}</span>
         <ul>
           <li>{{localized_note_1_text_limit_rule}}</li>
@@ -87,7 +93,7 @@
           <li>{{localized_note_1_data_permission_tracking_rule}}</li>
         </ul>
       </button>
-      <button id="note-current-card" class="note-card" type="button" onclick="showNote('current', 'card')">
+      <button id="note-current-card" class="note-card" data-annotation-id="2" type="button" onclick="showNote('current', 'card')">
         <span class="note-heading"><span class="note-number">②</span>{{localized_existing_card_note_label}}</span>
         <ul>
           <li>{{localized_note_2_text_limit_rule}}</li>
@@ -96,7 +102,7 @@
         </ul>
       </button>
       <h3>{{localized_new_state}}</h3>
-      <button id="note-new-content" class="note-card" type="button" onclick="showNote('new', 'content')">
+      <button id="note-new-content" class="note-card" data-annotation-id="3" type="button" onclick="showNote('new', 'content')">
         <span class="note-heading"><span class="note-number">③</span>{{localized_added_component_note_label}}</span>
         <ul>
           <li>{{localized_note_3_text_limit_rule}}</li>
@@ -104,7 +110,7 @@
           <li>{{localized_note_3_data_rule}}</li>
         </ul>
       </button>
-      <button id="note-new-submit" class="note-card" type="button" onclick="showNote('new', 'submit')">
+      <button id="note-new-submit" class="note-card" data-annotation-id="4" type="button" onclick="showNote('new', 'submit')">
         <span class="note-heading"><span class="note-number">④</span>{{localized_submit_tracking_note_label}}</span>
         <ul>
           <li>{{localized_note_4_tap_rule}}</li>
@@ -140,7 +146,7 @@
       for (var i = 0; i < noteCards.length; i += 1) {
         noteCards[i].classList.toggle('active', noteCards[i].id === activeId);
       }
-      var callouts = document.querySelectorAll('.callout');
+      var callouts = document.querySelectorAll('.annotation-marker');
       for (var j = 0; j < callouts.length; j += 1) {
         callouts[j].classList.toggle('active', callouts[j].id === ('callout-' + page + '-' + key));
       }

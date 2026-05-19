@@ -150,6 +150,27 @@ surface_decisions:
   ineligible_user_state: ""
   fallback_states: []
 
+style_evidence:
+  source_files: []
+  reused_components: []
+  reused_tokens_or_classes: []
+  prototype_delta: ""
+  limitations: []
+
+existing_ui_visual_baseline:
+  status: "" # captured | screenshot_provided | skipped | not_applicable
+  source: "" # running_host_app | preview_route | storybook_or_demo | existing_screenshot | user_provided | unavailable
+  target: ""
+  screenshots: []
+  comparison_method: "" # visual_diff | side_by_side_review | reference_only | not_run
+  limitation: ""
+
+design_calibration:
+  visual_density: ""
+  layout_variance: ""
+  motion_intensity: ""
+  anti_generic_choices: []
+
 content_sources:
   - content_area: ""
     source_status: "" # user supplied | source-backed | placeholder | not applicable

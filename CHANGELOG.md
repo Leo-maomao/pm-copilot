@@ -6,9 +6,31 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.0.1] - 2026-05-19
+## [2.0.2] - 2026-05-19
 
 Commit: pending release commit.
+
+### Changed
+
+- Bumped the project version to `2.0.2` for prototype validation and repo-backed prototype quality gates.
+- Strengthened repo-backed prototype generation so UI deliveries must load Prototype Agent plus `multi-platform-prototype`, record style evidence, and reuse host frontend component/style sources instead of inventing a new shell.
+- Added an existing UI visual baseline requirement for repo-backed prototypes so runs must capture or record a running-app/demo/screenshot reference, comparison method, and limitation before claiming visual fit.
+- Updated prototype annotation guidance and template markers to use red `annotation-marker` badges with stable `data-annotation-id` mappings to right-side circled-number notes.
+- Integrated a design calibration pass from the reviewed external design skill: prototypes now record visual density, layout variance, motion intensity, and anti-generic UI choices while preserving host style precedence.
+- Extended output validation to fail prototype deliveries that skip the prototype skill, omit design calibration, omit repo-backed style evidence, or lack traceable top-right component annotation markers.
+- Strengthened prototype visual validation with DOM smoke evidence for visible text, interactive controls, horizontal overflow, console errors, and page errors; duplicate visual skips must reuse a passed report with that evidence.
+- Updated repository validation to ignore local system/cache files such as `.DS_Store`, `Thumbs.db`, `.pytest_cache`, and `__pycache__`.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- The ai-video regression output now fails as expected with `Run log missing multi-platform-prototype skill for prototype delivery`; legacy visual reports without DOM smoke evidence are also rejected for duplicate-skip reuse.
+- Git whitespace validation passes with `git diff --check`.
+
+## [2.0.1] - 2026-05-19
+
+Commit: `ef58675` chore: update release notes and README language switch.
 
 ### Changed
 
