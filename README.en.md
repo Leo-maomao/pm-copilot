@@ -289,4 +289,4 @@ Use local files by default. Do not paste sensitive production data, user persona
 
 ## License
 
-MIT License. See `LICENSE.en.md`. The default Chinese translation is in `LICENSE`.
+MIT License. See `LICENSE`.
