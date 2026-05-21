@@ -6,9 +6,33 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.1.0] - 2026-05-21
+## [2.2.0] - 2026-05-21
 
 Commit: pending release commit.
+
+### Added
+
+- Added canonical PM skills for opportunity discovery, feedback synthesis, experiment design, roadmap communication, knowledge ops, process mapping, design-system audit, and Sharingan resource absorption.
+- Added a Sharingan regression case and references for risk gating, absorption reporting, duplicate-skill prevention, and external resource compatibility review.
+
+### Changed
+
+- Simplified README skill documentation into grouped, concise indexes in Chinese and English.
+- Updated `PM_COPILOT.md` so every current skill has a clear trigger group while still loading only request-relevant skills.
+- Updated configuration and release checklist docs for candidate-tool readiness and canonical skill mapping.
+- Strengthened external integration preflight so `candidate` and `hold` tools fail `--require-ready` instead of being treated as usable required dependencies.
+- Extended existing competitor, metrics, tracking, and product-ops skills with explicit boundaries to prevent duplicate sibling skills.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Integration preflight correctly fails candidate/setup-required tools with `python3 scripts/preflight_integrations.py --tier recommended --require-ready`.
+
+## [2.1.0] - 2026-05-21
+
+Commit: `ded7084` chore: release 2.1.0.
 
 ### Added
 
@@ -33,7 +57,7 @@ Commit: pending release commit.
 
 ## [2.0.6] - 2026-05-19
 
-Commit: pending release commit.
+Commit: `ee427a2` fix: remove scenario-specific research gate.
 
 ### Changed
 
@@ -50,7 +74,7 @@ Commit: pending release commit.
 
 ## [2.0.5] - 2026-05-19
 
-Commit: pending release commit.
+Commit: `5f573b7` feat: tighten auth research and prototype validation.
 
 ### Changed
 
@@ -70,7 +94,7 @@ Commit: pending release commit.
 
 ## [2.0.4] - 2026-05-19
 
-Commit: pending release commit.
+Commit: `b9a5174` docs: refresh readme demos.
 
 ### Changed
 
@@ -86,7 +110,7 @@ Commit: pending release commit.
 
 ## [2.0.3] - 2026-05-19
 
-Commit: pending release commit.
+Commit: `4896261` feat: tighten artifact validation gates.
 
 ### Changed
 
@@ -104,7 +128,7 @@ Commit: pending release commit.
 
 ## [2.0.2] - 2026-05-19
 
-Commit: pending release commit.
+Commit: `20a3a9d` chore: release prototype validation gates 2.0.2.
 
 ### Changed
 

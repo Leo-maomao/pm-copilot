@@ -214,6 +214,21 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 - Artifact contracts define required output shape and minimum quality.
 - Guardrails define what the agent must not fabricate or silently assume.
 
+## Skill Layer
+
+`skills/` stores reusable product-work methods. `PM_COPILOT.md` and the agents load only the skills that match the current request, so the full skill set does not enter context by default.
+
+| Group | Skills |
+|---|---|
+| Intake and scope | `requirement-intake`, `opportunity-discovery`, `feedback-synthesis`, `process-mapping`, `knowledge-ops`, `scope-edge-cases` |
+| PRD and delivery | `prd-writing`, `user-stories`, `user-flow`, `acceptance-criteria`, `review-checklist`, `artifact-packaging`, `development-handoff` |
+| Metrics and data | `metrics-tree`, `tracking-plan`, `experiment-design`, `product-ops-analysis` |
+| Research and communication | `competitor-research`, `roadmap-communication` |
+| Prototype and UI evidence | `multi-platform-prototype`, `design-system-audit` |
+| Tool and capability governance | `tool-vetting`, `sharingan` |
+
+Each capability type has one canonical skill. External resources absorbed with `skills/sharingan/SKILL.md` go through risk review and merge into the canonical skill instead of creating duplicates.
+
 ## External Tool Governance
 
 PM Copilot can connect to tools such as Figma, browser validation, document systems, project management, analytics, CRM, and automation platforms, but a tool is not considered usable just because it appears in a recommendation list.

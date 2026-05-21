@@ -96,7 +96,7 @@ Use Integration Governance Agent with `skills/tool-vetting/SKILL.md`, `tools/ext
 python3 scripts/preflight_integrations.py --tier recommended
 ```
 
-Add `--check-remote` when current source availability is part of the decision. Add `--require-ready` only when the selected integrations must be configured before the run can continue.
+Add `--check-remote` when current source availability is part of the decision. Add `--require-ready` only when the selected integrations must be configured before the run can continue; candidate and hold tools are not ready for required use.
 
 Record the result under `external_integrations` in `run-log.yaml`. Missing API keys, OAuth consent, paid accounts, workspace permissions, or production-data credentials are `setup_required` or `blocked`; they must not be treated as available merely because the tool exists. Default to read-only scopes for analytics, databases, CRM, support, project-management, ads, and workspace data. Write operations require explicit user approval for the concrete action.
 

@@ -16,7 +16,7 @@ When external MCP servers, SaaS APIs, analytics tools, databases, CRM/support to
 python3 scripts/preflight_integrations.py --tier recommended
 ```
 
-Use `--check-remote` when the current availability of the source repository or official documentation matters. Use `--require-ready` only when the selected tools are required for the run and the user has approved that dependency.
+Use `--check-remote` when the current availability of the source repository or official documentation matters. Use `--require-ready` only when the selected tools are required for the run and the user has approved that dependency. `--require-ready` treats `candidate`, `hold`, `setup_required`, `unavailable`, and `blocked` as not ready.
 
 For release validation or any run where missing required tooling should stop delivery, run:
 

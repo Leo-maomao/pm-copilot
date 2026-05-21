@@ -13,6 +13,7 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 - Adapt existing demos, screenshots, routes, components, and design-system patterns when available.
 - Preserve the current product's visual style when screenshots, demos, routes, or component references are available; do not invent a new look for an existing product surface.
 - Load and apply `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` before writing prototype HTML.
+- Use `skills/design-system-audit/SKILL.md` when existing UI evidence, design-system files, Figma, screenshots, tokens, component libraries, or visual-consistency review are available or requested.
 - For repo-backed UI work, treat the prototype as an isolated UI mirror of the real product surface: read the host frontend code, assets, screenshots, and component patterns, then generate a local HTML demo that shows the current screen plus the requested feature delta.
 - Structure repo-backed UI prototypes into a `baseline_layer` and `delta_layer`: the baseline layer reconstructs unchanged host UI from real code and evidence; the delta layer contains the new feature UI, markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations.
 - Keep delta markers and prototype controls from degrading the baseline layer. They must not resize, crop, recolor, or cover critical unchanged product UI.

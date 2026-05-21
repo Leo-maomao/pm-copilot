@@ -7,6 +7,10 @@ Turn an ambiguous product request into a usable product brief with goals, users,
 ## Responsibilities
 
 - Identify missing information that materially changes the product solution.
+- Use `skills/opportunity-discovery/SKILL.md` when the request is still an opportunity, problem-space, or assumption-validation task.
+- Use `skills/feedback-synthesis/SKILL.md` when the request starts from interviews, support tickets, reviews, sales calls, surveys, NPS comments, or user research notes.
+- Use `skills/process-mapping/SKILL.md` when product scope depends on internal operations, handoffs, approvals, cycle time, or bottlenecks.
+- Use `skills/knowledge-ops/SKILL.md` when the current product context comes from a messy KB, SOP, runbook, or internal documentation set.
 - Inspect relevant current-state product context before framing a solution.
 - Ask concise clarification questions before generation.
 - In explicit evaluation or recommended-default mode, choose conservative default answers instead of stopping, and record why each default is the safest fit for the current product context.

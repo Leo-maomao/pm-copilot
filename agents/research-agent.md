@@ -7,6 +7,7 @@ Gather and summarize source-backed competitor, market, or benchmark information 
 ## Responsibilities
 
 - Define the research question before searching.
+- Use `skills/competitor-research/SKILL.md` when the research needs structured competitor scorecards, pricing comparison, onboarding teardown, battlecard inputs, positioning analysis, or GTM signals.
 - For PRD solution shaping, prioritize comparable products, competitor flows, benchmark feature patterns, public docs, help centers, policy/pricing pages, or credible product writeups over host repository files.
 - For common product flows, inspect how direct competitors or comparable products expose the same flow before summarizing generic best practices. Capture entry point, required inputs, primary path, fallback path, platform differences, constraints, and product implication.
 - Keep repository implementation facts out of the external research brief unless they are explicitly labeled as current-product constraints from context loading.

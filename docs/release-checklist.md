@@ -15,6 +15,7 @@ Use this checklist before tagging or publishing a release.
 - Required top-level directories exist.
 - Each skill has `SKILL.md`.
 - Each skill has `name` and `description` frontmatter.
+- New or absorbed skill capability maps to one canonical skill instead of creating a duplicate sibling.
 - Agent definitions follow `agents/agent-interface.md`, include required sections, and use stable handoff status values.
 - Artifact contracts match templates.
 - YAML templates do not contain duplicate keys at the same mapping level.

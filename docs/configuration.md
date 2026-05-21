@@ -179,7 +179,7 @@ Run:
 python3 scripts/preflight_integrations.py --tier recommended
 ```
 
-Use `--check-remote` when source availability matters. Missing API keys, OAuth consent, paid accounts, workspace permissions, or production-data credentials should remain `setup_required` or `blocked` until the user explicitly configures and approves them.
+Use `--check-remote` when source availability matters. Use `--require-ready` only when an integration is required for the run; `candidate`, `hold`, `setup_required`, `unavailable`, and `blocked` are not ready states. Missing API keys, OAuth consent, paid accounts, workspace permissions, or production-data credentials should remain `setup_required` or `blocked` until the user explicitly configures and approves them.
 
 ## Good Configuration Habits
 

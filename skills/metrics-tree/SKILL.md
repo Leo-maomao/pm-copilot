@@ -25,6 +25,10 @@ Define how success will be measured inside the PRD before or alongside the track
 12. For attribution, contribution, performance decomposition, or funnel breakdowns, define the attribution window, denominator, residual/unattributed bucket, missing-data behavior, and whether the calculation is directional or exact.
 13. Do not define a metric that requires collecting raw sensitive data unless an approved analytics or privacy policy allows it.
 
+## Boundary
+
+Use this skill to define the metric hierarchy for a product requirement. Use `skills/tracking-plan/SKILL.md` for implementable events and properties, `skills/product-ops-analysis/SKILL.md` for analyzing real exports or dashboards, and `skills/experiment-design/SKILL.md` for controlled-test decision rules. Do not create separate KPI-framework or North-Star skills; extend this one.
+
 ## Output
 
 - KPI tree or compact metric hierarchy for the PRD

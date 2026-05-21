@@ -24,6 +24,7 @@ Use this file with:
 - Default-on tools must be local, open-source, or already supplied by the active agent runtime.
 - Account-gated SaaS, commercial APIs, and OAuth integrations are optional even when they are high quality.
 - Community MCP servers are candidates, not defaults, unless the user explicitly accepts the maintenance risk.
+- Candidate and hold tools are not ready for required use; they need setup, approval, or replacement before PM Copilot can depend on them.
 - Write-capable tools require explicit user approval for the concrete action.
 - Analytics, database, CRM, ads, support, and workspace tools should start read-only.
 

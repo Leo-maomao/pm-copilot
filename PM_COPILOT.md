@@ -15,14 +15,22 @@ Activate PM Copilot when the user asks for work involving:
 - PRD
 - product requirements
 - requirement clarification
+- product discovery, opportunity validation, or assumption mapping
+- customer feedback, interview, support ticket, survey, or review synthesis
 - user stories
 - acceptance criteria
 - metrics or KPI tree
 - tracking plan or analytics events
+- A/B test, experiment, beta rollout, fake-door test, or decision-metric design
 - prototype or wireframe
 - user flow
 - competitor research
+- competitive teardown, battlecard, pricing comparison, or positioning analysis
 - operating metrics, funnel, retention, conversion, support-signal, or dashboard analysis
+- roadmap, release note, stakeholder update, or customer announcement
+- knowledge-base, SOP, runbook, or internal process documentation
+- business process mapping, handoff analysis, cycle-time analysis, or operations bottleneck review
+- design system, UI audit, visual consistency, or design-token review
 - product review checklist
 - product launch review
 - development handoff, issue planning, launch decision support, or go/no-go review
@@ -76,6 +84,18 @@ The user should not need to manually copy templates or create folders. Do that f
    When the request includes product or operations data analysis, also load:
    - `skills/product-ops-analysis/SKILL.md`
    - `agents/analytics-agent.md`
+
+   Apply task skills only when their trigger matches the request:
+   - Intake and scope: `skills/requirement-intake/SKILL.md`, `skills/opportunity-discovery/SKILL.md`, `skills/feedback-synthesis/SKILL.md`, `skills/process-mapping/SKILL.md`, `skills/knowledge-ops/SKILL.md`, `skills/scope-edge-cases/SKILL.md`
+   - PRD and delivery: `skills/prd-writing/SKILL.md`, `skills/user-stories/SKILL.md`, `skills/user-flow/SKILL.md`, `skills/acceptance-criteria/SKILL.md`, `skills/review-checklist/SKILL.md`, `skills/artifact-packaging/SKILL.md`, `skills/development-handoff/SKILL.md`
+   - Metrics and data: `skills/metrics-tree/SKILL.md`, `skills/tracking-plan/SKILL.md`, `skills/experiment-design/SKILL.md`, `skills/product-ops-analysis/SKILL.md`
+   - Research and communication: `skills/competitor-research/SKILL.md`, `skills/roadmap-communication/SKILL.md`
+   - Prototype and UI evidence: `skills/multi-platform-prototype/SKILL.md`, `skills/design-system-audit/SKILL.md`
+   - Tool and capability governance: `skills/tool-vetting/SKILL.md`, `skills/sharingan/SKILL.md`
+
+   Keep one canonical skill per capability type. When a new external skill or workflow overlaps an existing PM Copilot skill, use `skills/sharingan/SKILL.md` to merge the useful parts into the canonical skill instead of adding a duplicate sibling.
+
+   Load `skills/sharingan/SKILL.md` when the user says "写轮眼" or "sharingan", or asks to copy, copy from, port, adapt, absorb, assimilate, internalize, or convert a third-party repo, document, prompt, workflow, template, script, tool, or example into PM Copilot capability.
 
    Record the active Prototype Agent and `multi-platform-prototype` skill in `run-log.yaml`. A prototype delivery with `skills_used: []` is incomplete unless the prototype was explicitly omitted.
 

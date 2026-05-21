@@ -28,6 +28,10 @@ Create an analytics plan that engineering and analytics can implement and QA can
 15. Put the reviewable tables in `prd.md` by default.
 16. Export CSV only when analytics or engineering needs a machine-readable companion.
 
+## Boundary
+
+Use this skill only for event instrumentation, event properties, trigger timing, validation notes, and privacy-safe tracking implementation. Use `skills/metrics-tree/SKILL.md` for KPI strategy and `skills/product-ops-analysis/SKILL.md` for interpreting collected data. Do not create separate analytics-event or telemetry-plan skills; extend this one.
+
 ## Output
 
 - Tracking plan section for `prd.md` with event table and property dictionary

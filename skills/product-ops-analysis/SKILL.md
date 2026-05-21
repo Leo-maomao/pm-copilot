@@ -22,6 +22,10 @@ Turn product and operations data into reviewable product decisions without overc
 9. Produce decision-ready outputs: metric summary, segment/cohort differences, funnel or retention interpretation, risks, recommended product action, and validation follow-up.
 10. Do not recommend launch approval, budget change, CRM action, or customer messaging solely from exploratory analysis unless the required owner has approved the decision.
 
+## Boundary
+
+Use this skill for analyzing existing product or operations data. Use `skills/metrics-tree/SKILL.md` to define success metrics before analysis, `skills/tracking-plan/SKILL.md` to specify event instrumentation, and `skills/experiment-design/SKILL.md` to design or interpret controlled product experiments. Do not create a separate funnel, retention, or dashboard-analysis skill; extend this one.
+
 ## Output
 
 - Analysis question and decision owner

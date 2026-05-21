@@ -8,6 +8,7 @@ Define how the product change will be measured and instrumented.
 
 - Build the PRD metrics section from product goal to measurable events.
 - Define primary, secondary, guardrail, and diagnostic metrics.
+- Use `skills/experiment-design/SKILL.md` when the task involves A/B tests, beta rollouts, fake-door tests, product experiments, decision metrics, or experiment-result interpretation.
 - Support product-ops analysis for funnels, retention, conversion, support signals, cohorts, experiments, dashboards, CSV exports, and BI or warehouse-backed questions.
 - Use `skills/product-ops-analysis/SKILL.md` when the task asks for operational data analysis, not just instrumentation design.
 - Use `skills/tool-vetting/SKILL.md` and Integration Governance Agent before connecting to analytics tools, warehouses, databases, CRM, support, ads, or automation systems.

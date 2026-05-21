@@ -18,7 +18,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CATALOG = ROOT / "tools" / "external-tool-catalog.json"
 TIER_ORDER = {"core": 0, "recommended": 1, "optional": 2, "hold": 3}
-BLOCKING_STATUSES = {"blocked", "unavailable", "setup_required"}
+BLOCKING_STATUSES = {"blocked", "unavailable", "setup_required", "candidate", "hold"}
 
 
 def load_catalog(path: Path) -> dict[str, Any]:
@@ -212,7 +212,7 @@ def main() -> None:
     parser.add_argument(
         "--require-ready",
         action="store_true",
-        help="Exit non-zero if any selected integration is unavailable or setup-required.",
+        help="Exit non-zero if any selected integration is not available for the current runtime.",
     )
     args = parser.parse_args()
 
