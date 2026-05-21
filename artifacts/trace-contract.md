@@ -57,6 +57,7 @@ agents_used:
 skills_used:
 tools_used:
 tool_preflight:
+external_integrations:
 human_inputs:
   clarification_questions:
   answers_received:
@@ -98,6 +99,7 @@ next_actions:
 - Record whether the run was repo-backed, document-backed, or brief-only.
 - In repo-backed mode, record relevant host project files and current-state facts used for product-fit decisions.
 - For repo-backed UI prototype deliveries, record `style_evidence` with source files, reused components, reused tokens or class patterns, prototype delta, and limitations. Missing style evidence means the Prototype Agent output is not complete.
+- For repo-backed prototype-only UI deliveries, record `isolated_ui_prototype` with host mutation policy, target surface, `baseline_layer`, `delta_layer`, source-to-demo mapping, backend simulation method, parity claim, and limitations. The default host mutation policy is `read_only`; any production file change requires explicit user request or approval.
 - For repo-backed UI prototype deliveries, record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation. Do not claim pixel-level parity when no visual comparison ran.
 - In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.
 - Record whether an analytics taxonomy was found. If none was found, tracking artifacts must be marked as proposed.
@@ -108,6 +110,7 @@ next_actions:
 - Agent transition deltas must use the canonical structured keys from `templates/agent-run-log-template.yaml`; do not record `artifact_delta: none`, list-only file paths, or prose-only `validation_delta` values.
 - If a run is resumed, record `workflow.last_reliable_state` and `workflow.resume_source`.
 - Before full-loop iteration, final delivery, or release checks, record tool preflight status from `python3 scripts/preflight_tools.py`.
+- When external MCP/API/SaaS tools are requested or recommended, record `external_integrations` with candidate status, source type, source URL, cost risk, credentials, permission boundary, data risk, fallback, approval owner, and limitation.
 - Record tool results using `artifacts/tool-result-contract.md` and tool IDs from `tools/tool-registry.yaml` where possible.
 - When the delivery orchestrator runs, record `outputs/<run-id>/tool-results/delivery-check-report.json` or the reason it could not be created.
 - Record validation commands actually run, their result, and skipped validations with reasons.

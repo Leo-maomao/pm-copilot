@@ -9,6 +9,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PR
 - Load product context, task brief, artifact contracts, workflow rules, and guardrails.
 - Enforce `agents/agent-interface.md` for every specialist output, including status, confidence, artifact delta, validation delta, risks, and next handoff.
 - Load `tools/tool-registry.yaml` and run tool preflight for full-loop, embedded, final-delivery, or release-validation work.
+- Route to Integration Governance Agent before relying on external MCP servers, SaaS APIs, automation connectors, analytics tools, CRM tools, workspace tools, or paid design-generation services.
 - Load relevant current product context before drafting product artifacts. This may be host repository context, historical product documents, or direct user-provided context.
 - Decide which specialist agents and skills are required.
 - For UI prototype deliveries, require Prototype Agent plus `skills/multi-platform-prototype/SKILL.md`; do not accept a prototype-stage handoff with `skills_used: []`.
@@ -65,6 +66,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PR
 - To Discovery Agent when the request is ambiguous or missing success criteria.
 - To Discovery Agent when current product fit is unclear.
 - To Research Agent when market, competitor, benchmark, or external source context is needed.
+- To Integration Governance Agent when external tools, paid APIs, OAuth integrations, production data, automation connectors, or write-capable actions are requested or materially useful.
 - To Requirements Agent after scope and assumptions are stable enough.
 - To Analytics Agent after product goals and user actions are identified.
 - To Prototype Agent after core user flow and platform type are known.

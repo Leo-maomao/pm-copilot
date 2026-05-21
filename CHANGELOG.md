@@ -6,6 +6,31 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.1.0] - 2026-05-21
+
+Commit: pending release commit.
+
+### Added
+
+- Added repo-backed isolated UI prototype rules so PM Copilot reads host frontend code, assets, styles, data shapes, screenshots, and state rules while keeping production files read-only by default.
+- Added a two-layer UI prototype model: `baseline_layer` restores unchanged product UI from host evidence, while `delta_layer` contains new feature UI, numbered markers, explanation dialogs, backend simulation notes, tracking notes, and edge-case annotations.
+- Added `isolated_ui_prototype` run-log fields for host mutation policy, target surface, baseline layer, delta layer, source-to-demo mapping, backend simulation, parity claim, and limitations.
+- Added external integration governance, tool vetting, external tooling catalog, and integration preflight guidance so third-party MCP servers, APIs, SaaS tools, and automation connectors are treated as candidates until source, credentials, permissions, cost, and fallback are explicit.
+- Added product operations analysis guidance for metrics, funnels, retention, conversion, support signals, experiment results, dashboards, CSV exports, BI tools, and analytics sources.
+
+### Changed
+
+- Strengthened repo-backed prototype validation so outputs must record isolated UI prototype evidence in addition to style evidence and existing UI visual baseline evidence.
+- Updated prototype, workflow, artifact, trace, review, direct-use, embedded-use, configuration, and quality rubric docs to separate baseline reconstruction from new-feature annotation behavior.
+- Extended tool preflight and tool-use guidance to account for external integrations and safer local/manual fallbacks.
+- Expanded analytics and orchestration guidance for product-ops analysis and integration governance handoffs.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.0.6] - 2026-05-19
 
 Commit: pending release commit.

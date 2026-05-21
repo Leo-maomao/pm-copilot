@@ -214,6 +214,16 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 - Artifact contracts define required output shape and minimum quality.
 - Guardrails define what the agent must not fabricate or silently assume.
 
+## External Tool Governance
+
+PM Copilot can connect to tools such as Figma, browser validation, document systems, project management, analytics, CRM, and automation platforms, but a tool is not considered usable just because it appears in a recommendation list.
+
+- `tools/external-tool-catalog.json` records candidate tools, source type, cost risk, credential requirements, data risk, permission boundary, and fallback.
+- `agents/integration-governance-agent.md` and `skills/tool-vetting/SKILL.md` vet tools before use.
+- `python3 scripts/preflight_integrations.py --tier recommended` checks recommended tools for local runtime conditions, missing credentials, and candidate status.
+- Tools that require API keys, OAuth, commercial accounts, workspace permissions, or write actions are optional and cannot be silently enabled.
+- Database, analytics, CRM, support, advertising, and collaboration tools default to read-only or least privilege. Sending messages, publishing, changing spend, editing tickets, or writing records requires explicit user approval.
+
 ## Documentation
 
 - `README.md` - Chinese README

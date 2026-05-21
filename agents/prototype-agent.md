@@ -13,9 +13,15 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 - Adapt existing demos, screenshots, routes, components, and design-system patterns when available.
 - Preserve the current product's visual style when screenshots, demos, routes, or component references are available; do not invent a new look for an existing product surface.
 - Load and apply `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` before writing prototype HTML.
+- For repo-backed UI work, treat the prototype as an isolated UI mirror of the real product surface: read the host frontend code, assets, screenshots, and component patterns, then generate a local HTML demo that shows the current screen plus the requested feature delta.
+- Structure repo-backed UI prototypes into a `baseline_layer` and `delta_layer`: the baseline layer reconstructs unchanged host UI from real code and evidence; the delta layer contains the new feature UI, markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations.
+- Keep delta markers and prototype controls from degrading the baseline layer. They must not resize, crop, recolor, or cover critical unchanged product UI.
+- Do not modify host production routes, pages, components, styles, or assets for prototype-only work unless the user explicitly asks for production-oriented implementation or approves a prototype branch change.
 - In repo-backed frontend products, inspect the app shell or root layout, global stylesheet or theme tokens, design-system components, affected route/page/component files, and relevant screenshots or demos before drafting UI.
+- Before drafting repo-backed HTML, identify the affected route or screen, current page/component source files, reusable UI components, style and asset sources, existing data shape or mock source, permission or state boundaries, and any backend behavior that will be represented with mock data and annotations.
 - Reuse the host surface: mirror existing component hierarchy, spacing, radius, shadows, typography, icons, colors, copy tone, and interaction behavior. Inline CSS is allowed only to emulate inspected host patterns in a self-contained artifact.
 - Record `style_evidence` with exact source files, reused components, reused tokens or class patterns, intended delta, and limitations. Include `data-style-source` or a `style-source-summary` comment in the HTML prototype.
+- Record `isolated_ui_prototype` with the read-only host mutation policy, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations.
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, existing preview/demo screenshot, Storybook screenshot, or user-provided image. If unavailable, record the limitation and downgrade visual confidence.
 - Run a design calibration pass after style evidence is captured: choose visual density, layout variance, and motion intensity from the host product and scenario; improve craft without overriding the current style.
 - Include key states: normal, loading, empty, error, permission, confirmation, and success when relevant.
@@ -48,6 +54,8 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 - Platform choice rationale
 - Fidelity rationale and annotation notes
 - Existing-surface mapping and new-requirement delta
+- Isolation boundary, target surface, source-to-demo mapping, backend simulation notes, and host mutation policy
+- Baseline layer and delta layer summary
 - Style-source summary and annotation map
 - Style evidence: source files, reused components, reused tokens or class patterns, prototype delta, and limitations
 - Existing UI visual baseline: status, source, target, screenshots, comparison method, and limitation
@@ -67,6 +75,8 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 - UI and engineering can use the prototype as a reference without treating it as production implementation.
 - If existing UI context is available, the prototype looks like an extension of that UI rather than a new product.
 - If existing frontend code is available, style evidence is recorded and the prototype reuses the current app shell, components, tokens, and density instead of an invented palette or layout.
+- Repo-backed prototype-only work does not change host production files unless the user explicitly requested that mode.
+- Repo-backed HTML shows unchanged regions as a faithful mirror of the baseline surface and presents the new requirement as a visible delta, with backend behavior simulated through coherent mock data, states, and annotations.
 - If a visual baseline is available, unchanged regions are checked against it or explicitly reviewed; if no baseline is available, the handoff says visual parity is limited.
 - Design calibration avoids generic AI UI signatures while preserving host style: no unrelated hero sections, invented palettes, gratuitous cards, decorative blobs, fake round numbers, dead controls, or success-only states.
 - Annotation markers, marker dialogs, and current-state list notes use matching numbers and explain concrete behavior such as truncation, tap, hover, long-press, permission, data, tracking, and state rules.

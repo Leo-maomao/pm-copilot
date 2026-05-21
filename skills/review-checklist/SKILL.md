@@ -19,11 +19,12 @@ Decide whether the PRD and prototype delivery is ready for stakeholder review, e
 6. Route each finding to the responsible agent or artifact.
 7. Separate required fixes from optional improvements.
 8. State PRD, engineering handoff, and launch readiness separately.
-9. For HTML prototypes, verify JavaScript parses, primary controls change state, numbered callouts open marker dialogs, callouts are not clipped or folding compact labels, and the draggable top-right annotation list is grouped by page or screen. A single generic all-screen annotation list is a finding unless the prototype has only one screen.
-10. For access-gated prototypes, verify logged-out, guest, no-permission, and eligible states do not reveal signed-in-only data or actions from the wrong state.
-11. For operational workflows such as feedback, moderation, support, release checks, or admin review, verify the state machine, owner role, SLA or timing assumption, user-visible status, internal-only status, reply/content review, reopen/cancel path, and notification behavior.
-12. For comparison, ranking, scoring, or recommendation-adjacent experiences, verify neutral default ordering, no unexplained winner/highlight, source/fee/risk definitions, disclaimer visibility, and whether any wording implies advice or guaranteed superiority.
-13. For launch-sensitive packages, verify required human approvals are present before any ready-to-launch wording is allowed.
+9. For repo-backed prototype-only UI deliveries, verify `isolated_ui_prototype` records a read-only host mutation policy, target surface, `baseline_layer`, `delta_layer`, source-to-demo mapping, backend simulation method, parity claim, and limitations. Treat missing isolation evidence or unexpected production file edits as a High finding unless the user explicitly requested implementation.
+10. For HTML prototypes, verify JavaScript parses, primary controls change state, numbered callouts open marker dialogs, callouts are not clipped or folding compact labels, and the draggable top-right annotation list is grouped by page or screen. A single generic all-screen annotation list is a finding unless the prototype has only one screen.
+11. For access-gated prototypes, verify logged-out, guest, no-permission, and eligible states do not reveal signed-in-only data or actions from the wrong state.
+12. For operational workflows such as feedback, moderation, support, release checks, or admin review, verify the state machine, owner role, SLA or timing assumption, user-visible status, internal-only status, reply/content review, reopen/cancel path, and notification behavior.
+13. For comparison, ranking, scoring, or recommendation-adjacent experiences, verify neutral default ordering, no unexplained winner/highlight, source/fee/risk definitions, disclaimer visibility, and whether any wording implies advice or guaranteed superiority.
+14. For launch-sensitive packages, verify required human approvals are present before any ready-to-launch wording is allowed.
 
 ## Output
 

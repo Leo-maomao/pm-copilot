@@ -68,7 +68,7 @@ Minimum recommended analytics score: 21 / 28.
 | Access/content states | Missing | Only some gated or draft states visible | Gated eligibility and placeholder or unreviewed content states are represented when relevant |
 | Local usability | Does not open | Opens with issues | Self-contained HTML with no build step |
 | Fidelity and handoff clarity | Pretends to be production or is too vague to implement | Prototype is usable but lacks annotations or key states | Clearly labeled prototype with appropriate fidelity, annotations, and implementation notes |
-| Existing surface fit | Invents unrelated product UI | Some existing context reflected | Preserves existing UI structure and shows the new requirement delta |
+| Existing surface fit | Invents unrelated product UI, mutates production files unexpectedly, or mixes prototype notes into unchanged UI | Some existing context reflected | Preserves baseline UI in an isolated demo and shows the new requirement delta with separate markers/dialogs |
 | Annotation mapping | Notes are detached from UI | Some notes tied to controls | Page-scoped annotations are reachable from specific UI elements or transitions |
 
 Minimum recommended prototype score: 24 / 32.

@@ -56,6 +56,10 @@ For solution shaping, repository files are current-product context and engineeri
 
 For UI work, embedded runs should reuse the host app's current surface instead of inventing a new shell. Inspect relevant routes, components, theme tokens, global styles, screenshots, Storybook/demo pages, and nearby UI modules; record `style_evidence` and, when possible, an `existing_ui_visual_baseline` in the run log.
 
+Prototype-only UI work should be isolated from host production implementation by default. The agent should read real frontend code, assets, data shapes, and state rules, then generate a self-contained HTML demo that looks like the current online surface with the requested feature added. It should not modify production routes, pages, components, styles, assets, package files, or backend code unless the user explicitly asks for production-oriented implementation or approves a prototype branch change. Record this boundary in `isolated_ui_prototype`.
+
+Repo-backed UI prototypes should be split into two layers: `baseline_layer` restores the original product UI from host code and visual evidence; `delta_layer` contains only the new feature, visible markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations. Annotation controls should not distort the restored baseline UI.
+
 Embedded prototypes should use red component-level annotation markers, click-open annotation dialogs, and a current-state annotation list while preserving the product surface's real page width, scroll behavior, modals, and access states. They should not expose signed-in-only account data or privileged actions in logged-out, guest, or no-permission states.
 
 For UI validation, embedded runs should use host context and run `scripts/validate_prototype_visual.py`. If browser tooling is missing, run or guide `scripts/setup_visual_validation.py` before deciding to skip. Store screenshot/diff evidence under the generated run folder, not in host product source directories.

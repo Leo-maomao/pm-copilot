@@ -166,6 +166,9 @@ Required elements:
 - Runs locally without build tooling.
 - Simulates the selected platform container.
 - Matches existing product style when current screenshots, demos, routes, components, or design-system references are available.
+- For repo-backed prototype-only UI work, reads real host frontend code and assets, keeps production files read-only by default, and generates an isolated HTML demo that mirrors the current surface with the requested feature delta.
+- For repo-backed prototype-only UI work, records `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations.
+- For repo-backed prototype-only UI work, separates `baseline_layer` from `delta_layer`: baseline restores the original UI; delta contains new feature markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
 - For repo-backed frontend products, records `style_evidence` in `run-log.yaml` and includes `style-source-summary` or `data-style-source` in the HTML.
 - For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
 - Includes key screens and states.
@@ -199,6 +202,9 @@ Minimum quality bar:
 - The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
 - When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
 - When host frontend code exists, the prototype reuses the current app shell, component structure, tokens, spacing density, and copy tone rather than introducing a separate visual system.
+- Repo-backed prototype-only work does not mutate production routes, pages, components, styles, assets, package files, or backend code unless the user explicitly requested production-oriented implementation or approved a prototype branch change.
+- Delta markers and annotation controls do not resize, crop, recolor, or cover critical unchanged baseline UI.
+- Backend-dependent behavior is represented through mock data, states, and annotations rather than implying backend implementation exists.
 - For long pages, multi-state flows, and modals, preserve the product's real scrolling behavior. Do not clip modal contents or force the whole product into a fixed-height frame unless the host product does that.
 - When existing screenshots or a runnable host app are available, unchanged regions are compared or reviewed against that visual baseline; without baseline evidence, the artifact must not claim pixel-level parity.
 - Browser screenshot validation covers at least one primary desktop or default viewport and one constrained/mobile viewport when the platform has responsive behavior. Visual diff baselines are required for regression suites and optional for first-run exploratory artifacts.

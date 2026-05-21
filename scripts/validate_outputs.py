@@ -457,6 +457,18 @@ def check_prototype_agent_and_style_trace(path: Path) -> None:
         ):
             if marker not in run_log:
                 fail(f"Repo-backed prototype missing existing UI visual baseline marker: {marker}")
+        for marker in (
+            "isolated_ui_prototype:",
+            "host_mutation_policy:",
+            "target_surface:",
+            "baseline_layer:",
+            "delta_layer:",
+            "source_to_demo_mapping:",
+            "backend_simulation:",
+            "parity_claim:",
+        ):
+            if marker not in run_log:
+                fail(f"Repo-backed prototype missing isolated UI prototype marker: {marker}")
 
         for prototype in prototypes:
             text = read(prototype)

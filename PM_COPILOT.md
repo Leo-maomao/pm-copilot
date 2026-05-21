@@ -22,9 +22,11 @@ Activate PM Copilot when the user asks for work involving:
 - prototype or wireframe
 - user flow
 - competitor research
+- operating metrics, funnel, retention, conversion, support-signal, or dashboard analysis
 - product review checklist
 - product launch review
 - development handoff, issue planning, launch decision support, or go/no-go review
+- external MCP/API/SaaS tool selection, integration planning, or automation setup for PM workflows
 - Chinese-language requests for requirements, tracking plans, prototypes, competitor research, or review materials
 
 The user should not need to remember the project name. If the task is clearly product-manager work, run this workflow.
@@ -64,6 +66,16 @@ The user should not need to manually copy templates or create folders. Do that f
    - `skills/multi-platform-prototype/SKILL.md`
    - `artifacts/prototype-contract.md`
    - `tools/prototype-tooling.md`
+
+   When the request mentions external tools, MCP servers, SaaS APIs, workspace connectors, analytics platforms, databases, CRM/support systems, advertising platforms, automation tools, paid design-generation services, or operational data analysis, also load:
+   - `agents/integration-governance-agent.md`
+   - `skills/tool-vetting/SKILL.md`
+   - `tools/external-tooling.md`
+   - `tools/external-tool-catalog.json`
+
+   When the request includes product or operations data analysis, also load:
+   - `skills/product-ops-analysis/SKILL.md`
+   - `agents/analytics-agent.md`
 
    Record the active Prototype Agent and `multi-platform-prototype` skill in `run-log.yaml`. A prototype delivery with `skills_used: []` is incomplete unless the prototype was explicitly omitted.
 
@@ -165,10 +177,15 @@ The user should not need to manually copy templates or create folders. Do that f
    - Mini Program for mini-program containers, authorization, booking, ordering, and lightweight forms.
    - Generate multiple prototypes only for true cross-platform requirements.
    - If an existing demo, screenshot, page, route, design system, or component implementation is available, adapt that current surface and show the delta for the new requirement. Do not create a new unrelated product shell.
+   - In repo-backed prototype-only UI work, keep host production files read-only by default. Read real frontend code, assets, data shapes, state rules, and screenshots, then generate an isolated HTML demo that looks like the current online surface with only the requested feature added.
+   - Structure repo-backed UI prototypes as two layers: `baseline_layer` reconstructs the original product UI from host code and visual evidence; `delta_layer` contains only the new feature UI, visible markers, explanation dialogs, interactions, backend simulation notes, and tracking/edge-case annotations.
+   - The baseline layer should not be redesigned or filled with prototype-only explanatory copy. Delta markers and annotation controls must not resize, crop, recolor, or cover critical unchanged UI.
+   - Do not modify production routes, pages, components, global styles, assets, package files, or backend code unless the user explicitly asks for production-oriented implementation or approves a prototype branch change.
    - In repo-backed UI work, perform a style reuse pass before writing HTML: inspect the host app shell, global stylesheet or theme tokens, design-system components, affected route/page/component files, and any screenshots or demos that show the current surface.
    - Reuse existing component structure, layout density, tokens, class names, copy tone, and interaction patterns. A self-contained HTML prototype may inline CSS, but the CSS must emulate the inspected host components and tokens rather than inventing a new visual system.
    - Capture or record an existing UI visual baseline before writing the prototype when possible. Use a running host app, existing preview route, Storybook/demo, or user-provided screenshot. If none is available, record why under `existing_ui_visual_baseline` and treat fidelity as limited.
    - After the style reuse pass, run a design calibration pass: choose visual density, layout variance, and motion intensity from the host product and scenario; avoid generic AI UI signatures that do not belong to the current surface.
+   - Record `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations.
    - Record `style_evidence` in `run-log.yaml`, including source files, reused components, reused tokens or class patterns, the intended new-requirement delta, and limitations. Add a hidden `style-source-summary` comment or `data-style-source` attribute in the prototype so reviewers can trace the visual source.
    - Record `existing_ui_visual_baseline` in `run-log.yaml`: status, source, target page or component, screenshot paths when captured, comparison method, and limitation. If screenshots are available, use them as review evidence for unchanged regions; do not claim pixel-level parity unless a visual comparison actually ran.
    - If the existing frontend style source cannot be inspected and the user expects a product-specific prototype, ask for the missing screenshot/demo/component reference or mark the Prototype Agent output `degraded`; do not mark the prototype `complete`.
@@ -179,6 +196,7 @@ The user should not need to manually copy templates or create folders. Do that f
 
 11. Run tool preflight and validation after file changes when possible:
    - `python3 scripts/preflight_tools.py` before full-loop iteration, embedded host evaluation, or final delivery; use `--strict` for PM Copilot release validation.
+   - `python3 scripts/preflight_integrations.py --tier recommended` when external tools or integration recommendations are in scope; add `--check-remote` when current source availability must be verified.
    - `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict` when source-backed research is required.
    - `python3 scripts/validate_repo.py`
    - `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` for Chinese generated runs, or `--language en` for English runs, when `prd.md` or prototype artifacts exist.

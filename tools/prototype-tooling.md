@@ -10,7 +10,10 @@ Prototypes should be generated as self-contained HTML files.
 - Use semantic buttons and links for interactions.
 - Include a visible prototype-only / not-production-code boundary.
 - When current product UI evidence exists, match the current surface before adding the new requirement.
+- In repo-backed prototype-only work, keep host production files read-only by default: read real frontend code and assets, then generate an isolated HTML demo that mirrors the current online surface plus the requested feature delta.
+- Split repo-backed UI prototypes into `baseline_layer` and `delta_layer`: baseline reconstructs unchanged host UI; delta contains only the new feature UI, markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations.
 - In repo-backed frontend work, inspect the host app shell/root layout, global stylesheet or theme config, design-system components, affected route/page/component files, and screenshots or demos before writing HTML.
+- Record `isolated_ui_prototype` in `run-log.yaml`: host mutation policy, target route or screen, source-to-demo mapping, backend simulation method, parity claim, and limitations.
 - Record `style_evidence` in `run-log.yaml`: source files, reused components, reused tokens or class patterns, prototype delta, and limitations.
 - Add a hidden `style-source-summary` comment or `data-style-source` attribute in the prototype HTML.
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, preview route, Storybook/demo screenshot, existing screenshot asset, or user-provided image. If unavailable, record the limitation and do not claim pixel parity.
@@ -26,8 +29,12 @@ Prototypes should be generated as self-contained HTML files.
 - Confirm the selected platform shape is obvious.
 - Confirm long pages, multi-state screens, and modals are scrollable like the host product and are not clipped by an artificial frame.
 - Confirm prototype JavaScript parses and primary buttons, tabs, dialogs, annotation markers, and the annotation toggle all produce visible state changes.
+- Confirm repo-backed prototype-only work did not modify host production routes, pages, components, styles, assets, package files, or backend code unless explicitly requested.
+- Confirm unchanged baseline UI is not redesigned or explained inline, and that delta markers/dialogs do not resize, crop, recolor, or cover critical unchanged UI.
+- Confirm repo-backed HTML contains a source-to-demo map in the run log and a style source summary in the artifact.
 - Confirm repo-backed prototypes have style evidence and visibly reuse the host app shell, components, tokens, and density.
 - Confirm repo-backed prototypes include existing UI visual baseline evidence or a concrete skipped reason.
+- Confirm backend-dependent behavior is simulated with mock data plus loading, empty, error, permission, and success states where relevant, rather than silently implying real backend implementation.
 - Confirm the prototype includes loading, empty, error, disabled, and success feedback where relevant, and does not rely on a static success-only screen.
 - Confirm motion, if any, uses stable CSS transform/opacity and does not destabilize screenshot validation.
 - Confirm numbered callouts sit at a visible, unclipped top-right position, do not make compact text wrap, and map to matching marker dialogs and the current-state annotation list.

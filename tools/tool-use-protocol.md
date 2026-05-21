@@ -10,6 +10,14 @@ Before full-loop iteration, embedded host evaluation, or final delivery, run:
 python3 scripts/preflight_tools.py
 ```
 
+When external MCP servers, SaaS APIs, analytics tools, databases, CRM/support tools, workspace connectors, automation systems, or paid design-generation services are requested or recommended, also load `tools/external-tooling.md` and run:
+
+```bash
+python3 scripts/preflight_integrations.py --tier recommended
+```
+
+Use `--check-remote` when the current availability of the source repository or official documentation matters. Use `--require-ready` only when the selected tools are required for the run and the user has approved that dependency.
+
 For release validation or any run where missing required tooling should stop delivery, run:
 
 ```bash
@@ -52,6 +60,7 @@ This does not exempt required preflight, validation, visual QA, or delivery chec
 | HTML preview | Prototype QA | Local file path and checked viewport | Provide static HTML and note preview not verified |
 | Browser screenshot and visual diff | Prototype visual QA and regression checks | Prototype path, viewport names, screenshot paths, report path, baseline path, diff result | Run or guide `setup_visual_validation.py`; record skipped status only if setup fails, browser launch is forbidden, or user declines |
 | Tool preflight | Check local tool readiness before a full run | Preflight report path or console summary | Record setup-required tools and run setup when possible |
+| External integration preflight | Check candidate MCP/API/SaaS integrations, credentials, cost risk, source type, and fallback | Catalog path, tool id, source URL, missing credentials, permission boundary, fallback | Continue with local/manual fallback or ask for setup/approval |
 | Delivery orchestrator | Run repo, output, visual, and HTML checks together | `tool-results/delivery-check-report.json` | Run individual commands only when the orchestrator cannot run |
 | Development handoff export | Engineering issue planning | `dev-tasks.yaml` path, blockers, ready task count | Keep tasks in PRD only if file writing is unavailable |
 | Launch decision support | Release readiness and go/no-go support | `launch-decision.yaml` path, gate statuses, blockers, required approvals | Downgrade to review recommendation when approval evidence is missing |
@@ -73,6 +82,8 @@ Validation tools often run after the first PRD or prototype draft is written. Wh
 Do not leave `pending`, `待执行`, `should run`, or equivalent placeholders after the command has already run or been skipped. If an older tool cannot parse modern HTML, record both the tool failure and any fallback parser or preview check that was actually performed.
 
 For UI prototypes, run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. With no `--prototype` argument, the visual validator checks every supported prototype file in the run folder and writes one aggregate `visual-report.json`. If the command cannot run because the dependency or browser is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through the same setup. If an auto-detected system browser fails to launch, the validator should try the bundled/default Chromium path before failing. Record visual validation as `skipped` only if setup fails, browser launch is forbidden, or the user declines; do not let the absence of visual QA look like a passed browser review.
+
+For third-party integrations, do not record a candidate tool as available until the configured runtime, credentials, and permission boundary are checked. A GitHub star count, curated list inclusion, or remembered popularity is not runtime evidence.
 
 For development handoff and launch decision artifacts, record whether they were generated as `human_confirmed` or `unattended_candidate`. Tool output must not claim issue creation, deployment, or launch approval unless those actions were actually performed.
 

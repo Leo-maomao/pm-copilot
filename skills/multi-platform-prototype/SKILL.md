@@ -7,7 +7,7 @@ description: Use when generating clickable local HTML prototypes for Web, H5, Ap
 
 ## Goal
 
-Generate a local clickable HTML prototype that matches the selected product platform and is useful for product review, UI reference, and engineering handoff.
+Generate a local clickable HTML prototype that matches the selected product platform and is useful for product review, UI reference, and engineering handoff. In repo-backed UI work, the prototype should be an isolated mirror of the real product surface: read real frontend code and assets, keep host production files unchanged by default, and show only the requested feature as the new delta.
 
 ## Platform Selection
 
@@ -22,25 +22,29 @@ Generate a local clickable HTML prototype that matches the selected product plat
 2. Load `artifacts/prototype-contract.md` when available.
 3. Inspect existing demos, screenshots, routes, components, or design-system files when available.
 4. In repo-backed frontend products, run a style reuse pass before writing HTML: inspect the host app shell/root layout, global stylesheet or theme config, design-system components, affected route/page/component files, and relevant screenshots or demos; extract navigation, tab bar, colors, spacing, typography, icons, card density, radius, shadows, copy tone, and component states; prefer reusing host component hierarchy, tokens, and class patterns; record `style_evidence` in the run log.
-5. Capture or record an existing UI visual baseline when possible: running host app screenshot, preview route, Storybook/demo screenshot, or user-provided image. Record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation.
-6. Explain whether the prototype extends an existing surface or creates a new surface, and why.
-7. Run a design calibration pass after the host style is understood: choose layout variance, motion intensity, and visual density from the product surface, not from generic AI taste; operational tools should stay dense and scannable, while marketing/editorial pages may use more asymmetry and motion.
-8. Choose fidelity: high when enough visual context exists, mid by default, low only for exploratory work.
-9. Create a single self-contained HTML file with no CDN, remote font, remote script, or network image dependency.
-10. Include a hidden `style-source-summary` comment or `data-style-source` attribute that names the host style evidence used.
-11. Include main path interaction and make every visible primary control produce a visible state change.
-12. Include relevant non-happy states.
-13. Show eligible and ineligible user states when access depends on account, role, setup, plan, consent, location, or permission.
-14. Check access-state coherence before delivery: logged-out, guest, and no-permission controls must not reveal signed-in-only profile data, user IDs, account-management actions, sync actions, logout actions, or privileged navigation.
-15. Label placeholder or unreviewed reference content as draft and avoid presenting it as approved final content.
-16. Build an annotation map before writing HTML: number, page/screen, UI element, logic note, interaction note, data or permission note, and tracking note when relevant.
-17. Add numbered callout markers on the prototype surface and matching notes in marker-triggered dialogs. Default markers are small red circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` placed at a safe top-right spot on the annotated component. Do not use negative offsets inside clipping containers, do not let markers force labels to wrap, and do not cover key controls. Clicking a marker opens an `annotation-dialog`; a draggable top-right `annotation-toggle` with `data-draggable="true"` opens an `annotation-list` overlay for all markers in the current page/state.
-18. Label the artifact as prototype-only, not production code.
-19. For personalization, ordering, layout, or preference features, show the edit mode, save/apply behavior, reset/default behavior, unavailable items, and sync or persistence failure state when relevant.
-20. For Web prototypes, run a shell/responsive checklist before delivery: desktop navigation visible, page header visible, content density matches the host app, mobile breakpoint or responsive notes are present, touch target and mis-tap risks are considered for mobile Web, desktop regression risk is named, and visitor/signed-in/permission states are represented when relevant.
-21. For public Web or SEO surfaces, annotate indexable content, metadata/structured-data expectations, noindex/private-page boundary, and cache/fallback behavior when relevant.
-22. For Mini Program prototypes, run a chrome/page-level checklist before delivery: status or capsule area visible, primary tab pages use the existing tab bar style, secondary pages show page-header/back behavior, and ineligible/setup states are represented when relevant.
-23. When validation scripts are available, run prototype visual validation or the delivery checks and record the evidence.
+5. For repo-backed prototype-only work, define the isolation boundary before writing HTML: host production source is read-only unless the user explicitly asks for implementation; the HTML demo may emulate inspected components, tokens, assets, interactions, and mock data, but it must not require host route changes to open.
+6. Build a source-to-demo map for repo-backed UI: target route or screen, page/component source files, reusable components, token and class sources, local assets or icon sources, data shape or mock source, permission/state gates, and backend behavior represented by mock data plus annotations. Record this under `isolated_ui_prototype` and `style_evidence`.
+7. Split the repo-backed UI prototype into two layers: `baseline_layer` reconstructs unchanged product UI from the host repository and visual baseline; `delta_layer` contains only new or changed feature UI, marked with numbered callouts and explanation dialogs.
+8. Keep annotation markers and prototype controls from degrading the baseline layer: they must not resize, crop, recolor, or cover critical unchanged UI. If a marker is attached to an unchanged component, the note must distinguish the baseline component from the new delta behavior.
+9. Capture or record an existing UI visual baseline when possible: running host app screenshot, preview route, Storybook/demo screenshot, or user-provided image. Record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation.
+10. Explain whether the prototype extends an existing surface or creates a new surface, and why.
+11. Run a design calibration pass after the host style is understood: choose layout variance, motion intensity, and visual density from the product surface, not from generic AI taste; operational tools should stay dense and scannable, while marketing/editorial pages may use more asymmetry and motion.
+12. Choose fidelity: high when enough visual context exists, mid by default, low only for exploratory work. Repo-backed work cannot claim high or pixel-level parity without required style evidence and baseline evidence.
+13. Create a single self-contained HTML file with no CDN, remote font, remote script, or network image dependency.
+14. Include a hidden `style-source-summary` comment or `data-style-source` attribute that names the host style evidence used.
+15. Include main path interaction and make every visible primary control produce a visible state change.
+16. Include relevant non-happy states.
+17. Show eligible and ineligible user states when access depends on account, role, setup, plan, consent, location, or permission.
+18. Check access-state coherence before delivery: logged-out, guest, and no-permission controls must not reveal signed-in-only profile data, user IDs, account-management actions, sync actions, logout actions, or privileged navigation.
+19. Label placeholder or unreviewed reference content as draft and avoid presenting it as approved final content.
+20. Build an annotation map before writing HTML: number, page/screen, UI element, logic note, interaction note, data or permission note, and tracking note when relevant.
+21. Add numbered callout markers on the prototype surface and matching notes in marker-triggered dialogs. Default markers are small red circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` placed at a safe top-right spot on the annotated component. Do not use negative offsets inside clipping containers, do not let markers force labels to wrap, and do not cover key controls. Clicking a marker opens an `annotation-dialog`; a draggable top-right `annotation-toggle` with `data-draggable="true"` opens an `annotation-list` overlay for all markers in the current page/state.
+22. Label the artifact as prototype-only, not production code.
+23. For personalization, ordering, layout, or preference features, show the edit mode, save/apply behavior, reset/default behavior, unavailable items, and sync or persistence failure state when relevant.
+24. For Web prototypes, run a shell/responsive checklist before delivery: desktop navigation visible, page header visible, content density matches the host app, mobile breakpoint or responsive notes are present, touch target and mis-tap risks are considered for mobile Web, desktop regression risk is named, and visitor/signed-in/permission states are represented when relevant.
+25. For public Web or SEO surfaces, annotate indexable content, metadata/structured-data expectations, noindex/private-page boundary, and cache/fallback behavior when relevant.
+26. For Mini Program prototypes, run a chrome/page-level checklist before delivery: status or capsule area visible, primary tab pages use the existing tab bar style, secondary pages show page-header/back behavior, and ineligible/setup states are represented when relevant.
+27. When validation scripts are available, run prototype visual validation or the delivery checks and record the evidence.
 
 ## Output
 
@@ -49,6 +53,8 @@ Generate a local clickable HTML prototype that matches the selected product plat
 - Fidelity rationale
 - Annotation notes
 - Existing-surface mapping and change summary
+- Isolation boundary and source-to-demo map
+- Baseline layer and delta layer summary
 - Style-source summary
 - Style evidence: source files, reused host components, reused tokens or class patterns, prototype delta, limitations
 - Existing UI visual baseline: status, source, target, screenshots, comparison method, limitation
@@ -74,6 +80,8 @@ Generate a local clickable HTML prototype that matches the selected product plat
 - Placeholder or unreviewed content is visibly labeled and does not look launch-approved.
 - If current product UI exists, the prototype preserves the existing structure and shows the new requirement as a delta.
 - If host frontend source exists, the prototype reuses the current app shell, component density, design tokens, and class patterns; it must not use a generic new shell or unrelated palette unless the user requested a redesign.
+- Repo-backed prototype-only work leaves host production files unchanged unless the user explicitly requested production-oriented implementation.
+- Backend-dependent behavior is represented with coherent mock data, loading/empty/error/permission states, and annotations that name the expected API or data contract when known.
 - If an existing UI screenshot or rendered host app is available, the prototype uses it as a visual baseline for unchanged regions. If not available, the run log records the limitation and does not claim pixel parity.
 - Keep the product surface full width. Do not reserve a persistent annotation board or shrink the layout for notes; annotations live in markers, dialogs, and the top-right list overlay.
 - For many pages, many states, or content beyond one screen, preserve the host product's real scroll behavior and state structure. Do not place the product inside an artificial fixed-height frame that clips dialogs or long content.

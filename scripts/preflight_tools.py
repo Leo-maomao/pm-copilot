@@ -189,6 +189,16 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "Agent-native web search/browser tools",
         ),
         capability(
+            "external_integrations.catalog",
+            "available" if (
+                script_available("scripts/preflight_integrations.py")
+                and script_available("tools/external-tool-catalog.json")
+            ) else "unavailable",
+            "scripts/preflight_integrations.py and tools/external-tool-catalog.json",
+            False,
+            "python3 scripts/preflight_integrations.py --tier recommended",
+        ),
+        capability(
             "validation.repo",
             "available" if script_available("scripts/validate_repo.py") else "unavailable",
             "scripts/validate_repo.py",

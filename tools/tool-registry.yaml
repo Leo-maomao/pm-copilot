@@ -44,6 +44,17 @@ capabilities:
       - run-log.yaml:tools_used
     fallback: "Remove source-backed claims or label them as assumptions with unavailable-source limitation."
 
+  - id: external_integrations.catalog
+    category: integration
+    required_when: "External MCP servers, SaaS APIs, OAuth tools, automation connectors, paid UI generators, analytics platforms, databases, CRM/support systems, or advertising tools are requested or recommended."
+    command: "python3 scripts/preflight_integrations.py --tier recommended"
+    optional_command: "python3 scripts/preflight_integrations.py --tier recommended --check-remote"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:external_integrations
+      - run-log.yaml:tool_preflight
+    fallback: "Use local/manual fallback and mark the integration setup-required, blocked, or not applicable."
+
   - id: validation.repo
     category: validation
     required_when: "PM Copilot repository files are changed."
@@ -120,6 +131,7 @@ default_preflight:
   command: "python3 scripts/preflight_tools.py"
   strict_command: "python3 scripts/preflight_tools.py --strict"
   network_required_command: "python3 scripts/preflight_tools.py --check-network <url> --require-network --strict"
+  external_integrations_command: "python3 scripts/preflight_integrations.py --tier recommended"
   required_before:
     - full-loop iteration
     - final delivery

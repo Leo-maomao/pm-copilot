@@ -146,10 +146,13 @@ If research tools are unavailable, agents must not fabricate competitor facts.
 prototype_preferences:
   fidelity: "Low"
   default_output: "Local HTML"
+  repo_backed_ui_mode: "Isolated HTML from host code"
+  host_mutation_policy: "Read-only unless implementation is explicitly requested"
+  repo_backed_layers: "baseline_layer restores original UI; delta_layer contains new feature markers and dialogs"
   platform_selection: "Choose based on scenario; generate multiple only for cross-platform needs."
 ```
 
-The first version produces local HTML prototypes instead of production code.
+The default prototype mode produces local HTML prototypes instead of production code. In repo-backed UI work, the local HTML should be generated from inspected host frontend code, assets, styles, and state patterns while keeping host production files unchanged unless the user explicitly requests implementation.
 
 ## Privacy
 
@@ -160,6 +163,23 @@ privacy:
 ```
 
 Use anonymized data in public examples.
+
+## External Integrations
+
+External tools are optional candidates, not default dependencies. Review:
+
+```text
+tools/external-tooling.md
+tools/external-tool-catalog.json
+```
+
+Run:
+
+```bash
+python3 scripts/preflight_integrations.py --tier recommended
+```
+
+Use `--check-remote` when source availability matters. Missing API keys, OAuth consent, paid accounts, workspace permissions, or production-data credentials should remain `setup_required` or `blocked` until the user explicitly configures and approves them.
 
 ## Good Configuration Habits
 

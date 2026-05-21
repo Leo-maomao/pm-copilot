@@ -23,7 +23,7 @@ S0 Intake
 | State | Owner | Entry Criteria | Exit Criteria |
 |---|---|---|---|
 | S0 Intake | PM Orchestrator | Task brief received | Request goal and artifact needs are identified |
-| S1 Tool preflight | PM Orchestrator | Full-loop, embedded, or final delivery work is expected | Available, setup-required, and unavailable tools are recorded |
+| S1 Tool preflight | PM Orchestrator | Full-loop, embedded, final delivery, or external integration work is expected | Available, setup-required, and unavailable tools are recorded |
 | S2 Context loading | PM Orchestrator | Product context source is known or needs discovery | Relevant PM Copilot context and available product context are loaded |
 | S3 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
 | S4 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
@@ -85,6 +85,20 @@ python3 scripts/preflight_tools.py
 Use `--strict` for PM Copilot release validation or other runs where missing required tooling must stop delivery. If external research is required, include `--check-network <url> --require-network --strict`.
 
 Record the result under `tool_preflight` in `run-log.yaml`. If a required tool is `setup_required`, `unavailable`, or `skipped` under strict preflight, run or guide the setup command before deciding to skip the dependent check.
+
+## External Integration Vetting
+
+External MCP servers, SaaS APIs, OAuth tools, automation connectors, paid UI generators, analytics platforms, databases, CRM/support systems, and advertising tools require a separate vetting pass before PM Copilot depends on them.
+
+Use Integration Governance Agent with `skills/tool-vetting/SKILL.md`, `tools/external-tooling.md`, and `tools/external-tool-catalog.json`. Run:
+
+```bash
+python3 scripts/preflight_integrations.py --tier recommended
+```
+
+Add `--check-remote` when current source availability is part of the decision. Add `--require-ready` only when the selected integrations must be configured before the run can continue.
+
+Record the result under `external_integrations` in `run-log.yaml`. Missing API keys, OAuth consent, paid accounts, workspace permissions, or production-data credentials are `setup_required` or `blocked`; they must not be treated as available merely because the tool exists. Default to read-only scopes for analytics, databases, CRM, support, project-management, ads, and workspace data. Write operations require explicit user approval for the concrete action.
 
 ## Human-in-the-Loop Checkpoints
 
@@ -179,6 +193,12 @@ If the agent cannot determine the current product state from available repositor
 ## Prototype Context Gate
 
 Before S8 exits for any UI prototype, PM Orchestrator must confirm that `agents/prototype-agent.md`, `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` were applied and recorded in `run-log.yaml`.
+
+For repo-backed prototype-only UI work, S8 must preserve the host production code boundary by default. The agent should read real frontend code, assets, data shapes, state rules, and screenshots, then generate an isolated HTML demo that mirrors the current product surface with only the requested feature delta. Do not modify production routes, pages, components, global styles, assets, package files, or backend code unless the user explicitly requests production-oriented implementation or approves a prototype branch change.
+
+S8 repo-backed UI output must be evaluated as two layers. `baseline_layer` reconstructs the original product UI from host code and visual evidence; `delta_layer` contains the requested new feature, visible markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations. Prototype-only markers and controls must not degrade the baseline layer.
+
+Repo-backed S8 is not complete until the run log contains `isolated_ui_prototype` with host mutation policy, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations. Backend-dependent behavior can be represented with mock data and annotations, but the prototype must not imply that backend implementation exists.
 
 For repo-backed prototypes, S8 is not complete until the run log contains `style_evidence` with source files, reused components, reused tokens or class patterns, prototype delta, and limitations. The prototype itself must include a traceable `style-source-summary` comment or `data-style-source` attribute. If existing frontend code, screenshots, or demos are available but style evidence is missing, route the work back to Prototype Agent instead of accepting a polished-looking greenfield prototype.
 

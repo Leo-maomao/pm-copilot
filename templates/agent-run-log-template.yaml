@@ -138,6 +138,21 @@ tool_preflight:
   setup_required_tools: []
   unavailable_tools: []
 
+external_integrations:
+  - tool_id: ""
+    decision: "" # approved | setup_required | rejected | blocked | not_applicable
+    candidate_status: "" # candidate | setup_required | available | blocked | hold
+    source_type: "" # official_docs | official_repo | community_repo | marketplace | unknown
+    source_url: ""
+    cost_risk: "" # free_local | open_source_self_hostable | byo_account | commercial_api | unknown | paid_only
+    credentials_required: []
+    permission_boundary: "" # read_only | read_only_first_write_requires_approval | write_requires_approval | write_approved | not_applicable
+    data_risk: ""
+    command_or_runtime: ""
+    fallback: ""
+    approval_owner: ""
+    limitation: ""
+
 human_inputs:
   clarification_questions:
     - id: ""
@@ -180,6 +195,33 @@ style_evidence:
   reused_components: []
   reused_tokens_or_classes: []
   prototype_delta: ""
+  limitations: []
+
+isolated_ui_prototype:
+  mode: "" # self_contained_html_from_host_code | code_preview_route | storybook_or_demo | document_or_screenshot_only | not_applicable
+  host_mutation_policy: "" # read_only | user_approved_prototype_branch_change | production_implementation_requested | not_applicable
+  target_surface: ""
+  baseline_layer:
+    source: ""
+    reconstruction_method: "" # host_code_and_assets | screenshot_reference | document_reference | not_applicable
+    unchanged_regions: []
+    parity_limitation: ""
+  delta_layer:
+    changed_regions: []
+    visible_markers: []
+    annotation_dialogs: []
+    new_interactions: []
+    backend_notes: []
+  source_to_demo_mapping:
+    - source: ""
+      prototype_representation: ""
+      confidence: ""
+  backend_simulation:
+    method: "" # mock_data_and_annotations | existing_mock_source | real_api_not_used | not_applicable
+    data_contract_source: ""
+    states_represented: []
+    limitations: []
+  parity_claim: "" # baseline_compared | style_evidence_only | degraded | not_applicable
   limitations: []
 
 existing_ui_visual_baseline:

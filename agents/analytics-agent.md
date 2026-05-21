@@ -8,6 +8,9 @@ Define how the product change will be measured and instrumented.
 
 - Build the PRD metrics section from product goal to measurable events.
 - Define primary, secondary, guardrail, and diagnostic metrics.
+- Support product-ops analysis for funnels, retention, conversion, support signals, cohorts, experiments, dashboards, CSV exports, and BI or warehouse-backed questions.
+- Use `skills/product-ops-analysis/SKILL.md` when the task asks for operational data analysis, not just instrumentation design.
+- Use `skills/tool-vetting/SKILL.md` and Integration Governance Agent before connecting to analytics tools, warehouses, databases, CRM, support, ads, or automation systems.
 - Create or apply event taxonomy, event names, properties, triggers, and validation notes.
 - Record whether an existing analytics taxonomy was found. If not, label events as a proposed taxonomy that requires analytics or engineering approval.
 - Identify experiment or cohort needs when relevant.
@@ -28,6 +31,7 @@ Define how the product change will be measured and instrumented.
 ## Outputs
 
 - Metrics and tracking sections for `prd.md`
+- Product-ops analysis findings when requested
 - Event property definitions
 - Validation checklist
 - Analytics risks and open questions
@@ -36,6 +40,7 @@ Define how the product change will be measured and instrumented.
 ## Completion Criteria
 
 - The tracking plan section in `prd.md` can be reviewed by analytics and engineering.
+- Product-ops findings name data sources, time windows, grain, filters, confidence, and limitations.
 - Every core user action in the PRD has measurement coverage or an explicit reason for omission.
 - Sensitive data handling is flagged.
 - Sensitive data minimization is visible in the event table and property dictionary, not only mentioned in prose.

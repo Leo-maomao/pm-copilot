@@ -6,6 +6,23 @@ If a current demo, screenshot, route, component, or design system is available, 
 
 Visual style fit is part of the contract, not a polish step. When current UI evidence exists, match the existing navigation structure, platform chrome, tab bar, typography scale, spacing rhythm, color tokens, icon style, card density, border radius, shadows, and copy tone before adding the new requirement. Record the style sources used and the intended delta. If no style source is available and the user expects a product-specific prototype, ask for a screenshot, demo, route, or design reference before creating a mid- or high-fidelity prototype.
 
+## Repo-Backed Isolation Policy
+
+When PM Copilot is embedded in a real product repository, prototype-only UI work should be isolated from production implementation by default. The agent may read host frontend code, styles, assets, screenshots, stories, routes, and mock/API shapes, but it must not modify production routes, pages, components, global styles, assets, package files, or backend code unless the user explicitly asks for production-oriented implementation or approves a prototype branch change.
+
+The expected repo-backed artifact is an isolated local HTML demo that mirrors the real product surface as seen online and adds only the requested feature delta. Unchanged regions should follow the inspected app shell, component hierarchy, density, spacing, token values, icons, copy tone, and state behavior. Backend-dependent behavior should be represented with coherent mock data, loading/empty/error/permission states, and annotations that name the expected data contract or API behavior when known.
+
+## Two-Layer UI Prototype Model
+
+Repo-backed UI prototypes have two distinct layers:
+
+- `baseline_layer`: the original product surface reconstructed from host repository code, assets, tokens, screenshots, and component behavior. This layer should look like the current online product and should not introduce new visual language, explanatory copy, or prototype-only UI inside unchanged product regions.
+- `delta_layer`: the requested new or changed feature behavior. This layer must be visibly identifiable through numbered markers, marker-triggered explanation dialogs, and the current-state annotation list. Delta annotations should explain UI intent, interaction, data/API assumptions, backend simulation, permission/state behavior, tracking, and edge cases.
+
+The prototype should preserve baseline geometry and add the delta in place. Annotation controls must not resize, crop, recolor, or otherwise degrade the baseline layer. If a marker is needed near an unchanged component only to explain how the new feature attaches to it, the annotation must state that the underlying component is baseline UI and identify the new delta separately.
+
+Before writing repo-backed HTML, record a source-to-demo map: target route or screen, source page files, reused component files, token/class/style sources, asset/icon sources, data or mock sources, permission/state gates, backend simulation method, and limitations. Record the host mutation policy and parity claim under `isolated_ui_prototype` in the run log. If these sources are unavailable, the prototype must be marked `degraded` or `mid` at most, and it must not claim 1:1 or pixel-level parity.
+
 For repo-backed frontend products, style evidence is required. Inspect the host app shell or root layout, global stylesheet or theme config, design-system components, affected route/page/component files, and relevant screenshots or demos. The prototype may be a self-contained HTML file, but its CSS and DOM should emulate the inspected host components and tokens. Record source files, reused components, reused tokens or class patterns, intended delta, and limitations in `run-log.yaml` under `style_evidence`. Add a hidden `style-source-summary` comment or `data-style-source` attribute in the HTML so the visual source can be audited.
 
 Repo-backed prototypes should use an existing UI visual baseline whenever possible. Valid sources include a screenshot from the running host app, a preview route, Storybook/demo, existing screenshot asset, or user-provided image. Record `existing_ui_visual_baseline` with status, source, target page or component, screenshot paths when captured, comparison method, and limitation. If no baseline can be captured, say so and do not claim pixel parity.
@@ -19,6 +36,8 @@ Choose the highest useful fidelity the available context supports:
 - `high`: use when brand, layout, component, content, and interaction direction are known.
 - `mid`: default for most requirements; polished layout, realistic copy, clear components, and complete states.
 - `low`: use only when the problem is still exploratory or visual direction is intentionally unknown.
+
+For repo-backed UI work, `high` requires enough inspected source evidence to mirror the host app shell, affected page, core components, tokens, assets, and state model. A prototype may not claim 1:1 or pixel-level parity unless an existing UI visual baseline exists and unchanged regions were compared or explicitly reviewed against it.
 
 Even low-fidelity prototypes must be clean, clickable, and implementation-oriented. Avoid bare placeholder wireframes when UI or interaction direction is available.
 
@@ -87,6 +106,8 @@ Annotation rules:
 Generate a single self-contained `.html` file unless the task explicitly asks for multiple platform prototypes.
 
 The HTML must clearly state that it is a prototype and not production code, but it should be structured and styled to a standard that UI and engineering can use directly as reference.
+
+For repo-backed prototype-only work, self-contained HTML is still the default deliverable. It may emulate inspected host components, token values, and local assets, but it should not require a new host app route or changes to production files to open. If the user explicitly requests a code-preview route, Storybook story, or production-oriented implementation, the run must state that different mutation boundary before editing host files.
 
 Prototype files must not depend on external scripts, fonts, CDNs, network images, or remote CSS. If a visual asset is necessary, embed it, use an existing local asset reference only when the host project path is stable, or explain the limitation in the PRD and run log.
 
