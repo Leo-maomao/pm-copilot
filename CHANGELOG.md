@@ -8,7 +8,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 
 ## [2.2.8] - 2026-05-21
 
-Commit: pending release commit.
+Commit: `2f57f53` fix: redefine ui delivery as source backed.
 
 ### Changed
 
