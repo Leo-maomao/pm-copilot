@@ -1,6 +1,6 @@
 # Prototype Tooling Notes
 
-Prototypes should use the artifact mode that matches the fidelity target. Standalone HTML is for portable review; exact repo-backed UI should use a source-rendered delta patch.
+Prototypes should use the artifact mode that matches source availability first. Standalone HTML is for portable review or true no-source situations; repo-backed UI with frontend source should use a source-rendered delta patch.
 
 ## Requirements
 
@@ -10,12 +10,12 @@ Prototypes should use the artifact mode that matches the fidelity target. Standa
 - Use semantic buttons and links for interactions.
 - Include a visible prototype-only / not-production-code boundary.
 - When current product UI evidence exists, match the current surface before adding the new requirement.
-- In repo-backed prototype-only work, keep production flows read-only by default: read real frontend code and assets, then use `source_delta_patch` for exact UI parity. Import/render the original baseline from host source and add the requested feature only through isolated preview/delta files.
+- In repo-backed prototype-only work, keep production flows read-only by default: read real frontend code and assets, then use `source_delta_patch` whenever host frontend source exists. Import/render the original baseline from host source and add the requested feature only through isolated preview/delta files.
 - Split repo-backed UI prototypes into `baseline_import` and `delta_patch`: baseline import renders unchanged host UI; delta patch contains only preview composition, mock state, new feature UI, markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations.
 - In repo-backed frontend work, run `python3 scripts/inspect_host_frontend.py --host <host-repo> --query "<requirement or target surface>" --pretty` when available, then inspect the host app shell/root layout, global stylesheet or theme config, design-system components, affected route/page/component files, local icons/assets, and screenshots or demos before writing any delta patch.
 - Record `isolated_ui_prototype` in `run-log.yaml`: host mutation policy, artifact mode, target route or screen, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
 - Record `host_frontend_inventory` and `style_evidence` in `run-log.yaml`: source files, reused components, reused tokens or class patterns, icon/asset sources, prototype delta, and limitations.
-- Use standalone HTML fallback only when the user's raw request explicitly requests portability/standalone/HTML output or source rendering is attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. "Only generate a prototype" means prototype scope only; it does not authorize standalone HTML. Production read-only policy is not a blocker because isolated preview files are allowed.
+- Use standalone HTML fallback only when the user's raw request explicitly requests portability/standalone/HTML output, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering is attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. "Only generate a prototype" means prototype scope only; it does not authorize standalone HTML or greenfield UI. Production read-only policy is not a blocker because isolated preview files are allowed.
 - Add a hidden `style-source-summary` comment or `data-style-source` attribute only in generated HTML artifacts.
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, preview route, Storybook/demo screenshot, existing screenshot asset, or user-provided image. If a renderable host frontend falls back to standalone HTML, a missing baseline must cite a raw-request portable/standalone/HTML request or concrete attempted-render/browser/setup failure.
 - After style evidence is captured, run a design calibration pass: match the host product's visual density, layout variance, and motion intensity; remove generic AI patterns that do not belong to the current surface.

@@ -36,14 +36,14 @@ capabilities:
 
   - id: repo_context.host_frontend_inventory
     category: context
-    required_when: "Repo-backed UI work, especially when exact/source-level visual fidelity is requested."
+    required_when: "Repo-backed UI work, especially when frontend source exists or source-level visual fidelity is requested."
     command: "python3 scripts/inspect_host_frontend.py --host <host-repo> --query '<requirement or target surface>' --pretty"
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - run-log.yaml:host_frontend_inventory
       - run-log.yaml:style_evidence
       - run-log.yaml:isolated_ui_prototype
-    fallback: "Manually inspect host frontend files. If render entry or source files cannot be found, stop for the missing host path or mark standalone HTML as fidelity-limited."
+    fallback: "Manually inspect host frontend files. If source files cannot be found, stop for the missing host path; if rendering is blocked, record the concrete blocker and mark standalone HTML as fidelity-limited."
 
   - id: research.web_search
     category: research

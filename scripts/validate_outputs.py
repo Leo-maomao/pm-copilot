@@ -158,6 +158,25 @@ def raw_request_allows_standalone_html(run_log: str) -> bool:
     )
 
 
+def raw_request_allows_greenfield_ui(run_log: str) -> bool:
+    raw_request = yaml_scalar_field_value(run_log, "raw_request")
+    return bool(
+        re.search(
+            r"(greenfield|redesign|from scratch|start over|new visual design|freeform|freestyle|"
+            r"rebuild\s+(the\s+)?ui|ignore existing (ui|design)|discard existing (ui|design)|"
+            r"do not reuse existing (ui|design)|"
+            r"重新设计|全新设计|自由发挥|从零(?:开始)?(?:设计|做|搭|构建)|"
+            r"(?:UI|界面|视觉|设计).*?重构|重构.*?(?:UI|界面|视觉|设计)|"
+            r"抛弃.*(?:原|现有).*?(?:设计|样式|UI)|"
+            r"不(?:沿用|复用|参考).*?(?:原|现有).*?(?:设计|样式|UI)|"
+            r"(?:不要|不用).*?(?:原|现有).*?(?:设计|样式|UI)|"
+            r"重做.*?(?:视觉|设计|UI)|彻底改造.*?(?:UI|界面|视觉|设计)|大改版)",
+            raw_request,
+            re.IGNORECASE,
+        )
+    )
+
+
 def source_rendering_was_blocked(run_log: str) -> bool:
     inventory_block = extract_yaml_block(run_log, "host_frontend_inventory")
     isolated_block = extract_yaml_block(run_log, "isolated_ui_prototype")
@@ -237,19 +256,37 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     render_entrypoint = yaml_scalar_field_value(inventory_block, "render_entrypoint")
     preview = yaml_scalar_field_value(inventory_block, "preview_surface")
     visual_baseline_status = yaml_scalar_field_value(visual_baseline_block, "status")
+    frontend_source_available = any(
+        yaml_list_field_has_values(inventory_block, field)
+        for field in ("entry_files", "route_or_screen_files", "component_files", "style_files")
+    )
     source_rendering_decision = yaml_scalar_field_value(inventory_block, "source_rendering_decision")
-    allowed_source_rendering_decisions = {"required", "used", "blocked", "user_explicit_portable", "not_required"}
+    allowed_source_rendering_decisions = {
+        "required",
+        "used",
+        "blocked",
+        "user_explicit_portable",
+        "user_explicit_greenfield",
+        "not_required",
+    }
     if source_rendering_decision and source_rendering_decision not in allowed_source_rendering_decisions:
         fail(
             "Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of "
-            "required, used, blocked, user_explicit_portable, or not_required"
+            "required, used, blocked, user_explicit_portable, user_explicit_greenfield, or not_required"
         )
     if source_rendering_decision == "user_explicit_portable" and not raw_request_allows_standalone_html(run_log):
         fail("Repo-backed prototype cannot record user_explicit_portable unless the raw request asks for HTML/portable output")
+    if source_rendering_decision == "user_explicit_greenfield" and not raw_request_allows_greenfield_ui(run_log):
+        fail(
+            "Repo-backed prototype cannot record user_explicit_greenfield unless the raw request asks to "
+            "redesign, rebuild, or stop reusing the original UI"
+        )
     if source_rendering_decision == "blocked" and not source_rendering_was_blocked(run_log):
         fail("Repo-backed prototype source_rendering_decision blocked requires a concrete source-rendering limitation")
     explicit_portable_or_blocked = (
-        raw_request_allows_standalone_html(run_log) or source_rendering_was_blocked(run_log)
+        raw_request_allows_standalone_html(run_log)
+        or raw_request_allows_greenfield_ui(run_log)
+        or source_rendering_was_blocked(run_log)
     )
     source_rendered_modes = {
         "source_delta_patch",
@@ -259,6 +296,17 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         "mini_program_preview",
         "app_preview_screen",
     }
+    non_source_rendered_modes = allowed_modes - source_rendered_modes
+    if (
+        mode in non_source_rendered_modes
+        and frontend_source_available
+        and not explicit_portable_or_blocked
+    ):
+        fail(
+            "Repo-backed frontend source exists, so prototype generation must use source-rendered preview/delta "
+            "unless the raw request explicitly asks for standalone/greenfield UI or source rendering was "
+            "attempted and blocked"
+        )
     if (
         mode == "self_contained_html_from_host_code"
         and recommended_mode in source_rendered_modes
@@ -268,7 +316,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     ):
         fail(
             "Repo-backed renderable frontend should not fall back to standalone HTML unless the user "
-            "explicitly requested a portable/standalone artifact or source rendering was attempted and blocked"
+            "explicitly requested portable/standalone HTML, requested greenfield/redesign UI, or source rendering was attempted and blocked"
         )
     if (
         mode == "self_contained_html_from_host_code"

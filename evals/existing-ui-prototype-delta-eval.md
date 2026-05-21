@@ -46,7 +46,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 - The annotation floating control shows only `注释` or `Notes`, hides while a right-edge full-height annotation panel is open, and reappears when the panel closes.
 - Any page/state switching control is fixed outside the product layout.
 - Marker-triggered notes do not open a full-screen/global modal or backdrop.
-- If exact online fidelity is requested, the run uses a source-rendered delta patch, preview route, Storybook/demo, Mini Program preview page, or App preview screen as appropriate; otherwise the standalone HTML limitation is explicit.
+- If host frontend source exists, the run uses a source-rendered delta patch, preview route, Storybook/demo, Mini Program preview page, or App preview screen as appropriate; otherwise the standalone HTML limitation is explicit.
 - Cross-page notes are separated from page-specific notes.
 - The PRD records which existing files or screenshots informed the prototype.
 
@@ -59,6 +59,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 | 2026-05-21 | shallow-style-evidence | High | Prototype claimed host style reuse but did not faithfully mirror the real component library and online surface. | Require concrete source files, reused components, and source-to-demo mappings. |
 | 2026-05-21 | source-parity-gap | High | Standalone HTML could not exactly reproduce real icons, component internals, or native platform chrome. | Add source-rendered preview modes for Web/H5, Mini Program, and App fidelity expectations. |
 | 2026-05-21 | prototype-only-misread | High | Agent interpreted "only generate a prototype" as consent for standalone HTML and skipped a renderable host source preview. | Require raw-request portable/standalone/HTML wording or concrete source-rendering blocker before standalone fallback. |
+| 2026-05-21 | source-first-missing | High | Agent treated source rendering as optional unless exact fidelity was requested. | Require source-rendered preview/delta whenever frontend source exists, except explicit standalone, explicit redesign/greenfield, or concrete blocker cases. |
 | 2026-05-21 | annotation-ui-inconsistency | Medium | Marker badges, note badges, annotation panel, and state switcher controls did not follow the required fixed interaction model. | Enforce red/white borderless badges, short annotation floating control, right-side full-height panel, and fixed state switchers. |
 
 ## Latest Result

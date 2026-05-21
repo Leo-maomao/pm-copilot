@@ -6,9 +6,31 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.2.6] - 2026-05-21
+## [2.2.7] - 2026-05-21
 
 Commit: pending release commit.
+
+### Changed
+
+- Added a source-code-first prototype invariant: repo-backed frontend source presence now requires source-rendered preview/delta artifacts by default, without relying on the user to ask for exact UI parity.
+- Allowed freeform/greenfield prototype UI only when there is no frontend source/current surface, source rendering is concretely blocked, the raw request asks for standalone/portable HTML, or the raw request explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI.
+- Extended output validation so any non-source-rendered repo-backed prototype mode fails when frontend source exists unless the raw request or concrete blocker permits the fallback.
+- Added `user_explicit_greenfield` as a controlled `source_rendering_decision` value and require matching raw-request redesign/greenfield wording.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Template script, annotation badge, and source-first fallback smoke checks pass.
+- Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
+- Host frontend inventory smoke against `/Users/mac142/Desktop/ai-video` confirms `render_entrypoint: "npm run dev"`, `preview_surface: "src/features/auth/components/LoginModal/LoginModal.tsx"`, `source_rendering_decision: "used"`, and `recommended_artifact_mode: source_delta_patch`.
+- Regression check rejects the new ai-video standalone output with `Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, user_explicit_greenfield, or not_required`.
+
+## [2.2.6] - 2026-05-21
+
+Commit: `b1680b1` fix: require raw request standalone consent.
 
 ### Changed
 
