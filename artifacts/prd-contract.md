@@ -2,7 +2,7 @@
 
 Use this contract when generating or reviewing `outputs/<run-id>/prd.md`.
 
-The PRD is the primary product-manager handoff artifact. It contains the requirement, external product research, goals, requirement details, tracking plan, flow diagrams when useful, prototype reference, risks, open confirmations, acceptance criteria, and validation results.
+The PRD is the primary product-manager handoff artifact. It contains the requirement, external product research, goals, requirement details, tracking plan, flow diagrams when useful, UI delivery reference, risks, open confirmations, acceptance criteria, and validation results.
 
 ## Required Output
 
@@ -24,7 +24,7 @@ The following outline defines semantic sections, not literal English headings. L
 ## <localized requirement details>
 ## <localized flow diagrams>
 ## <localized tracking plan>
-## <localized prototype reference>
+## <localized UI delivery reference>
 ## <localized risks and open confirmations>
 ## <localized acceptance criteria>
 ## <localized delivery review findings>
@@ -78,14 +78,14 @@ For repo-backed product changes, include a localized engineering implementation 
 - Specify entry point, navigation visibility, permission or eligibility states, and fallback behavior for existing-product surfaces.
 - For aggregation features, specify per-source permissions, redaction, empty-result behavior, partial failure behavior, and performance limits.
 - For algorithmic labels or scores, specify explainability, missing-data handling, and the boundary between calculation output and product recommendation.
-- For simulations or forecasts, specify assumptions and limitations prominently enough for reviewers to see them in both PRD and prototype.
+- For simulations or forecasts, specify assumptions and limitations prominently enough for reviewers to see them in both PRD and UI deliverable.
 - For SEO or public Web pages, specify index/noindex rules, metadata ownership, structured data, and private-data exclusion.
 - For data reliability surfaces, specify freshness, staleness, partial failure, and degradation behavior in user-visible terms.
 - For reference, policy, medical, legal, financial, safety, or operational content, record source status, review owner, review status, disclaimer status, and launch impact.
 - Put tracking events and property definitions in the PRD by default; create a CSV export only when useful.
 - Put functional or operation flow diagrams in the PRD when they help review; create Mermaid source exports only when useful.
-- Prototype details belong in the HTML prototype. The PRD should only link the prototype, summarize covered screens/states, and state that page-level logic and interaction notes live in the prototype annotations.
-- Prototype references in the PRD should point to local generated files. Do not require reviewers to load external assets, scripts, or remote prototype URLs unless the user explicitly requests that workflow.
+- UI delivery details belong in the UI artifact and its annotations. The PRD should only link the source-backed preview/delta or compatibility HTML file, summarize covered screens/states, and state that page-level logic and interaction notes live in the UI delivery annotations.
+- UI delivery references in the PRD should point to local generated files or local host preview surfaces. Do not require reviewers to load external assets, scripts, or remote UI preview URLs unless the user explicitly requests that workflow.
 - Mark assumptions explicitly.
 - Do not bury unresolved decisions in the requirements.
 - Include structured delivery review findings with artifact, evidence, owner, required-before phase, and status.

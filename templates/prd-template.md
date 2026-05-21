@@ -122,13 +122,13 @@ flowchart TD
 | <localized property name> (`property_name`) | <localized type> (`type`) | <localized required> (`required`) | <localized example> (`example`) | <localized description> (`description`) | <localized allowed values> (`allowed_values`) | <localized privacy level> (`privacy_level`) | <localized source> (`source`) |
 |---|---|---|---|---|---|---|---|
 
-## <localized prototype reference>
+## <localized UI delivery reference>
 
 | <localized item> | <localized value> |
 |---|---|
-| <localized prototype file> | `prototype-<platform>.html` |
+| <localized UI delivery artifact> | <localized source-backed preview/delta path, or `prototype-<platform>.html` only for compatibility HTML mode> |
 | <localized covered screens and states> |  |
-| <localized note> | <localized detailed product design, logic rules, and interaction notes live in the numbered annotations inside the prototype> |
+| <localized note> | <localized detailed product design, logic rules, and interaction notes live in the numbered annotations inside the UI deliverable> |
 
 ## <localized risks and open confirmations>
 

@@ -28,7 +28,7 @@ We do not have a project repository here. I uploaded last quarter's checkout PRD
 - Classify the run as `document-backed`.
 - Treat the uploaded product documents as current product context.
 - Extract current behavior, pain points, existing metrics, and known constraints from the documents.
-- Ask must-answer questions only for gaps that materially affect scope, platform, metrics, privacy, payment, legal, compliance, security, or prototype direction.
+- Ask must-answer questions only for gaps that materially affect scope, platform, metrics, privacy, payment, legal, compliance, security, or UI delivery direction.
 - Do not ask for a software repository as a prerequisite.
 
 ## Pass Criteria
@@ -37,7 +37,7 @@ We do not have a project repository here. I uploaded last quarter's checkout PRD
 - The agent cites or references the provided document set as context loaded.
 - The agent separates document-backed facts from assumptions.
 - The agent asks blocking questions before downstream generation when document context is insufficient.
-- The agent can proceed to review-ready PRD/prototype delivery after answers or explicit assumption approval.
+- The agent can proceed to review-ready PRD/UI delivery after answers or explicit assumption approval.
 - Generated prose follows the user's language, while file names and identifiers remain ASCII.
 
 ## Failure History

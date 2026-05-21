@@ -27,7 +27,7 @@
 ## Pass Criteria
 
 - Human-facing headings in `prd.md` are Chinese, not copied from English templates.
-- Table labels, status labels, prototype annotations, review labels, and next actions are Chinese.
+- Table labels, status labels, UI delivery annotations, review labels, and next actions are Chinese.
 - File names, event names, property names, requirement IDs, and Mermaid node IDs remain ASCII.
 - Any English terms that remain are product names, technical identifiers, or intentionally preserved terms.
 
@@ -35,7 +35,7 @@
 
 | Date | Failure Code | Severity | Symptom | Fix |
 |---|---|---|---|---|
-| 2026-05-18 | localization-template-leak | Medium | Markdown headings stayed English while body text was Chinese. | Require localization of headings, table labels, statuses, and prototype annotations. |
+| 2026-05-18 | localization-template-leak | Medium | Markdown headings stayed English while body text was Chinese. | Require localization of headings, table labels, statuses, and UI delivery annotations. |
 
 ## Latest Result
 

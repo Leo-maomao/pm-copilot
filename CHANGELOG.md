@@ -6,9 +6,31 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.2.7] - 2026-05-21
+## [2.2.8] - 2026-05-21
 
 Commit: pending release commit.
+
+### Changed
+
+- Redefined UI output as a source-first UI deliverable instead of a hand-written prototype by default.
+- Updated the main entry, workflow, agent roles, skills, artifact contracts, templates, adapters, guardrails, docs, context examples, and evals so repo-backed frontend source produces source-backed preview/delta files unless fallback gates explicitly allow standalone HTML.
+- Kept legacy machine names such as `prototype-<platform>.html`, `validate_prototype_visual.py`, and `isolated_ui_prototype` as compatibility names while documenting that they do not imply standalone HTML or fake UI.
+- Updated adapter installation output so newly installed host adapters also enforce the source-backed UI delivery rule.
+- Changed Chinese PRD output validation to expect a `UI 交付` reference section instead of the old `原型` section wording.
+- Updated evaluation templates, execution handoff inputs, release checks, and validation messages so current guidance says UI deliverable/source-backed UI delivery, while legacy `prototype-*` names remain compatibility file and field names.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py scripts/setup_visual_validation.py scripts/install_adapter.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Regression check rejects the ai-video standalone output with `Repo-backed UI delivery host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, user_explicit_greenfield, or not_required`.
+- Host frontend inventory smoke against `/Users/mac142/Desktop/ai-video` confirms `render_entrypoint: "npm run dev"`, `preview_surface: "src/features/auth/components/LoginModal/LoginModal.tsx"`, `source_rendering_decision: "used"`, and `recommended_artifact_mode: source_delta_patch`.
+
+## [2.2.7] - 2026-05-21
+
+Commit: `9e6df82` fix: default prototypes to source-backed UI.
 
 ### Changed
 

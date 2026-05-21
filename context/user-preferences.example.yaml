@@ -10,7 +10,7 @@ language:
 delivery:
   default_artifacts:
     - prd.md
-    - prototype-<platform>.html
+    - ui_deliverable
   optional_artifacts:
     - run-log.yaml
     - tracking-plan.csv
@@ -29,7 +29,7 @@ prd_preferences:
     - requirement_details
     - flow_diagrams
     - tracking_plan
-    - prototype_reference
+    - ui_delivery_reference
     - risks_and_open_confirmations
     - acceptance_criteria
     - validation_results
@@ -41,7 +41,8 @@ prd_preferences:
 prototype_preferences:
   default_fidelity: "mid"
   prefer_existing_ui_delta: true
-  annotation_style: "full-width product surface with numbered callouts, marker dialogs, and draggable top-right page annotation list"
+  default_output: "source-backed UI preview/delta when frontend source exists; compatibility HTML only for no-source, explicit portable HTML, explicit redesign/greenfield, or concrete source-rendering blockers"
+  annotation_style: "full-width product surface with numbered callouts, marker dialogs, short 注释/Notes floating control, and right-edge full-height current-state annotation panel"
   callout_rules:
     - "Use matching numbers on UI markers, dialogs, and annotation list notes"
     - "Keep notes concise"

@@ -11,7 +11,7 @@ S0 Intake
 -> S5 External product research
 -> S6 PRD drafting
 -> S7 Metrics and tracking
--> S8 Flow and prototype
+-> S8 Flow and UI delivery
 -> S9 Review
 -> S10 Revision loop
 -> S11 Delivery check
@@ -30,8 +30,8 @@ S0 Intake
 | S5 External product research | Research Agent | PRD solution shaping needs competitor, benchmark, comparable feature, market, policy, pricing, or source-backed context | Source-backed research brief is produced or limitation is stated |
 | S6 PRD drafting | Requirements Agent | Discovery output is usable | `prd.md` contract is satisfied |
 | S7 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | Metrics and tracking sections are complete inside `prd.md` |
-| S8 Flow and prototype | Prototype Agent | Core flow and platform are known | Flow sections are complete inside `prd.md`; HTML prototype contract is satisfied |
-| S9 Review | Review Agent | Draft PRD and prototype exist | Risks, blockers, and required fixes are reflected in PRD status and validation sections |
+| S8 Flow and UI delivery | UI Delivery Agent (`agents/prototype-agent.md`, legacy name) | Core flow and platform are known | Flow sections are complete inside `prd.md`; UI delivery contract is satisfied |
+| S9 Review | Review Agent | Draft PRD and UI deliverable exist | Risks, blockers, and required fixes are reflected in PRD status and validation sections |
 | S10 Revision loop | PM Orchestrator | Review finds critical gaps | Artifacts are updated or gaps are accepted as open risks |
 | S11 Delivery check | PM Orchestrator | Critical gaps are closed or accepted | `run_delivery_checks.py` passes or failures are fixed/recorded |
 | S12 Optional execution handoff | PM Orchestrator | User asks for development tasks, issue planning, release readiness, or launch decision support | `dev-tasks.yaml` and/or `launch-decision.yaml` are generated with blockers and approvals preserved |
@@ -111,16 +111,16 @@ Human confirmation is required before drafting downstream artifacts when:
 - Platform, affected module, primary user journey, or rollout surface is unclear.
 - The tracking plan includes sensitive properties.
 - Research sources are unavailable but competitor claims would affect the solution.
-- The PRD/prototype delivery contains high-severity open risks.
+- The PRD/UI-delivery output contains high-severity open risks.
 - An item is marked `must confirm before development or launch` and the requested output is expected to claim the readiness that item blocks.
 
-If any must-answer question exists, ask the user and stop before creating `prd.md` or prototype HTML. Create or update only `outputs/<run-id>/run-log.yaml` when a persistent trace is useful.
+If any must-answer question exists, ask the user and stop before creating `prd.md` or UI deliverables. Create or update only `outputs/<run-id>/run-log.yaml` when a persistent trace is useful.
 
-Do not create PRD, metrics, tracking, flow, prototype, review, or delivery artifacts until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
+Do not create PRD, metrics, tracking, flow, UI-delivery, review, or delivery artifacts until the user answers or explicitly says to proceed with assumptions. User silence is not approval.
 
 ## External Product Research
 
-For PRD deliveries, S5 is expected by default when a product solution, feature design, copy, metrics, or prototype direction can benefit from competitor or comparable-product evidence. Repository files are current-state context, not external product research. Do not fill the PRD "research/reference findings" section only with host implementation facts.
+For PRD deliveries, S5 is expected by default when a product solution, feature design, copy, metrics, or UI delivery direction can benefit from competitor or comparable-product evidence. Repository files are current-state context, not external product research. Do not fill the PRD "research/reference findings" section only with host implementation facts.
 
 Use Research Agent to look for relevant competitors, benchmark products, comparable feature patterns, public docs, help center pages, product screenshots/articles, or official policy/pricing sources. When the requested feature changes a common product flow, the research must include same-flow competitor or comparable-product evidence, not only general policy, security, or implementation references. Record source-backed findings and product implications. If browsing is unavailable or the user explicitly says not to research, record `external_research.status: skipped` or `degraded`, the reason, and the impact on recommendation confidence.
 
@@ -132,7 +132,7 @@ When the user explicitly asks PM Copilot to run iterative evaluation, self-itera
 
 - Select the most conservative recommended option that fits the current product context.
 - Record the chosen option and rationale in `run-log.yaml`.
-- Generate the full `prd.md`, prototype, and `run-log.yaml` for that round.
+- Generate the full `prd.md`, UI deliverable, and `run-log.yaml` for that round.
 - Keep unresolved launch or engineering confirmations visible in readiness and risks.
 - Downgrade readiness when a default option creates assumption or confirmation risk.
 - Never use default-option mode to approve payment, privacy, legal, compliance, security, financial, or regulated-content launch decisions.
@@ -141,8 +141,8 @@ When the user explicitly asks PM Copilot to run iterative evaluation, self-itera
 
 Avoid contradictory clarification output. A single unknown must belong to exactly one bucket:
 
-- `Must answer before generation`: blocks PRD, metrics, tracking, flow, prototype, review, and delivery check.
-- `Can draft with stated assumption`: can be assumed for a draft PRD/prototype, but the assumption must be visible and reviewable.
+- `Must answer before generation`: blocks PRD, metrics, tracking, flow, UI delivery, review, and delivery check.
+- `Can draft with stated assumption`: can be assumed for a draft PRD/UI deliverable, but the assumption must be visible and reviewable.
 - `Must confirm before development or launch`: blocks the readiness phase it applies to. Each item must state whether it blocks engineering handoff, launch, or both.
 
 If the user asks to proceed with assumptions while must-answer or engineering-blocking confirmation questions remain, downgrade PRD status to `Draft with assumption risk` or `Draft with confirmation risk`. Do not call it development-ready. If only launch-blocking confirmations remain, the PRD may be engineering-ready only when launch status is explicitly blocked and the engineering acceptance criteria exclude the unconfirmed launch item.
@@ -190,21 +190,21 @@ If no analytics convention or event taxonomy is found, record that as a current-
 
 If the agent cannot determine the current product state from available repositories, documents, or user answers, ask for the missing context as must-answer questions.
 
-## Prototype Context Gate
+## UI Delivery Context Gate
 
-Before S8 exits for any UI prototype, PM Orchestrator must confirm that `agents/prototype-agent.md`, `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` were applied and recorded in `run-log.yaml`.
+Before S8 exits for any UI delivery, PM Orchestrator must confirm that `agents/prototype-agent.md`, `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` were applied and recorded in `run-log.yaml`. The file names keep the legacy "prototype" label for compatibility; the active definition is UI delivery.
 
-For repo-backed prototype-only UI work, S8 must preserve the host production code boundary by default. The agent should read real frontend code, assets, data shapes, state rules, and screenshots, then generate an isolated HTML demo that mirrors the current product surface with only the requested feature delta. Do not modify production routes, pages, components, global styles, assets, package files, or backend code unless the user explicitly requests production-oriented implementation or approves a prototype branch change.
+For repo-backed UI-delivery work, S8 must preserve the host production code boundary by default. The agent should read real frontend code, assets, data shapes, state rules, and screenshots, then generate a source-backed preview/delta that imports or renders the current product surface with only the requested feature delta. Do not modify production routes, pages, components, global styles, assets, package files, or backend code unless the user explicitly requests production-oriented implementation.
 
-S8 repo-backed UI output must be evaluated as two layers. `baseline_layer` reconstructs the original product UI from host code and visual evidence; `delta_layer` contains the requested new feature, visible markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations. Prototype-only markers and controls must not degrade the baseline layer.
+S8 repo-backed UI output must be evaluated as two layers. `baseline_import` imports or renders the original product UI from host source; `delta_patch` contains the requested new feature, visible markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations. UI-delivery markers and controls must not degrade the baseline layer.
 
-Repo-backed S8 is not complete until the run log contains `isolated_ui_prototype` with host mutation policy, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations. Backend-dependent behavior can be represented with mock data and annotations, but the prototype must not imply that backend implementation exists.
+Repo-backed S8 is not complete until the run log contains `isolated_ui_prototype` with host mutation policy, artifact mode, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations. Backend-dependent behavior can be represented with mock data and annotations, but the UI deliverable must not imply that backend implementation exists.
 
-For repo-backed prototypes, S8 is not complete until the run log contains `style_evidence` with source files, reused components, reused tokens or class patterns, prototype delta, and limitations. The prototype itself must include a traceable `style-source-summary` comment or `data-style-source` attribute. If existing frontend code, screenshots, or demos are available but style evidence is missing, route the work back to Prototype Agent instead of accepting a polished-looking greenfield prototype.
+For repo-backed UI delivery, S8 is not complete until the run log contains `style_evidence` with source files, reused components, reused tokens or class patterns, UI delta, and limitations. Compatibility HTML must include a traceable `style-source-summary` comment or `data-style-source` attribute. If existing frontend code, screenshots, or demos are available but style evidence is missing, route the work back to UI Delivery Agent instead of accepting a polished-looking greenfield artifact.
 
-Repo-backed S8 should also record `existing_ui_visual_baseline`. Prefer captured screenshots from a running host app, preview route, Storybook/demo, or user-provided screenshots. If the host app cannot be started or no screenshot source exists, record `status: skipped`, the exact limitation, and the expected impact on visual parity. Do not claim the prototype is pixel-identical to the existing UI unless a visual comparison actually ran.
+Repo-backed S8 should also record `existing_ui_visual_baseline`. Prefer captured screenshots from a running host app, preview route, Storybook/demo, or user-provided screenshots. If the host app cannot be started or no screenshot source exists, record `status: skipped`, the exact limitation, and the expected impact on visual parity. Do not claim the UI deliverable is pixel-identical to the existing UI unless a visual comparison actually ran.
 
-The style reuse pass should inspect the smallest relevant host files: app shell or root layout, global stylesheet or theme config, design-system components, affected routes/pages, and nearby feature components. The prototype may remain self-contained HTML, but it must emulate those inspected host patterns instead of designing a separate UI system.
+The style reuse pass should inspect the smallest relevant host files: app shell or root layout, global stylesheet or theme config, design-system components, affected routes/pages, and nearby feature components. A compatibility HTML artifact may emulate inspected host patterns only when standalone fallback is allowed; if renderable frontend source exists, source-backed preview/delta is the default and hand recreation is not complete.
 
 ## Run Folder Rules
 
@@ -219,22 +219,22 @@ The repository does not ship example output folders. `outputs/` is generated at 
 Default delivery should optimize for reviewability, not file count.
 
 - Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact.
-- Create `outputs/<run-id>/prototype-<platform>.html` when a user-facing prototype is relevant.
+- Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode.
 - Create `outputs/<run-id>/run-log.yaml` as an internal trace when useful.
 - Keep source or export files only when they are useful for analytics import, Mermaid rendering, external review workflow, or user-requested iteration.
-- `prd.md` must include version history, requirement input and confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, flow diagrams when useful, tracking plan, prototype reference, risks/open confirmations, acceptance criteria, and validation results.
+- `prd.md` must include version history, requirement input and confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, flow diagrams when useful, tracking plan, UI delivery reference, risks/open confirmations, acceptance criteria, and validation results.
 - Do not create separate `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
 - Avoid making the user open many small Markdown files to understand one requirement.
 
-## Visual Prototype Validation
+## UI Visual Validation
 
-For UI prototype deliveries, run browser-based visual validation:
+For compatibility HTML UI deliverables, run browser-based visual validation:
 
 - `python3 scripts/validate_prototype_visual.py outputs/<run-id>`
 - Add `--baseline-dir <path>` for regression suites.
 - Add `--update-baseline` only when intentionally establishing a new baseline.
 
-Without `--prototype`, the visual validator checks every supported prototype file in the run folder. Record prototype file names, screenshots, visual report path, nonblank checks, diff status, and limitations in `run-log.yaml`. If Playwright or browser installation is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through setup. Record the check as skipped only after setup fails, browser launch is not permitted in the environment, or the user declines installation.
+Without `--prototype`, the visual validator checks every supported compatibility HTML file in the run folder. For source-backed UI previews, run the host app's dev/preview/Storybook/simulator path and record equivalent screenshot or browser evidence. Record UI deliverable file names or preview surfaces, screenshots, visual report path, nonblank checks, diff status, and limitations in `run-log.yaml`. If Playwright or browser installation is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through setup. Record the check as skipped only after setup fails, browser launch is not permitted in the environment, or the user declines installation.
 
 ## Delivery Orchestrator
 
@@ -258,14 +258,14 @@ When the user asks PM Copilot to turn requirements into development tasks, issue
 
 ## Language Rules
 
-Use the user's language for conversation and generated artifacts. Chinese requests should produce Chinese headings, table labels, statuses, narrative text, prototype notes, and review labels; English requests should produce English equivalents. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
+Use the user's language for conversation and generated artifacts. Chinese requests should produce Chinese headings, table labels, statuses, narrative text, UI delivery notes, and review labels; English requests should produce English equivalents. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
 
 Repository templates are structural examples, not literal copy. Translate headings and labels before writing user-facing artifacts.
 
 ## Skippable Steps
 
 - Research can be skipped when the task does not need external evidence.
-- Prototype can be omitted when the request is purely backend, infra, or analytics.
+- UI delivery can be omitted when the request is purely backend, infra, or analytics.
 - Tracking can be reduced when the task is a non-user-facing operational change, but the omission must be explained in the PRD.
 
 ## Revision Rules

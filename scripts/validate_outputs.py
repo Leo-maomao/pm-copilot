@@ -46,7 +46,7 @@ REQUIRED_PRD_SECTIONS_ZH = [
     "需求列表",
     "需求详情",
     "埋点",
-    "原型",
+    "UI 交付",
     "风险",
     "验收标准",
     "交付评审",
@@ -211,13 +211,13 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
 
     for field in ("source_files", "reused_components", "reused_tokens_or_classes", "icon_asset_sources"):
         if not yaml_list_field_has_values(style_block, field):
-            fail(f"Repo-backed prototype style_evidence.{field} must list concrete host evidence")
+            fail(f"Repo-backed UI delivery style_evidence.{field} must list concrete host evidence")
 
     if not yaml_scalar_field_value(inventory_block, "platform"):
-        fail("Repo-backed prototype host_frontend_inventory.platform must identify the host frontend type")
+        fail("Repo-backed UI delivery host_frontend_inventory.platform must identify the host frontend type")
     for field in ("entry_files", "route_or_screen_files", "component_files", "style_files", "icon_asset_sources"):
         if not yaml_list_field_has_values(inventory_block, field):
-            fail(f"Repo-backed prototype host_frontend_inventory.{field} must list inspected host sources")
+            fail(f"Repo-backed UI delivery host_frontend_inventory.{field} must list inspected host sources")
 
     source_files_block = extract_yaml_block(style_block, "source_files")
     if not re.search(
@@ -228,14 +228,14 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         source_files_block,
         re.IGNORECASE,
     ):
-        fail("Repo-backed prototype style_evidence.source_files must name real host files or assets")
+        fail("Repo-backed UI delivery style_evidence.source_files must name real host files or assets")
 
     if not yaml_mapping_field_has_value(source_map_block, "source"):
-        fail("Repo-backed prototype source_to_demo_mapping must include non-empty source entries")
+        fail("Repo-backed UI delivery source_to_demo_mapping must include non-empty source entries")
     if not yaml_mapping_field_has_value(source_map_block, "prototype_representation"):
         fail(
-            "Repo-backed prototype source_to_demo_mapping must describe how each source appears "
-            "in the prototype"
+            "Repo-backed UI delivery source_to_demo_mapping must describe how each source appears "
+            "in the UI deliverable"
         )
 
     mode = yaml_scalar_field_value(isolated_block, "mode")
@@ -251,7 +251,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         "not_applicable",
     }
     if mode not in allowed_modes:
-        fail("Repo-backed prototype isolated_ui_prototype.mode must name a supported artifact mode")
+        fail("Repo-backed UI delivery isolated_ui_prototype.mode must name a supported artifact mode")
     recommended_mode = yaml_scalar_field_value(inventory_block, "recommended_artifact_mode")
     render_entrypoint = yaml_scalar_field_value(inventory_block, "render_entrypoint")
     preview = yaml_scalar_field_value(inventory_block, "preview_surface")
@@ -271,18 +271,18 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     }
     if source_rendering_decision and source_rendering_decision not in allowed_source_rendering_decisions:
         fail(
-            "Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of "
+            "Repo-backed UI delivery host_frontend_inventory.source_rendering_decision must be one of "
             "required, used, blocked, user_explicit_portable, user_explicit_greenfield, or not_required"
         )
     if source_rendering_decision == "user_explicit_portable" and not raw_request_allows_standalone_html(run_log):
-        fail("Repo-backed prototype cannot record user_explicit_portable unless the raw request asks for HTML/portable output")
+        fail("Repo-backed UI delivery cannot record user_explicit_portable unless the raw request asks for HTML/portable output")
     if source_rendering_decision == "user_explicit_greenfield" and not raw_request_allows_greenfield_ui(run_log):
         fail(
-            "Repo-backed prototype cannot record user_explicit_greenfield unless the raw request asks to "
+            "Repo-backed UI delivery cannot record user_explicit_greenfield unless the raw request asks to "
             "redesign, rebuild, or stop reusing the original UI"
         )
     if source_rendering_decision == "blocked" and not source_rendering_was_blocked(run_log):
-        fail("Repo-backed prototype source_rendering_decision blocked requires a concrete source-rendering limitation")
+        fail("Repo-backed UI delivery source_rendering_decision blocked requires a concrete source-rendering limitation")
     explicit_portable_or_blocked = (
         raw_request_allows_standalone_html(run_log)
         or raw_request_allows_greenfield_ui(run_log)
@@ -303,7 +303,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         and not explicit_portable_or_blocked
     ):
         fail(
-            "Repo-backed frontend source exists, so prototype generation must use source-rendered preview/delta "
+            "Repo-backed frontend source exists, so UI delivery must use source-rendered preview/delta "
             "unless the raw request explicitly asks for standalone/greenfield UI or source rendering was "
             "attempted and blocked"
         )
@@ -352,27 +352,27 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         fail("Repo-backed standalone HTML mode must explicitly mark source-rendered fidelity as limited")
     if mode in source_rendered_modes:
         if not yaml_list_field_has_values(isolated_block, "preview_files_changed"):
-            fail("Host-rendered prototype mode must record preview_files_changed")
+            fail("Host-rendered UI delivery mode must record preview_files_changed")
         if not yaml_scalar_field_value(inventory_block, "render_entrypoint"):
-            fail("Host-rendered prototype mode must record host_frontend_inventory.render_entrypoint")
+            fail("Host-rendered UI delivery mode must record host_frontend_inventory.render_entrypoint")
         if not yaml_list_field_has_values(baseline_import_block, "imported_sources"):
-            fail("Source-rendered prototype mode must record baseline_import.imported_sources")
+            fail("Source-rendered UI delivery mode must record baseline_import.imported_sources")
         baseline_policy = yaml_scalar_field_value(baseline_import_block, "baseline_modification_policy")
         if baseline_policy not in {"no_rewrite", "read_only_import", "production_change_requested"}:
-            fail("Source-rendered prototype mode must record a valid baseline_import.baseline_modification_policy")
+            fail("Source-rendered UI delivery mode must record a valid baseline_import.baseline_modification_policy")
         rewrite_scan_block = isolated_block.replace("no_rewrite", "")
         if baseline_policy != "production_change_requested" and re.search(
             r"(rewrite|recreate|redraw|manual baseline|手写\s*baseline|重写|重画)",
             rewrite_scan_block,
             re.IGNORECASE,
         ):
-            fail("Source-rendered prototype mode must import/render the baseline, not rewrite it")
+            fail("Source-rendered UI delivery mode must import/render the baseline, not rewrite it")
         if not yaml_list_field_has_values(delta_patch_block, "patch_files"):
-            fail("Source-rendered prototype mode must record delta_patch.patch_files")
+            fail("Source-rendered UI delivery mode must record delta_patch.patch_files")
         if not yaml_scalar_field_value(delta_patch_block, "patch_strategy"):
-            fail("Source-rendered prototype mode must record delta_patch.patch_strategy")
+            fail("Source-rendered UI delivery mode must record delta_patch.patch_strategy")
         if not yaml_scalar_field_value(delta_patch_block, "next_delta_anchor"):
-            fail("Source-rendered prototype mode must record delta_patch.next_delta_anchor for multi-turn continuation")
+            fail("Source-rendered UI delivery mode must record delta_patch.next_delta_anchor for multi-turn continuation")
 
 
 class PrototypeScriptParser(HTMLParser):
@@ -705,7 +705,7 @@ def check_visual_validation_trace(path: Path) -> None:
     if not has_html_prototype and not has_source_rendered_prototype:
         return
     if "visual_validation:" not in run_log and "validate_prototype_visual.py" not in run_log:
-        fail("Run log missing visual_validation marker for prototype delivery")
+        fail("Run log missing visual_validation marker for UI delivery")
 
 
 def check_prototype_agent_and_style_trace(path: Path, language: str | None = None) -> None:
@@ -714,10 +714,10 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
     if not prototypes and "isolated_ui_prototype:" not in run_log:
         return
 
-    if "Prototype Agent" not in run_log:
-        fail("Run log missing Prototype Agent for prototype delivery")
+    if "UI Delivery Agent" not in run_log and "Prototype Agent" not in run_log:
+        fail("Run log missing UI Delivery Agent/Prototype Agent for UI delivery")
     if "multi-platform-prototype" not in run_log:
-        fail("Run log missing multi-platform-prototype skill for prototype delivery")
+        fail("Run log missing multi-platform-prototype skill for UI delivery")
     for marker in (
         "design_calibration:",
         "visual_density:",
@@ -725,7 +725,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
         "motion_intensity:",
     ):
         if marker not in run_log:
-            fail(f"Prototype delivery missing design calibration marker: {marker}")
+            fail(f"UI delivery missing design calibration marker: {marker}")
 
     if "source_mode: repo-backed" in run_log:
         for marker in (
@@ -744,7 +744,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
             "limitations:",
         ):
             if marker not in run_log:
-                fail(f"Repo-backed prototype missing style evidence marker: {marker}")
+                fail(f"Repo-backed UI delivery missing style evidence marker: {marker}")
         for marker in (
             "existing_ui_visual_baseline:",
             "source:",
@@ -753,7 +753,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
             "comparison_method:",
         ):
             if marker not in run_log:
-                fail(f"Repo-backed prototype missing existing UI visual baseline marker: {marker}")
+                fail(f"Repo-backed UI delivery missing existing UI visual baseline marker: {marker}")
         for marker in (
             "isolated_ui_prototype:",
             "host_mutation_policy:",
@@ -766,7 +766,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
             "parity_claim:",
         ):
             if marker not in run_log:
-                fail(f"Repo-backed prototype missing isolated UI prototype marker: {marker}")
+                fail(f"Repo-backed UI delivery missing isolated UI delivery marker: {marker}")
 
         check_repo_backed_style_evidence_quality(run_log)
 
@@ -774,7 +774,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
             text = read(prototype)
             if "style-source-summary" not in text and "data-style-source" not in text:
                 fail(
-                    f"Repo-backed prototype missing style-source-summary or data-style-source: "
+                    f"Repo-backed UI delivery missing style-source-summary or data-style-source: "
                     f"{prototype.name}"
                 )
 
@@ -923,7 +923,7 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
         fail(f"{prototype_name} annotation toggle must hide while the annotation panel is open")
     state_tabs_body = css_rule_body(text, ".prototype-state-tabs")
     if "prototype-state-tabs" in text and not re.search(r"\bposition\s*:\s*fixed\b", state_tabs_body):
-        fail(f"{prototype_name} prototype state tabs must use a fixed position")
+        fail(f"{prototype_name} state tabs must use a fixed position")
     target_rule = re.search(r"\.annotation-target\s*\{(?P<body>[^}]*)\}", text, re.MULTILINE | re.DOTALL)
     if target_rule and re.search(r"overflow:\s*(hidden|clip|auto|scroll)", target_rule.group("body")):
         fail(f"{prototype_name} annotation-target must not clip annotation markers")
@@ -1024,7 +1024,7 @@ def check_chinese_prd(path: Path) -> None:
     prototype_refs = re.findall(r"`(prototype-[a-z-]+\.html)`", text)
     for ref in prototype_refs:
         if not (path / ref).is_file():
-            fail(f"PRD references missing prototype file: {ref}")
+            fail(f"PRD references missing compatibility UI HTML file: {ref}")
 
 
 def check_tracking_context(path: Path) -> None:
@@ -1096,18 +1096,18 @@ def check_mini_program_prototype(path: Path, language: str | None = None) -> Non
     ]
     for marker in required:
         if marker not in text:
-            fail(f"Mini Program prototype missing marker: {marker}")
+            fail(f"Mini Program UI HTML missing marker: {marker}")
     if "showScreen(" not in text and "showView(" not in text:
-        fail("Mini Program prototype missing screen/state switching function")
+        fail("Mini Program UI HTML missing screen/state switching function")
     if "不是生产代码" not in text and "not production code" not in text.lower():
-        fail("Prototype missing not-production-code label")
+        fail("Compatibility UI HTML missing not-production-code label")
     if "待产包" in text:
         for marker in ("待审核", "免责声明"):
             if marker not in text:
-                fail(f"Content-backed prototype missing marker: {marker}")
+                fail(f"Content-backed UI HTML missing marker: {marker}")
     external_refs = ("http://", "https://", "cdn.", "unpkg.com", "cdnjs.")
     if any(ref in text for ref in external_refs):
-        fail("Prototype should be self-contained and avoid external network references")
+        fail("Compatibility UI HTML should be self-contained and avoid external network references")
 
 
 def check_web_prototype(path: Path, language: str | None = None) -> None:
@@ -1131,18 +1131,18 @@ def check_web_prototype(path: Path, language: str | None = None) -> None:
     ]
     for marker in required:
         if marker not in text:
-            fail(f"Web prototype missing marker: {marker}")
+            fail(f"Web UI HTML missing marker: {marker}")
     if "不是生产代码" not in text and "not production code" not in text.lower():
-        fail("Web prototype missing not-production-code label")
+        fail("Web UI HTML missing not-production-code label")
     for marker in ("未登录", "无权限", "错误", "加载"):
         if marker not in text:
-            fail(f"Web prototype missing state marker: {marker}")
+            fail(f"Web UI HTML missing state marker: {marker}")
     prd_text = read(path / "prd.md") if (path / "prd.md").is_file() else ""
     if "fund-bff" in prd_text and "fund-bff" not in text:
-        fail("Repo-backed Web prototype missing BFF boundary marker")
+        fail("Repo-backed Web UI HTML missing BFF boundary marker")
     external_refs = ("http://", "https://", "cdn.", "unpkg.com", "cdnjs.")
     if any(ref in text for ref in external_refs):
-        fail("Web prototype should be self-contained and avoid external network references")
+        fail("Web UI HTML should be self-contained and avoid external network references")
 
 
 def check_mermaid(path: Path) -> None:

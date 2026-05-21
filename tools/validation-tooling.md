@@ -31,17 +31,17 @@ python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
 - Do not leave validation placeholders after commands run.
 - Record every command and result using `artifacts/tool-result-contract.md`.
 
-## Visual Prototype Checks
+## UI Visual Checks
 
-For UI prototypes, the delivery orchestrator runs:
+For compatibility HTML UI deliverables, the delivery orchestrator runs:
 
 ```bash
 python3 scripts/validate_prototype_visual.py outputs/<run-id>
 ```
 
-The visual validator checks every supported prototype file in the run folder unless `--prototype <file>` is used to isolate one platform. It captures screenshots and records DOM smoke evidence for each viewport: body text length, visible interactive controls, horizontal overflow, console errors, page errors, and access-state leakage from unauthenticated account triggers. If an auto-detected system browser fails to launch, it should fall back to Playwright's default/bundled Chromium path and attempt setup before reporting a browser limitation.
+The visual validator checks every supported compatibility HTML file in the run folder unless `--prototype <file>` is used to isolate one platform. It captures screenshots and records DOM smoke evidence for each viewport: body text length, visible interactive controls, horizontal overflow, console errors, page errors, and access-state leakage from unauthenticated account triggers. Source-backed UI previews should run through the host dev/preview/Storybook/simulator path and record equivalent screenshot or browser evidence under `visual_validation`. If an auto-detected system browser fails to launch, it should fall back to Playwright's default/bundled Chromium path and attempt setup before reporting a browser limitation.
 
-When `run_delivery_checks.py` skips a duplicate visual run because a previous visual validation already passed, it must read `visual-review/visual-report.json` and confirm that the report is passed, covers every prototype, and includes DOM smoke evidence, including access-state evidence. A legacy report that only proves nonblank screenshots is not enough for reuse.
+When `run_delivery_checks.py` skips a duplicate visual run because a previous visual validation already passed, it must read `visual-review/visual-report.json` and confirm that the report is passed, covers every compatibility HTML file, and includes DOM smoke evidence, including access-state evidence. A legacy report that only proves nonblank screenshots is not enough for reuse.
 
 If Playwright or a browser is missing, run:
 
@@ -53,4 +53,4 @@ A skipped visual check is valid only when setup fails, browser launch is forbidd
 
 ## HTML Checks
 
-`run_delivery_checks.py` always runs a Python `html.parser` check for prototype files. If `tidy` is available, it also records `tidy` output as optional evidence. Older `tidy` compatibility failures must not be described as browser validation failures.
+`run_delivery_checks.py` always runs a Python `html.parser` check for compatibility HTML files. If `tidy` is available, it also records `tidy` output as optional evidence. Older `tidy` compatibility failures must not be described as browser validation failures.

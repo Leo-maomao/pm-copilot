@@ -129,7 +129,7 @@ def existing_visual_report_check(
         failures.append(f"visual report status is {data.get('status')!r}")
     missing = sorted(prototype_names - reported_names)
     if missing:
-        failures.append("visual report missing prototypes: " + ", ".join(missing))
+        failures.append("visual report missing compatibility UI HTML files: " + ", ".join(missing))
     viewport_reports = [
         viewport
         for prototype_report in data.get("prototypes", [])

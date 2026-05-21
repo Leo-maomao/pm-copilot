@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Check whether the generated PRD and prototype delivery is ready for stakeholder review, engineering handoff, and launch.
+Check whether the generated PRD and UI delivery is ready for stakeholder review, engineering handoff, and launch.
 
 ## Responsibilities
 
@@ -18,8 +18,8 @@ Check whether the generated PRD and prototype delivery is ready for stakeholder 
 - Verify external tool recommendations were vetted with `skills/tool-vetting/SKILL.md` and that candidate/setup-required tools were not treated as available.
 - Verify every used specialist skill follows its own quality bar, including design-system audit, experiment design, competitor research, feedback synthesis, opportunity discovery, roadmap communication, knowledge-ops, process-mapping, product-ops analysis, and sharingan absorption.
 - Verify `scripts/run_delivery_checks.py` ran for generated run folders or that individual equivalent checks are recorded.
-- Verify prototype visual validation is recorded for UI deliveries, including screenshot paths, diff status, or a skipped reason that shows setup was attempted, browser launch was forbidden, or installation was declined.
-- Verify access-state coherence in prototypes: logged-out, guest, no-permission, and eligible states must not contradict each other or reveal signed-in-only account data/actions from unauthenticated entry points.
+- Verify UI visual validation is recorded for UI deliveries, including screenshot paths, diff status, or a skipped reason that shows setup was attempted, browser launch was forbidden, or installation was declined.
+- Verify access-state coherence in UI deliverables: logged-out, guest, no-permission, and eligible states must not contradict each other or reveal signed-in-only account data/actions from unauthenticated entry points.
 - Verify the default output folder contains only allowed artifacts and that `validate_outputs.py` or `run_delivery_checks.py` passed; if either cannot run, record the tool failure.
 - Check that default-option selections, quality thresholds, failure classifications, and validation commands are present in the run log.
 - Review `dev-tasks.yaml` and `launch-decision.yaml` against their contracts when present.
@@ -32,13 +32,13 @@ Check whether the generated PRD and prototype delivery is ready for stakeholder 
 
 - PRD
 - Metrics, tracking, and flow sections inside the PRD
-- Prototype
+- UI deliverable
 - Confirmation and assumption records inside the PRD or run log
 - Guardrails
 
 ## Outputs
 
-- Review findings for PRD and prototype
+- Review findings for PRD and UI deliverable
 - Risk log
 - Required fixes
 - Optional improvements
@@ -59,4 +59,4 @@ Check whether the generated PRD and prototype delivery is ready for stakeholder 
 
 - To PM Orchestrator with readiness recommendation, required fixes, accepted risks, and delivery-check prerequisites.
 - Back to the owning specialist agent when Critical or High findings require revision.
-- To execution handoff workflow when PRD/prototype artifacts are ready enough for controlled `dev-tasks.yaml` or `launch-decision.yaml` generation.
+- To execution handoff workflow when PRD/UI delivery artifacts are ready enough for controlled `dev-tasks.yaml` or `launch-decision.yaml` generation.

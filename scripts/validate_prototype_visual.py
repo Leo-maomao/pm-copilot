@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture and compare generated PM Copilot HTML prototypes.
+"""Capture and compare generated PM Copilot compatibility HTML UI deliverables.
 
 The script intentionally has no hard dependency at import time. Install
 or repair Playwright/browser dependencies with:
@@ -114,7 +114,7 @@ def find_prototypes(folder: Path, explicit: str | None) -> list[Path]:
     if explicit:
         candidate = folder / explicit
         if not candidate.is_file():
-            fail(f"Prototype not found: {candidate}")
+            fail(f"Compatibility UI HTML file not found: {candidate}")
         return [candidate]
     prototypes = [
         folder / file_name
@@ -123,7 +123,7 @@ def find_prototypes(folder: Path, explicit: str | None) -> list[Path]:
     ]
     if prototypes:
         return prototypes
-    fail(f"No supported prototype found in {folder}")
+    fail(f"No supported compatibility UI HTML file found in {folder}")
 
 
 def path_for_report(path: Path, base: Path) -> str:
@@ -487,7 +487,7 @@ def inspect_page_dom(page) -> dict[str, object]:
             }
             const stateTabs = document.querySelector(".prototype-state-tabs");
             if (stateTabs && window.getComputedStyle(stateTabs).position !== "fixed") {
-                result.annotation_layout_issues.push("prototype state tabs are not fixed-position");
+                result.annotation_layout_issues.push("state tabs are not fixed-position");
             }
             const markers = Array.from(document.querySelectorAll(".annotation-marker")).filter(styleVisible);
             for (const marker of markers) {
@@ -875,8 +875,8 @@ def main() -> None:
     report_path = output_dir / "visual-report.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     if failures:
-        fail(f"Prototype visual validation failed; see {report_path}")
-    print(f"PM Copilot prototype visual validation passed: {report_path}")
+        fail(f"UI visual validation failed; see {report_path}")
+    print(f"PM Copilot UI visual validation passed: {report_path}")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 Every generated artifact must follow the relevant contract. If a section cannot be completed, keep the section and mark it as `Unknown`, `Assumed`, or `Not applicable`.
 
-Use the user's language for all human-facing artifact content, including headings, table column labels, status labels, notes, prototype annotations, and review labels. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
+Use the user's language for all human-facing artifact content, including headings, table column labels, status labels, notes, UI delivery annotations, and review labels. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
 
 Readiness values, review severity labels, and review item statuses inside `prd.md` are human-facing and must be localized. Internal traces may keep stable English codes when useful, but Chinese PRDs should use Chinese statuses such as `可进入评审`, `框架范围可进入开发`, `发布前阻塞`, `高`, `中`, `低`, `未关闭`, or equivalent localized wording.
 
@@ -13,9 +13,11 @@ Repository templates are structure guides, not literal English copy. Translate t
 The default product-manager delivery contains only:
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prototype-<platform>.html` when a user-facing prototype is relevant
+- a UI deliverable when a user-facing UI artifact is relevant:
+  - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
+  - `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode
 
-For repo-backed UI work with frontend source, the prototype reference should be a source-rendered delta patch, preview route, Storybook story, demo entry, Mini Program preview page, or App preview screen recorded in `run-log.yaml` and referenced from the PRD. In that mode, PM Copilot should import/render the original baseline from host source, change only isolated delta/preview files, and should not hand-recreate the real UI as standalone HTML while claiming product fit.
+For repo-backed UI work with frontend source, the UI delivery reference should be a source-rendered delta patch, preview route, Storybook story, demo entry, Mini Program preview page, or App preview screen recorded in `run-log.yaml` and referenced from the PRD. In that mode, PM Copilot should import/render the original baseline from host source, change only isolated delta/preview files, and should not hand-recreate the real UI as standalone HTML while claiming product fit. User words such as "prototype", "原型", "demo", or "only generate a prototype" describe review scope, not the artifact method.
 
 `outputs/<run-id>/run-log.yaml` is an internal trace artifact for debugging, regression, and auditability. It is not a PM-facing deliverable.
 
@@ -40,7 +42,7 @@ Clarification output must not contradict itself. Do not mark one question as bot
 - `can draft with stated assumption`
 - `must confirm before development or launch`
 
-If must-answer questions are unresolved, ask the user and stop before generating `prd.md` or prototype HTML. User silence is not approval.
+If must-answer questions are unresolved, ask the user and stop before generating `prd.md` or UI deliverables. User silence is not approval.
 
 Default readiness is `Ready for engineering` for the confirmed engineering scope. If engineering-blocking confirmations are missing, the agent must stop and ask. It may generate a draft only when the user explicitly requests a draft or accepts the risk, and the PRD status must reflect that downgrade. Launch readiness is a separate field; a PRD may be ready for engineering while launch remains blocked by content, legal, compliance, operational, or analytics approval.
 
@@ -62,7 +64,7 @@ Required sections:
 - Requirement details
 - Flow diagrams, when useful
 - Tracking plan
-- Prototype reference
+- UI delivery reference
 - Risks and open confirmations
 - Acceptance criteria
 - Delivery review findings
@@ -95,7 +97,7 @@ Requirement details must be implementation-grade. For each functional item, incl
 
 Minimum quality bar:
 
-- A PM, designer, engineer, QA, and analytics reviewer can understand the requirement from `prd.md` plus the prototype.
+- A PM, designer, engineer, QA, and analytics reviewer can understand the requirement from `prd.md` plus the UI deliverable.
 - Goals are measurable or tied to a measurement plan.
 - Research and reference findings explain why the solution is shaped this way using source-backed competitor, benchmark, comparable feature, user research, public docs, screenshots, or technical solution references.
 - Current implementation findings from the host repository are product context, not a substitute for external product research. Put them in background, current-state notes, or the engineering implementation map unless they are clearly labeled as implementation constraints.
@@ -105,7 +107,7 @@ Minimum quality bar:
 - Validation results list the exact command, pass/fail/skipped status, and limitation. The PRD must not conflict with `run-log.yaml` about what was validated.
 - Tool results follow `artifacts/tool-result-contract.md` and use capability IDs from `tools/tool-registry.yaml` where possible.
 - Validation results must be finalized after tools run. Do not leave placeholder statuses such as `pending`, `待执行`, `should run`, or `to be verified` in delivered artifacts once the corresponding command has already been executed or intentionally skipped.
-- Prototype validation should include browser screenshot and visual diff checks. If tooling is unavailable, PM Copilot should attempt or guide setup first. A skipped visual check must include the setup failure, environment restriction, or user-declined reason in `run-log.yaml` and the PRD validation section.
+- UI visual validation should include browser screenshot and visual diff checks. If tooling is unavailable, PM Copilot should attempt or guide setup first. A skipped visual check must include the setup failure, environment restriction, or user-declined reason in `run-log.yaml` and the PRD validation section.
 - Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
 - Delivery review findings include artifact, evidence, owner, required-before phase, and status, or explicitly state that no Critical or High findings were found after review.
 
@@ -161,16 +163,16 @@ Minimum quality bar:
 - The flow matches the confirmed PRD scope.
 - Notes explain only assumptions or edge cases that cannot fit cleanly in the diagram.
 
-## HTML Prototype
+## UI Deliverable
 
 Required elements:
 
-- Runs locally without build tooling when a standalone HTML artifact is selected; source-rendered preview modes run through the host app's normal dev, preview, Storybook, simulator, or platform tooling.
+- Runs locally without build tooling when a standalone HTML compatibility artifact is selected; source-rendered preview modes run through the host app's normal dev, preview, Storybook, simulator, or platform tooling.
 - Simulates or uses the selected platform container.
 - Matches existing product style when current screenshots, demos, routes, components, or design-system references are available.
-- For repo-backed prototype-only UI work, reads real host frontend code and assets, keeps production flows read-only by default, and uses `source_delta_patch` or a platform-specific source-rendered preview whenever host frontend source exists. This does not require the user to ask for exact UI parity.
-- For repo-backed prototype-only UI work, records `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, artifact mode, target surface, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
-- For repo-backed prototype-only UI work, imports/renders `baseline_import` from original host source and puts only new feature behavior in `delta_patch`: preview composition, mock state, markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
+- For repo-backed UI-delivery work, reads real host frontend code and assets, keeps production flows read-only by default, and uses `source_delta_patch` or a platform-specific source-rendered preview whenever host frontend source exists. This does not require the user to ask for exact UI parity.
+- For repo-backed UI-delivery work, records `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, artifact mode, target surface, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
+- For repo-backed UI-delivery work, imports/renders `baseline_import` from original host source and puts only new feature behavior in `delta_patch`: preview composition, mock state, markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
 - For repo-backed frontend products, records concrete `style_evidence` in `run-log.yaml`, includes source-to-demo mappings for reused host components, and includes `style-source-summary` or `data-style-source` in the HTML.
 - For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
 - Includes key screens and states.
@@ -178,9 +180,9 @@ Required elements:
 - States its fidelity level: `low`, `mid`, or `high`.
 - Does not reserve a side annotation board by default. The product UI should keep its real layout width and height.
 - Places compact numbered callouts at the top-right corner of the concrete UI component, state, or transition being explained, offset just outside the corner when needed to avoid covering content.
-- Uses small red/white borderless `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface. Marker badges and matching number badges inside marker dialogs and the right-side page annotation panel must show plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content, and must share the same rendered diameter, font size, font weight, line height, and centered digit alignment. Clicking a marker opens a local `annotation-dialog` popover beside that marker, clicking the same marker again closes it, and the marker's visual style does not change. Marker clicks must not open a full-screen/global modal. A short draggable `注释`/`Notes` floating control with `data-draggable="true"` opens a right-edge full-height `annotation-list` panel for the current page/state, hides while the panel is open, and reappears when it closes.
+- Uses small red/white borderless `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the UI surface. Marker badges and matching number badges inside marker dialogs and the right-side page annotation panel must show plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content, and must share the same rendered diameter, font size, font weight, line height, and centered digit alignment. Clicking a marker opens a local `annotation-dialog` popover beside that marker, clicking the same marker again closes it, and the marker's visual style does not change. Marker clicks must not open a full-screen/global modal. A short draggable `注释`/`Notes` floating control with `data-draggable="true"` opens a right-edge full-height `annotation-list` panel for the current page/state, hides while the panel is open, and reappears when it closes.
 
-Prototype annotations must cover the relevant subset of:
+UI delivery annotations must cover the relevant subset of:
 
 - Product design intent
 - Logic rule
@@ -197,15 +199,15 @@ Minimum quality bar:
 - Standalone HTML requires no external assets; source-rendered previews may use verified host-project assets and dependencies through the host build path.
 - Text fits in the layout.
 - Callouts do not cover critical copy or controls.
-- Prototype annotation overlays must not change product layout, reserve persistent side space, or shrink the product viewport.
-- Prototype JavaScript parses and core buttons, tabs, dialogs, annotation markers, and the annotation toggle produce visible state changes.
+- Annotation overlays must not change product layout, reserve persistent side space, or shrink the product viewport.
+- Standalone HTML JavaScript parses when HTML is generated, and core buttons, tabs, dialogs, annotation markers, and the annotation toggle produce visible state changes.
 - Annotation markers are visible, unclipped, and do not force compact controls or tab labels to wrap.
-- The prototype does not claim to be production code.
-- The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
-- When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
-- When host frontend code exists, the prototype reuses the current app shell, component-library structure, tokens, spacing density, and copy tone rather than introducing a separate visual system, unless the raw request explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI.
+- Standalone HTML does not claim to be production code. Source-backed preview/delta files can be implementation candidates only when the user explicitly asked for implementation-oriented work and the host mutation policy records that boundary.
+- The UI deliverable shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
+- When existing product UI exists, the UI deliverable adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
+- When host frontend code exists, the UI deliverable reuses the current app shell, component-library structure, tokens, spacing density, and copy tone rather than introducing a separate visual system, unless the raw request explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI.
 - When source-level fidelity is requested or exact icons/components/native platform chrome matter, uses a source-rendered preview mode when available; otherwise the artifact explicitly states standalone-HTML fidelity limitations.
-- Repo-backed prototype-only work does not mutate existing production routes, pages, components, styles, assets, package files, or backend code unless the user explicitly requested production-oriented implementation. Exact-fidelity prototype work should use isolated preview/delta files.
+- Repo-backed UI-delivery-only work does not mutate existing production routes, pages, components, styles, assets, package files, or backend code unless the user explicitly requested production-oriented implementation. Exact-fidelity UI delivery should use isolated preview/delta files.
 - Delta markers and annotation controls do not resize, crop, recolor, or cover critical unchanged baseline UI.
 - Backend-dependent behavior is represented through mock data, states, and annotations rather than implying backend implementation exists.
 - For long pages, multi-state flows, and modals, preserve the product's real scrolling behavior. Do not clip modal contents or force the whole product into a fixed-height frame unless the host product does that.

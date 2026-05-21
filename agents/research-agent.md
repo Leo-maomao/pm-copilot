@@ -30,7 +30,7 @@ Gather and summarize source-backed competitor, market, or benchmark information 
 - Research brief
 - Source list
 - Competitor comparison table
-- Implications for PRD, metrics, or prototype
+- Implications for PRD, metrics, or UI delivery
 - Separation between external product findings and current-product implementation constraints
 - Unknowns and confidence notes
 - Source freshness and access limitation notes

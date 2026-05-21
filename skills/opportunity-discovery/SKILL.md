@@ -1,13 +1,13 @@
 ---
 name: opportunity-discovery
-description: Use when validating product opportunities, mapping assumptions, planning discovery work, or deciding whether a problem is worth PRD/prototype investment.
+description: Use when validating product opportunities, mapping assumptions, planning discovery work, or deciding whether a problem is worth PRD/UI-delivery investment.
 ---
 
 # Opportunity Discovery
 
 ## Goal
 
-Turn an ambiguous idea into an evidence-backed opportunity brief before PM Copilot commits to solution scope, PRD details, or prototype fidelity.
+Turn an ambiguous idea into an evidence-backed opportunity brief before PM Copilot commits to solution scope, PRD details, or UI delivery fidelity.
 
 ## Workflow
 

@@ -18,7 +18,7 @@ Convert a vague product request into a usable brief without inventing business-c
 5. Ask only high-impact clarification questions that materially change scope, metrics, solution direction, compliance, or release risk.
 6. Split unknowns into `must answer before generation`, `can draft with stated assumption`, and `must confirm before development or launch`.
 7. Stop before PRD generation if any `must answer before generation` question is unanswered.
-8. Stop before a `Ready for engineering` PRD/prototype delivery if any engineering-blocking `must confirm before development or launch` item is unanswered.
+8. Stop before a `Ready for engineering` PRD/UI delivery if any engineering-blocking `must confirm before development or launch` item is unanswered.
 9. If the user explicitly asks for iterative evaluation or says to choose recommended options automatically, select conservative defaults instead of stopping, record each default and rationale, and keep unresolved risk visible in readiness.
 10. Write explicit assumptions only after the user says to proceed with a draft or the unknown is low-impact.
 11. Do not put the same unknown in more than one bucket.

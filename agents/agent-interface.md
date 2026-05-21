@@ -25,7 +25,7 @@ Every agent definition in this repository follows the same interface.
   - `degraded`: a lower-fidelity artifact was produced with an explicit limitation.
   - `failed`: the agent could not produce a usable output.
 - Do not mark an output `complete` when required fields are unknown, validation placeholders remain, or the next agent would need to reverse-engineer missing context.
-- Use stable machine codes in traces and localized human-facing wording in PRDs and prototypes.
+- Use stable machine codes in traces and localized human-facing wording in PRDs and UI deliverables.
 
 ## Runtime Protocol
 
@@ -61,7 +61,7 @@ Rules:
 - Discovery owns clarification classification and current-state summary.
 - Requirements owns PRD requirement content and acceptance criteria.
 - Analytics owns metrics, event taxonomy status, event tables, and property dictionaries.
-- Prototype owns flow/prototype fidelity, platform fit, interactions, states, and annotation mapping.
+- UI Delivery owns flow/UI delivery fidelity, platform fit, interactions, states, and annotation mapping.
 - Research owns source-backed facts, source limitations, and research confidence.
 - Review owns findings, severity, required-before phase, and go/no-go recommendations.
 

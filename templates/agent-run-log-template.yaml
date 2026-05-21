@@ -199,20 +199,20 @@ host_frontend_inventory:
   icon_asset_sources: [] # icon imports, SVG/iconfont files, image assets, or explicit not_applicable reason
   data_or_mock_sources: []
   render_entrypoint: "" # dev script, preview URL, Storybook command, simulator command, or unavailable reason
-  preview_surface: "" # route/story/demo/screen that renders the source-backed prototype
+  preview_surface: "" # route/story/demo/screen that renders the source-backed UI deliverable
   source_rendering_decision: "" # required | used | blocked | user_explicit_portable | user_explicit_greenfield | not_required; user_explicit_* requires matching raw_request wording
   source_rendering_limitation: "" # concrete command/browser/simulator/dependency/preview-surface blocker when blocked; production read-only alone is not a blocker
 
 style_evidence:
   source_files: [] # concrete host files/assets inspected, e.g. src/.../Component.tsx, src/styles/..., public/...
-  reused_components: [] # host component-library or page components mirrored in the prototype
+  reused_components: [] # host component-library or page components rendered or mirrored in the UI deliverable
   reused_tokens_or_classes: []
   icon_asset_sources: [] # exact icon/image/font asset sources reused or explicit not_applicable reason
-  prototype_delta: ""
+  prototype_delta: "" # legacy key; describe the UI delivery delta, not a hand-written standalone prototype by default
   limitations: []
 
 isolated_ui_prototype:
-  mode: "" # self_contained_html_from_host_code only for raw-request portable/standalone/HTML output, raw-request redesign/greenfield, no frontend source, or concrete blocked source rendering; otherwise source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | document_or_screenshot_only | not_applicable
+  mode: "" # legacy section name; self_contained_html_from_host_code only for raw-request portable/standalone/HTML output, raw-request redesign/greenfield, no frontend source, or concrete blocked source rendering; otherwise source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | document_or_screenshot_only | not_applicable
   host_mutation_policy: "" # production_flows_read_only | isolated_preview_files_only | production_implementation_requested | not_applicable
   target_surface: ""
   preview_files_changed: [] # only for source-rendered modes; keep production flow files out unless requested
@@ -231,7 +231,7 @@ isolated_ui_prototype:
     next_delta_anchor: "" # where future turns should continue adding changes
   source_to_demo_mapping:
     - source: "" # host file, screenshot, demo route, or component source
-      prototype_representation: "" # where and how that source appears in the HTML prototype
+      prototype_representation: "" # legacy key; where and how that source appears in the UI deliverable or compatibility HTML
       confidence: ""
   backend_simulation:
     method: "" # mock_data_and_annotations | existing_mock_source | real_api_not_used | not_applicable
@@ -275,7 +275,8 @@ open_questions:
 
 artifacts:
   prd: ""
-  prototype: ""
+  prototype: "" # legacy key; use for compatibility HTML path or source-backed UI preview reference
+  ui_deliverable: ""
   run_log: ""
   tool_results_dir: ""
   optional_exports:
@@ -342,6 +343,7 @@ review_scores:
     score: null
     max_score: 28
     status: ""
+  # Legacy score key; score UI delivery quality.
   prototype:
     score: null
     max_score: 32
@@ -355,6 +357,7 @@ quality_thresholds:
   delivery: 23
   prd: 31
   metrics_and_tracking: 21
+  # Legacy threshold key; UI delivery threshold.
   prototype: 24
   review_checklist: 15
 

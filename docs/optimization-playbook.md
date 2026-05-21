@@ -39,7 +39,7 @@ Use this loop for every improvement cycle.
 For full self-iteration or embedded-project benchmarking, every cycle must generate the complete round artifacts before judging the failure:
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prototype-<platform>.html` when the scenario is user-facing
+- UI deliverable reference when the scenario is user-facing: source-backed preview/delta by default, or `outputs/<run-id>/prototype-<platform>.html` for compatibility standalone/fallback mode
 - `outputs/<run-id>/run-log.yaml`
 - `outputs/<run-id>/tool-results/delivery-check-report.json` from `scripts/run_delivery_checks.py`
 - `outputs/<run-id>/visual-review/visual-report.json` after Playwright/browser setup succeeds for visual validation
@@ -53,8 +53,8 @@ After a fixed iteration block, for example 20 rounds, decide whether the improve
 
 - Latest generated artifacts pass repository validation and output validation.
 - Tool preflight and delivery-orchestrator reports show required tools ran or setup/skipped reasons are explicit.
-- Scores exceed the documented minimum thresholds for delivery, PRD, metrics/tracking, prototype, and review.
-- Prototype visual checks are run after setup, or setup was attempted and explicitly failed/was declined; regression suites should compare screenshots against baselines.
+- Scores exceed the documented minimum thresholds for delivery, PRD, metrics/tracking, UI delivery, and review.
+- UI visual checks are run after setup, or setup was attempted and explicitly failed/was declined; regression suites should compare screenshots against baselines.
 - Development handoff and launch decision artifacts preserve blockers and approvals instead of turning them into ready work.
 - Previously observed failures are either fixed by rules/tools or intentionally accepted with residual risk.
 - New failures are lower severity or narrower than the baseline failures.
@@ -108,7 +108,7 @@ Minimum useful early-usage thresholds:
 | Delivery | 23 / 32 |
 | PRD | 31 / 40 |
 | Metrics and tracking | 21 / 28 |
-| Prototype | 24 / 32 |
+| UI delivery | 24 / 32 |
 | Delivery review inside PRD | 15 / 20 |
 
 If a delivery misses a threshold, classify why before editing anything.
@@ -184,7 +184,7 @@ Use `templates/evaluation-case-template.md`.
 | Agent generates without asking critical questions | Strengthen workflow human checkpoints |
 | PRD is verbose but not testable | Improve PRD contract and acceptance-criteria skill |
 | Tracking plan has vague triggers | Improve tracking-plan skill and artifact contract |
-| Prototype platform is wrong | Improve prototype contract and platform selection rules |
+| UI delivery platform is wrong | Improve UI delivery contract and platform selection rules |
 | Outputs contradict each other | Improve PM Orchestrator handoff and final review rules |
 | Agent invents competitor facts | Strengthen research-agent and guardrails |
 | Ready status hides launch blockers | Improve readiness model, PRD contract, and delivery review rules |

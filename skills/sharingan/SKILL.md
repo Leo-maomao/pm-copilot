@@ -16,7 +16,7 @@ Sharingan is a resource assimilation skill. It reviews external repos, docs, pro
 1. Intake the resource:
    - Identify resource type, source, author or maintainer, version/date, license, and intended use.
    - Inspect current primary sources for URLs, live dependencies, packages, marketplace items, or active repos.
-   - Record what PM Copilot capability the user wants strengthened: discovery, research, requirements, analytics, prototyping, review, tool governance, artifact packaging, or workflow orchestration.
+   - Record what PM Copilot capability the user wants strengthened: discovery, research, requirements, analytics, UI delivery, review, tool governance, artifact packaging, or workflow orchestration.
 
 2. Map PM Copilot fit:
    - Check existing agents, skills, tools, artifact contracts, workflow rules, and guardrails before proposing new structures.

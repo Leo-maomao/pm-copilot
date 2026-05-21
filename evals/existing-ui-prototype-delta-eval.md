@@ -1,4 +1,4 @@
-# Evaluation Case: Existing UI Prototype Delta
+# Evaluation Case: Existing UI Source-Backed Delivery Delta
 
 ## Metadata
 
@@ -26,19 +26,19 @@ Add an approval reminder setting to the existing workspace settings page. There 
 ## Expected Workflow
 
 - Classify the run as `repo-backed`.
-- Inspect the existing settings page or demo before prototyping.
-- Inspect the existing component library, style tokens, route/page source, and any available screenshot before prototyping.
+- Inspect the existing settings page or demo before UI delivery.
+- Inspect the existing component library, style tokens, route/page source, and any available screenshot before UI delivery.
 - Record host frontend inventory, including entry files, route/page files, component-library files, style files, icon/asset sources, render command, and preview surface.
-- Treat the prototype as a change to the existing surface, not as a new product.
+- Treat the UI deliverable as a change to the existing surface, not as a new product.
 - Import/render the existing baseline from host source and add the new requirement only through isolated delta patch files.
-- Record concrete style evidence and source-to-demo mappings before claiming the prototype is complete.
+- Record concrete style evidence and source-to-demo mappings before claiming the UI deliverable is complete.
 
 ## Pass Criteria
 
-- Prototype preserves the current page structure, navigation, layout density, and component style.
-- Run log `host_frontend_inventory`, `style_evidence.source_files`, `style_evidence.reused_components`, `style_evidence.icon_asset_sources`, and `source_to_demo_mapping` name real host files/components/assets and explain how they are represented in the prototype.
+- UI deliverable preserves the current page structure, navigation, layout density, and component style.
+- Run log `host_frontend_inventory`, `style_evidence.source_files`, `style_evidence.reused_components`, `style_evidence.icon_asset_sources`, and `source_to_demo_mapping` name real host files/components/assets and explain how they are represented in the UI deliverable.
 - Run log `isolated_ui_prototype.baseline_import` lists imported baseline sources and `delta_patch` lists only preview/delta files, strategy, and next multi-turn anchor.
-- Prototype clearly shows the new requirement as a delta on the existing page.
+- UI deliverable clearly shows the new requirement as a delta on the existing page.
 - Each page or screen has its own annotation group.
 - Each annotation is reachable from a marker or hotspot tied to a specific UI element, with details in a local marker popover beside that UI element and the current-state annotation list.
 - Marker visual style does not change after click, and clicking the same marker again closes the local popover.
@@ -48,7 +48,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 - Marker-triggered notes do not open a full-screen/global modal or backdrop.
 - If host frontend source exists, the run uses a source-rendered delta patch, preview route, Storybook/demo, Mini Program preview page, or App preview screen as appropriate; otherwise the standalone HTML limitation is explicit.
 - Cross-page notes are separated from page-specific notes.
-- The PRD records which existing files or screenshots informed the prototype.
+- The PRD records which existing files or screenshots informed the UI deliverable.
 
 ## Failure History
 
@@ -61,6 +61,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 | 2026-05-21 | prototype-only-misread | High | Agent interpreted "only generate a prototype" as consent for standalone HTML and skipped a renderable host source preview. | Require raw-request portable/standalone/HTML wording or concrete source-rendering blocker before standalone fallback. |
 | 2026-05-21 | source-first-missing | High | Agent treated source rendering as optional unless exact fidelity was requested. | Require source-rendered preview/delta whenever frontend source exists, except explicit standalone, explicit redesign/greenfield, or concrete blocker cases. |
 | 2026-05-21 | annotation-ui-inconsistency | Medium | Marker badges, note badges, annotation panel, and state switcher controls did not follow the required fixed interaction model. | Enforce red/white borderless badges, short annotation floating control, right-side full-height panel, and fixed state switchers. |
+| 2026-05-21 | prototype-term-handwrite-bias | High | The word "prototype" biased the agent toward rewriting a standalone HTML approximation even when source code was available. | Redefine default UI output as source-backed UI delivery; keep legacy prototype names only as compatibility machine names. |
 
 ## Latest Result
 
@@ -68,4 +69,4 @@ Add an approval reminder setting to the existing workspace settings page. There 
 |---|---|
 | Run ID |  |
 | Status | Pending |
-| Notes | Regression case for prototype quality in repo-backed products with existing UI. |
+| Notes | Regression case for source-backed UI delivery quality in repo-backed products with existing UI. |

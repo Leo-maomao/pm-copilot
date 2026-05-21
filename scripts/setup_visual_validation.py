@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install or verify dependencies for prototype visual validation."""
+"""Install or verify dependencies for UI visual validation."""
 
 from __future__ import annotations
 

@@ -12,7 +12,7 @@ Use this eval when PM Copilot is validated inside `my-fund-site`, a Web financia
 Each Web evaluation round must create:
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prototype-web.html`
+- A Web UI deliverable that is source-backed when `apps/my-fund-site` frontend source is present: record the preview route/story/demo or `source_delta_patch` files in `run-log.yaml`; use `outputs/<run-id>/prototype-web.html` only for explicit portable HTML or concrete source-rendering blockers
 - `outputs/<run-id>/run-log.yaml`
 
 Validation commands:
@@ -20,15 +20,10 @@ Validation commands:
 ```bash
 python3 scripts/validate_repo.py
 python3 scripts/validate_outputs.py outputs/<run-id> --language zh
-tidy -errors -quiet -utf8 outputs/<run-id>/prototype-web.html
-python3 - <<'PY'
-from html.parser import HTMLParser
-from pathlib import Path
-HTMLParser().feed(Path("outputs/<run-id>/prototype-web.html").read_text(encoding="utf-8"))
-PY
+python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
 ```
 
-`tidy` may report old HTML5 compatibility warnings on macOS; record the limitation and use the Python parser fallback.
+If compatibility HTML is explicitly selected, `run_delivery_checks.py` runs the HTML parser checks and records optional `tidy` evidence when available. If source-backed preview files are selected, run the host dev/preview path and record equivalent browser or screenshot evidence under `visual_validation`.
 
 ## Scenario Set
 
@@ -58,6 +53,6 @@ PY
 ## Pass Criteria
 
 - Every scenario passes repository and output validation after fixes are applied.
-- Web prototypes are self-contained, show a Web shell or proper extension container, include responsive/access states, and are labeled as non-production artifacts.
+- Web UI deliverables use the current `apps/my-fund-site` frontend source as the baseline when available, show a Web shell or proper extension container, include responsive/access states, and record the isolated preview/delta boundary.
 - Financial content includes source, calculation, delay, disclaimer, and non-advice boundaries.
 - Generated host `outputs/` folders are removed after PM Copilot improvements and eval knowledge are captured.

@@ -28,7 +28,7 @@ Add a better approval flow for team changes.
 - Inspect relevant host project context before proposing a solution.
 - Infer a unique run id.
 - Ask blocking questions in the conversation and create only `run-log.yaml` if a persistent trace is useful when must-answer questions remain open.
-- Stop before `prd.md`, metrics/tracking sections, flow sections, prototype, delivery review, and separate summary files.
+- Stop before `prd.md`, metrics/tracking sections, flow sections, UI delivery, delivery review, and separate summary files.
 
 ## Must-Answer Questions
 
@@ -52,7 +52,7 @@ Add a better approval flow for team changes.
 
 | Date | Failure Code | Severity | Symptom | Fix |
 |---|---|---|---|---|
-| 2026-05-18 | clarification-gate-bypass | High | Agent generated full PRD/prototype delivery before asking blocking questions. | Added embedded project context loading and clarification gate rules. |
+| 2026-05-18 | clarification-gate-bypass | High | Agent generated full PRD/UI delivery before asking blocking questions. | Added embedded project context loading and clarification gate rules. |
 
 ## Latest Result
 

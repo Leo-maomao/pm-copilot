@@ -9,7 +9,7 @@ Create the primary review-ready PRD from clarified product context and assumptio
 - Define version history, requirement input and confirmations, background, research/reference findings, goals, scope, requirement list, requirement details, and dependencies.
 - Produce user stories and acceptance criteria.
 - Cover normal, empty, error, permission, rollback, and edge scenarios.
-- Identify analytics, flows, prototype reference, design, engineering, QA, rollout, and validation needs.
+- Identify analytics, flows, UI delivery reference, design, engineering, QA, rollout, and validation needs.
 - In repo-backed mode, include an engineering implementation map that names likely routes, pages, components, services, data/config files, analytics hooks, permission boundaries, and validation entry points.
 - Separate confirmed MVP scope, optional or conditional scope, future scope, and non-goals.
 - Specify entry point, navigation visibility, permission or eligibility states, and fallback states for existing-product surfaces.
@@ -33,7 +33,7 @@ Create the primary review-ready PRD from clarified product context and assumptio
 
 - PRD
 - Requirement list and requirement details
-- Flow, tracking, prototype reference, acceptance criteria, scope, non-goals, edge cases, dependencies, validation results
+- Flow, tracking, UI delivery reference, acceptance criteria, scope, non-goals, edge cases, dependencies, validation results
 - Open decisions
 - Contract coverage note listing satisfied sections, limited sections, and readiness-impacting blockers
 
@@ -42,7 +42,7 @@ Create the primary review-ready PRD from clarified product context and assumptio
 - Engineering, design, QA, and analytics can review the PRD without asking basic intent questions.
 - Engineering can identify the likely implementation surfaces without reverse-engineering the PRD from scratch.
 - Goals and success metrics are specific enough for Analytics Agent.
-- Core flows are specific enough for Prototype Agent.
+- Core flows are specific enough for UI Delivery Agent.
 - Acceptance criteria cover confirmed MVP behavior only.
 - Launch blockers are visible when content, legal, compliance, operations, or analytics approval remains unresolved.
 - Access-control changes never rely on front-end hiding alone; the PRD names the backend or policy boundary that must enforce the rule.
@@ -54,5 +54,5 @@ Create the primary review-ready PRD from clarified product context and assumptio
 ## Handoffs
 
 - To Analytics Agent for KPI tree and tracking plan.
-- To Prototype Agent for user flow and prototype.
+- To UI Delivery Agent for user flow and UI deliverable.
 - To Review Agent after draft artifacts exist.

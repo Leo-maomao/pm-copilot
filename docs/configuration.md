@@ -30,7 +30,7 @@ Copy them to `.local.yaml` files when you want PM Copilot to remember stable pro
 |---|---|---|
 | `product.name` | Yes | Product name used in artifact titles and assumptions |
 | `product.category` | Yes | Helps agents choose product patterns |
-| `product.platforms` | Yes | Helps Prototype Agent choose Web, H5, App, or Mini Program |
+| `product.platforms` | Yes | Helps UI Delivery Agent choose Web, H5, App, or Mini Program |
 | `users.primary_segments` | Yes | Grounds scenarios and user stories |
 | `business_goals.north_star_metric` | Yes | Grounds metrics and PRD goals |
 | `prd_preferences.default_style` | Yes | Controls output depth |
@@ -140,19 +140,19 @@ competitors:
 
 If research tools are unavailable, agents must not fabricate competitor facts.
 
-## Prototype Preferences
+## UI Delivery Preferences
 
 ```yaml
-prototype_preferences:
+prototype_preferences: # legacy key name; values define UI delivery behavior
   fidelity: "Low"
-  default_output: "Source-rendered preview whenever repo-backed frontend source exists; local HTML for portable review or no-source work"
+  default_output: "Source-rendered preview whenever repo-backed frontend source exists; local HTML only for no-source, explicit portable HTML, explicit redesign/greenfield, or concrete source-rendering blockers"
   repo_backed_ui_mode: "Host frontend inventory first; source-rendered preview when frontend source exists"
   host_mutation_policy: "Production flows read-only unless implementation is explicitly requested"
   repo_backed_layers: "baseline_import renders original UI from source; delta_patch contains new feature markers and dialogs"
   platform_selection: "Choose based on scenario; generate multiple only for cross-platform needs."
 ```
 
-The default portable prototype mode produces local HTML instead of production code. In repo-backed UI work, inspect the host frontend with `python3 scripts/inspect_host_frontend.py --host <host-repo> --query "<requirement or target surface>" --pretty` and use an isolated source-rendered preview route, story, Mini Program page, or App screen whenever frontend source exists. Standalone HTML should be labeled fidelity-limited and used only when the raw request asks for portable/standalone/HTML output, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and concretely blocked.
+The default UI delivery mode is source-backed when frontend source exists. In repo-backed UI work, inspect the host frontend with `python3 scripts/inspect_host_frontend.py --host <host-repo> --query "<requirement or target surface>" --pretty` and use an isolated source-rendered preview route, story, Mini Program page, or App screen whenever frontend source exists. Standalone HTML should be labeled fidelity-limited and used only when the raw request asks for portable/standalone/HTML output, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and concretely blocked. User wording like "only generate a prototype" controls scope only; it does not select standalone HTML.
 
 ## Privacy
 

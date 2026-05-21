@@ -1,6 +1,6 @@
 ---
 name: prd-writing
-description: Use when generating or improving the primary PRD handoff artifact, including version history, research, goals, scope, requirement list, requirement details, flows, tracking, risks, acceptance criteria, and prototype reference.
+description: Use when generating or improving the primary PRD handoff artifact, including version history, research, goals, scope, requirement list, requirement details, flows, tracking, risks, acceptance criteria, and UI delivery reference.
 ---
 
 # PRD Writing
@@ -25,7 +25,7 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 12. Add a repo-backed engineering map when repository or implementation context is available.
 13. Add functional and operation flow diagrams when they improve reviewability.
 14. Add tracking plan event and property tables inside the PRD by default.
-15. Add a prototype reference section that links the HTML prototype and avoids duplicating page-level annotations.
+15. Add a UI delivery reference section that links the source-backed preview/delta or compatibility HTML artifact and avoids duplicating page-level annotations.
 16. Add structured risks, open confirmations, acceptance criteria, delivery review findings, and validation results.
 
 ## Output
@@ -39,7 +39,7 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 - Requirement, function, acceptance, metric, and tracking IDs are stable and cross-linked.
 - Requirement details contain concrete logic, content, rules, interactions, data behavior, permission behavior, edge states, tracking links, and acceptance links where relevant.
 - Research and reference findings sit before requirements because they explain the solution direction.
-- Prototype details are not duplicated in the PRD; the PRD links the prototype and summarizes covered screens/states.
+- UI delivery details are not duplicated in the PRD; the PRD links the UI deliverable and summarizes covered screens/states.
 - No unresolved decision is hidden inside prose.
 - Time-sensitive or external claims are sourced, dated, or explicitly marked unverified.
 - Readiness status does not imply engineering or launch approval without evidence.

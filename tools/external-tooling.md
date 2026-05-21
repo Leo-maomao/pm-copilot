@@ -61,7 +61,7 @@ external_integrations:
 
 ## Use Cases
 
-- Design and prototype: Figma, browser validation, v0 or Stitch only when API/account access is confirmed.
+- Design and UI delivery: Figma, browser validation, v0 or Stitch only when API/account access is confirmed.
 - Product research: Firecrawl, Exa, Tavily, or browser tools only when API keys/network access are available; otherwise cite manual browsing sources.
 - Product operations analysis: prefer local CSV/Sheets/Jupyter/DuckDB first; connect live analytics or databases only with read-only credentials.
 - Collaboration systems: Notion, Jira, Linear, Slack, Google Workspace, and CRM tools must be scoped to the task and may not write without approval.

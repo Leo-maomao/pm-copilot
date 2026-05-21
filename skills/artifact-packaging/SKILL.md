@@ -1,6 +1,6 @@
 ---
 name: artifact-packaging
-description: Use when checking final PM delivery consistency across PRD, prototype, optional exports, readiness status, assumptions, risks, and validation results.
+description: Use when checking final PM delivery consistency across PRD, UI deliverable, optional exports, readiness status, assumptions, risks, and validation results.
 ---
 
 # Delivery Check
@@ -12,9 +12,9 @@ Make the final PM delivery easy to review, share, and continue without creating 
 ## Workflow
 
 1. Verify `prd.md` exists and follows the PRD contract.
-2. Verify `prototype-<platform>.html` exists when UI is in scope.
-3. Verify PRD and prototype agree on scope, screens, states, logic, interactions, tracking, and blockers.
-4. Verify the PRD contains version history, confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, tracking plan, prototype reference, risks/open confirmations, acceptance criteria, and validation results.
+2. Verify a UI deliverable exists or is recorded when UI is in scope: source-backed preview/delta by default when frontend source exists, or `prototype-<platform>.html` for compatibility standalone/fallback mode.
+3. Verify PRD and UI deliverable agree on scope, screens, states, logic, interactions, tracking, and blockers.
+4. Verify the PRD contains version history, confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, tracking plan, UI delivery reference, risks/open confirmations, acceptance criteria, and validation results.
 5. Verify `run-log.yaml` or equivalent trace evidence records assumptions, tools, validation, skills used, readiness, and review findings.
 6. Verify optional exports are useful or explicitly requested.
 7. Verify local links are relative, readable, and point to files that exist in the output folder.
@@ -34,7 +34,7 @@ Make the final PM delivery easy to review, share, and continue without creating 
 
 ## Quality Bar
 
-- Reviewers can use `prd.md` and the prototype without assembling the story from many files.
+- Reviewers can use `prd.md` and the UI deliverable without assembling the story from many files.
 - Risks and open confirmations are visible.
 - Delivery status matches Review Agent findings and validation results.
 - The output folder contains only allowed default artifacts plus explicitly justified exports.

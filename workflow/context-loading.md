@@ -75,7 +75,7 @@ When no engineering repository is available, use the user's documents as the pro
 Extract only decision-relevant information:
 
 - Current product behavior and known constraints.
-- Existing UI screens, demos, screenshots, or prototype references.
+- Existing UI screens, demos, screenshots, or UI delivery references.
 - Existing navigation, permission, eligibility, and fallback behavior.
 - Content sources, editorial ownership, review status, disclaimer patterns, and approval requirements.
 - Target users, scenarios, and pain points.
@@ -90,9 +90,9 @@ If the provided documents do not include an analytics taxonomy, record that gap 
 
 ## Brief-Only Context
 
-When the user has no repository and no product documents, do not block forever. Ask only the minimum must-answer questions needed to avoid a misleading PRD/prototype delivery. Common must-answer fields are product goal, target user, platform, scope boundary, success metric, and major risk area.
+When the user has no repository and no product documents, do not block forever. Ask only the minimum must-answer questions needed to avoid a misleading PRD/UI delivery. Common must-answer fields are product goal, target user, platform, scope boundary, success metric, and major risk area.
 
-After the user answers or explicitly asks for a draft with assumption or confirmation risk, generate a useful first PRD/prototype delivery with visible assumptions, open questions, and non-ready status.
+After the user answers or explicitly asks for a draft with assumption or confirmation risk, generate a useful first PRD/UI delivery with visible assumptions, open questions, and non-ready status.
 
 If current behavior, affected module, platform, data ownership, rollout constraints, or historical product decisions remain unclear and materially affect the solution, classify the missing information as `must answer before generation` and stop at the clarification gate.
 

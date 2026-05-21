@@ -21,7 +21,7 @@ Use this rubric for manual evaluation. PM Copilot records score fields and thres
 | Cross-functional readiness | Only product can understand it | Some functions can review | Product, design, engineering, QA, and analytics can review |
 | Readiness separation | One vague ready/not-ready label | Some blocker phase detail exists | PRD, engineering handoff, and launch readiness are separate and non-contradictory |
 | Guardrail compliance | Fabricates or hides risk | Some risks listed | Privacy, legal, payment, source, and tool limits are explicit |
-| Artifact consistency | Artifacts contradict each other | Minor inconsistencies | PRD, metrics, tracking, flow, and prototype align |
+| Artifact consistency | Artifacts contradict each other | Minor inconsistencies | PRD, metrics, tracking, flow, and UI deliverable align |
 | Tool evidence | Tools are claimed without evidence | Some commands recorded | Required tools have preflight, command results, artifacts, and limitations recorded |
 | Language consistency | Headings and body mix languages unintentionally | Mostly localized with some template leakage | Headings, labels, statuses, notes, and body match the user's language |
 
@@ -58,7 +58,7 @@ Minimum recommended PRD score: 31 / 40.
 
 Minimum recommended analytics score: 21 / 28.
 
-## Prototype Rubric
+## UI Delivery Rubric
 
 | Dimension | 0 | 2 | 4 |
 |---|---|---|---|
@@ -66,12 +66,12 @@ Minimum recommended analytics score: 21 / 28.
 | Core flow | Missing | Main path visible | Main path is interactable |
 | States | Only happy path | Some states | Relevant loading, empty, error, permission, confirmation, or success states |
 | Access/content states | Missing | Only some gated or draft states visible | Gated eligibility and placeholder or unreviewed content states are represented when relevant |
-| Local usability | Does not open | Opens with issues | Self-contained HTML with no build step |
-| Fidelity and handoff clarity | Pretends to be production or is too vague to implement | Prototype is usable but lacks annotations or key states | Clearly labeled prototype with appropriate fidelity, annotations, and implementation notes |
-| Existing surface fit | Invents unrelated product UI, mutates production files unexpectedly, or mixes prototype notes into unchanged UI | Some existing context reflected | Preserves baseline UI in an isolated demo and shows the new requirement delta with separate markers/dialogs |
+| Local usability | Does not open | Opens with issues | Standalone HTML opens with no build step, or source-backed preview runs through host tooling |
+| Fidelity and handoff clarity | Pretends standalone HTML is production or is too vague to implement | UI deliverable is usable but lacks annotations or key states | Clearly labeled UI deliverable with appropriate fidelity, annotations, and implementation notes |
+| Existing surface fit | Invents unrelated product UI, mutates production files unexpectedly, or mixes UI-delivery notes into unchanged UI | Some existing context reflected | Preserves baseline UI through source-backed preview/delta when source exists and shows the new requirement delta with separate markers/dialogs |
 | Annotation mapping | Notes are detached from UI | Some notes tied to controls | Page-scoped annotations are reachable from specific UI elements or transitions |
 
-Minimum recommended prototype score: 24 / 32.
+Minimum recommended UI delivery score: 24 / 32. The run-log score key may remain `prototype` for backward compatibility.
 
 ## Delivery Review Rubric
 
@@ -89,8 +89,8 @@ Minimum recommended review score: 15 / 20.
 
 - PRD looks complete but goals cannot be measured.
 - Tracking plan includes events but trigger timing is vague.
-- Prototype shows screens but not state transitions.
-- Logged-out or guest prototype states reveal signed-in account data or account-management actions.
+- UI deliverable shows screens but not state transitions.
+- Logged-out or guest UI states reveal signed-in account data or account-management actions.
 - Competitor claims have no sources.
 - Legal or payment risk is buried in prose.
 - Launch blockers are hidden behind `Ready for engineering`.
@@ -130,7 +130,7 @@ Minimum recommended review score: 15 / 20.
 - Validation:
 - Table completeness:
 
-## Prototype
+## UI Delivery
 - Platform fit:
 - Core flow:
 - States:

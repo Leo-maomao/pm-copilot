@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect a host repository for frontend source-rendered prototype inputs."""
+"""Inspect a host repository for frontend source-backed UI delivery inputs."""
 
 from __future__ import annotations
 

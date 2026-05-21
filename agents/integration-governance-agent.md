@@ -48,7 +48,7 @@ Select, vet, and constrain external tools before PM Copilot depends on them for 
 - To PM Orchestrator with the approved tool plan and blockers.
 - To Research Agent when source availability or vendor claims need verification.
 - To Analytics Agent when data-source or instrumentation tools are approved for read-only analysis.
-- To Prototype Agent when design-generation or browser-validation tools are approved.
+- To UI Delivery Agent when design-generation or browser-validation tools are approved.
 - To Review Agent when a tool decision creates cost, privacy, security, launch, or reliability risk.
 
 ## Failover

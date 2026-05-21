@@ -27,13 +27,13 @@ Paste the original realistic product request here.
 - PRD
 - Metrics and tracking sections inside PRD
 - Flow diagrams inside PRD, when useful
-- Prototype
+- UI delivery
 - Delivery check
 
 ## Required Artifacts
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prototype-<platform>.html`
+- UI deliverable reference: source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility HTML mode
 - `outputs/<run-id>/run-log.yaml` when trace is useful
 - Optional exports such as `tracking-plan.csv` or `user-flow.mmd` when useful
 
@@ -48,7 +48,7 @@ Paste the original realistic product request here.
 | Delivery | 23 / 32 |
 | PRD | 31 / 40 |
 | Metrics and tracking | 21 / 28 |
-| Prototype | 24 / 32 |
+| UI delivery | 24 / 32 |
 | Delivery review inside PRD | 15 / 20 |
 
 ## Failure History
@@ -63,16 +63,16 @@ Paste the original realistic product request here.
 - The agent stops before `Ready for engineering` when engineering-blocking confirmations remain open, unless the user explicitly asks for a draft with confirmation risk.
 - PRD status, engineering handoff status, and launch status are recorded separately.
 - Launch-only blockers do not get hidden behind `Ready for engineering`; they remain visible with owner and required confirmation.
-- `prd.md` and prototype are generated after the clarification gate passes.
+- `prd.md` and the UI deliverable are generated after the clarification gate passes.
 - Assumptions are explicit.
 - Confirmed MVP scope is separated from optional, conditional, and future scope.
 - Surface entry, navigation visibility, permission or eligibility states, and fallback behavior are explicit for existing-product changes.
 - Reference or regulated content records source status, review owner, review status, disclaimer status, and launch impact.
 - Tracking plan avoids forbidden sensitive properties.
 - Tracking plan marks proposed taxonomy when no existing analytics convention was loaded.
-- Prototype matches selected platform.
-- Prototype visual validation is run with screenshots/diff evidence, or setup was attempted and the skipped reason is documented.
-- PRD and prototype agree on scope, logic, interactions, tracking, and blockers.
+- UI deliverable matches selected platform.
+- UI visual validation is run with screenshots/diff evidence, or setup was attempted and the skipped reason is documented.
+- PRD and UI deliverable agree on scope, logic, interactions, tracking, and blockers.
 - Development handoff and launch decision artifacts preserve blockers when generated.
 - Review findings include artifact, evidence, owner, required-before phase, and status, or an explicit no-finding summary.
 - Validation results are concrete and consistent between PRD and run log.

@@ -46,7 +46,7 @@ We want to add a public resources page that stores content all users may need. T
 - `pm-copilot/outputs/<run-id>/tracking-plan.csv`
 - `pm-copilot/outputs/<run-id>/user-flow.md`
 - `pm-copilot/outputs/<run-id>/user-flow.mmd`
-- `pm-copilot/outputs/<run-id>/prototype-<platform>.html`
+- UI deliverable files or `pm-copilot/outputs/<run-id>/prototype-<platform>.html`
 - `pm-copilot/outputs/<run-id>/review-checklist.md`
 - `pm-copilot/outputs/<run-id>/pm-package.md`
 - `pm-copilot/outputs/<run-id>/final-package-summary.md`
@@ -78,14 +78,14 @@ We want to add a public resources page that stores content all users may need. T
 | Delivery | Not applicable before clarification gate |
 | PRD | Not applicable before clarification gate |
 | Metrics and tracking | Not applicable before clarification gate |
-| Prototype | Not applicable before clarification gate |
+| UI delivery | Not applicable before clarification gate |
 | Review checklist | Not applicable before clarification gate |
 
 ## Failure History
 
 | Date | Failure Code | Severity | Symptom | Fix |
 |---|---|---|---|---|
-| 2026-05-18 | F3 | High | Agent generated PRD, tracking, flow, prototype, review, and delivery artifacts while high-impact questions were still open. | Strengthen clarification gate and trace requirements. |
+| 2026-05-18 | F3 | High | Agent generated PRD, tracking, flow, UI delivery, review, and delivery artifacts while high-impact questions were still open. | Strengthen clarification gate and trace requirements. |
 | 2026-05-18 | F2 | Medium | Repo-backed context did not record route, navigation, storage, permission, or analytics facts used for product-fit decisions. | Require current-state facts in run log. |
 | 2026-05-18 | F10 | Medium | Repository validator rejected Chinese prose because it required all files to be ASCII. | Validate UTF-8 prose while keeping paths and machine-readable fields ASCII. |
 | 2026-05-18 | scope-drift | Medium | Optional PDF/image download was described as MVP while still listed as an open decision. | Separate confirmed MVP scope from optional or conditional scope. |
@@ -94,7 +94,7 @@ We want to add a public resources page that stores content all users may need. T
 | 2026-05-18 | language-status-leakage | Medium | Chinese PRD still used raw English readiness, severity, and item status labels. | Require localized readiness and review status values in user-facing artifacts. |
 | 2026-05-18 | readiness-collapse | High | Framework readiness and content launch approval were collapsed into one final status. | Require separate PRD, engineering handoff, and launch readiness fields. |
 | 2026-05-18 | unreviewed-content-finalized | High | Placeholder checklist content looked like approved public guidance. | Require source, review owner, disclaimer status, and launch impact for reference content. |
-| 2026-05-19 | agent-contract-drift | Medium | Artifact contracts required behavior that agent role files did not explicitly own. | Align orchestrator, discovery, requirements, analytics, prototype, and review agent responsibilities. |
+| 2026-05-19 | agent-contract-drift | Medium | Artifact contracts required behavior that agent role files did not explicitly own. | Align orchestrator, discovery, requirements, analytics, UI delivery, and review agent responsibilities. |
 | 2026-05-19 | default-option-audit-gap | Medium | Evaluation rounds selected recommended options without a dedicated trace field. | Add `default_options_selected` to trace contract and run-log template. |
 | 2026-05-19 | output-validator-gap | Medium | Generated artifacts could pass repository validation while missing engineering map, output strictness, quality thresholds, or trace fields. | Add and extend `scripts/validate_outputs.py`. |
 

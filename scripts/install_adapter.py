@@ -20,7 +20,7 @@ def build_block(pm_path: str, tool: str) -> str:
         body = (
             "When the user asks for product-manager work such as PRD, requirements, "
             "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
-            "user flows, prototypes, competitor research, review checklists, or equivalent "
+            "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
@@ -28,8 +28,11 @@ def build_block(pm_path: str, tool: str) -> str:
             "Use host project files when available, and use PRDs, specs, docs, screenshots, "
             "analytics exports, support tickets, or meeting notes when no code context exists. "
             "Ask must-answer questions and identify development or launch confirmation blockers "
-            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
-            "those questions are answered, unless the user explicitly asks for a draft with risk.\n\n"
+            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
+            "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
+            "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed "
+            "preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
+            "explicit redesign/greenfield, no-source, or concretely blocked source rendering.\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location.\n\n"
             "Keep normal software-engineering tasks governed by this host repository's "
@@ -40,7 +43,7 @@ def build_block(pm_path: str, tool: str) -> str:
         body = (
             "When the user asks for product-manager work such as PRD, requirements, "
             "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
-            "user flows, prototypes, competitor research, review checklists, or equivalent "
+            "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
@@ -48,8 +51,11 @@ def build_block(pm_path: str, tool: str) -> str:
             "Use host project files when available, and use PRDs, specs, docs, screenshots, "
             "analytics exports, support tickets, or meeting notes when no code context exists. "
             "Ask must-answer questions and identify development or launch confirmation blockers "
-            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
-            "those questions are answered, unless the user explicitly asks for a draft with risk.\n\n"
+            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
+            "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
+            "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed "
+            "preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
+            "explicit redesign/greenfield, no-source, or concretely blocked source rendering.\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location."
         )
@@ -58,7 +64,7 @@ def build_block(pm_path: str, tool: str) -> str:
         body = (
             "When the user asks for product-manager work such as PRD, requirements, "
             "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
-            "user flows, prototypes, competitor research, review checklists, or equivalent "
+            "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
@@ -66,8 +72,11 @@ def build_block(pm_path: str, tool: str) -> str:
             "Use host project files when available, and use PRDs, specs, docs, screenshots, "
             "analytics exports, support tickets, or meeting notes when no code context exists. "
             "Ask must-answer questions and identify development or launch confirmation blockers "
-            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until "
-            "those questions are answered, unless the user explicitly asks for a draft with risk.\n\n"
+            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
+            "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
+            "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed "
+            "preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
+            "explicit redesign/greenfield, no-source, or concretely blocked source rendering.\n\n"
             "Keep normal software-engineering tasks governed by the host repository's regular rules.\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location."
@@ -110,11 +119,11 @@ globs:
 alwaysApply: true
 ---
 
-When the user asks for product-manager work such as PRD, requirements, user stories, acceptance criteria, metrics, tracking plans, analytics events, user flows, prototypes, competitor research, review checklists, or equivalent Chinese-language PM tasks, read `{target}` and follow that workflow.
+When the user asks for product-manager work such as PRD, requirements, user stories, acceptance criteria, metrics, tracking plans, analytics events, user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent Chinese-language PM tasks, read `{target}` and follow that workflow.
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
 
-Before generating PM artifacts, inspect relevant current product context. Use host project files when available, and use PRDs, specs, docs, screenshots, analytics exports, support tickets, or meeting notes when no code context exists. Ask must-answer questions and identify development or launch confirmation blockers if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/prototype deliverables until those questions are answered, unless the user explicitly asks for a draft with risk.
+Before generating PM artifacts, inspect relevant current product context. Use host project files when available, and use PRDs, specs, docs, screenshots, analytics exports, support tickets, or meeting notes when no code context exists. Ask must-answer questions and identify development or launch confirmation blockers if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, user wording like "prototype" or "only generate a prototype" means review scope only; use source-backed preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, explicit redesign/greenfield, no-source, or concretely blocked source rendering.
 
 Keep normal software-engineering tasks governed by the host repository's regular rules.
 

@@ -36,14 +36,14 @@ capabilities:
 
   - id: repo_context.host_frontend_inventory
     category: context
-    required_when: "Repo-backed UI work, especially when frontend source exists or source-level visual fidelity is requested."
+    required_when: "Repo-backed UI delivery, especially when frontend source exists or source-level visual fidelity is requested."
     command: "python3 scripts/inspect_host_frontend.py --host <host-repo> --query '<requirement or target surface>' --pretty"
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - run-log.yaml:host_frontend_inventory
       - run-log.yaml:style_evidence
       - run-log.yaml:isolated_ui_prototype
-    fallback: "Manually inspect host frontend files. If source files cannot be found, stop for the missing host path; if rendering is blocked, record the concrete blocker and mark standalone HTML as fidelity-limited."
+    fallback: "Manually inspect host frontend files. If source files cannot be found, stop for the missing host path; if rendering is blocked, record the concrete blocker and mark standalone HTML as fidelity-limited. Do not treat 'only generate a prototype' as standalone HTML consent."
 
   - id: research.web_search
     category: research
@@ -77,7 +77,7 @@ capabilities:
 
   - id: validation.outputs
     category: validation
-    required_when: "A run folder contains prd.md, prototype HTML, dev-tasks.yaml, or launch-decision.yaml."
+    required_when: "A run folder contains prd.md, compatibility UI HTML, dev-tasks.yaml, or launch-decision.yaml."
     command: "python3 scripts/validate_outputs.py outputs/<run-id> --language <zh|en>"
     result_contract: artifacts/tool-result-contract.md
     records_to:
@@ -87,10 +87,10 @@ capabilities:
 
   - id: validation.visual
     category: validation
-    required_when: "A UI prototype HTML file is generated."
+    required_when: "A compatibility UI HTML file is generated."
     command: "python3 scripts/validate_prototype_visual.py outputs/<run-id>"
     setup_command: "python3 scripts/setup_visual_validation.py"
-    behavior: "When no --prototype is provided, validates every supported prototype HTML file in the run folder."
+    behavior: "When no --prototype is provided, validates every supported compatibility HTML file in the run folder. Source-backed previews should be validated through the host dev/preview/Storybook/simulator path and recorded under visual_validation."
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - prd.md:validation_results
@@ -100,7 +100,7 @@ capabilities:
 
   - id: validation.html
     category: validation
-    required_when: "A prototype HTML file is generated."
+    required_when: "A compatibility UI HTML file is generated."
     command: "python3 scripts/run_delivery_checks.py outputs/<run-id>"
     optional_command: "tidy -errors -quiet -utf8 prototype-<platform>.html"
     result_contract: artifacts/tool-result-contract.md

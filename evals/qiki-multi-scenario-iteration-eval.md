@@ -5,7 +5,7 @@ Use this eval when PM Copilot is embedded in Qiki or a similar family/workspace 
 ## Context
 
 - Host project: Qiki WeChat Mini Program family hub.
-- Required artifacts per round: `prd.md`, `prototype-mini-program.html`, and `run-log.yaml`.
+- Required artifacts per round: `prd.md`, a Mini Program UI deliverable (`prototype-mini-program.html` only for compatibility HTML mode), and `run-log.yaml`.
 - Validation: `python3 scripts/validate_repo.py`, `python3 scripts/validate_outputs.py outputs/<run-id> --language zh`, HTML parser fallback when system `tidy` reports old HTML5 warnings.
 - Default-option mode: choose conservative recommended defaults, record them in `run-log.yaml`, and keep security, privacy, content, launch, and analytics approvals open.
 
@@ -20,12 +20,12 @@ Use this eval when PM Copilot is embedded in Qiki or a similar family/workspace 
 | R45 | Invite approval | Pending membership states omitted | Requester, approver, rejected, expired, retry, and security invalidation paths are shown |
 | R46 | Family switcher | Cross-family data leakage | Active family source, query filter, cache invalidation, and fallback behavior are captured |
 | R47 | Feedback triage | Operational workflow lacks owner/status model | State machine, owner, reply review, notification, closure, and reopen paths are covered |
-| R48 | Privacy mode | UI hiding treated as access control | Prototype and PRD state that masking is display-layer only and permissions are unchanged |
+| R48 | Privacy mode | UI hiding treated as access control | UI deliverable and PRD state that masking is display-layer only and permissions are unchanged |
 | R49 | Assignee load summary | Aggregates leak private records | Aggregation grain, permission filter, and detail suppression are specified |
 | R50 | Cross-module search | Search results ignore per-source permissions | Source-by-source permissions, redaction, partial failure, and performance limits are required |
 | R51 | Note tag management | Metadata changes ignore existing records | Rename, merge, delete/archive, duplicate names, and migration effects are covered |
 | R52 | Family audit log | Audit requirements lack traceability | Run log can record security/audit boundary, visibility, redaction, retention, and approval owner |
-| R53 | Role display names | Long or duplicate labels break handoff | Prototype notes cover length, truncation, duplicate disambiguation, and edit permissions |
+| R53 | Role display names | Long or duplicate labels break handoff | UI delivery notes cover length, truncation, duplicate disambiguation, and edit permissions |
 | R54 | Fast input review | Parsed input writes shared data without confirmation | Explicit review/confirm, edit, cancel, low-confidence, retry, and failure states are required |
 | R55 | Offline retry | Retry creates duplicates or crosses family boundary | Queue ownership, idempotency, conflict handling, cancellation, and cleanup are specified |
 | R56 | Leave family safeguards | Dangerous action lacks impact confirmation | Impact summary, blocking conditions, confirmation, recovery/cooling-off, and audit are tested |

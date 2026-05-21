@@ -20,7 +20,7 @@ exit_code: null
 output_summary: ""
 artifacts_created:
   - path: ""
-    type: "" # prd | prototype | screenshot | visual_report | run_log | dev_tasks | launch_decision | report | other
+    type: "" # prd | ui_deliverable | prototype | screenshot | visual_report | run_log | dev_tasks | launch_decision | report | other
 evidence:
   - kind: "" # file | source | screenshot | command_output | browser_channel | approval | limitation
     value: ""
@@ -37,7 +37,7 @@ requires_user_action: false
 - `failed`: The command or tool returned an error, timed out, or produced invalid output.
 - `skipped`: The tool was intentionally not run; this requires a concrete reason.
 - `setup_required`: The tool cannot run until an install/configuration step succeeds.
-- `not_applicable`: The capability does not apply to this run, for example no prototype exists.
+- `not_applicable`: The capability does not apply to this run, for example no UI deliverable exists.
 
 Capability preflight uses availability status instead of execution status. Valid preflight values are `available`, `setup_required`, `unavailable`, `skipped`, `external_runtime`, and `not_applicable`. Use `external_runtime` only when the capability is supplied by the active agent environment and cannot be meaningfully probed by a local shell command. Optional checks that were not requested should be `skipped` with evidence, not a custom status such as `not_checked`.
 
@@ -45,7 +45,7 @@ Capability preflight uses availability status instead of execution status. Valid
 
 - Source-backed research: title, URL, access date, and observed fact.
 - File reads: paths inspected and the product fact learned from each path.
-- Visual validation: prototype file names, screenshot paths, viewport names, browser channel, nonblank ratios, report path, baseline/diff status.
+- Visual validation: UI deliverable file names or preview surfaces, screenshot paths, viewport names, browser channel, nonblank ratios, report path, baseline/diff status.
 - Output validation: command, language mode, status, and any failing marker.
 - Development handoff: `dev-tasks.yaml` path, task count, blocked count, and readiness mode.
 - Launch decision: `launch-decision.yaml` path, decision mode, gate statuses, blockers, and required approvals.

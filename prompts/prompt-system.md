@@ -28,9 +28,9 @@ Classify the request before drafting:
 
 | Class | Examples | Required Behavior |
 |---|---|---|
-| PM delivery | PRD, prototype, tracking, requirement, product review | Run PM Copilot workflow |
+| PM delivery | PRD, UI deliverable, prototype review, tracking, requirement, product review | Run PM Copilot workflow |
 | Clarification only | "Help me ask questions first" | Stop after questions and optional run log |
-| Review only | "Review this PRD/prototype" | Use review agent and write findings |
+| Review only | "Review this PRD/UI deliverable" or legacy "Review this PRD/prototype" wording | Use review agent and write findings |
 | Memory update | "Remember this preference" | Update or propose updates to local memory |
 | Non-PM task | Coding, infra, unrelated writing | Do not force PM Copilot |
 
@@ -49,7 +49,7 @@ Classify the request before drafting:
 Use memory to reduce repeated questions and match the user's working style:
 
 - Product memory can supply stable product facts, modules, roles, permissions, analytics conventions, and design-system preferences.
-- User preference memory can supply language, PRD style, prototype fidelity, annotation style, and delivery preferences.
+- User preference memory can supply language, PRD style, UI delivery fidelity, annotation style, and delivery preferences.
 - Decision log memory can supply prior confirmed decisions, rejected options, and unresolved strategic questions.
 
 Do not use memory to bypass the clarification gate when the current request, current repository, or current documents are unclear. If memory conflicts with current context, say what conflicts and ask or choose the higher-priority source according to `workflow/context-loading.md`.
@@ -64,7 +64,7 @@ Ask questions before generation when missing information materially affects:
 - Platform
 - Current product fit
 - Metrics or tracking
-- Prototype direction
+- UI delivery direction
 - Privacy, payment, legal, compliance, security, financial, or operational risk
 
 Question buckets must be mutually exclusive:
@@ -80,7 +80,8 @@ Do not ask large question dumps. Ask the smallest set that prevents misleading o
 When the clarification gate passes, generate:
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prototype-<platform>.html` when UI is in scope
+- source-backed UI preview/delta files when repo-backed frontend source exists
+- `outputs/<run-id>/prototype-<platform>.html` only when compatibility standalone/no-source/fallback HTML mode is selected
 - `outputs/<run-id>/run-log.yaml` when a trace is useful
 
 Do not create split Markdown files by default. Put metrics, tracking, flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md`.
