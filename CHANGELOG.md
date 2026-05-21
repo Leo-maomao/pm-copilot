@@ -25,8 +25,7 @@ Commit: `2f57f53` fix: redefine ui delivery as source backed.
 - Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py scripts/setup_visual_validation.py scripts/install_adapter.py`.
 - Git whitespace validation passes with `git diff --check`.
 - Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
-- Regression check rejects the ai-video standalone output with `Repo-backed UI delivery host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, user_explicit_greenfield, or not_required`.
-- Host frontend inventory smoke against `/Users/mac142/Desktop/ai-video` confirms `render_entrypoint: "npm run dev"`, `preview_surface: "src/features/auth/components/LoginModal/LoginModal.tsx"`, `source_rendering_decision: "used"`, and `recommended_artifact_mode: source_delta_patch`.
+- Source-backed UI delivery validation now enforces the `source_rendering_decision` vocabulary and source-rendered modes without relying on project-specific release fixtures.
 
 ## [2.2.7] - 2026-05-21
 
@@ -47,8 +46,8 @@ Commit: `9e6df82` fix: default prototypes to source-backed UI.
 - Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
 - Template script, annotation badge, and source-first fallback smoke checks pass.
 - Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
-- Host frontend inventory smoke against `/Users/mac142/Desktop/ai-video` confirms `render_entrypoint: "npm run dev"`, `preview_surface: "src/features/auth/components/LoginModal/LoginModal.tsx"`, `source_rendering_decision: "used"`, and `recommended_artifact_mode: source_delta_patch`.
-- Regression check rejects the new ai-video standalone output with `Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, user_explicit_greenfield, or not_required`.
+- Host frontend inventory smoke confirms render entrypoint, preview surface, `source_rendering_decision: "used"`, and `recommended_artifact_mode: source_delta_patch` on a repo-backed fixture.
+- Regression check rejects a standalone fallback output with `Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, user_explicit_greenfield, or not_required`.
 
 ## [2.2.6] - 2026-05-21
 
@@ -71,8 +70,8 @@ Commit: `b1680b1` fix: require raw request standalone consent.
 - Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
 - Prototype template script, annotation badge, and fallback-gate smoke checks pass.
 - Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
-- Host frontend inventory smoke against `/Users/mac142/Desktop/ai-video` confirms `render_entrypoint: "npm run dev"`, `preview_surface: "src/features/auth/components/LoginModal/LoginModal.tsx"`, and `recommended_artifact_mode: source_delta_patch`.
-- Regression check rejects the new ai-video standalone output with `Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, or not_required`.
+- Host frontend inventory smoke confirms render entrypoint, preview surface, and `recommended_artifact_mode: source_delta_patch` on a repo-backed fixture.
+- Regression check rejects a standalone fallback output with `Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, or not_required`.
 
 ## [2.2.5] - 2026-05-21
 
@@ -93,8 +92,8 @@ Commit: `7eeada6` fix: enforce source-rendered prototype fallback gates.
 - Prototype template script parsing passes with a Node syntax smoke check.
 - Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
 - Annotation digit badge contract validation passes for the template.
-- Host frontend query inventory smoke passes against `/Users/mac142/Desktop/ai-video`, ranking `src/features/auth/components/LoginModal/LoginModal.tsx` as `preview_surface`.
-- Regression check rejects the old ai-video standalone output after annotation-number normalization with `Repo-backed renderable frontend should not fall back to standalone HTML unless the user explicitly requested a portable/standalone artifact or source rendering was attempted and blocked`.
+- Host frontend query inventory smoke passes on a repo-backed fixture and ranks the target component as `preview_surface`.
+- Regression check rejects an old standalone fallback output after annotation-number normalization with `Repo-backed renderable frontend should not fall back to standalone HTML unless the user explicitly requested a portable/standalone artifact or source rendering was attempted and blocked`.
 
 ## [2.2.4] - 2026-05-21
 
