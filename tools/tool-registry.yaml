@@ -37,7 +37,7 @@ capabilities:
   - id: repo_context.host_frontend_inventory
     category: context
     required_when: "Repo-backed UI work, especially when exact/source-level visual fidelity is requested."
-    command: "python3 scripts/inspect_host_frontend.py --host <host-repo> --pretty"
+    command: "python3 scripts/inspect_host_frontend.py --host <host-repo> --query '<requirement or target surface>' --pretty"
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - run-log.yaml:host_frontend_inventory

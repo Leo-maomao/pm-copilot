@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +16,13 @@ IGNORED_DIRS = {
     ".nuxt",
     ".output",
     ".turbo",
+    ".vite",
     "build",
     "coverage",
     "dist",
     "node_modules",
     "outputs",
+    "pm-copilot",
     "target",
 }
 
@@ -95,6 +98,34 @@ ASSET_SUFFIXES = {
     ".otf",
     ".woff",
     ".woff2",
+}
+
+QUERY_HINTS = {
+    "登录",
+    "注册",
+    "邮箱",
+    "手机号",
+    "手机",
+    "密码",
+    "找回密码",
+    "忘记密码",
+    "用户",
+    "用户管理",
+    "账号",
+    "账户",
+    "个人中心",
+    "auth",
+    "login",
+    "register",
+    "email",
+    "phone",
+    "password",
+    "account",
+    "profile",
+    "modal",
+    "dialog",
+    "header",
+    "dashboard",
 }
 
 
@@ -205,7 +236,67 @@ def classify_files(root: Path, limit: int) -> dict[str, list[str]]:
     return result
 
 
-def preview_surface(root: Path, files: dict[str, list[str]]) -> str:
+def query_tokens(query: str) -> list[str]:
+    if not query.strip():
+        return []
+    raw_parts = re.split(r"[\s,，。；;:/|、和与及或]+", query.lower())
+    tokens = {part.strip() for part in raw_parts if len(part.strip()) >= 2}
+    for hint in QUERY_HINTS:
+        if hint.lower() in query.lower():
+            tokens.add(hint.lower())
+    return sorted(tokens, key=lambda value: (-len(value), value))
+
+
+def file_score_for_query(path: Path, root: Path, tokens: list[str]) -> int:
+    if not tokens:
+        return 0
+    relative = rel(path, root)
+    path_text = relative.lower()
+    score = 0
+    for token in tokens:
+        token_l = token.lower()
+        if token_l in path_text:
+            score += 12 if token_l in path.name.lower() else 8
+    suffix = path.suffix.lower()
+    if suffix in SOURCE_SUFFIXES | STYLE_SUFFIXES or path.name in ENTRY_NAMES:
+        try:
+            content = path.read_text(encoding="utf-8", errors="ignore")[:120_000].lower()
+        except OSError:
+            content = ""
+        for token in tokens:
+            count = content.count(token.lower())
+            if count:
+                score += min(20, count * 2)
+    return score
+
+
+def matched_query_files(root: Path, query: str, limit: int) -> list[str]:
+    tokens = query_tokens(query)
+    if not tokens:
+        return []
+    scored: list[tuple[int, str]] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or should_skip(path.relative_to(root)):
+            continue
+        if path.suffix.lower() not in SOURCE_SUFFIXES | STYLE_SUFFIXES | ASSET_SUFFIXES and path.name not in ENTRY_NAMES:
+            continue
+        score = file_score_for_query(path, root, tokens)
+        if score > 0:
+            scored.append((score, rel(path, root)))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return [path for _, path in scored[:limit]]
+
+
+def preview_surface(root: Path, files: dict[str, list[str]], target_files: list[str] | None = None) -> str:
+    target_files = target_files or []
+    for candidate in target_files:
+        path = root / candidate
+        if path.suffix.lower() in SOURCE_SUFFIXES and path.is_file():
+            return candidate
+    source_surfaces = set(files["route_or_screen_files"]) | set(files["component_files"])
+    for candidate in target_files:
+        if candidate in source_surfaces:
+            return candidate
     for candidate in files["route_or_screen_files"]:
         return candidate
     for candidate in files["component_files"]:
@@ -216,10 +307,12 @@ def preview_surface(root: Path, files: dict[str, list[str]]) -> str:
     return ""
 
 
-def build_report(root: Path, limit: int) -> dict[str, Any]:
+def build_report(root: Path, limit: int, query: str = "") -> dict[str, Any]:
     package = read_package_json(root)
     platform, platform_candidates = detect_platform(root, package)
     files = classify_files(root, limit)
+    target_files = matched_query_files(root, query, limit)
+    surface = preview_surface(root, files, target_files)
     command = script_command(package)
     if not command and platform == "flutter":
         command = "flutter run"
@@ -229,14 +322,16 @@ def build_report(root: Path, limit: int) -> dict[str, Any]:
         command = "platform devtools or framework dev command required"
 
     missing = [key for key in ("entry_files", "route_or_screen_files", "component_files", "style_files") if not files[key]]
-    render_available = bool(command and preview_surface(root, files))
+    render_available = bool(command and surface)
     report: dict[str, Any] = {
         "host_project_root": str(root),
         "platform": platform,
         "platform_candidates": platform_candidates,
         **files,
+        "target_query": query,
+        "target_matched_files": target_files,
         "render_entrypoint": command,
-        "preview_surface": preview_surface(root, files),
+        "preview_surface": surface,
         "source_rendering_decision": "used" if render_available else "blocked",
         "source_rendering_limitation": "" if render_available else "missing render command or preview surface",
         "missing_required_inventory": missing,
@@ -259,13 +354,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=Path, default=Path.cwd(), help="Host repository root to inspect")
     parser.add_argument("--limit", type=int, default=30, help="Maximum files to list per inventory field")
+    parser.add_argument("--query", default="", help="Requirement or target-surface text used to rank matched files")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output")
     args = parser.parse_args()
 
     host = args.host.resolve()
     if not host.is_dir():
         raise SystemExit(f"Host repository not found: {host}")
-    report = build_report(host, args.limit)
+    report = build_report(host, args.limit, args.query)
     print(json.dumps(report, ensure_ascii=False, indent=2 if args.pretty else None, sort_keys=True))
 
 

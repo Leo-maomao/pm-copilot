@@ -6,9 +6,31 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.2.4] - 2026-05-21
+## [2.2.5] - 2026-05-21
 
 Commit: pending release commit.
+
+### Changed
+
+- Added target-query ranking to host frontend inventory so repo-backed UI work can locate relevant routes/components from the requirement text instead of relying on broad repository scan order.
+- Tightened repo-backed prototype validation so a renderable host frontend that recommends source-rendered mode cannot silently fall back to standalone HTML unless the user explicitly requested a portable artifact or source rendering was attempted and blocked with concrete evidence.
+- Required standalone fallback runs to capture an existing UI visual baseline or record a concrete source-rendering/browser limitation when the host frontend is renderable.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Prototype template script parsing passes with a Node syntax smoke check.
+- Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
+- Annotation digit badge contract validation passes for the template.
+- Host frontend query inventory smoke passes against `/Users/mac142/Desktop/ai-video`, ranking `src/features/auth/components/LoginModal/LoginModal.tsx` as `preview_surface`.
+- Regression check rejects the old ai-video standalone output after annotation-number normalization with `Repo-backed renderable frontend should not fall back to standalone HTML unless the user explicitly requested a portable/standalone artifact or source rendering was attempted and blocked`.
+
+## [2.2.4] - 2026-05-21
+
+Commit: `602dc31` fix: validate annotation panel badge numbers.
 
 ### Changed
 

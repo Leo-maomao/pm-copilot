@@ -147,6 +147,7 @@ def strip_yaml_comments(block: str) -> str:
 def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     style_block = extract_yaml_block(run_log, "style_evidence")
     inventory_block = extract_yaml_block(run_log, "host_frontend_inventory")
+    visual_baseline_block = extract_yaml_block(run_log, "existing_ui_visual_baseline")
     isolated_block = extract_yaml_block(run_log, "isolated_ui_prototype")
     source_map_block = extract_yaml_block(isolated_block, "source_to_demo_mapping")
     baseline_import_block = extract_yaml_block(isolated_block, "baseline_import")
@@ -195,6 +196,60 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     }
     if mode not in allowed_modes:
         fail("Repo-backed prototype isolated_ui_prototype.mode must name a supported artifact mode")
+    recommended_mode = yaml_scalar_field_value(inventory_block, "recommended_artifact_mode")
+    render_entrypoint = yaml_scalar_field_value(inventory_block, "render_entrypoint")
+    preview = yaml_scalar_field_value(inventory_block, "preview_surface")
+    source_rendering_decision = yaml_scalar_field_value(inventory_block, "source_rendering_decision")
+    source_rendering_limitation = yaml_scalar_field_value(inventory_block, "source_rendering_limitation")
+    visual_baseline_status = yaml_scalar_field_value(visual_baseline_block, "status")
+    source_rendering_fallback_context = "\n".join(
+        (
+            source_rendering_decision,
+            source_rendering_limitation,
+            yaml_scalar_field_value(isolated_block, "host_mutation_policy"),
+            yaml_scalar_field_value(isolated_block, "parity_claim"),
+        )
+    )
+    explicit_portable_or_blocked = re.search(
+        r"(user[_ -]?explicit|explicit.*(portable|standalone|html)|"
+        r"user.*(portable|standalone|html)|用户.*(便携|独立|HTML)|"
+        r"blocked|failed|unavailable|setup failed|browser failed|dev server failed|"
+        r"build failed|command failed|missing render command|missing preview surface|"
+        r"无法|失败|不可用|缺少)",
+        source_rendering_fallback_context,
+        re.IGNORECASE,
+    )
+    source_rendered_modes = {
+        "source_delta_patch",
+        "source_rendered_preview",
+        "code_preview_route",
+        "storybook_or_demo",
+        "mini_program_preview",
+        "app_preview_screen",
+    }
+    if (
+        mode == "self_contained_html_from_host_code"
+        and recommended_mode in source_rendered_modes
+        and render_entrypoint
+        and preview
+        and not explicit_portable_or_blocked
+    ):
+        fail(
+            "Repo-backed renderable frontend should not fall back to standalone HTML unless the user "
+            "explicitly requested a portable/standalone artifact or source rendering was attempted and blocked"
+        )
+    if (
+        mode == "self_contained_html_from_host_code"
+        and recommended_mode in source_rendered_modes
+        and render_entrypoint
+        and preview
+        and visual_baseline_status in {"not_captured", "none", "missing", ""}
+        and not explicit_portable_or_blocked
+    ):
+        fail(
+            "Repo-backed standalone HTML fallback must capture an existing UI visual baseline or record a "
+            "concrete source-rendering/browser limitation"
+        )
     exact_fidelity_requested = re.search(
         r"(1:1|pixel|exact|source-level|near-online|as if added in source code|"
         r"一模一样|真实\s*UI|线上一致|源码|源代码|完全一致)",
@@ -215,14 +270,6 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         re.IGNORECASE,
     ):
         fail("Repo-backed standalone HTML mode must explicitly mark source-rendered fidelity as limited")
-    source_rendered_modes = {
-        "source_delta_patch",
-        "source_rendered_preview",
-        "code_preview_route",
-        "storybook_or_demo",
-        "mini_program_preview",
-        "app_preview_screen",
-    }
     if mode in source_rendered_modes:
         if not yaml_list_field_has_values(isolated_block, "preview_files_changed"):
             fail("Host-rendered prototype mode must record preview_files_changed")

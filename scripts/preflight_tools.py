@@ -186,7 +186,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "available" if script_available("scripts/inspect_host_frontend.py") else "unavailable",
             "scripts/inspect_host_frontend.py",
             True,
-            "python3 scripts/inspect_host_frontend.py --host <host-repo> --pretty",
+            "python3 scripts/inspect_host_frontend.py --host <host-repo> --query '<requirement or target surface>' --pretty",
         ),
         capability(
             "research.web_search",
