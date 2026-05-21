@@ -373,6 +373,25 @@ def inspect_page_dom(page) -> dict[str, object]:
                 || parseFloat(style.borderBottomWidth || "0") > 0
                 || parseFloat(style.borderLeftWidth || "0") > 0
             );
+            const checkAnnotationNumberBadge = (badge, expectedLabel, context) => {
+                const label = (badge.innerText || badge.textContent || "").replace(/\\s+/g, " ").trim();
+                if (badge.querySelector(".annotation-marker,.annotation-number")) {
+                    result.annotation_layout_issues.push(
+                        `${context} must not contain a nested annotation badge`,
+                    );
+                }
+                if (!/^[0-9]+$/.test(label) || (expectedLabel && label !== expectedLabel)) {
+                    result.annotation_layout_issues.push(
+                        `${context} must use the matching plain digit text`,
+                    );
+                }
+                const style = window.getComputedStyle(badge);
+                if (!isAnnotationRed(style.backgroundColor) || !isWhite(style.color) || hasBorderLine(style)) {
+                    result.annotation_layout_issues.push(
+                        `${context} must match marker red/white borderless style`,
+                    );
+                }
+            };
             const unauthRe = /(\\u767b\\u5f55|\\u672a\\u767b\\u5f55|\\u6e38\\u5ba2|sign in|log in|guest)/i;
             const explicitUnauthBodyRe = /(\\u672a\\u767b\\u5f55|\\u6e38\\u5ba2|not signed in|signed out|guest)/i;
             const accountTriggerRe = /(\\u4e2a\\u4eba\\u4e2d\\u5fc3|\\u8d26\\u53f7|\\u8d26\\u6237|profile|account)/i;
@@ -473,28 +492,10 @@ def inspect_page_dom(page) -> dict[str, object]:
                         if (!dialogNumber) {
                             result.annotation_layout_issues.push("annotation dialog missing matching annotation number badge");
                         } else {
-                            const numberStyle = window.getComputedStyle(dialogNumber);
-                            const markerLabel = textOf(marker).trim();
-                            const numberLabel = textOf(dialogNumber).trim();
-                            if (dialogNumber.querySelector(".annotation-marker,.annotation-number")) {
-                                result.annotation_layout_issues.push(
-                                    "annotation dialog number badge must not contain a nested annotation badge",
-                                );
-                            }
-                            if (!/^[0-9]+$/.test(numberLabel) || numberLabel !== markerLabel) {
-                                result.annotation_layout_issues.push(
-                                    "annotation dialog number badge must use the matching plain digit text",
-                                );
-                            }
-                            if (
-                                numberStyle.backgroundColor !== markerStyleAfterOpen.backgroundColor
-                                || numberStyle.color !== markerStyleAfterOpen.color
-                                || hasBorderLine(numberStyle)
-                            ) {
-                                result.annotation_layout_issues.push(
-                                    "annotation dialog number badge does not match marker red/white borderless style",
-                                );
-                            }
+                            const markerLabel = (marker.innerText || marker.textContent || "").replace(/\\s+/g, " ").trim()
+                                || marker.getAttribute("data-annotation-id")
+                                || "";
+                            checkAnnotationNumberBadge(dialogNumber, markerLabel, "annotation dialog number badge");
                         }
                         const tooLarge = dialogRect.width > window.innerWidth * 0.9
                             || dialogRect.height > window.innerHeight * 0.66;
@@ -565,6 +566,18 @@ def inspect_page_dom(page) -> dict[str, object]:
                             result.annotation_layout_issues.push(
                                 "annotation panel must slide from the right and fill viewport height",
                             );
+                        }
+                        const panelNumberBadges = Array.from(panel.querySelectorAll(".annotation-number"))
+                            .filter(styleVisible);
+                        if (panelNumberBadges.length === 0) {
+                            result.annotation_layout_issues.push(
+                                "annotation panel missing matching annotation number badges",
+                            );
+                        }
+                        for (const badge of panelNumberBadges) {
+                            const owner = badge.closest("[data-annotation-id]");
+                            const expectedLabel = owner ? owner.getAttribute("data-annotation-id") : "";
+                            checkAnnotationNumberBadge(badge, expectedLabel, "annotation panel number badge");
                         }
                         const closeButton = panel.querySelector(".annotation-close");
                         if (!closeButton) {

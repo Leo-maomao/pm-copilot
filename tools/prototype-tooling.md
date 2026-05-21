@@ -19,7 +19,7 @@ Prototypes should use the artifact mode that matches the fidelity target. Standa
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, preview route, Storybook/demo screenshot, existing screenshot asset, or user-provided image. If unavailable, record the limitation and do not claim pixel parity.
 - After style evidence is captured, run a design calibration pass: match the host product's visual density, layout variance, and motion intensity; remove generic AI patterns that do not belong to the current surface.
 - Keep the product surface full-width; annotation notes must not reserve layout space or shrink the product viewport.
-- Use matching numbered callouts at a safe top-right position on the annotated component and marker-triggered dialogs. Default UI markers and note numbers are red/white borderless circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. The short `注释`/`Notes` floating control uses `data-draggable="true"` and opens a right-edge full-height `annotation-list` panel for current page/state notes.
+- Use matching numbered callouts at a safe top-right position on the annotated component and marker-triggered dialogs. Default UI markers, marker dialog note numbers, and right-side page annotation panel note numbers are red/white borderless circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. The short `注释`/`Notes` floating control uses `data-draggable="true"` and opens a right-edge full-height `annotation-list` panel for current page/state notes.
 
 ## Suggested Verification
 
@@ -28,7 +28,7 @@ Prototypes should use the artifact mode that matches the fidelity target. Standa
 - Confirm text does not overflow the mobile frame.
 - Confirm the selected platform shape is obvious.
 - Confirm long pages, multi-state screens, and modals are scrollable like the host product and are not clipped by an artificial frame.
-- Confirm prototype JavaScript parses and primary buttons, tabs, dialogs, annotation markers, and the annotation toggle all produce visible state changes.
+- Confirm prototype JavaScript parses and primary buttons, tabs, dialogs, annotation markers, and the annotation toggle all produce visible state changes. Confirm marker dialogs and the right-side page annotation panel both show matching plain digit number badges.
 - Confirm repo-backed prototype-only work did not modify host production routes, pages, components, styles, assets, package files, or backend code unless explicitly requested.
 - Confirm unchanged baseline UI is not redesigned or explained inline, and that delta markers/dialogs do not resize, crop, recolor, or cover critical unchanged UI.
 - Confirm source-rendered repo-backed prototypes import/render the baseline from host source, record `baseline_import`, and change only `delta_patch` preview files.

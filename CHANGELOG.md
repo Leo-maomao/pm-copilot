@@ -6,9 +6,28 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.2.3] - 2026-05-21
+## [2.2.4] - 2026-05-21
 
 Commit: pending release commit.
+
+### Changed
+
+- Extended runtime visual validation to inspect every right-side page annotation panel number badge, not just the marker popover badge.
+- Tightened annotation guidance so the page annotation panel list items must also use plain digit red/white borderless badges without circled numeral glyphs or nested badge content.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Prototype template script parsing passes with a Node syntax smoke check.
+- Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`, including right-side page annotation panel number badge checks.
+- Annotation digit badge contract validation passes for the template.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+
+## [2.2.3] - 2026-05-21
+
+Commit: `24f8a49` fix: use plain annotation badge numbers.
 
 ### Changed
 
