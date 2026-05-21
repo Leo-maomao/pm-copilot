@@ -98,7 +98,7 @@ next_actions:
 - Record PRD, engineering handoff, and launch readiness separately. Do not use a single ready/not-ready label for all phases.
 - Record whether the run was repo-backed, document-backed, or brief-only.
 - In repo-backed mode, record relevant host project files and current-state facts used for product-fit decisions.
-- For repo-backed UI prototype deliveries, record `style_evidence` with source files, reused components, reused tokens or class patterns, prototype delta, and limitations. Missing style evidence means the Prototype Agent output is not complete.
+- For repo-backed UI prototype deliveries, record concrete `style_evidence` with host source files/assets, reused components, reused tokens or class patterns, prototype delta, and limitations. Also record non-empty `source_to_demo_mapping` entries that explain how inspected host components/screens are represented in the prototype. Missing or empty style evidence means the Prototype Agent output is not complete.
 - For repo-backed prototype-only UI deliveries, record `isolated_ui_prototype` with host mutation policy, target surface, `baseline_layer`, `delta_layer`, source-to-demo mapping, backend simulation method, parity claim, and limitations. The default host mutation policy is `read_only`; any production file change requires explicit user request or approval.
 - For repo-backed UI prototype deliveries, record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation. Do not claim pixel-level parity when no visual comparison ran.
 - In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.

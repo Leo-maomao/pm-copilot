@@ -26,15 +26,16 @@
     .card { margin-top: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
     .annotation-target { position: relative; overflow: visible; }
     .annotation-marker { position: absolute; top: 6px; right: 6px; z-index: 12; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
-    .annotation-marker.active { background: var(--primary); }
-    .annotation-backdrop { position: fixed; inset: 0; z-index: 40; display: none; background: rgba(15, 23, 42, 0.32); }
-    .annotation-backdrop.active { display: block; }
-    .annotation-dialog { position: fixed; top: 50%; left: 50%; z-index: 41; display: none; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; transform: translate(-50%, -50%); border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 18px; box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28); }
+    .annotation-dialog { position: fixed; z-index: 41; display: none; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22); }
     .annotation-dialog.active { display: block; }
+    .annotation-dialog::before { content: ""; position: absolute; top: 14px; left: -6px; width: 10px; height: 10px; transform: rotate(45deg); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
+    .annotation-dialog.is-left::before { right: -6px; left: auto; border: 0; border-top: 1px solid var(--line); border-right: 1px solid var(--line); }
     .annotation-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
     .annotation-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 8px; border-radius: 999px; background: #ff3b30; color: #fff; font-weight: 800; }
     .annotation-close { border: 0; border-radius: 8px; background: #f1f5f2; padding: 6px 10px; cursor: pointer; }
-    .annotation-list { display: grid; gap: 10px; }
+    .annotation-list { position: fixed; top: 62px; right: 12px; z-index: 42; display: none; width: min(390px, calc(100vw - 24px)); max-height: calc(100dvh - 84px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22); }
+    .annotation-list.active { display: grid; gap: 10px; }
+    .annotation-list-items { display: grid; gap: 10px; }
     .annotation-list-item { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 12px; text-align: left; cursor: pointer; }
     .note-group-title { margin: 10px 0 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
     @media (max-width: 760px) {
@@ -44,7 +45,7 @@
   </style>
 </head>
 <body>
-  <!-- Template note: match the current product style before filling this file. Keep annotations in marker dialogs and the top-right annotation-list overlay, not a persistent side board. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
+  <!-- Template note: match the current product style before filling this file. Marker clicks open small local popovers beside the marker; only the annotation toggle opens the top-right annotation-list overlay. Do not use a full-screen/global marker modal or persistent side board. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
   <!-- style-source-summary: {{localized_style_source_summary}} -->
   <div class="prototype-shell" data-style-source="{{localized_style_source_summary}}">
     <div class="prototype-toolbar" aria-label="{{localized_prototype_controls}}">
@@ -66,11 +67,11 @@
           <div class="page-content">
             <div class="annotation-target">
               <h1>{{localized_existing_page_surface}}</h1>
-              <button id="marker-1" class="annotation-marker" data-annotation-id="1" data-annotation-placement="top-right" type="button" onclick="showAnnotation('1')">1</button>
+              <button id="marker-1" class="annotation-marker" data-annotation-id="1" data-annotation-placement="top-right" type="button" onclick="showAnnotation('1', this)">1</button>
             </div>
             <p class="muted">{{localized_existing_page_note}}</p>
             <div class="card annotation-target">
-              <button id="marker-2" class="annotation-marker" data-annotation-id="2" data-annotation-placement="top-right" type="button" onclick="showAnnotation('2')">2</button>
+              <button id="marker-2" class="annotation-marker" data-annotation-id="2" data-annotation-placement="top-right" type="button" onclick="showAnnotation('2', this)">2</button>
               <strong>{{localized_existing_card_title}}</strong>
               <p class="muted">{{localized_existing_card_summary}}</p>
             </div>
@@ -82,25 +83,25 @@
           <div class="page-content">
             <div class="annotation-target">
               <h1>{{localized_new_requirement_state}}</h1>
-              <button id="marker-3" class="annotation-marker" data-annotation-id="3" data-annotation-placement="top-right" type="button" onclick="showAnnotation('3')">3</button>
+              <button id="marker-3" class="annotation-marker" data-annotation-id="3" data-annotation-placement="top-right" type="button" onclick="showAnnotation('3', this)">3</button>
             </div>
             <p class="muted">{{localized_new_state_note}}</p>
             <div class="card annotation-target">
-              <button id="marker-4" class="annotation-marker" data-annotation-id="4" data-annotation-placement="top-right" type="button" onclick="showAnnotation('4')">4</button>
+              <button id="marker-4" class="annotation-marker" data-annotation-id="4" data-annotation-placement="top-right" type="button" onclick="showAnnotation('4', this)">4</button>
               <strong>{{localized_new_component_title}}</strong>
               <p class="muted">{{localized_new_component_summary}}</p>
             </div>
             <div class="annotation-target">
-              <button class="button" type="button" onclick="showAnnotation('5')">{{localized_primary_action}}</button>
-              <button id="marker-5" class="annotation-marker" data-annotation-id="5" data-annotation-placement="top-right" type="button" onclick="showAnnotation('5')">5</button>
+              <button class="button" type="button" onclick="showAnnotation('5', document.getElementById('marker-5'))">{{localized_primary_action}}</button>
+              <button id="marker-5" class="annotation-marker" data-annotation-id="5" data-annotation-placement="top-right" type="button" onclick="showAnnotation('5', this)">5</button>
             </div>
           </div>
         </section>
       </div>
     </main>
 
-    <div id="annotation-backdrop" class="annotation-backdrop" onclick="closeAnnotation()"></div>
-    <section id="annotation-dialog" class="annotation-dialog" role="dialog" aria-modal="true" aria-live="polite"></section>
+    <section id="annotation-dialog" class="annotation-dialog" role="dialog" aria-live="polite"></section>
+    <section id="annotation-list-panel" class="annotation-list" aria-label="{{localized_current_state_annotations}}"></section>
   </div>
 
   <script type="text/javascript">
@@ -126,21 +127,57 @@
       closeAnnotation();
     }
 
-    function setActiveMarker(id) {
-      var markers = document.querySelectorAll('.annotation-marker');
+    function findMarker(id) {
+      var markers = document.querySelectorAll('[data-annotation-id="' + id + '"]');
       for (var i = 0; i < markers.length; i += 1) {
-        markers[i].classList.toggle('active', markers[i].getAttribute('data-annotation-id') === id);
+        var rect = markers[i].getBoundingClientRect();
+        var style = window.getComputedStyle(markers[i]);
+        if (style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0) {
+          return markers[i];
+        }
       }
+      return markers[0] || null;
     }
 
-    function showAnnotation(id) {
+    function positionAnnotationDialog(trigger) {
+      var dialog = document.getElementById('annotation-dialog');
+      var marker = trigger || findMarker(dialog.getAttribute('data-active-annotation-id') || '');
+      if (!marker) {
+        dialog.style.left = '12px';
+        dialog.style.top = '12px';
+        return;
+      }
+      var rect = marker.getBoundingClientRect();
+      var gap = 10;
+      var width = dialog.offsetWidth || 320;
+      var height = dialog.offsetHeight || 160;
+      var maxLeft = window.innerWidth - width - 8;
+      var maxTop = window.innerHeight - height - 8;
+      var left = rect.right + gap;
+      var top = rect.top - 8;
+      dialog.classList.remove('is-left');
+      if (left > maxLeft) {
+        left = rect.left - width - gap;
+        dialog.classList.add('is-left');
+      }
+      dialog.style.left = Math.max(8, Math.min(maxLeft, left)) + 'px';
+      dialog.style.top = Math.max(8, Math.min(maxTop, top)) + 'px';
+    }
+
+    function showAnnotation(id, trigger) {
       var item = annotations.find(function (entry) { return entry.id === id; });
       if (!item) return;
-      setActiveMarker(id);
-      renderDialog(
+      var dialog = document.getElementById('annotation-dialog');
+      if (dialog.classList.contains('active') && dialog.getAttribute('data-active-annotation-id') === id) {
+        closeAnnotation();
+        return;
+      }
+      renderAnnotationDialog(
         '<header><h2><span class="annotation-number">' + item.number + '</span>' + item.title + '</h2>' +
         '<button class="annotation-close" type="button" onclick="closeAnnotation()">{{localized_close}}</button></header>' +
-        '<p class="muted">' + item.detail + '</p>'
+        '<p class="muted">' + item.detail + '</p>',
+        id,
+        trigger
       );
     }
 
@@ -148,27 +185,30 @@
       var items = activeAnnotations();
       var html = '<header><h2>{{localized_current_state_annotations}}</h2>' +
         '<button class="annotation-close" type="button" onclick="closeAnnotation()">{{localized_close}}</button></header>' +
-        '<div class="note-group-title">{{localized_current_page}}</div><div class="annotation-list">';
+        '<div class="note-group-title">{{localized_current_page}}</div><div class="annotation-list-items">';
       for (var i = 0; i < items.length; i += 1) {
         html += '<button class="annotation-list-item" type="button" data-annotation-id="' + items[i].id + '" onclick="showAnnotation(\'' + items[i].id + '\')">' +
           '<span class="annotation-number">' + items[i].number + '</span><strong>' + items[i].title + '</strong>' +
           '<p class="muted">' + items[i].detail + '</p></button>';
       }
       html += '</div>';
-      setActiveMarker('');
-      renderDialog(html);
+      closeAnnotation();
+      document.getElementById('annotation-list-panel').innerHTML = html;
+      document.getElementById('annotation-list-panel').classList.add('active');
     }
 
-    function renderDialog(html) {
-      document.getElementById('annotation-dialog').innerHTML = html;
-      document.getElementById('annotation-dialog').classList.add('active');
-      document.getElementById('annotation-backdrop').classList.add('active');
+    function renderAnnotationDialog(html, id, trigger) {
+      var dialog = document.getElementById('annotation-dialog');
+      dialog.innerHTML = html;
+      dialog.setAttribute('data-active-annotation-id', id);
+      dialog.classList.add('active');
+      document.getElementById('annotation-list-panel').classList.remove('active');
+      positionAnnotationDialog(trigger);
     }
 
     function closeAnnotation() {
       document.getElementById('annotation-dialog').classList.remove('active');
-      document.getElementById('annotation-backdrop').classList.remove('active');
-      setActiveMarker('');
+      document.getElementById('annotation-list-panel').classList.remove('active');
     }
 
     function initDraggableAnnotationToggle() {

@@ -403,6 +403,85 @@ def inspect_page_dom(page) -> dict[str, object]:
                     break;
                 }
             }
+            if (markers.length > 0) {
+                const marker = markers[0];
+                const markerRect = marker.getBoundingClientRect();
+                const markerStyleBefore = window.getComputedStyle(marker);
+                const markerVisualBefore = [
+                    markerStyleBefore.backgroundColor,
+                    markerStyleBefore.borderColor,
+                    markerStyleBefore.color,
+                    markerStyleBefore.boxShadow,
+                ].join("|");
+                try {
+                    marker.click();
+                    await new Promise((resolve) => setTimeout(resolve, 100));
+                    const markerStyleAfterOpen = window.getComputedStyle(marker);
+                    const markerVisualAfterOpen = [
+                        markerStyleAfterOpen.backgroundColor,
+                        markerStyleAfterOpen.borderColor,
+                        markerStyleAfterOpen.color,
+                        markerStyleAfterOpen.boxShadow,
+                    ].join("|");
+                    if (markerVisualAfterOpen !== markerVisualBefore) {
+                        result.annotation_layout_issues.push(
+                            "annotation marker visual style changes after opening",
+                        );
+                    }
+                    const dialogs = Array.from(document.querySelectorAll(".annotation-dialog"))
+                        .filter(styleVisible);
+                    if (dialogs.length === 0) {
+                        result.annotation_layout_issues.push("annotation marker does not open a visible dialog");
+                    } else {
+                        const dialogRect = dialogs[0].getBoundingClientRect();
+                        const tooLarge = dialogRect.width > window.innerWidth * 0.9
+                            || dialogRect.height > window.innerHeight * 0.66;
+                        const xOverlap = Math.max(
+                            0,
+                            Math.min(markerRect.right, dialogRect.right)
+                                - Math.max(markerRect.left, dialogRect.left),
+                        );
+                        const yOverlap = Math.max(
+                            0,
+                            Math.min(markerRect.bottom, dialogRect.bottom)
+                                - Math.max(markerRect.top, dialogRect.top),
+                        );
+                        const horizontalGap = Math.min(
+                            Math.abs(dialogRect.left - markerRect.right),
+                            Math.abs(markerRect.left - dialogRect.right),
+                        );
+                        const verticalGap = Math.min(
+                            Math.abs(dialogRect.top - markerRect.bottom),
+                            Math.abs(markerRect.top - dialogRect.bottom),
+                        );
+                        const markerCenterX = markerRect.left + markerRect.width / 2;
+                        const markerCenterY = markerRect.top + markerRect.height / 2;
+                        const markerCenterInsideDialog = markerCenterX >= dialogRect.left
+                            && markerCenterX <= dialogRect.right
+                            && markerCenterY >= dialogRect.top
+                            && markerCenterY <= dialogRect.bottom;
+                        const locallyAnchored = (horizontalGap <= 40 && yOverlap > 0)
+                            || (verticalGap <= 40 && xOverlap > 0)
+                            || markerCenterInsideDialog;
+                        if (tooLarge || !locallyAnchored) {
+                            result.annotation_layout_issues.push(
+                                "annotation marker dialog is not a local popover beside the marker",
+                            );
+                        }
+                    }
+                    marker.click();
+                    await new Promise((resolve) => setTimeout(resolve, 100));
+                    const stillVisibleDialogs = Array.from(document.querySelectorAll(".annotation-dialog"))
+                        .filter(styleVisible);
+                    if (stillVisibleDialogs.length > 0) {
+                        result.annotation_layout_issues.push(
+                            "annotation marker second click does not close the dialog",
+                        );
+                    }
+                } catch (_error) {
+                    result.annotation_layout_issues.push("annotation marker click failed");
+                }
+            }
             const clippingTargets = Array.from(document.querySelectorAll(".annotation-target"))
                 .filter((node) => {
                     const overflow = window.getComputedStyle(node).overflow;

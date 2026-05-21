@@ -191,8 +191,8 @@ surface_decisions:
   fallback_states: []
 
 style_evidence:
-  source_files: []
-  reused_components: []
+  source_files: [] # concrete host files/assets inspected, e.g. src/.../Component.tsx, src/styles/..., public/...
+  reused_components: [] # host component-library or page components mirrored in the prototype
   reused_tokens_or_classes: []
   prototype_delta: ""
   limitations: []
@@ -201,6 +201,7 @@ isolated_ui_prototype:
   mode: "" # self_contained_html_from_host_code | code_preview_route | storybook_or_demo | document_or_screenshot_only | not_applicable
   host_mutation_policy: "" # read_only | user_approved_prototype_branch_change | production_implementation_requested | not_applicable
   target_surface: ""
+  preview_files_changed: [] # only for code_preview_route/storybook_or_demo; keep production flow files out unless requested
   baseline_layer:
     source: ""
     reconstruction_method: "" # host_code_and_assets | screenshot_reference | document_reference | not_applicable
@@ -213,8 +214,8 @@ isolated_ui_prototype:
     new_interactions: []
     backend_notes: []
   source_to_demo_mapping:
-    - source: ""
-      prototype_representation: ""
+    - source: "" # host file, screenshot, demo route, or component source
+      prototype_representation: "" # where and how that source appears in the HTML prototype
       confidence: ""
   backend_simulation:
     method: "" # mock_data_and_annotations | existing_mock_source | real_api_not_used | not_applicable

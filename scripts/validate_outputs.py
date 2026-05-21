@@ -88,6 +88,75 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def extract_yaml_block(text: str, key: str) -> str:
+    match = re.search(rf"^(?P<indent>\s*){re.escape(key)}:\s*(?:#.*)?$", text, re.MULTILINE)
+    if not match:
+        return ""
+    indent = len(match.group("indent"))
+    lines: list[str] = []
+    for line in text[match.end():].splitlines():
+        if line.strip() and len(line) - len(line.lstrip(" ")) <= indent:
+            break
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def yaml_list_field_has_values(block: str, key: str) -> bool:
+    match = re.search(rf"^(?P<indent>\s*){re.escape(key)}:\s*(?P<inline>.*)$", block, re.MULTILINE)
+    if not match:
+        return False
+    inline = match.group("inline").strip()
+    if inline in ("[]", '""', "''"):
+        return False
+    if inline and not inline.startswith("#"):
+        return True
+    indent = len(match.group("indent"))
+    child_lines: list[str] = []
+    for line in block[match.end():].splitlines():
+        if line.strip() and len(line) - len(line.lstrip(" ")) <= indent:
+            break
+        child_lines.append(line)
+    child_block = "\n".join(child_lines)
+    return bool(re.search(r"^\s*-\s*(?!\"\"\s*$|''\s*$|#|\s*$).+", child_block, re.MULTILINE))
+
+
+def yaml_mapping_field_has_value(block: str, key: str) -> bool:
+    return bool(
+        re.search(
+            rf"^\s*(?:-\s*)?{re.escape(key)}:\s*(?!\"\"\s*$|''\s*$|#|\s*$).+",
+            block,
+            re.MULTILINE,
+        )
+    )
+
+
+def check_repo_backed_style_evidence_quality(run_log: str) -> None:
+    style_block = extract_yaml_block(run_log, "style_evidence")
+    isolated_block = extract_yaml_block(run_log, "isolated_ui_prototype")
+    source_map_block = extract_yaml_block(isolated_block, "source_to_demo_mapping")
+
+    for field in ("source_files", "reused_components", "reused_tokens_or_classes"):
+        if not yaml_list_field_has_values(style_block, field):
+            fail(f"Repo-backed prototype style_evidence.{field} must list concrete host evidence")
+
+    source_files_block = extract_yaml_block(style_block, "source_files")
+    if not re.search(
+        r"\b(src|app|pages|components|features|public|assets|styles|tailwind|theme|storybook|stories)/|"
+        r"\.(tsx|ts|jsx|js|vue|svelte|css|scss|less|html|png|jpg|jpeg|webp|svg)\b",
+        source_files_block,
+        re.IGNORECASE,
+    ):
+        fail("Repo-backed prototype style_evidence.source_files must name real host files or assets")
+
+    if not yaml_mapping_field_has_value(source_map_block, "source"):
+        fail("Repo-backed prototype source_to_demo_mapping must include non-empty source entries")
+    if not yaml_mapping_field_has_value(source_map_block, "prototype_representation"):
+        fail(
+            "Repo-backed prototype source_to_demo_mapping must describe how each source appears "
+            "in the prototype"
+        )
+
+
 class PrototypeScriptParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
@@ -470,6 +539,8 @@ def check_prototype_agent_and_style_trace(path: Path) -> None:
             if marker not in run_log:
                 fail(f"Repo-backed prototype missing isolated UI prototype marker: {marker}")
 
+        check_repo_backed_style_evidence_quality(run_log)
+
         for prototype in prototypes:
             text = read(prototype)
             if "style-source-summary" not in text and "data-style-source" not in text:
@@ -497,9 +568,32 @@ def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
         fail(f"{prototype_name} missing drag interaction handlers for annotation-toggle")
     if "note-panel" in text or "annotation-panel" in text:
         fail(f"{prototype_name} should not use a persistent side annotation panel")
+    if "annotation-backdrop" in text:
+        fail(f"{prototype_name} should not use a global annotation backdrop for marker notes")
+    if re.search(r"\.annotation-marker(?:\.|\s+)(?:active|is-active)\b", text):
+        fail(f"{prototype_name} annotation markers should not change visual color when selected")
     for marker in ("prototype-viewport", "data-prototype-state"):
         if marker not in text:
             fail(f"{prototype_name} missing full-surface state/viewport marker: {marker}")
+    dialog_rule = re.search(
+        r"\.annotation-dialog\s*\{(?P<body>[^}]*)\}",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if dialog_rule:
+        body = dialog_rule.group("body")
+        if re.search(r"\binset\s*:\s*0\b", body):
+            fail(f"{prototype_name} annotation-dialog must not be a full-screen marker modal")
+        if (
+            re.search(r"\btop\s*:\s*50%", body)
+            and re.search(r"\bleft\s*:\s*50%", body)
+            and "translate(-50%, -50%)" in body
+        ):
+            fail(f"{prototype_name} annotation-dialog must be positioned beside the marker, not centered")
+    if "getBoundingClientRect" not in text or not re.search(r"\.style\.(left|top)\s*=", text):
+        fail(f"{prototype_name} marker annotation dialog must calculate local position near the marker")
+    if not re.search(r"data-active-annotation-id", text) or not re.search(r"classList\.contains\(['\"]active['\"]\)", text):
+        fail(f"{prototype_name} marker annotation dialog must toggle closed when clicking the same marker again")
     marker_rule = re.search(r"\.annotation-marker\s*\{(?P<body>[^}]*)\}", text, re.MULTILINE | re.DOTALL)
     if marker_rule:
         body = marker_rule.group("body")

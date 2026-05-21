@@ -22,6 +22,11 @@ Commit: pending release commit.
 - Updated configuration and release checklist docs for candidate-tool readiness and canonical skill mapping.
 - Strengthened external integration preflight so `candidate` and `hold` tools fail `--require-ready` instead of being treated as usable required dependencies.
 - Extended existing competitor, metrics, tracking, and product-ops skills with explicit boundaries to prevent duplicate sibling skills.
+- Tightened repo-backed prototype guidance so style evidence must name concrete host files/assets, component-library sources, and source-to-demo mappings before a prototype can claim completion.
+- Changed the prototype template and annotation contract so marker clicks open local popovers beside the marked component; full-screen/global marker note modals and annotation backdrops are now rejected.
+- Extended prototype visual validation to click an annotation marker and verify the opened note is locally anchored rather than a centered/global dialog.
+- Refined annotation behavior so markers do not change visual style on click and clicking the same marker again closes its local popover.
+- Added host-rendered preview guidance for repo-backed high-fidelity prototypes so exact icons, component-library behavior, and source-level visual parity use `code_preview_route` or `storybook_or_demo` when allowed, instead of relying on hand-recreated standalone HTML.
 
 ### Validation
 
