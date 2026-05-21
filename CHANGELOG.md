@@ -6,9 +6,28 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.2.2] - 2026-05-21
+## [2.2.3] - 2026-05-21
 
 Commit: pending release commit.
+
+### Changed
+
+- Changed annotation dialog and panel number badges to use plain digits inside the red/white badge instead of circled numeral glyphs, preventing nested red badge visuals.
+- Updated prototype guidance and validation to reject circled numeral glyphs or nested badge content in annotation number badges and require plain digit mappings for each marker ID.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Prototype template script parsing passes with a Node syntax smoke check.
+- Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
+- Annotation digit badge contract validation passes for the template.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+
+## [2.2.2] - 2026-05-21
+
+Commit: `e6adf3a` feat: add source delta prototype mode.
 
 ### Changed
 
@@ -179,7 +198,7 @@ Commit: `20a3a9d` chore: release prototype validation gates 2.0.2.
 - Bumped the project version to `2.0.2` for prototype validation and repo-backed prototype quality gates.
 - Strengthened repo-backed prototype generation so UI deliveries must load Prototype Agent plus `multi-platform-prototype`, record style evidence, and reuse host frontend component/style sources instead of inventing a new shell.
 - Added an existing UI visual baseline requirement for repo-backed prototypes so runs must capture or record a running-app/demo/screenshot reference, comparison method, and limitation before claiming visual fit.
-- Updated prototype annotation guidance and template markers to use red `annotation-marker` badges with stable `data-annotation-id` mappings to circled-number notes.
+- Updated prototype annotation guidance and template markers to use red `annotation-marker` badges with stable `data-annotation-id` mappings to matching numbered notes.
 - Changed prototype annotations from a persistent side-board pattern to component-corner red badge markers, marker-triggered dialogs, and a top-right current-state annotation list.
 - Added PRD research guidance so “Research and reference findings” uses source-backed competitor, benchmark, or comparable-product research for solution shaping, while repository files stay under current-state context or engineering implementation notes.
 - Added prototype geometry guidance for long pages, multi-state screens, and modals so generated HTML preserves real scrolling behavior instead of clipping content inside artificial frames.

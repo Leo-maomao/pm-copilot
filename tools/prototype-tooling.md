@@ -19,7 +19,7 @@ Prototypes should use the artifact mode that matches the fidelity target. Standa
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, preview route, Storybook/demo screenshot, existing screenshot asset, or user-provided image. If unavailable, record the limitation and do not claim pixel parity.
 - After style evidence is captured, run a design calibration pass: match the host product's visual density, layout variance, and motion intensity; remove generic AI patterns that do not belong to the current surface.
 - Keep the product surface full-width; annotation notes must not reserve layout space or shrink the product viewport.
-- Use matching numbered callouts at a safe top-right position on the annotated component and marker-triggered dialogs. Default UI markers and note numbers are red/white borderless circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`. The short `注释`/`Notes` floating control uses `data-draggable="true"` and opens a right-edge full-height `annotation-list` panel for current page/state notes.
+- Use matching numbered callouts at a safe top-right position on the annotated component and marker-triggered dialogs. Default UI markers and note numbers are red/white borderless circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. The short `注释`/`Notes` floating control uses `data-draggable="true"` and opens a right-edge full-height `annotation-list` panel for current page/state notes.
 
 ## Suggested Verification
 

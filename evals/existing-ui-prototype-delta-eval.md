@@ -42,7 +42,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 - Each page or screen has its own annotation group.
 - Each annotation is reachable from a marker or hotspot tied to a specific UI element, with details in a local marker popover beside that UI element and the current-state annotation list.
 - Marker visual style does not change after click, and clicking the same marker again closes the local popover.
-- Markers and matching annotation number badges are red fill, white text, and borderless.
+- Markers and matching annotation number badges are red fill, white text, borderless, and use plain digits instead of circled numeral glyphs or nested badge content.
 - The annotation floating control shows only `注释` or `Notes`, hides while a right-edge full-height annotation panel is open, and reappears when the panel closes.
 - Any page/state switching control is fixed outside the product layout.
 - Marker-triggered notes do not open a full-screen/global modal or backdrop.

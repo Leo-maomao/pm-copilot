@@ -60,7 +60,7 @@ PROTOTYPE_FILE_NAMES = (
     "prototype-app.html",
 )
 
-ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
+CIRCLED_ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
 
 EXPECTED_REVIEW_SCORES = {
     "delivery": 32,
@@ -771,10 +771,24 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
     annotation_ids = set(re.findall(r"data-annotation-id=[\"']([0-9]+)[\"']", text))
     if not annotation_ids:
         fail(f"{prototype_name} missing annotation ID values")
-    if not ANNOTATION_NUMERAL_RE.search(text):
-        fail(f"{prototype_name} missing circled annotation numbers in annotation dialogs or list")
-    if len(annotation_ids) >= 2 and "②" not in text:
-        fail(f"{prototype_name} missing matching ② note for the second marker")
+    if CIRCLED_ANNOTATION_NUMERAL_RE.search(text):
+        fail(f"{prototype_name} annotation number badges must use plain digits, not circled numerals")
+    if re.search(
+        r"<span[^>]+class=[\"'][^\"']*annotation-number[^\"']*[\"'][^>]*>(?:(?!</span>).)*"
+        r"<(?:span|button)[^>]+class=[\"'][^\"']*annotation-(?:marker|number)[^\"']*[\"']",
+        text,
+        re.MULTILINE | re.DOTALL,
+    ):
+        fail(f"{prototype_name} annotation number badges must not contain nested annotation badges")
+    for annotation_id in sorted(annotation_ids, key=int):
+        has_plain_number_source = re.search(rf"number:\s*['\"]{annotation_id}['\"]", text)
+        has_plain_number_badge = re.search(
+            rf"<span[^>]+class=[\"'][^\"']*annotation-number[^\"']*[\"'][^>]*>\s*{annotation_id}\s*</span>",
+            text,
+            re.MULTILINE | re.DOTALL,
+        )
+        if not has_plain_number_source and not has_plain_number_badge:
+            fail(f"{prototype_name} missing plain digit annotation number badge for marker {annotation_id}")
     check_prototype_script_syntax(text, prototype_name)
 
 

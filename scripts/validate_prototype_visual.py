@@ -474,6 +474,18 @@ def inspect_page_dom(page) -> dict[str, object]:
                             result.annotation_layout_issues.push("annotation dialog missing matching annotation number badge");
                         } else {
                             const numberStyle = window.getComputedStyle(dialogNumber);
+                            const markerLabel = textOf(marker).trim();
+                            const numberLabel = textOf(dialogNumber).trim();
+                            if (dialogNumber.querySelector(".annotation-marker,.annotation-number")) {
+                                result.annotation_layout_issues.push(
+                                    "annotation dialog number badge must not contain a nested annotation badge",
+                                );
+                            }
+                            if (!/^[0-9]+$/.test(numberLabel) || numberLabel !== markerLabel) {
+                                result.annotation_layout_issues.push(
+                                    "annotation dialog number badge must use the matching plain digit text",
+                                );
+                            }
                             if (
                                 numberStyle.backgroundColor !== markerStyleAfterOpen.backgroundColor
                                 || numberStyle.color !== markerStyleAfterOpen.color

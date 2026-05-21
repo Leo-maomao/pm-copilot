@@ -34,7 +34,7 @@
 
 - Prototype matches the current mini-program visual style: status bar, capsule/header, tab bar, colors, spacing, typography, icon style, card radius, shadows, and layout density.
 - Prototype does not look like a newly invented product shell when existing UI evidence is available.
-- Every element requiring logic or interaction explanation has a visible numbered marker such as `①`, `②`, and `③` placed near that element.
+- Every element requiring logic or interaction explanation has a visible numbered marker such as `1`, `2`, and `3` placed near that element.
 - Marker dialogs and the right-edge annotation panel contain matching numbered notes grouped by page or state.
 - Annotation notes are concrete and implementation-grade, for example text length limit and ellipsis rule, tap behavior, hover or tooltip behavior when applicable, long-press behavior, empty/error state, data source, permission rule, and tracking hook.
 - Long notes are summarized in marker dialogs and expanded through the annotation list instead of being dumped into one generic paragraph.
