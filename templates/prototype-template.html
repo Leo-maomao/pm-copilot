@@ -13,11 +13,13 @@
     .prototype-viewport { min-height: 100dvh; overflow: auto; }
     .product-surface { min-height: 100dvh; background: var(--surface); }
     .desktop-nav { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, white); }
-    .prototype-toolbar { position: fixed; top: 12px; right: 12px; z-index: 30; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+    .prototype-toolbar { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
     .prototype-toolbar > * { pointer-events: auto; }
-    .prototype-state-tabs { display: inline-flex; gap: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.9); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
-    .prototype-state-tabs button, .annotation-toggle { min-height: 34px; border: 0; border-radius: 999px; padding: 0 12px; background: transparent; color: var(--text); cursor: pointer; white-space: nowrap; }
-    .prototype-state-tabs button.active, .annotation-toggle { background: var(--primary); color: #fff; }
+    .prototype-state-tabs { position: fixed; top: 12px; left: 50%; z-index: 30; display: inline-flex; transform: translateX(-50%); gap: 6px; max-width: calc(100vw - 120px); overflow-x: auto; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
+    .prototype-state-tabs button { min-height: 34px; border: 0; border-radius: 999px; padding: 0 12px; background: transparent; color: var(--text); cursor: pointer; white-space: nowrap; }
+    .prototype-state-tabs button.active { background: var(--primary); color: #fff; }
+    .annotation-toggle { position: fixed; right: 16px; bottom: 16px; z-index: 43; display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 58px; border: 0; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; white-space: nowrap; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.24); transition: opacity 160ms ease, transform 160ms ease; }
+    .annotation-toggle.hidden { opacity: 0; pointer-events: none; transform: scale(0.96); }
     .screen { display: none; }
     .screen.active { display: block; }
     .page-content { width: min(100%, 980px); margin: 0 auto; padding: 48px 20px 120px; }
@@ -25,27 +27,28 @@
     .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
     .card { margin-top: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06); }
     .annotation-target { position: relative; overflow: visible; }
-    .annotation-marker { position: absolute; top: 6px; right: 6px; z-index: 12; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
+    .annotation-marker { position: absolute; top: 6px; right: 6px; z-index: 12; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 0; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
     .annotation-dialog { position: fixed; z-index: 41; display: none; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22); }
     .annotation-dialog.active { display: block; }
     .annotation-dialog::before { content: ""; position: absolute; top: 14px; left: -6px; width: 10px; height: 10px; transform: rotate(45deg); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
     .annotation-dialog.is-left::before { right: -6px; left: auto; border: 0; border-top: 1px solid var(--line); border-right: 1px solid var(--line); }
     .annotation-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
-    .annotation-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 8px; border-radius: 999px; background: #ff3b30; color: #fff; font-weight: 800; }
+    .annotation-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 8px; border: 0; border-radius: 999px; background: #ff3b30; color: #fff; font-weight: 800; line-height: 1; }
     .annotation-close { border: 0; border-radius: 8px; background: #f1f5f2; padding: 6px 10px; cursor: pointer; }
-    .annotation-list { position: fixed; top: 62px; right: 12px; z-index: 42; display: none; width: min(390px, calc(100vw - 24px)); max-height: calc(100dvh - 84px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22); }
-    .annotation-list.active { display: grid; gap: 10px; }
+    .annotation-list { position: fixed; top: 0; right: 0; bottom: 0; z-index: 42; display: grid; align-content: start; width: min(420px, 100vw); height: 100dvh; overflow: auto; transform: translateX(100%); border: 0; border-left: 1px solid var(--line); border-radius: 0; background: #fff; padding: 18px; opacity: 0; pointer-events: none; box-shadow: -18px 0 48px rgba(15, 23, 42, 0.18); transition: transform 180ms ease, opacity 180ms ease; }
+    .annotation-list.active { transform: translateX(0); opacity: 1; pointer-events: auto; gap: 10px; }
     .annotation-list-items { display: grid; gap: 10px; }
     .annotation-list-item { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 12px; text-align: left; cursor: pointer; }
     .note-group-title { margin: 10px 0 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
     @media (max-width: 760px) {
-      .prototype-toolbar { left: 8px; right: 8px; justify-content: flex-end; flex-wrap: wrap; }
+      .prototype-state-tabs { top: 8px; max-width: calc(100vw - 16px); }
+      .annotation-toggle { right: 12px; bottom: 12px; }
       .page-content { padding: 72px 16px 96px; }
     }
   </style>
 </head>
 <body>
-  <!-- Template note: match the current product style before filling this file. Marker clicks open small local popovers beside the marker; only the annotation toggle opens the top-right annotation-list overlay. Do not use a full-screen/global marker modal or persistent side board. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
+  <!-- Template note: match the current product style before filling this file. Marker clicks open small local popovers beside the marker; only the short annotation toggle opens the right-side full-height annotation-list panel. Do not use a full-screen/global marker modal. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
   <!-- style-source-summary: {{localized_style_source_summary}} -->
   <div class="prototype-shell" data-style-source="{{localized_style_source_summary}}">
     <div class="prototype-toolbar" aria-label="{{localized_prototype_controls}}">
@@ -53,7 +56,7 @@
         <button id="tab-current" class="active" type="button" onclick="showView('current')">{{localized_current_page}}</button>
         <button id="tab-new" type="button" onclick="showView('new')">{{localized_new_state}}</button>
       </div>
-      <button id="annotation-toggle" class="annotation-toggle" type="button" data-draggable="true" aria-label="{{localized_show_annotations}}">{{localized_show_annotations}}</button>
+      <button id="annotation-toggle" class="annotation-toggle" type="button" data-draggable="true" aria-label="{{localized_show_annotations}}">注释</button>
     </div>
 
     <main class="prototype-viewport">
@@ -124,7 +127,7 @@
       document.getElementById('screen-new').classList.toggle('active', name === 'new');
       document.getElementById('tab-current').classList.toggle('active', name === 'current');
       document.getElementById('tab-new').classList.toggle('active', name === 'new');
-      closeAnnotation();
+      closeAllAnnotations();
     }
 
     function findMarker(id) {
@@ -184,7 +187,7 @@
     function showAnnotationList() {
       var items = activeAnnotations();
       var html = '<header><h2>{{localized_current_state_annotations}}</h2>' +
-        '<button class="annotation-close" type="button" onclick="closeAnnotation()">{{localized_close}}</button></header>' +
+        '<button class="annotation-close" type="button" onclick="closeAnnotationPanel()">{{localized_close}}</button></header>' +
         '<div class="note-group-title">{{localized_current_page}}</div><div class="annotation-list-items">';
       for (var i = 0; i < items.length; i += 1) {
         html += '<button class="annotation-list-item" type="button" data-annotation-id="' + items[i].id + '" onclick="showAnnotation(\'' + items[i].id + '\')">' +
@@ -193,8 +196,10 @@
       }
       html += '</div>';
       closeAnnotation();
-      document.getElementById('annotation-list-panel').innerHTML = html;
-      document.getElementById('annotation-list-panel').classList.add('active');
+      var panel = document.getElementById('annotation-list-panel');
+      panel.innerHTML = html;
+      panel.classList.add('active');
+      document.getElementById('annotation-toggle').classList.add('hidden');
     }
 
     function renderAnnotationDialog(html, id, trigger) {
@@ -202,13 +207,22 @@
       dialog.innerHTML = html;
       dialog.setAttribute('data-active-annotation-id', id);
       dialog.classList.add('active');
-      document.getElementById('annotation-list-panel').classList.remove('active');
+      closeAnnotationPanel();
       positionAnnotationDialog(trigger);
     }
 
     function closeAnnotation() {
       document.getElementById('annotation-dialog').classList.remove('active');
+    }
+
+    function closeAnnotationPanel() {
       document.getElementById('annotation-list-panel').classList.remove('active');
+      document.getElementById('annotation-toggle').classList.remove('hidden');
+    }
+
+    function closeAllAnnotations() {
+      closeAnnotation();
+      closeAnnotationPanel();
     }
 
     function initDraggableAnnotationToggle() {

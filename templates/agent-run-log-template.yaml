@@ -190,29 +190,45 @@ surface_decisions:
   ineligible_user_state: ""
   fallback_states: []
 
+host_frontend_inventory:
+  platform: "" # web | h5 | mini_program | taro | uni_app | react_native | flutter | native_app | other | not_applicable
+  entry_files: [] # package/app config, root layout, app shell, app.json/pages.json, App.tsx, lib/main.dart, etc.
+  route_or_screen_files: [] # affected route/page/screen files inspected
+  component_files: [] # host component-library, custom component, widget, or screen component files
+  style_files: [] # global styles, theme/tokens, wxss/acss/ttss, StyleSheet/theme, Flutter theme, native styles
+  icon_asset_sources: [] # icon imports, SVG/iconfont files, image assets, or explicit not_applicable reason
+  data_or_mock_sources: []
+  render_entrypoint: "" # dev script, preview URL, Storybook command, simulator command, or unavailable reason
+  preview_surface: "" # route/story/demo/screen that renders the source-backed prototype
+  source_rendering_decision: "" # required | used | blocked | not_required
+  source_rendering_limitation: ""
+
 style_evidence:
   source_files: [] # concrete host files/assets inspected, e.g. src/.../Component.tsx, src/styles/..., public/...
   reused_components: [] # host component-library or page components mirrored in the prototype
   reused_tokens_or_classes: []
+  icon_asset_sources: [] # exact icon/image/font asset sources reused or explicit not_applicable reason
   prototype_delta: ""
   limitations: []
 
 isolated_ui_prototype:
-  mode: "" # self_contained_html_from_host_code | code_preview_route | storybook_or_demo | document_or_screenshot_only | not_applicable
-  host_mutation_policy: "" # read_only | user_approved_prototype_branch_change | production_implementation_requested | not_applicable
+  mode: "" # self_contained_html_from_host_code | source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | document_or_screenshot_only | not_applicable
+  host_mutation_policy: "" # production_flows_read_only | isolated_preview_files_only | production_implementation_requested | not_applicable
   target_surface: ""
-  preview_files_changed: [] # only for code_preview_route/storybook_or_demo; keep production flow files out unless requested
-  baseline_layer:
-    source: ""
-    reconstruction_method: "" # host_code_and_assets | screenshot_reference | document_reference | not_applicable
-    unchanged_regions: []
-    parity_limitation: ""
-  delta_layer:
-    changed_regions: []
-    visible_markers: []
-    annotation_dialogs: []
-    new_interactions: []
-    backend_notes: []
+  preview_files_changed: [] # only for source-rendered modes; keep production flow files out unless requested
+  baseline_import:
+    imported_sources: [] # original host page/screen/components/styles/assets imported or rendered directly
+    render_method: "" # route_composition | story_composition | page_import | screen_import | wrapper_component | not_applicable
+    baseline_modification_policy: "" # no_rewrite | read_only_import | production_change_requested | not_applicable
+  delta_patch:
+    patch_files: [] # preview-only files or wrapper/story/page/screen files changed for the new requirement
+    patch_strategy: "" # wrapper | props_mock | extension_slot | overlay | route_composition | story_args | page_composition | screen_composition
+    mock_state_sources: []
+    multi_turn_change_log:
+      - turn: ""
+        delta_summary: ""
+        files_changed: []
+    next_delta_anchor: "" # where future turns should continue adding changes
   source_to_demo_mapping:
     - source: "" # host file, screenshot, demo route, or component source
       prototype_representation: "" # where and how that source appears in the HTML prototype
@@ -222,7 +238,7 @@ isolated_ui_prototype:
     data_contract_source: ""
     states_represented: []
     limitations: []
-  parity_claim: "" # baseline_compared | style_evidence_only | degraded | not_applicable
+  parity_claim: "" # source_rendered | baseline_compared | style_evidence_only_fidelity_limited | degraded | not_applicable
   limitations: []
 
 existing_ui_visual_baseline:

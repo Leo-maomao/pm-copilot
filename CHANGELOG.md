@@ -6,9 +6,34 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.2.1] - 2026-05-21
+## [2.2.2] - 2026-05-21
 
 Commit: pending release commit.
+
+### Changed
+
+- Enforced red-fill, white-text, borderless annotation badges for both page markers and matching annotation number badges.
+- Reworked the annotation floating control so it shows only `注释` or `Notes`, hides when opened, and controls a right-edge full-height annotation panel that restores the floating control when closed.
+- Required page/state switch controls to stay fixed outside the product layout when prototypes need state switching.
+- Added `scripts/inspect_host_frontend.py` to scan host frontend entry files, routes/screens, components, styles, icons/assets, data/mocks, render commands, and recommended source-rendered artifact mode.
+- Added `source_delta_patch` as the default exact-fidelity repo-backed mode: import/render the original baseline from host source and add new requirements only in isolated delta patch files, with a multi-turn continuation anchor.
+- Promoted repo-backed source rendering from guidance to a default requirement for exact UI parity: PM Copilot now records host frontend inventory and uses isolated preview routes, Storybook stories, demos, Mini Program preview pages, or App preview screens when real icons/components/runtime styles must match the source.
+- Extended output and visual validation for host frontend inventory, icon/asset evidence, source-rendered artifact mode, annotation panel behavior, fixed state tabs, and borderless marker styling.
+- Removed active `baseline_layer`/`delta_layer`, top-right annotation-list, and isolated-HTML-default wording from prototype tooling and contracts in favor of `baseline_import`/`delta_patch`.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Output contract smoke validation passes for annotation marker rules, `source_delta_patch`, and cross-platform repo-backed host frontend inventory.
+- Host frontend inventory smoke validation passes with `python3 scripts/inspect_host_frontend.py --host . --pretty`.
+
+## [2.2.1] - 2026-05-21
+
+Commit: `f8abf50` chore: release 2.2.1.
 
 ### Changed
 

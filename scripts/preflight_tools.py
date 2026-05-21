@@ -182,6 +182,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "git status --short; git rev-parse --short HEAD",
         ),
         capability(
+            "repo_context.host_frontend_inventory",
+            "available" if script_available("scripts/inspect_host_frontend.py") else "unavailable",
+            "scripts/inspect_host_frontend.py",
+            True,
+            "python3 scripts/inspect_host_frontend.py --host <host-repo> --pretty",
+        ),
+        capability(
             "research.web_search",
             str(network["status"]),
             str(network.get("evidence") or f"url={network['url'] or 'not checked by default'}"),

@@ -67,6 +67,7 @@ human_inputs:
 assumptions:
 scope_decisions:
 surface_decisions:
+host_frontend_inventory:
 style_evidence:
 existing_ui_visual_baseline:
 design_calibration:
@@ -98,8 +99,9 @@ next_actions:
 - Record PRD, engineering handoff, and launch readiness separately. Do not use a single ready/not-ready label for all phases.
 - Record whether the run was repo-backed, document-backed, or brief-only.
 - In repo-backed mode, record relevant host project files and current-state facts used for product-fit decisions.
-- For repo-backed UI prototype deliveries, record concrete `style_evidence` with host source files/assets, reused components, reused tokens or class patterns, prototype delta, and limitations. Also record non-empty `source_to_demo_mapping` entries that explain how inspected host components/screens are represented in the prototype. Missing or empty style evidence means the Prototype Agent output is not complete.
-- For repo-backed prototype-only UI deliveries, record `isolated_ui_prototype` with host mutation policy, target surface, `baseline_layer`, `delta_layer`, source-to-demo mapping, backend simulation method, parity claim, and limitations. The default host mutation policy is `read_only`; any production file change requires explicit user request or approval.
+- For repo-backed UI prototype deliveries, record `host_frontend_inventory` with platform source kind, frontend entry files, route/page/screen files, component-library files, style token/global style files, icon/asset sources, data/mock sources, render command, and preview surface. Missing host inventory means the Prototype Agent output is not complete when the user expects real-product UI.
+- For repo-backed UI prototype deliveries, record concrete `style_evidence` with host source files/assets, reused components, reused tokens or class patterns, icon/asset sources, prototype delta, and limitations. Also record non-empty `source_to_demo_mapping` entries that explain how inspected host components/screens are represented in the prototype. Missing or empty style evidence means the Prototype Agent output is not complete.
+- For repo-backed prototype-only UI deliveries, record `isolated_ui_prototype` with host mutation policy, artifact mode, target surface, changed preview files when source-rendered, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations. The default policy is production flows read-only; exact/source-level UI parity should use isolated preview files instead of production flow edits. Multi-turn prototype work should append to `delta_patch.multi_turn_change_log` and preserve `delta_patch.next_delta_anchor`.
 - For repo-backed UI prototype deliveries, record `existing_ui_visual_baseline` with status, source, target, screenshot paths, comparison method, and limitation. Do not claim pixel-level parity when no visual comparison ran.
 - In document-backed mode, record relevant PRDs, specs, notes, screenshots, analytics files, or other documents used for product-fit decisions.
 - Record whether an analytics taxonomy was found. If none was found, tracking artifacts must be marked as proposed.

@@ -15,6 +15,8 @@ The default product-manager delivery contains only:
 - `outputs/<run-id>/prd.md`
 - `outputs/<run-id>/prototype-<platform>.html` when a user-facing prototype is relevant
 
+For repo-backed UI work that requires exact online/source-code fidelity, the prototype reference may instead be a source-rendered delta patch, preview route, Storybook story, demo entry, Mini Program preview page, or App preview screen recorded in `run-log.yaml` and referenced from the PRD. In that mode, PM Copilot should import/render the original baseline from host source, change only isolated delta/preview files, and should not hand-recreate the real UI as standalone HTML while claiming exact parity.
+
 `outputs/<run-id>/run-log.yaml` is an internal trace artifact for debugging, regression, and auditability. It is not a PM-facing deliverable.
 
 Generated run folders may also contain internal tool evidence under `outputs/<run-id>/tool-results/`, especially `delivery-check-report.json` from `scripts/run_delivery_checks.py`. These files are not PM-facing deliverables; they support auditability and regression scoring.
@@ -163,12 +165,12 @@ Minimum quality bar:
 
 Required elements:
 
-- Runs locally without build tooling.
-- Simulates the selected platform container.
+- Runs locally without build tooling when a standalone HTML artifact is selected; source-rendered preview modes run through the host app's normal dev, preview, Storybook, simulator, or platform tooling.
+- Simulates or uses the selected platform container.
 - Matches existing product style when current screenshots, demos, routes, components, or design-system references are available.
-- For repo-backed prototype-only UI work, reads real host frontend code and assets, keeps production files read-only by default, and generates an isolated HTML demo that mirrors the current surface with the requested feature delta.
-- For repo-backed prototype-only UI work, records `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations.
-- For repo-backed prototype-only UI work, separates `baseline_layer` from `delta_layer`: baseline restores the original UI; delta contains new feature markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
+- For repo-backed prototype-only UI work, reads real host frontend code and assets, keeps production flows read-only by default, and uses `source_delta_patch` or a platform-specific source-rendered preview when exact UI parity is expected.
+- For repo-backed prototype-only UI work, records `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, artifact mode, target surface, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
+- For repo-backed prototype-only UI work, imports/renders `baseline_import` from original host source and puts only new feature behavior in `delta_patch`: preview composition, mock state, markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
 - For repo-backed frontend products, records concrete `style_evidence` in `run-log.yaml`, includes source-to-demo mappings for reused host components, and includes `style-source-summary` or `data-style-source` in the HTML.
 - For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
 - Includes key screens and states.
@@ -176,7 +178,7 @@ Required elements:
 - States its fidelity level: `low`, `mid`, or `high`.
 - Does not reserve a side annotation board by default. The product UI should keep its real layout width and height.
 - Places compact numbered callouts at the top-right corner of the concrete UI component, state, or transition being explained, offset just outside the corner when needed to avoid covering content.
-- Uses small red `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface. Clicking a marker opens a local `annotation-dialog` popover beside that marker, clicking the same marker again closes it, and the marker's visual style does not change. Marker clicks must not open a full-screen/global modal. A draggable top-right `annotation-toggle` with `data-draggable="true"` opens an `annotation-list` overlay for all markers in the current page/state.
+- Uses small red/white borderless `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the prototype surface. Clicking a marker opens a local `annotation-dialog` popover beside that marker, clicking the same marker again closes it, and the marker's visual style does not change. Marker clicks must not open a full-screen/global modal. A short draggable `注释`/`Notes` floating control with `data-draggable="true"` opens a right-edge full-height `annotation-list` panel for the current page/state, hides while the panel is open, and reappears when it closes.
 
 Prototype annotations must cover the relevant subset of:
 
@@ -202,8 +204,8 @@ Minimum quality bar:
 - The prototype shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
 - When existing product UI exists, the prototype adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
 - When host frontend code exists, the prototype reuses the current app shell, component-library structure, tokens, spacing density, and copy tone rather than introducing a separate visual system.
-- When source-level fidelity is requested or exact icons/components matter, uses a host-rendered preview route or Storybook/demo mode when allowed; otherwise the artifact explicitly states standalone-HTML fidelity limitations.
-- Repo-backed prototype-only work does not mutate production routes, pages, components, styles, assets, package files, or backend code unless the user explicitly requested production-oriented implementation or approved a prototype branch change.
+- When source-level fidelity is requested or exact icons/components/native platform chrome matter, uses a source-rendered preview mode when available; otherwise the artifact explicitly states standalone-HTML fidelity limitations.
+- Repo-backed prototype-only work does not mutate existing production routes, pages, components, styles, assets, package files, or backend code unless the user explicitly requested production-oriented implementation. Exact-fidelity prototype work should use isolated preview/delta files.
 - Delta markers and annotation controls do not resize, crop, recolor, or cover critical unchanged baseline UI.
 - Backend-dependent behavior is represented through mock data, states, and annotations rather than implying backend implementation exists.
 - For long pages, multi-state flows, and modals, preserve the product's real scrolling behavior. Do not clip modal contents or force the whole product into a fixed-height frame unless the host product does that.

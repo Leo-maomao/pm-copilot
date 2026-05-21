@@ -76,6 +76,7 @@ REQUIRED_FILES = [
     "templates/prd-template.md",
     "templates/tracking-plan-template.csv",
     "scripts/install_adapter.py",
+    "scripts/inspect_host_frontend.py",
     "scripts/preflight_tools.py",
     "scripts/run_delivery_checks.py",
     "scripts/setup_visual_validation.py",

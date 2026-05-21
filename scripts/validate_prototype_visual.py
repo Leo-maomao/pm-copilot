@@ -355,6 +355,24 @@ def inspect_page_dom(page) -> dict[str, object]:
                 node.getAttribute("aria-label") || "",
                 node.getAttribute("title") || "",
             ].join(" ").replace(/\\s+/g, " ").trim();
+            const rgbParts = (value) => {
+                const parts = String(value || "").match(/\\d+(?:\\.\\d+)?/g);
+                return parts ? parts.slice(0, 3).map(Number) : [];
+            };
+            const isAnnotationRed = (value) => {
+                const [red, green, blue] = rgbParts(value);
+                return red >= 220 && green <= 95 && blue <= 90;
+            };
+            const isWhite = (value) => {
+                const [red, green, blue] = rgbParts(value);
+                return red >= 245 && green >= 245 && blue >= 245;
+            };
+            const hasBorderLine = (style) => (
+                parseFloat(style.borderTopWidth || "0") > 0
+                || parseFloat(style.borderRightWidth || "0") > 0
+                || parseFloat(style.borderBottomWidth || "0") > 0
+                || parseFloat(style.borderLeftWidth || "0") > 0
+            );
             const unauthRe = /(\\u767b\\u5f55|\\u672a\\u767b\\u5f55|\\u6e38\\u5ba2|sign in|log in|guest)/i;
             const explicitUnauthBodyRe = /(\\u672a\\u767b\\u5f55|\\u6e38\\u5ba2|not signed in|signed out|guest)/i;
             const accountTriggerRe = /(\\u4e2a\\u4eba\\u4e2d\\u5fc3|\\u8d26\\u53f7|\\u8d26\\u6237|profile|account)/i;
@@ -388,9 +406,26 @@ def inspect_page_dom(page) -> dict[str, object]:
             if (annotationToggle && annotationToggle.getAttribute("data-draggable") !== "true") {
                 result.annotation_layout_issues.push("annotation toggle is not marked draggable");
             }
+            if (annotationToggle) {
+                const toggleLabel = (annotationToggle.innerText || "").replace(/\\s+/g, "").trim();
+                if (!/^(注释|Notes?)$/.test(toggleLabel)) {
+                    result.annotation_layout_issues.push("annotation toggle label must be only 注释 or Notes");
+                }
+            }
+            const stateTabs = document.querySelector(".prototype-state-tabs");
+            if (stateTabs && window.getComputedStyle(stateTabs).position !== "fixed") {
+                result.annotation_layout_issues.push("prototype state tabs are not fixed-position");
+            }
             const markers = Array.from(document.querySelectorAll(".annotation-marker")).filter(styleVisible);
             for (const marker of markers) {
                 const rect = marker.getBoundingClientRect();
+                const style = window.getComputedStyle(marker);
+                if (!isAnnotationRed(style.backgroundColor) || !isWhite(style.color) || hasBorderLine(style)) {
+                    result.annotation_layout_issues.push(
+                        "annotation marker must be red fill, white text, and borderless",
+                    );
+                    break;
+                }
                 if (rect.left < 0 || rect.top < 0 || rect.right > window.innerWidth || rect.bottom > window.innerHeight) {
                     result.annotation_layout_issues.push("annotation marker is outside the viewport or clipped");
                     break;
@@ -434,6 +469,21 @@ def inspect_page_dom(page) -> dict[str, object]:
                         result.annotation_layout_issues.push("annotation marker does not open a visible dialog");
                     } else {
                         const dialogRect = dialogs[0].getBoundingClientRect();
+                        const dialogNumber = dialogs[0].querySelector(".annotation-number");
+                        if (!dialogNumber) {
+                            result.annotation_layout_issues.push("annotation dialog missing matching annotation number badge");
+                        } else {
+                            const numberStyle = window.getComputedStyle(dialogNumber);
+                            if (
+                                numberStyle.backgroundColor !== markerStyleAfterOpen.backgroundColor
+                                || numberStyle.color !== markerStyleAfterOpen.color
+                                || hasBorderLine(numberStyle)
+                            ) {
+                                result.annotation_layout_issues.push(
+                                    "annotation dialog number badge does not match marker red/white borderless style",
+                                );
+                            }
+                        }
                         const tooLarge = dialogRect.width > window.innerWidth * 0.9
                             || dialogRect.height > window.innerHeight * 0.66;
                         const xOverlap = Math.max(
@@ -482,6 +532,45 @@ def inspect_page_dom(page) -> dict[str, object]:
                     result.annotation_layout_issues.push("annotation marker click failed");
                 }
             }
+            if (annotationToggle && styleVisible(annotationToggle)) {
+                try {
+                    annotationToggle.click();
+                    await new Promise((resolve) => setTimeout(resolve, 220));
+                    const panel = document.querySelector(".annotation-list");
+                    if (styleVisible(annotationToggle)) {
+                        result.annotation_layout_issues.push("annotation toggle remains visible while panel is open");
+                    }
+                    if (!panel || !styleVisible(panel)) {
+                        result.annotation_layout_issues.push("annotation toggle does not open a visible annotation panel");
+                    } else {
+                        const panelRect = panel.getBoundingClientRect();
+                        if (
+                            panelRect.top > 2
+                            || panelRect.bottom < window.innerHeight - 2
+                            || Math.abs(panelRect.right - window.innerWidth) > 2
+                            || panelRect.height < window.innerHeight * 0.95
+                        ) {
+                            result.annotation_layout_issues.push(
+                                "annotation panel must slide from the right and fill viewport height",
+                            );
+                        }
+                        const closeButton = panel.querySelector(".annotation-close");
+                        if (!closeButton) {
+                            result.annotation_layout_issues.push("annotation panel missing close control");
+                        } else {
+                            closeButton.click();
+                            await new Promise((resolve) => setTimeout(resolve, 220));
+                            if (!styleVisible(annotationToggle)) {
+                                result.annotation_layout_issues.push(
+                                    "annotation toggle does not reappear after closing panel",
+                                );
+                            }
+                        }
+                    }
+                } catch (_error) {
+                    result.annotation_layout_issues.push("annotation panel toggle interaction failed");
+                }
+            }
             const clippingTargets = Array.from(document.querySelectorAll(".annotation-target"))
                 .filter((node) => {
                     const overflow = window.getComputedStyle(node).overflow;
@@ -491,6 +580,7 @@ def inspect_page_dom(page) -> dict[str, object]:
                 result.annotation_layout_issues.push("annotation target uses clipping overflow");
             }
             const compactControls = Array.from(document.querySelectorAll("button,.tab,[role='tab'],.annotation-toggle"))
+                .filter((node) => !node.classList.contains("annotation-marker"))
                 .filter(styleVisible);
             for (const control of compactControls) {
                 const label = textOf(control);

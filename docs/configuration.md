@@ -145,14 +145,14 @@ If research tools are unavailable, agents must not fabricate competitor facts.
 ```yaml
 prototype_preferences:
   fidelity: "Low"
-  default_output: "Local HTML"
-  repo_backed_ui_mode: "Isolated HTML from host code"
-  host_mutation_policy: "Read-only unless implementation is explicitly requested"
-  repo_backed_layers: "baseline_layer restores original UI; delta_layer contains new feature markers and dialogs"
+  default_output: "Source-rendered preview for exact repo-backed UI; local HTML for portable review"
+  repo_backed_ui_mode: "Host frontend inventory first; source-rendered preview when exact UI parity is expected"
+  host_mutation_policy: "Production flows read-only unless implementation is explicitly requested"
+  repo_backed_layers: "baseline_import renders original UI from source; delta_patch contains new feature markers and dialogs"
   platform_selection: "Choose based on scenario; generate multiple only for cross-platform needs."
 ```
 
-The default prototype mode produces local HTML prototypes instead of production code. In repo-backed UI work, the local HTML should be generated from inspected host frontend code, assets, styles, and state patterns while keeping host production files unchanged unless the user explicitly requests implementation.
+The default portable prototype mode produces local HTML instead of production code. In repo-backed UI work where exact parity matters, inspect the host frontend with `python3 scripts/inspect_host_frontend.py --host <host-repo> --pretty` and use an isolated source-rendered preview route, story, Mini Program page, or App screen. Standalone HTML should be labeled fidelity-limited when it cannot execute the host components and styles.
 
 ## Privacy
 

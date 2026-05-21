@@ -130,19 +130,44 @@ def yaml_mapping_field_has_value(block: str, key: str) -> bool:
     )
 
 
+def yaml_scalar_field_value(block: str, key: str) -> str:
+    match = re.search(rf"^\s*{re.escape(key)}:\s*(?P<value>.+?)\s*(?:#.*)?$", block, re.MULTILINE)
+    if not match:
+        return ""
+    value = match.group("value").strip()
+    if value in ("[]", "{}", '""', "''"):
+        return ""
+    return value.strip("\"'")
+
+
+def strip_yaml_comments(block: str) -> str:
+    return "\n".join(line.split("#", 1)[0] for line in block.splitlines())
+
+
 def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     style_block = extract_yaml_block(run_log, "style_evidence")
+    inventory_block = extract_yaml_block(run_log, "host_frontend_inventory")
     isolated_block = extract_yaml_block(run_log, "isolated_ui_prototype")
     source_map_block = extract_yaml_block(isolated_block, "source_to_demo_mapping")
+    baseline_import_block = extract_yaml_block(isolated_block, "baseline_import")
+    delta_patch_block = extract_yaml_block(isolated_block, "delta_patch")
 
-    for field in ("source_files", "reused_components", "reused_tokens_or_classes"):
+    for field in ("source_files", "reused_components", "reused_tokens_or_classes", "icon_asset_sources"):
         if not yaml_list_field_has_values(style_block, field):
             fail(f"Repo-backed prototype style_evidence.{field} must list concrete host evidence")
 
+    if not yaml_scalar_field_value(inventory_block, "platform"):
+        fail("Repo-backed prototype host_frontend_inventory.platform must identify the host frontend type")
+    for field in ("entry_files", "route_or_screen_files", "component_files", "style_files", "icon_asset_sources"):
+        if not yaml_list_field_has_values(inventory_block, field):
+            fail(f"Repo-backed prototype host_frontend_inventory.{field} must list inspected host sources")
+
     source_files_block = extract_yaml_block(style_block, "source_files")
     if not re.search(
-        r"\b(src|app|pages|components|features|public|assets|styles|tailwind|theme|storybook|stories)/|"
-        r"\.(tsx|ts|jsx|js|vue|svelte|css|scss|less|html|png|jpg|jpeg|webp|svg)\b",
+        r"\b(src|app|pages|components|features|public|assets|styles|tailwind|theme|storybook|stories|lib|miniapp|"
+        r"miniprogram|android|ios)/|"
+        r"\.(tsx|ts|jsx|js|vue|svelte|css|scss|less|html|wxml|wxss|axml|acss|ttml|ttss|dart|kt|swift|xml|"
+        r"png|jpg|jpeg|webp|svg)\b",
         source_files_block,
         re.IGNORECASE,
     ):
@@ -155,6 +180,72 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
             "Repo-backed prototype source_to_demo_mapping must describe how each source appears "
             "in the prototype"
         )
+
+    mode = yaml_scalar_field_value(isolated_block, "mode")
+    allowed_modes = {
+        "self_contained_html_from_host_code",
+        "source_delta_patch",
+        "source_rendered_preview",
+        "code_preview_route",
+        "storybook_or_demo",
+        "mini_program_preview",
+        "app_preview_screen",
+        "document_or_screenshot_only",
+        "not_applicable",
+    }
+    if mode not in allowed_modes:
+        fail("Repo-backed prototype isolated_ui_prototype.mode must name a supported artifact mode")
+    exact_fidelity_requested = re.search(
+        r"(1:1|pixel|exact|source-level|near-online|as if added in source code|"
+        r"一模一样|真实\s*UI|线上一致|源码|源代码|完全一致)",
+        run_log,
+        re.IGNORECASE,
+    )
+    if exact_fidelity_requested and mode == "self_contained_html_from_host_code":
+        fail(
+            "Repo-backed exact/source-level UI fidelity must use source_delta_patch, source_rendered_preview, "
+            "code_preview_route, storybook_or_demo, mini_program_preview, or app_preview_screen; "
+            "not standalone HTML"
+        )
+    isolated_values = strip_yaml_comments(isolated_block)
+    parity_claim = yaml_scalar_field_value(isolated_values, "parity_claim")
+    if mode == "self_contained_html_from_host_code" and not re.search(
+        r"(limited|fidelity[-_ ]limited|not source-rendered|degraded|有限|非源码渲染|降级)",
+        parity_claim + "\n" + isolated_values,
+        re.IGNORECASE,
+    ):
+        fail("Repo-backed standalone HTML mode must explicitly mark source-rendered fidelity as limited")
+    source_rendered_modes = {
+        "source_delta_patch",
+        "source_rendered_preview",
+        "code_preview_route",
+        "storybook_or_demo",
+        "mini_program_preview",
+        "app_preview_screen",
+    }
+    if mode in source_rendered_modes:
+        if not yaml_list_field_has_values(isolated_block, "preview_files_changed"):
+            fail("Host-rendered prototype mode must record preview_files_changed")
+        if not yaml_scalar_field_value(inventory_block, "render_entrypoint"):
+            fail("Host-rendered prototype mode must record host_frontend_inventory.render_entrypoint")
+        if not yaml_list_field_has_values(baseline_import_block, "imported_sources"):
+            fail("Source-rendered prototype mode must record baseline_import.imported_sources")
+        baseline_policy = yaml_scalar_field_value(baseline_import_block, "baseline_modification_policy")
+        if baseline_policy not in {"no_rewrite", "read_only_import", "production_change_requested"}:
+            fail("Source-rendered prototype mode must record a valid baseline_import.baseline_modification_policy")
+        rewrite_scan_block = isolated_block.replace("no_rewrite", "")
+        if baseline_policy != "production_change_requested" and re.search(
+            r"(rewrite|recreate|redraw|manual baseline|手写\s*baseline|重写|重画)",
+            rewrite_scan_block,
+            re.IGNORECASE,
+        ):
+            fail("Source-rendered prototype mode must import/render the baseline, not rewrite it")
+        if not yaml_list_field_has_values(delta_patch_block, "patch_files"):
+            fail("Source-rendered prototype mode must record delta_patch.patch_files")
+        if not yaml_scalar_field_value(delta_patch_block, "patch_strategy"):
+            fail("Source-rendered prototype mode must record delta_patch.patch_strategy")
+        if not yaml_scalar_field_value(delta_patch_block, "next_delta_anchor"):
+            fail("Source-rendered prototype mode must record delta_patch.next_delta_anchor for multi-turn continuation")
 
 
 class PrototypeScriptParser(HTMLParser):
@@ -477,19 +568,25 @@ def check_scope_and_surface_trace(path: Path) -> None:
 
 
 def check_visual_validation_trace(path: Path) -> None:
-    if not generated_prototypes(path):
-        return
     run_log = read(path / "run-log.yaml")
+    has_html_prototype = bool(generated_prototypes(path))
+    has_source_rendered_prototype = "isolated_ui_prototype:" in run_log and re.search(
+        r"^\s*mode:\s*(source_delta_patch|source_rendered_preview|code_preview_route|storybook_or_demo|mini_program_preview|app_preview_screen)\b",
+        run_log,
+        re.MULTILINE,
+    )
+    if not has_html_prototype and not has_source_rendered_prototype:
+        return
     if "visual_validation:" not in run_log and "validate_prototype_visual.py" not in run_log:
         fail("Run log missing visual_validation marker for prototype delivery")
 
 
-def check_prototype_agent_and_style_trace(path: Path) -> None:
+def check_prototype_agent_and_style_trace(path: Path, language: str | None = None) -> None:
     prototypes = generated_prototypes(path)
-    if not prototypes:
+    run_log = read(path / "run-log.yaml")
+    if not prototypes and "isolated_ui_prototype:" not in run_log:
         return
 
-    run_log = read(path / "run-log.yaml")
     if "Prototype Agent" not in run_log:
         fail("Run log missing Prototype Agent for prototype delivery")
     if "multi-platform-prototype" not in run_log:
@@ -504,10 +601,17 @@ def check_prototype_agent_and_style_trace(path: Path) -> None:
             fail(f"Prototype delivery missing design calibration marker: {marker}")
 
     for prototype in prototypes:
-        check_annotation_marker_contract(read(prototype), prototype.name)
+        check_annotation_marker_contract(read(prototype), prototype.name, language)
 
     if "source_mode: repo-backed" in run_log:
         for marker in (
+            "host_frontend_inventory:",
+            "entry_files:",
+            "route_or_screen_files:",
+            "component_files:",
+            "style_files:",
+            "icon_asset_sources:",
+            "render_entrypoint:",
             "style_evidence:",
             "source_files:",
             "reused_components:",
@@ -529,9 +633,10 @@ def check_prototype_agent_and_style_trace(path: Path) -> None:
         for marker in (
             "isolated_ui_prototype:",
             "host_mutation_policy:",
+            "mode:",
             "target_surface:",
-            "baseline_layer:",
-            "delta_layer:",
+            "baseline_import:",
+            "delta_patch:",
             "source_to_demo_mapping:",
             "backend_simulation:",
             "parity_claim:",
@@ -550,7 +655,35 @@ def check_prototype_agent_and_style_trace(path: Path) -> None:
                 )
 
 
-def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
+def css_rule_body(text: str, selector: str) -> str:
+    match = re.search(
+        rf"{re.escape(selector)}\s*\{{(?P<body>[^}}]*)\}}",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    return match.group("body") if match else ""
+
+
+def css_rule_uses_nonzero_border(body: str) -> bool:
+    border_matches = re.findall(r"\bborder(?!-radius)(?:-[a-z-]+)?\s*:\s*([^;]+)", body, re.IGNORECASE)
+    for value in border_matches:
+        normalized = value.strip().lower()
+        if normalized.startswith("0") or normalized == "none":
+            continue
+        if "transparent" in normalized and re.search(r"\b0(?:px|rem|em)?\b", normalized):
+            continue
+        return True
+    return False
+
+
+def css_rule_has_red_badge_colors(body: str) -> bool:
+    return bool(
+        re.search(r"(#ff3b30|rgb\(\s*255\s*,\s*59\s*,\s*48\s*\)|--annotation-red|\bred\b)", body, re.IGNORECASE)
+        and re.search(r"(color\s*:\s*(#fff|#ffffff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)))", body, re.IGNORECASE)
+    )
+
+
+def check_annotation_marker_contract(text: str, prototype_name: str, language: str | None = None) -> None:
     if "annotation-marker" not in text:
         fail(f"{prototype_name} missing red annotation-marker badges")
     if "data-annotation-id" not in text:
@@ -572,6 +705,12 @@ def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
         fail(f"{prototype_name} should not use a global annotation backdrop for marker notes")
     if re.search(r"\.annotation-marker(?:\.|\s+)(?:active|is-active)\b", text):
         fail(f"{prototype_name} annotation markers should not change visual color when selected")
+    if language == "zh" and not re.search(
+        r"<button[^>]*class=[\"'][^\"']*annotation-toggle[^\"']*[\"'][^>]*>\s*注释\s*</button>",
+        text,
+        re.MULTILINE | re.DOTALL,
+    ):
+        fail(f"{prototype_name} annotation toggle label must be exactly 注释 for Chinese prototypes")
     for marker in ("prototype-viewport", "data-prototype-state"):
         if marker not in text:
             fail(f"{prototype_name} missing full-surface state/viewport marker: {marker}")
@@ -594,11 +733,35 @@ def check_annotation_marker_contract(text: str, prototype_name: str) -> None:
         fail(f"{prototype_name} marker annotation dialog must calculate local position near the marker")
     if not re.search(r"data-active-annotation-id", text) or not re.search(r"classList\.contains\(['\"]active['\"]\)", text):
         fail(f"{prototype_name} marker annotation dialog must toggle closed when clicking the same marker again")
-    marker_rule = re.search(r"\.annotation-marker\s*\{(?P<body>[^}]*)\}", text, re.MULTILINE | re.DOTALL)
-    if marker_rule:
-        body = marker_rule.group("body")
+    marker_body = css_rule_body(text, ".annotation-marker")
+    if marker_body:
+        if css_rule_uses_nonzero_border(marker_body):
+            fail(f"{prototype_name} annotation-marker must be red fill with white text and no border line")
+        if not css_rule_has_red_badge_colors(marker_body):
+            fail(f"{prototype_name} annotation-marker must use red background and white text")
+        body = marker_body
         if re.search(r"\b(top|right):\s*-\d", body):
             fail(f"{prototype_name} annotation-marker uses negative offsets that can be clipped")
+    number_body = css_rule_body(text, ".annotation-number")
+    if number_body:
+        if css_rule_uses_nonzero_border(number_body):
+            fail(f"{prototype_name} annotation-number must match marker style with no border line")
+        if not css_rule_has_red_badge_colors(number_body):
+            fail(f"{prototype_name} annotation-number must use the same red background and white text style")
+    list_body = css_rule_body(text, ".annotation-list")
+    list_active_body = css_rule_body(text, ".annotation-list.active")
+    if list_body:
+        if not (re.search(r"\btop\s*:\s*0\b", list_body) and re.search(r"\bright\s*:\s*0\b", list_body)):
+            fail(f"{prototype_name} annotation-list must slide from the right edge")
+        if not (re.search(r"\bbottom\s*:\s*0\b", list_body) or re.search(r"\bheight\s*:\s*100d?vh\b", list_body)):
+            fail(f"{prototype_name} annotation-list must use full viewport height")
+        if "translateX(100%)" not in list_body or "translateX(0)" not in list_active_body:
+            fail(f"{prototype_name} annotation-list must slide in from the right")
+    if "annotation-toggle" in text and ".annotation-toggle.hidden" not in text:
+        fail(f"{prototype_name} annotation toggle must hide while the annotation panel is open")
+    state_tabs_body = css_rule_body(text, ".prototype-state-tabs")
+    if "prototype-state-tabs" in text and not re.search(r"\bposition\s*:\s*fixed\b", state_tabs_body):
+        fail(f"{prototype_name} prototype state tabs must use a fixed position")
     target_rule = re.search(r"\.annotation-target\s*\{(?P<body>[^}]*)\}", text, re.MULTILINE | re.DOTALL)
     if target_rule and re.search(r"overflow:\s*(hidden|clip|auto|scroll)", target_rule.group("body")):
         fail(f"{prototype_name} annotation-target must not clip annotation markers")
@@ -739,13 +902,13 @@ def check_content_source(path: Path) -> None:
                 fail(f"Content-backed run log missing marker: {marker}")
 
 
-def check_mini_program_prototype(path: Path) -> None:
+def check_mini_program_prototype(path: Path, language: str | None = None) -> None:
     prototypes = sorted(path.glob("prototype-mini-program.html"))
     if not prototypes:
         return
 
     text = read(prototypes[0])
-    check_annotation_marker_contract(text, prototypes[0].name)
+    check_annotation_marker_contract(text, prototypes[0].name, language)
     required = [
         "mini-capsule",
         "tabbar",
@@ -771,13 +934,13 @@ def check_mini_program_prototype(path: Path) -> None:
         fail("Prototype should be self-contained and avoid external network references")
 
 
-def check_web_prototype(path: Path) -> None:
+def check_web_prototype(path: Path, language: str | None = None) -> None:
     prototypes = sorted(path.glob("prototype-web.html"))
     if not prototypes:
         return
 
     text = read(prototypes[0])
-    check_annotation_marker_contract(text, prototypes[0].name)
+    check_annotation_marker_contract(text, prototypes[0].name, language)
     required = [
         "prototype-shell",
         "desktop-nav",
@@ -879,13 +1042,13 @@ def main() -> None:
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
     check_visual_validation_trace(folder)
-    check_prototype_agent_and_style_trace(folder)
+    check_prototype_agent_and_style_trace(folder, args.language)
     if args.language == "zh":
         check_chinese_prd(folder)
     check_tracking_context(folder)
     check_content_source(folder)
-    check_mini_program_prototype(folder)
-    check_web_prototype(folder)
+    check_mini_program_prototype(folder, args.language)
+    check_web_prototype(folder, args.language)
     check_mermaid(folder)
     check_handoff_artifacts(folder)
     print(f"PM Copilot output validation passed: {folder}")
