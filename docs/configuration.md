@@ -152,7 +152,7 @@ prototype_preferences:
   platform_selection: "Choose based on scenario; generate multiple only for cross-platform needs."
 ```
 
-The default portable prototype mode produces local HTML instead of production code. In repo-backed UI work where exact parity matters, inspect the host frontend with `python3 scripts/inspect_host_frontend.py --host <host-repo> --query "<requirement or target surface>" --pretty` and use an isolated source-rendered preview route, story, Mini Program page, or App screen. Standalone HTML should be labeled fidelity-limited and used only when explicitly requested or when source rendering was attempted and concretely blocked.
+The default portable prototype mode produces local HTML instead of production code. In repo-backed UI work where exact parity matters, inspect the host frontend with `python3 scripts/inspect_host_frontend.py --host <host-repo> --query "<requirement or target surface>" --pretty` and use an isolated source-rendered preview route, story, Mini Program page, or App screen. Standalone HTML should be labeled fidelity-limited and used only when the raw request asks for portable/standalone/HTML output or when source rendering was attempted and concretely blocked.
 
 ## Privacy
 

@@ -144,6 +144,43 @@ def strip_yaml_comments(block: str) -> str:
     return "\n".join(line.split("#", 1)[0] for line in block.splitlines())
 
 
+def raw_request_allows_standalone_html(run_log: str) -> bool:
+    raw_request = yaml_scalar_field_value(run_log, "raw_request")
+    return bool(
+        re.search(
+            r"(standalone|self[-_ ]contained|portable|independent\s+html|prototype-web\.html|"
+            r"html\s*(file|artifact|prototype)|"
+            r"独立\s*HTML|单文件\s*HTML|静态\s*HTML|便携|本地\s*HTML|HTML\s*文件|"
+            r"HTML\s*原型|只要\s*HTML|输出\s*HTML|生成\s*HTML|导出\s*HTML)",
+            raw_request,
+            re.IGNORECASE,
+        )
+    )
+
+
+def source_rendering_was_blocked(run_log: str) -> bool:
+    inventory_block = extract_yaml_block(run_log, "host_frontend_inventory")
+    isolated_block = extract_yaml_block(run_log, "isolated_ui_prototype")
+    limitation = yaml_scalar_field_value(inventory_block, "source_rendering_limitation")
+    context = "\n".join(
+        (
+            limitation,
+            yaml_scalar_field_value(isolated_block, "parity_claim"),
+            yaml_scalar_field_value(isolated_block, "host_mutation_policy"),
+        )
+    )
+    return bool(
+        re.search(
+            r"(failed|unavailable|setup failed|browser failed|dev server failed|"
+            r"build failed|command failed|missing render command|missing preview surface|"
+            r"dependency|simulator|devtools|preview surface|无法|失败|不可用|缺少|缺失|"
+            r"未找到|找不到|依赖|模拟器|开发者工具|预览面)",
+            context,
+            re.IGNORECASE,
+        )
+    )
+
+
 def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     style_block = extract_yaml_block(run_log, "style_evidence")
     inventory_block = extract_yaml_block(run_log, "host_frontend_inventory")
@@ -199,25 +236,20 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     recommended_mode = yaml_scalar_field_value(inventory_block, "recommended_artifact_mode")
     render_entrypoint = yaml_scalar_field_value(inventory_block, "render_entrypoint")
     preview = yaml_scalar_field_value(inventory_block, "preview_surface")
-    source_rendering_decision = yaml_scalar_field_value(inventory_block, "source_rendering_decision")
-    source_rendering_limitation = yaml_scalar_field_value(inventory_block, "source_rendering_limitation")
     visual_baseline_status = yaml_scalar_field_value(visual_baseline_block, "status")
-    source_rendering_fallback_context = "\n".join(
-        (
-            source_rendering_decision,
-            source_rendering_limitation,
-            yaml_scalar_field_value(isolated_block, "host_mutation_policy"),
-            yaml_scalar_field_value(isolated_block, "parity_claim"),
+    source_rendering_decision = yaml_scalar_field_value(inventory_block, "source_rendering_decision")
+    allowed_source_rendering_decisions = {"required", "used", "blocked", "user_explicit_portable", "not_required"}
+    if source_rendering_decision and source_rendering_decision not in allowed_source_rendering_decisions:
+        fail(
+            "Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of "
+            "required, used, blocked, user_explicit_portable, or not_required"
         )
-    )
-    explicit_portable_or_blocked = re.search(
-        r"(user[_ -]?explicit|explicit.*(portable|standalone|html)|"
-        r"user.*(portable|standalone|html)|用户.*(便携|独立|HTML)|"
-        r"blocked|failed|unavailable|setup failed|browser failed|dev server failed|"
-        r"build failed|command failed|missing render command|missing preview surface|"
-        r"无法|失败|不可用|缺少)",
-        source_rendering_fallback_context,
-        re.IGNORECASE,
+    if source_rendering_decision == "user_explicit_portable" and not raw_request_allows_standalone_html(run_log):
+        fail("Repo-backed prototype cannot record user_explicit_portable unless the raw request asks for HTML/portable output")
+    if source_rendering_decision == "blocked" and not source_rendering_was_blocked(run_log):
+        fail("Repo-backed prototype source_rendering_decision blocked requires a concrete source-rendering limitation")
+    explicit_portable_or_blocked = (
+        raw_request_allows_standalone_html(run_log) or source_rendering_was_blocked(run_log)
     )
     source_rendered_modes = {
         "source_delta_patch",
@@ -647,9 +679,6 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
         if marker not in run_log:
             fail(f"Prototype delivery missing design calibration marker: {marker}")
 
-    for prototype in prototypes:
-        check_annotation_marker_contract(read(prototype), prototype.name, language)
-
     if "source_mode: repo-backed" in run_log:
         for marker in (
             "host_frontend_inventory:",
@@ -701,14 +730,25 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
                     f"{prototype.name}"
                 )
 
+    for prototype in prototypes:
+        check_annotation_marker_contract(read(prototype), prototype.name, language)
+
 
 def css_rule_body(text: str, selector: str) -> str:
+    for match in re.finditer(r"(?P<selectors>[^{}]+)\{(?P<body>[^{}]*)\}", text, re.MULTILINE | re.DOTALL):
+        selectors = [item.strip() for item in match.group("selectors").split(",")]
+        if selector in selectors:
+            return match.group("body")
+    return ""
+
+
+def css_property_value(body: str, property_name: str) -> str:
     match = re.search(
-        rf"{re.escape(selector)}\s*\{{(?P<body>[^}}]*)\}}",
-        text,
-        re.MULTILINE | re.DOTALL,
+        rf"\b{re.escape(property_name)}\s*:\s*([^;]+)",
+        body,
+        re.IGNORECASE,
     )
-    return match.group("body") if match else ""
+    return re.sub(r"\s+", " ", match.group(1).strip().lower()) if match else ""
 
 
 def css_rule_uses_nonzero_border(body: str) -> bool:
@@ -728,6 +768,15 @@ def css_rule_has_red_badge_colors(body: str) -> bool:
         re.search(r"(#ff3b30|rgb\(\s*255\s*,\s*59\s*,\s*48\s*\)|--annotation-red|\bred\b)", body, re.IGNORECASE)
         and re.search(r"(color\s*:\s*(#fff|#ffffff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)))", body, re.IGNORECASE)
     )
+
+
+def css_rule_centers_badge_content(body: str) -> bool:
+    has_flex_or_grid_center = (
+        re.search(r"\balign-items\s*:\s*center\b", body, re.IGNORECASE)
+        and re.search(r"\bjustify-content\s*:\s*center\b", body, re.IGNORECASE)
+    )
+    has_place_center = re.search(r"\bplace-items\s*:\s*center\b", body, re.IGNORECASE)
+    return bool(has_flex_or_grid_center or has_place_center)
 
 
 def check_annotation_marker_contract(text: str, prototype_name: str, language: str | None = None) -> None:
@@ -786,6 +835,8 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
             fail(f"{prototype_name} annotation-marker must be red fill with white text and no border line")
         if not css_rule_has_red_badge_colors(marker_body):
             fail(f"{prototype_name} annotation-marker must use red background and white text")
+        if not css_rule_centers_badge_content(marker_body):
+            fail(f"{prototype_name} annotation-marker must center the digit inside the badge")
         body = marker_body
         if re.search(r"\b(top|right):\s*-\d", body):
             fail(f"{prototype_name} annotation-marker uses negative offsets that can be clipped")
@@ -795,6 +846,22 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
             fail(f"{prototype_name} annotation-number must match marker style with no border line")
         if not css_rule_has_red_badge_colors(number_body):
             fail(f"{prototype_name} annotation-number must use the same red background and white text style")
+        if not css_rule_centers_badge_content(number_body):
+            fail(f"{prototype_name} annotation-number must center the digit inside the badge")
+    if marker_body and number_body:
+        for property_name in ("width", "height", "font-size", "font-weight", "line-height"):
+            marker_value = css_property_value(marker_body, property_name)
+            number_value = css_property_value(number_body, property_name)
+            if not marker_value or not number_value:
+                fail(
+                    f"{prototype_name} annotation-marker and annotation-number must both define "
+                    f"{property_name} so panel/dialog badges cannot inherit mismatched sizing"
+                )
+            if marker_value != number_value:
+                fail(
+                    f"{prototype_name} annotation-number {property_name} must match "
+                    f"annotation-marker {property_name}"
+                )
     list_body = css_rule_body(text, ".annotation-list")
     list_active_body = css_rule_body(text, ".annotation-list.active")
     if list_body:
@@ -1022,7 +1089,8 @@ def check_web_prototype(path: Path, language: str | None = None) -> None:
     for marker in ("未登录", "无权限", "错误", "加载"):
         if marker not in text:
             fail(f"Web prototype missing state marker: {marker}")
-    if "fund-bff" in read(path / "prd.md") and "fund-bff" not in text:
+    prd_text = read(path / "prd.md") if (path / "prd.md").is_file() else ""
+    if "fund-bff" in prd_text and "fund-bff" not in text:
         fail("Repo-backed Web prototype missing BFF boundary marker")
     external_refs = ("http://", "https://", "cdn.", "unpkg.com", "cdnjs.")
     if any(ref in text for ref in external_refs):

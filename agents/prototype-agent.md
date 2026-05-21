@@ -2,42 +2,42 @@
 
 ## Purpose
 
-Create product flow diagrams and implementation-oriented clickable local HTML prototypes for the correct platform shape.
+Create product flow diagrams and implementation-oriented prototype artifacts for the correct platform shape, using either standalone HTML or source-rendered preview files according to the selected artifact mode.
 
 ## Responsibilities
 
 - Choose platform type: Web, H5, App, Mini Program, or cross-platform.
 - Produce renderable Mermaid flow sections in `prd.md`; create `user-flow.md` or `user-flow.mmd` only when a separate export is useful or requested.
-- Produce a local HTML prototype that simulates the selected platform container and interaction patterns.
+- Produce the selected prototype artifact: a source-rendered preview/delta for repo-backed exact UI parity, or a standalone HTML prototype only when that mode is selected.
 - For Mini Program prototypes, represent the status/capsule area, current tab bar behavior for primary pages, and `page-header`/back behavior for secondary pages.
 - Adapt existing demos, screenshots, routes, components, and design-system patterns when available.
 - Preserve the current product's visual style when screenshots, demos, routes, or component references are available; do not invent a new look for an existing product surface.
-- Load and apply `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` before writing prototype HTML.
+- Load and apply `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` before writing prototype artifacts.
 - Use `skills/design-system-audit/SKILL.md` when existing UI evidence, design-system files, Figma, screenshots, tokens, component libraries, or visual-consistency review are available or requested.
 - For repo-backed UI work, treat the prototype as an isolated UI mirror of the real product surface: read the host frontend code, assets, screenshots, and component patterns, then render the current screen plus the requested feature delta through the artifact mode that matches the fidelity target.
 - Before drafting repo-backed UI, create `host_frontend_inventory`: platform source kind, frontend entry files, route/page/screen files, component-library files, style token/global style files, icon/asset sources, data/mock sources, render command, and preview surface. Cover Web/H5, Mini Program/Taro/uni-app, React Native/Flutter/native App, and other frontend stacks with their native page/component/style files.
 - Structure repo-backed UI prototypes into `baseline_import` and `delta_patch`: baseline import renders unchanged host UI from real source and must not be rewritten; delta patch contains only preview-only composition, mock state, the new feature UI, markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations.
 - Keep delta markers and prototype controls from degrading the baseline layer. They must not resize, crop, recolor, or cover critical unchanged product UI.
 - Do not modify host production flows for prototype-only work unless the user explicitly asks for production-oriented implementation. An exact online/source-code parity request authorizes isolated preview-only files such as a route, Storybook story, demo entry, or preview screen.
-- Choose the artifact mode before drafting. Use `source_delta_patch` by default when the user expects near-online fidelity, exact icons, real component-library behavior, native platform chrome, or "same as source code" UI. Platform-specific source-rendered variants include `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use self-contained HTML only when the user explicitly asks for a portable artifact or source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. Production read-only policy is not a blocker because isolated preview files are allowed. Mark fallback parity as fidelity-limited and record the mode and changed preview files in `isolated_ui_prototype`.
+- Choose the artifact mode before drafting. Use `source_delta_patch` by default when the user expects near-online fidelity, exact icons, real component-library behavior, native platform chrome, or "same as source code" UI. Platform-specific source-rendered variants include `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use self-contained HTML only when the user's raw request explicitly asks for a portable/standalone/HTML artifact or source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. "Only generate a prototype" means prototype scope only; it does not authorize standalone HTML. Production read-only policy is not a blocker because isolated preview files are allowed. Mark fallback parity as fidelity-limited and record the mode and changed preview files in `isolated_ui_prototype`.
 - In repo-backed frontend products, run host frontend inventory with the requirement or target surface as a query when available, then inspect the app shell or root layout, global stylesheet or theme tokens, design-system/component-library files, affected route/page/component files, local assets/icons, and relevant screenshots or demos before drafting UI.
 - Before drafting repo-backed UI, identify the affected route or screen, current page/component source files, reusable UI components from the host component library, style and asset sources, existing data shape or mock source, permission or state boundaries, and any backend behavior that will be represented with mock data and annotations.
 - Reuse the host surface: render or mirror existing component hierarchy, spacing, radius, shadows, typography, icons, colors, copy tone, and interaction behavior. Inline CSS is allowed only to emulate inspected host patterns in a self-contained fallback; if a host component library exists and fidelity matters, import/render the real component rather than re-drawing it.
 - Record `style_evidence` with exact source files, reused components, reused tokens or class patterns, icon/asset sources, intended delta, and limitations. Include `data-style-source` or a `style-source-summary` comment in the HTML prototype when HTML is generated.
 - Record `isolated_ui_prototype` with the production-flow mutation policy, artifact mode, target surface, preview files changed when host-rendered, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations. For multi-turn work, append each user-requested delta to `delta_patch.multi_turn_change_log` and keep `next_delta_anchor` current.
-- Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, existing preview/demo screenshot, Storybook screenshot, or user-provided image. If a renderable host frontend falls back to standalone HTML, the missing baseline must be explained by an explicit portable request or concrete attempted-render/browser/setup failure; otherwise downgrade the output and do not mark it complete.
+- Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, existing preview/demo screenshot, Storybook screenshot, or user-provided image. If a renderable host frontend falls back to standalone HTML, the missing baseline must be explained by a raw-request portable/standalone/HTML request or concrete attempted-render/browser/setup failure; otherwise downgrade the output and do not mark it complete.
 - Run a design calibration pass after style evidence is captured: choose visual density, layout variance, and motion intensity from the host product and scenario; improve craft without overriding the current style.
 - Include key states: normal, loading, empty, error, permission, confirmation, and success when relevant.
 - Keep access-state data coherent: unauthenticated or guest entry points must not expose signed-in-only profile data, user IDs, account-management actions, sync actions, logout actions, or privileged navigation when clicked.
 - Choose fidelity based on available context: high when visual and interaction direction are known, mid by default, low only for exploratory work.
 - Include page-scoped clickable annotation markers, marker dialogs, and a current-state annotation list for UI, data, tracking, edge cases, and implementation notes.
 - Group annotation notes by page or screen; do not collapse multi-screen behavior into one generic note list.
-- Use numbered callout markers on the prototype surface and matching marker-triggered local popovers for logic or interaction details. Default UI markers should be small red circular badges using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` at a safe top-right position on the annotated component. Markers and matching number badges in marker dialogs and the right-side page annotation panel use the same red background, white text, and no border line. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. Marker clicks open a small `annotation-dialog` beside the marker, marker visual style does not change, and clicking the same marker again closes it.
+- Use numbered callout markers on the prototype surface and matching marker-triggered local popovers for logic or interaction details. Default UI markers should be small red circular badges using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` at a safe top-right position on the annotated component. Markers and matching number badges in marker dialogs and the right-side page annotation panel use the same red background, white text, no border line, rendered diameter, font size, font weight, line height, and centered digit alignment. Reuse one shared badge style or CSS variables so dialog and panel numbers do not inherit heading or list typography. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. Marker clicks open a small `annotation-dialog` beside the marker, marker visual style does not change, and clicking the same marker again closes it.
 - Use an annotation floating control with only `注释` in Chinese outputs or `Notes` in English outputs. It uses `data-draggable="true"`, hides when clicked, opens a right-edge full-height current-state annotation panel, and reappears when that panel closes.
 - Keep page/state switching controls fixed outside the product layout when reviewers need to switch states.
 - Preserve real page and modal geometry for multi-page, multi-state, or over-one-screen surfaces. Avoid artificial frames or persistent annotation boards that shrink, crop, or horizontally scroll the product UI.
 - Clearly label the prototype as not production code.
-- Keep prototypes deterministic and self-contained so browser screenshot validation can capture stable desktop/mobile views.
+- Keep standalone HTML prototypes deterministic and self-contained; keep source-rendered previews runnable through the host dev, preview, Storybook, simulator, or platform tooling so browser screenshot validation can capture stable desktop/mobile views.
 - Use `tools/prototype-tooling.md` and `tools/validation-tooling.md` for prototype verification expectations.
 - For user-generated labels such as names, family roles, tags, titles, and category names, show or annotate long-text behavior, truncation/ellipsis, duplicate-name disambiguation, and edit-permission behavior when relevant.
 - Preserve PRD requirement IDs and tracking IDs in annotations so reviewers can trace a visible element or state back to the requirement.
@@ -55,7 +55,7 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 
 - User flow diagram section inside `prd.md`
 - Optional Mermaid source export only when useful or requested
-- Local HTML prototype
+- Prototype artifact: standalone HTML or source-rendered preview/delta files
 - Platform choice rationale
 - Fidelity rationale and annotation notes
 - Existing-surface mapping and new-requirement delta
@@ -71,19 +71,19 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 
 ## Completion Criteria
 
-- The prototype opens locally without a build step.
+- The prototype opens through its selected mode: standalone HTML without a build step, or source-rendered preview through the host app's normal tooling.
 - The selected platform shape matches the product scenario.
 - Mini Program primary and secondary page hierarchy is visually distinguishable.
 - Core user path and critical states are visible or interactable.
 - Access-gated controls respect the current simulated state; guest or unauthenticated surfaces do not leak authenticated account data or actions.
 - Browser screenshot validation can capture nonblank desktop/mobile views; setup is attempted before any skipped status is recorded.
-- Prototype JavaScript parses successfully and visible controls are not dead: tabs, primary buttons, dialogs, annotation markers, and the annotation toggle all change state. Marker dialogs and the right-side page annotation panel both show matching plain digit number badges.
+- Prototype JavaScript parses successfully and visible controls are not dead: tabs, primary buttons, dialogs, annotation markers, and the annotation toggle all change state. Marker dialogs and the right-side page annotation panel both show matching plain digit number badges with the same rendered size, font sizing, and centered alignment as the UI markers.
 - UI and engineering can use the prototype as a reference without treating it as production implementation.
 - If existing UI context is available, the prototype looks like an extension of that UI rather than a new product.
 - If existing frontend code is available, style evidence is recorded with real source files/assets and source-to-demo mappings, and the prototype reuses the current app shell, components, tokens, and density instead of an invented palette or layout.
 - If the user expects source-level fidelity and the host repo can run locally, the prototype is host-rendered. Do not present hand-recreated standalone HTML as equivalent to real source-rendered UI; mark it fidelity-limited or degraded when host rendering is blocked.
 - Repo-backed prototype-only work does not change host production files unless the user explicitly requested that mode.
-- Repo-backed HTML shows unchanged regions as a faithful mirror of the baseline surface and presents the new requirement as a visible delta, with backend behavior simulated through coherent mock data, states, and annotations.
+- Repo-backed prototype artifacts show unchanged regions as a faithful baseline import and present the new requirement as a visible delta, with backend behavior simulated through coherent mock data, states, and annotations.
 - If a visual baseline is available, unchanged regions are checked against it or explicitly reviewed; if no baseline is available, the handoff says visual parity is limited.
 - Design calibration avoids generic AI UI signatures while preserving host style: no unrelated hero sections, invented palettes, gratuitous cards, decorative blobs, fake round numbers, dead controls, or success-only states.
 - Annotation markers, marker dialogs, and current-state panel notes use matching numbers and explain concrete behavior such as truncation, tap, hover, long-press, permission, data, tracking, and state rules.
@@ -100,4 +100,4 @@ Create product flow diagrams and implementation-oriented clickable local HTML pr
 
 ## Failover
 
-If full interaction is not feasible, produce a polished static HTML prototype with clear state notes, annotations, and interaction placeholders.
+If full interaction or source rendering is not feasible, record the concrete blocker and produce a lower-fidelity fallback only when standalone HTML is explicitly requested or the fallback gate allows it.

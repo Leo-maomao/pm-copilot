@@ -373,6 +373,56 @@ def inspect_page_dom(page) -> dict[str, object]:
                 || parseFloat(style.borderBottomWidth || "0") > 0
                 || parseFloat(style.borderLeftWidth || "0") > 0
             );
+            const numericStyle = (style, propertyName) => {
+                const value = parseFloat(style[propertyName] || "");
+                return Number.isFinite(value) ? value : null;
+            };
+            const closeEnough = (first, second, tolerance) => (
+                first !== null && second !== null && Math.abs(first - second) <= tolerance
+            );
+            const badgeUsesCenteringLayout = (badge, rect, style) => {
+                const display = style.display || "";
+                const layoutCentered = (
+                    /flex|grid/.test(display)
+                    && style.alignItems === "center"
+                    && style.justifyContent === "center"
+                );
+                const lineHeight = numericStyle(style, "lineHeight");
+                const lineHeightCentered = (
+                    style.textAlign === "center"
+                    && closeEnough(lineHeight, rect.height, 1)
+                );
+                return layoutCentered || lineHeightCentered;
+            };
+            const firstVisibleMarker = () => (
+                Array.from(document.querySelectorAll(".annotation-marker")).filter(styleVisible)[0] || null
+            );
+            const checkBadgeMatchesMarker = (badge, referenceMarker, context) => {
+                const badgeRect = badge.getBoundingClientRect();
+                const markerRect = referenceMarker.getBoundingClientRect();
+                const badgeStyle = window.getComputedStyle(badge);
+                const markerStyle = window.getComputedStyle(referenceMarker);
+                if (!closeEnough(badgeRect.width, markerRect.width, 1) || !closeEnough(badgeRect.height, markerRect.height, 1)) {
+                    result.annotation_layout_issues.push(
+                        `${context} must use the same rendered size as the annotation marker`,
+                    );
+                }
+                if (!closeEnough(badgeRect.width, badgeRect.height, 1)) {
+                    result.annotation_layout_issues.push(`${context} must render as a circular badge`);
+                }
+                if (
+                    !closeEnough(numericStyle(badgeStyle, "fontSize"), numericStyle(markerStyle, "fontSize"), 0.5)
+                    || !closeEnough(numericStyle(badgeStyle, "lineHeight"), numericStyle(markerStyle, "lineHeight"), 1)
+                    || String(badgeStyle.fontWeight) !== String(markerStyle.fontWeight)
+                ) {
+                    result.annotation_layout_issues.push(
+                        `${context} must use the same digit font sizing as the annotation marker`,
+                    );
+                }
+                if (!badgeUsesCenteringLayout(badge, badgeRect, badgeStyle)) {
+                    result.annotation_layout_issues.push(`${context} must center the digit inside the badge`);
+                }
+            };
             const checkAnnotationNumberBadge = (badge, expectedLabel, context) => {
                 const label = (badge.innerText || badge.textContent || "").replace(/\\s+/g, " ").trim();
                 if (badge.querySelector(".annotation-marker,.annotation-number")) {
@@ -390,6 +440,10 @@ def inspect_page_dom(page) -> dict[str, object]:
                     result.annotation_layout_issues.push(
                         `${context} must match marker red/white borderless style`,
                     );
+                }
+                const referenceMarker = firstVisibleMarker();
+                if (referenceMarker) {
+                    checkBadgeMatchesMarker(badge, referenceMarker, context);
                 }
             };
             const unauthRe = /(\\u767b\\u5f55|\\u672a\\u767b\\u5f55|\\u6e38\\u5ba2|sign in|log in|guest)/i;
@@ -442,6 +496,12 @@ def inspect_page_dom(page) -> dict[str, object]:
                 if (!isAnnotationRed(style.backgroundColor) || !isWhite(style.color) || hasBorderLine(style)) {
                     result.annotation_layout_issues.push(
                         "annotation marker must be red fill, white text, and borderless",
+                    );
+                    break;
+                }
+                if (!closeEnough(rect.width, rect.height, 1) || !badgeUsesCenteringLayout(marker, rect, style)) {
+                    result.annotation_layout_issues.push(
+                        "annotation marker must render as a centered circular number badge",
                     );
                     break;
                 }

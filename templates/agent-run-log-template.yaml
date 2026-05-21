@@ -200,7 +200,7 @@ host_frontend_inventory:
   data_or_mock_sources: []
   render_entrypoint: "" # dev script, preview URL, Storybook command, simulator command, or unavailable reason
   preview_surface: "" # route/story/demo/screen that renders the source-backed prototype
-  source_rendering_decision: "" # required | used | blocked | user_explicit_portable | not_required
+  source_rendering_decision: "" # required | used | blocked | user_explicit_portable | not_required; user_explicit_portable requires raw_request HTML/portable wording
   source_rendering_limitation: "" # concrete command/browser/simulator/dependency/preview-surface blocker when blocked; production read-only alone is not a blocker
 
 style_evidence:
@@ -212,7 +212,7 @@ style_evidence:
   limitations: []
 
 isolated_ui_prototype:
-  mode: "" # self_contained_html_from_host_code only for explicit portable request or concrete blocked source rendering; otherwise source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | document_or_screenshot_only | not_applicable
+  mode: "" # self_contained_html_from_host_code only for raw-request portable/standalone/HTML output or concrete blocked source rendering; otherwise source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | document_or_screenshot_only | not_applicable
   host_mutation_policy: "" # production_flows_read_only | isolated_preview_files_only | production_implementation_requested | not_applicable
   target_surface: ""
   preview_files_changed: [] # only for source-rendered modes; keep production flow files out unless requested

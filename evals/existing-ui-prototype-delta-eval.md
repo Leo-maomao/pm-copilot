@@ -58,6 +58,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 | 2026-05-21 | global-marker-modal | Medium | Marker click opened a centered global annotation modal instead of a small popover beside the marked component. | Require local marker popovers and add validation for marker-dialog geometry. |
 | 2026-05-21 | shallow-style-evidence | High | Prototype claimed host style reuse but did not faithfully mirror the real component library and online surface. | Require concrete source files, reused components, and source-to-demo mappings. |
 | 2026-05-21 | source-parity-gap | High | Standalone HTML could not exactly reproduce real icons, component internals, or native platform chrome. | Add source-rendered preview modes for Web/H5, Mini Program, and App fidelity expectations. |
+| 2026-05-21 | prototype-only-misread | High | Agent interpreted "only generate a prototype" as consent for standalone HTML and skipped a renderable host source preview. | Require raw-request portable/standalone/HTML wording or concrete source-rendering blocker before standalone fallback. |
 | 2026-05-21 | annotation-ui-inconsistency | Medium | Marker badges, note badges, annotation panel, and state switcher controls did not follow the required fixed interaction model. | Enforce red/white borderless badges, short annotation floating control, right-side full-height panel, and fixed state switchers. |
 
 ## Latest Result

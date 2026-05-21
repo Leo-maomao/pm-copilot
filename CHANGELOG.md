@@ -6,9 +6,33 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
-## [2.2.5] - 2026-05-21
+## [2.2.6] - 2026-05-21
 
 Commit: pending release commit.
+
+### Changed
+
+- Tightened standalone HTML fallback detection so validation only treats the user's raw request as explicit portable/standalone/HTML consent, instead of trusting self-reported `user_explicit_html_prototype_only` fields in `run-log.yaml`.
+- Clarified that "only generate a prototype" means prototype scope only and does not authorize standalone HTML when a repo-backed source-rendered preview is available.
+- Required `source_rendering_decision` to use a fixed vocabulary; `user_explicit_portable` now requires raw-request HTML/portable wording, and `blocked` requires a concrete source-rendering limitation.
+- Reframed the Prototype Agent and multi-platform prototype skill around artifact modes so renderable repo-backed UI defaults to source-rendered preview/delta files instead of hand-written local HTML.
+- Tightened annotation badge guidance and validation so UI markers, marker dialogs, and right-side annotation-panel numbers share the same red/white borderless badge sizing and centered digit alignment.
+- Fixed prototype-only output validation so `prototype-web.html` checks no longer crash when `prd.md` is intentionally omitted.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Prototype template script, annotation badge, and fallback-gate smoke checks pass.
+- Prototype template visual validation passes with `python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
+- Host frontend inventory smoke against `/Users/mac142/Desktop/ai-video` confirms `render_entrypoint: "npm run dev"`, `preview_surface: "src/features/auth/components/LoginModal/LoginModal.tsx"`, and `recommended_artifact_mode: source_delta_patch`.
+- Regression check rejects the new ai-video standalone output with `Repo-backed prototype host_frontend_inventory.source_rendering_decision must be one of required, used, blocked, user_explicit_portable, or not_required`.
+
+## [2.2.5] - 2026-05-21
+
+Commit: `7eeada6` fix: enforce source-rendered prototype fallback gates.
 
 ### Changed
 
