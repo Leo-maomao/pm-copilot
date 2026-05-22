@@ -177,6 +177,7 @@ Required elements:
 - For source-backed previews, records the preview command, preview route/screen/story, and changed preview/delta files; a localhost URL alone is not a complete UI deliverable reference.
 - For standalone compatibility HTML, records boundary metadata/comments and the generated HTML path without adding visible "example/demo/not production" copy to the product UI.
 - For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
+- For screenshot/image-to-UI work, records `image_reference_reconstruction` in `run-log.yaml`, including reference dimensions, intended viewport, visual inventory summary, asset handling, comparison method, mismatches fixed, and remaining fidelity limits.
 - Includes key screens and states through realistic product controls or mocked data/API transitions, not just a reviewer state switcher.
 - Includes interaction for the main path.
 - States its fidelity level: `low`, `mid`, or `high`.
@@ -214,6 +215,7 @@ Minimum quality bar:
 - Backend-dependent behavior is represented through mock data, states, and annotations rather than implying backend implementation exists.
 - For long pages, multi-state flows, and modals, preserve the product's real scrolling behavior. Do not clip modal contents or force the whole product into a fixed-height frame unless the host product does that.
 - When existing screenshots or a runnable host app are available, unchanged regions are compared or reviewed against that visual baseline; without baseline evidence, the artifact must not claim pixel-level parity.
+- When the target UI is supplied as an image, high, exact, 1:1, or pixel-level fidelity requires exact-size screenshot comparison evidence. Otherwise the PRD/run log must mark the UI deliverable fidelity-limited and list the verification gap.
 - Browser screenshot validation covers at least one primary desktop or default viewport and one constrained/mobile viewport when the platform has responsive behavior. Visual diff baselines are required for regression suites and optional for first-run exploratory artifacts.
 
 ## Engineering and Launch Handoff

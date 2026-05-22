@@ -90,7 +90,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - PRD and delivery: `skills/prd-writing/SKILL.md`, `skills/user-stories/SKILL.md`, `skills/user-flow/SKILL.md`, `skills/acceptance-criteria/SKILL.md`, `skills/review-checklist/SKILL.md`, `skills/artifact-packaging/SKILL.md`, `skills/development-handoff/SKILL.md`
    - Metrics and data: `skills/metrics-tree/SKILL.md`, `skills/tracking-plan/SKILL.md`, `skills/experiment-design/SKILL.md`, `skills/product-ops-analysis/SKILL.md`
    - Research and communication: `skills/competitor-research/SKILL.md`, `skills/roadmap-communication/SKILL.md`
-   - UI delivery and UI evidence: `skills/multi-platform-prototype/SKILL.md`, `skills/design-system-audit/SKILL.md`
+   - UI delivery and UI evidence: `skills/multi-platform-prototype/SKILL.md` (including screenshot/image-to-UI reconstruction), `skills/design-system-audit/SKILL.md`
    - Tool and capability governance: `skills/tool-vetting/SKILL.md`, `skills/sharingan/SKILL.md`
 
    Keep one canonical skill per capability type. When a new external skill or workflow overlaps an existing PM Copilot skill, use `skills/sharingan/SKILL.md` to merge the useful parts into the canonical skill instead of adding a duplicate sibling.

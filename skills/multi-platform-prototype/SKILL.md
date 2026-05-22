@@ -20,7 +20,7 @@ Generate an annotated UI deliverable that matches the selected product platform 
 
 1. Choose the platform based on PRD scenario.
 2. Load `artifacts/prototype-contract.md` when available.
-3. Inspect existing demos, screenshots, routes, components, or design-system files when available.
+3. Inspect existing demos, screenshots, routes, components, design-system files, or user-provided UI reference images when available; activate Image Reference Reconstruction Mode for screenshot-to-UI, image-to-UI, visual reconstruction, "图片还原", "截图还原", or similar requests.
 4. In repo-backed frontend products, run `python3 scripts/inspect_host_frontend.py --host <host-repo> --query "<requirement or target surface>" --pretty` when available, then complete any missing host frontend inventory manually: platform source kind, frontend entry files, route/page/screen files, component-library files, style token/global style files, icon/asset sources, data/mock sources, render command, and preview surface. Cover Web/H5, Mini Program/Taro/uni-app, React Native/Flutter/native App, and other frontend stacks with their native page/component/style files. If the source or render entry cannot be found and the user expects real-product UI, stop for the missing host path or preview instead of inventing a shell.
 5. Run a source-rendering/style reuse pass: inspect the host app shell/root layout, global stylesheet or theme config, design-system/component-library files, affected route/page/component files, local assets/icons, and relevant screenshots or demos; extract navigation, tab bar, colors, spacing, typography, icons, card density, radius, shadows, copy tone, and component states; prefer rendering host components directly; record `host_frontend_inventory` and `style_evidence` in the run log.
 6. For repo-backed UI-delivery work, define the isolation boundary and artifact mode before writing UI. Host production flows are read-only, but host frontend source presence authorizes isolated preview-only source files. Use `source_delta_patch` by default whenever host frontend source and a preview surface exist: import/render the original host page/screen/components/styles/assets as baseline, then add the requested feature only in preview-only delta files. Platform-specific variants are `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use `self_contained_html_from_host_code` only when the user's raw request explicitly asks for a portable/standalone/HTML artifact, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering was attempted and blocked by a concrete command, browser, simulator, dependency, or preview-surface failure. "Only generate a prototype" means review scope only; it does not authorize standalone HTML or greenfield UI. Production files being read-only is not a blocking reason because isolated preview files are allowed. In fallback mode, capture an existing UI visual baseline when possible and mark the parity claim as fidelity-limited.
@@ -49,6 +49,18 @@ Generate an annotated UI deliverable that matches the selected product platform 
 29. For Mini Program UI deliverables, run a chrome/page-level checklist before delivery: status or capsule area visible, primary tab pages use the existing tab bar style, secondary pages show page-header/back behavior, and ineligible/setup states are represented when relevant.
 30. When validation scripts are available, run UI visual validation or the delivery checks and record the evidence.
 
+## Image Reference Reconstruction Mode
+
+Use this mode when the request includes screenshot-to-UI, image-to-UI, image reference, visual reconstruction, "图片还原", "截图还原", or similar wording.
+
+- Treat the latest supplied reference image as the visual source of truth for the requested surface or delta, while still preserving source-backed baseline rules when host frontend source exists.
+- Record each reference image path/source, exact pixel dimensions, intended viewport, whether it is an existing baseline, target mockup, asset reference, or cropped fragment, and any text or asset uncertainty.
+- Inventory the full visible UI before writing code: section order, grid ratios, containers, text, controls, icons, logos, badges, image crops, typography groups, colors, radii, shadows, separators, responsive intent, crowding risks, and data visualizations.
+- First implement against the primary reference viewport in CSS pixels. Do not use page-scale hacks such as CSS `zoom`, root transforms, or inflated canvases to fake a match.
+- Capture an implementation screenshot at the same viewport when browser tooling is available, compare it against the reference by side-by-side review or visual diff, list visible mismatches, and iterate through structure, fine-detail, and responsive passes before marking the UI delivery complete.
+- Represent every visible asset honestly: use supplied or host assets when available, generate/edit missing raster assets only when an approved image-generation capability is available, or use dimensionally accurate placeholders plus one standalone asset-generation prompt per missing asset.
+- A high or pixel-level fidelity claim requires exact-size screenshot evidence plus recorded comparison results; otherwise mark the output fidelity-limited and list the verification gap.
+
 ## Output
 
 - UI deliverable: source-rendered preview/delta files or standalone HTML compatibility artifact
@@ -61,6 +73,7 @@ Generate an annotated UI deliverable that matches the selected product platform 
 - Style-source summary
 - Style evidence: source files, reused host components, reused tokens or class patterns, UI delta, limitations
 - Existing UI visual baseline: status, source, target, screenshots, comparison method, limitation
+- Image reference reconstruction notes when used: reference sources, dimensions, element inventory, asset handling, comparison passes, mismatches fixed, and remaining fidelity limits
 - Design calibration summary: layout variance, motion intensity, visual density, and any deliberate anti-generic choices
 - Numbered annotation map
 - Permission and fallback state notes
@@ -88,6 +101,7 @@ Generate an annotated UI deliverable that matches the selected product platform 
 - Repo-backed UI-delivery-only work leaves host production files unchanged unless the user explicitly requested production-oriented implementation.
 - Backend-dependent behavior is represented with coherent mock data, loading/empty/error/permission states, and annotations that name the expected API or data contract when known.
 - If an existing UI screenshot or rendered host app is available, the UI deliverable uses it as a visual baseline for unchanged regions. If not available, the run log records the limitation and does not claim pixel parity.
+- If a user-provided image is the target UI reference, the UI deliverable must match the reference viewport first, preserve all visible controls/icons/assets, and record screenshot comparison evidence or a clear verification limitation before claiming high fidelity.
 - Keep the product surface full width. Do not reserve layout space or shrink the page for notes; marker notes live in local popovers beside the marker, can be toggled closed by clicking the marker again, and the annotation list opens as a right-edge full-height slide-in panel for the current page/state.
 - For many pages, many states, or content beyond one screen, preserve the host product's real scroll behavior and state structure. Do not place the product inside an artificial fixed-height frame that clips dialogs or long content.
 - UI controls must be live. Before delivery, check that standalone HTML JavaScript parses when HTML is generated, primary buttons visibly change state, annotation markers open dialogs, the annotation toggle opens/closes the right-side current-state panel, marker dialogs and the right-side page annotation panel both show matching plain digit number badges with the same rendered size, font sizing, and centered alignment as the UI markers, the floating toggle can be dragged away from host controls, state switchers stay fixed, and compact tabs or segmented controls do not fold text because of annotations.

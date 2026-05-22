@@ -250,6 +250,30 @@ existing_ui_visual_baseline:
   comparison_method: "" # visual_diff | side_by_side_review | reference_only | not_run
   limitation: ""
 
+image_reference_reconstruction:
+  status: "" # active | not_applicable | skipped
+  references:
+    - source: "" # file path, attachment name, URL, or user_provided
+      dimensions_px: "" # width x height when known
+      intended_viewport: ""
+      role: "" # existing_baseline | target_mockup | component_crop | asset_reference | ambiguous
+      uncertainty: ""
+  visual_inventory_summary: []
+  asset_handling:
+    reused_assets: []
+    generated_assets: []
+    placeholders:
+      - asset: ""
+        reason: ""
+        replacement_prompt: ""
+  comparison:
+    method: "" # visual_diff | side_by_side_review | reference_only | not_run
+    implementation_screenshots: []
+    mismatches_fixed: []
+    remaining_mismatches: []
+    skipped_reason: ""
+  fidelity_claim: "" # high_with_exact_screenshot_evidence | fidelity_limited | degraded | not_applicable
+
 design_calibration:
   visual_density: ""
   layout_variance: ""

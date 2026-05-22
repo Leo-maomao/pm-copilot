@@ -6,6 +6,29 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.3.0] - 2026-05-22
+
+Commit: pending
+
+### Added
+
+- Absorbed the transferable workflow from `Ixe1/ui-from-image` into the canonical UI Delivery skill as Image Reference Reconstruction Mode.
+- Added `skills/multi-platform-prototype/references/image-reference-reconstruction.md` for screenshot/mockup/image-to-UI intake, inventory, asset handling, and screenshot comparison rules.
+- Added `image_reference_reconstruction` run-log fields so reference dimensions, viewport, visual inventory, asset decisions, comparison method, mismatches, and fidelity limits are auditable.
+- Added a regression eval for image-reference UI reconstruction and duplicate-skill prevention.
+
+### Changed
+
+- Updated the UI Delivery Agent, UI delivery contract, tooling notes, trace contract, README, and PM Copilot entry so screenshot/image-to-UI work uses `multi-platform-prototype` rather than a duplicate skill.
+- Required high, exact, 1:1, or pixel-level image reconstruction claims to have exact-size implementation screenshot comparison evidence.
+- Documented the external source absorption boundary: no direct code/template/prose reuse because the inspected repository had no declared license.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py scripts/setup_visual_validation.py scripts/install_adapter.py`.
+
 ## [2.2.9] - 2026-05-22
 
 Commit: `dd3ce87` fix: require realistic ui delivery states.

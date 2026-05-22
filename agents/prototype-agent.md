@@ -12,6 +12,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - For Mini Program UI deliverables, represent the status/capsule area, current tab bar behavior for primary pages, and `page-header`/back behavior for secondary pages.
 - Adapt existing demos, screenshots, routes, components, and design-system patterns when available.
 - Preserve the current product's visual style when screenshots, demos, routes, or component references are available; do not invent a new look for an existing product surface.
+- When the user supplies a screenshot, mockup, concept image, cropped UI image, or asks for image-to-UI / screenshot reconstruction / "图片还原", activate the Image Reference Reconstruction Mode inside `skills/multi-platform-prototype/SKILL.md`: record reference dimensions, inventory every visible UI element, match the reference viewport first, use screenshot comparison when available, and keep iterating until remaining differences are minor and documented.
 - Load and apply `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` before writing UI deliverables.
 - Use `skills/design-system-audit/SKILL.md` when existing UI evidence, design-system files, Figma, screenshots, tokens, component libraries, or visual-consistency review are available or requested.
 - For repo-backed UI work, treat the UI deliverable as an isolated UI mirror of the real product surface: read the host frontend code, assets, screenshots, and component patterns, then render the current screen plus the requested feature delta through the artifact mode that preserves the existing UI.
@@ -29,6 +30,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - Record `style_evidence` with exact source files, reused components, reused tokens or class patterns, icon/asset sources, intended delta, and limitations. Include `data-style-source` or a `style-source-summary` comment in compatibility HTML when HTML is generated.
 - Record `isolated_ui_prototype` with the production-flow mutation policy, artifact mode, target surface, preview files changed when host-rendered, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations. For multi-turn work, append each user-requested delta to `delta_patch.multi_turn_change_log` and keep `next_delta_anchor` current.
 - Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, existing preview/demo screenshot, Storybook screenshot, or user-provided image. If a renderable host frontend falls back to standalone HTML, the missing baseline must be explained by a raw-request portable/standalone/HTML request or concrete attempted-render/browser/setup failure; otherwise downgrade the output and do not mark it complete.
+- For target mockup or image-reference reconstruction work, record the reference image source, exact dimensions, intended viewport, image role, comparison method, mismatches fixed, missing asset handling, and remaining fidelity limits. A high or pixel-level fidelity claim is not complete without exact-size implementation screenshot evidence.
 - Run a design calibration pass after style evidence is captured: choose visual density, layout variance, and motion intensity from the host product and scenario; improve craft without overriding the current style.
 - Include key states: normal, loading, empty, error, permission, confirmation, and success when relevant.
 - Make key states real, not a storyboard. A reviewer-only switcher may exist for quick inspection, but required states must be reachable through realistic controls, submitted forms, retry buttons, permission gates, loaded data, or mocked API transitions.
@@ -69,6 +71,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - Host frontend inventory: platform source kind, entry files, route/screen files, component files, style files, icon/asset sources, render command, and preview surface
 - Style evidence: concrete source files/assets, reused components, reused tokens or class patterns, icon/asset sources, UI delta, and limitations
 - Existing UI visual baseline: status, source, target, screenshots, comparison method, and limitation
+- Image reference reconstruction notes: reference sources and dimensions, inventory summary, asset decisions, comparison evidence, mismatches fixed, and remaining limits when image reconstruction mode is active
 - Design calibration summary: density, layout variance, motion intensity, and anti-generic choices
 - Cross-platform differences, when applicable
 - UI delivery contract coverage note and visual validation expectation
@@ -91,6 +94,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - Repo-backed UI-delivery-only work does not change host production files unless the user explicitly requested that mode.
 - Repo-backed UI deliverables show unchanged regions as a faithful baseline import and present the new requirement as a visible delta, with backend behavior simulated through coherent mock data, states, and annotations.
 - If a visual baseline is available, unchanged regions are checked against it or explicitly reviewed; if no baseline is available, the handoff says visual parity is limited.
+- If the target UI is supplied as an image, the deliverable first matches the reference viewport, preserves all visible text, controls, icons, assets, spacing, typography, and data-visualization proportions, and records exact-size screenshot comparison evidence or an explicit verification limitation.
 - Design calibration avoids generic AI UI signatures while preserving host style: no unrelated hero sections, invented palettes, gratuitous cards, decorative blobs, fake round numbers, dead controls, or success-only states.
 - Annotation markers, marker dialogs, and current-state panel notes use matching numbers and explain concrete behavior such as truncation, tap, hover, long-press, permission, data, tracking, and state rules.
 - Annotation markers use traceable IDs such as `data-annotation-id="2"` and placement metadata such as `data-annotation-placement="top-right"` so each visible UI marker maps to the component corner, marker dialog, and current-state annotation panel.

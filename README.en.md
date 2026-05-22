@@ -224,7 +224,7 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 | PRD and delivery | `prd-writing`, `user-stories`, `user-flow`, `acceptance-criteria`, `review-checklist`, `artifact-packaging`, `development-handoff` |
 | Metrics and data | `metrics-tree`, `tracking-plan`, `experiment-design`, `product-ops-analysis` |
 | Research and communication | `competitor-research`, `roadmap-communication` |
-| UI delivery and UI evidence | `multi-platform-prototype`, `design-system-audit` |
+| UI delivery and UI evidence | `multi-platform-prototype` (including screenshot/image-to-UI reconstruction), `design-system-audit` |
 | Tool and capability governance | `tool-vetting`, `sharingan` |
 
 Each capability type has one canonical skill. External resources absorbed with `skills/sharingan/SKILL.md` go through risk review and merge into the canonical skill instead of creating duplicates.
