@@ -8,7 +8,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 
 ## [2.2.9] - 2026-05-22
 
-Commit: pending release commit.
+Commit: `dd3ce87` fix: require realistic ui delivery states.
 
 ### Changed
 
