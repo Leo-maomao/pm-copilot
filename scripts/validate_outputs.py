@@ -88,6 +88,31 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def visible_html_text(text: str) -> str:
+    text = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
+    text = re.sub(r"<(script|style|svg)\b.*?</\1>", " ", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def html_has_state(text: str, *names: str) -> bool:
+    visible = visible_html_text(text).lower()
+    state_attr = "\n".join(re.findall(r"data-ui-state=[\"']([^\"']+)[\"']", text, re.IGNORECASE)).lower()
+    joined = visible + "\n" + state_attr
+    return any(name.lower() in joined for name in names)
+
+
+def check_compatibility_html_boundary(text: str, prototype_name: str) -> None:
+    if not re.search(r"data-delivery-boundary|delivery-boundary|compatibility_html_review_artifact", text, re.IGNORECASE):
+        fail(f"{prototype_name} missing compatibility UI delivery boundary metadata")
+    visible = visible_html_text(text)
+    if re.search(r"不是生产代码|not\s+production\s+code|prototype\s+only", visible, re.IGNORECASE):
+        fail(f"{prototype_name} must not show not-production/example labels in product UI")
+    generic_label_count = len(re.findall(r"示例|演示|\bdemo\b|\bsample\b|\bplaceholder\b|占位", visible, re.IGNORECASE))
+    if generic_label_count >= 3:
+        fail(f"{prototype_name} contains repeated visible example/demo/placeholder labels")
+
+
 def extract_yaml_block(text: str, key: str) -> str:
     match = re.search(rf"^(?P<indent>\s*){re.escape(key)}:\s*(?:#.*)?$", text, re.MULTILINE)
     if not match:
@@ -921,9 +946,10 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
             fail(f"{prototype_name} annotation-list must slide in from the right")
     if "annotation-toggle" in text and ".annotation-toggle.hidden" not in text:
         fail(f"{prototype_name} annotation toggle must hide while the annotation panel is open")
-    state_tabs_body = css_rule_body(text, ".prototype-state-tabs")
-    if "prototype-state-tabs" in text and not re.search(r"\bposition\s*:\s*fixed\b", state_tabs_body):
-        fail(f"{prototype_name} state tabs must use a fixed position")
+    if "prototype-state-tabs" in text:
+        fail(f"{prototype_name} must not use legacy prominent prototype-state-tabs")
+    if "reviewer-state-switcher" in text and 'data-reviewer-only="true"' not in text and "data-reviewer-only='true'" not in text:
+        fail(f"{prototype_name} reviewer state switcher must be marked data-reviewer-only")
     target_rule = re.search(r"\.annotation-target\s*\{(?P<body>[^}]*)\}", text, re.MULTILINE | re.DOTALL)
     if target_rule and re.search(r"overflow:\s*(hidden|clip|auto|scroll)", target_rule.group("body")):
         fail(f"{prototype_name} annotation-target must not clip annotation markers")
@@ -1084,6 +1110,7 @@ def check_mini_program_prototype(path: Path, language: str | None = None) -> Non
         return
 
     text = read(prototypes[0])
+    check_compatibility_html_boundary(text, prototypes[0].name)
     check_annotation_marker_contract(text, prototypes[0].name, language)
     required = [
         "mini-capsule",
@@ -1099,8 +1126,6 @@ def check_mini_program_prototype(path: Path, language: str | None = None) -> Non
             fail(f"Mini Program UI HTML missing marker: {marker}")
     if "showScreen(" not in text and "showView(" not in text:
         fail("Mini Program UI HTML missing screen/state switching function")
-    if "不是生产代码" not in text and "not production code" not in text.lower():
-        fail("Compatibility UI HTML missing not-production-code label")
     if "待产包" in text:
         for marker in ("待审核", "免责声明"):
             if marker not in text:
@@ -1116,6 +1141,7 @@ def check_web_prototype(path: Path, language: str | None = None) -> None:
         return
 
     text = read(prototypes[0])
+    check_compatibility_html_boundary(text, prototypes[0].name)
     check_annotation_marker_contract(text, prototypes[0].name, language)
     required = [
         "prototype-shell",
@@ -1132,11 +1158,15 @@ def check_web_prototype(path: Path, language: str | None = None) -> None:
     for marker in required:
         if marker not in text:
             fail(f"Web UI HTML missing marker: {marker}")
-    if "不是生产代码" not in text and "not production code" not in text.lower():
-        fail("Web UI HTML missing not-production-code label")
-    for marker in ("未登录", "无权限", "错误", "加载"):
-        if marker not in text:
-            fail(f"Web UI HTML missing state marker: {marker}")
+    state_requirements = (
+        ("signed-out", ("未登录", "游客", "signed-out", "logged-out", "guest")),
+        ("permission", ("无权限", "permission", "forbidden", "denied")),
+        ("error", ("错误", "error")),
+        ("loading", ("加载", "loading")),
+    )
+    for label, aliases in state_requirements:
+        if not html_has_state(text, *aliases):
+            fail(f"Web UI HTML missing real state coverage marker: {label}")
     prd_text = read(path / "prd.md") if (path / "prd.md").is_file() else ""
     if "fund-bff" in prd_text and "fund-bff" not in text:
         fail("Repo-backed Web UI HTML missing BFF boundary marker")

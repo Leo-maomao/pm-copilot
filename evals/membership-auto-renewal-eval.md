@@ -67,7 +67,7 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 - Tracking plan avoids raw payment data.
 - Tracking plan uses complete event and property tables.
 - User flow renders as a standard Mermaid flowchart.
-- H5 UI deliverable is local, clickable, annotated, and clearly not production code when delivered as compatibility HTML.
+- H5 UI deliverable is local, clickable, annotated, and records compatibility-HTML boundary metadata when delivered as compatibility HTML without placing visible not-production labels in the product surface.
 - Delivery review findings block launch until legal copy, baseline metrics, and payment failure categories are confirmed.
 - PRD status is not `Ready for engineering` while required engineering-blocking billing or payment confirmations remain unresolved.
 - PRD status, engineering handoff status, and launch status are separate.

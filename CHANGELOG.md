@@ -6,6 +6,26 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.2.9] - 2026-05-22
+
+Commit: pending release commit.
+
+### Changed
+
+- Tightened UI delivery rules so source-backed previews must provide changed preview files and run commands, not only a localhost URL.
+- Clarified that direct standalone HTML remains available for no-source, explicit portable HTML, explicit redesign/greenfield, or blocked source-rendering cases, but exact repo-backed parity should stay source-rendered.
+- Removed visible "example/demo/not production code" labeling from the product surface; delivery boundaries now belong in metadata, run logs, PRD notes, or comments unless regulated content requires visible draft status.
+- Required realistic product interactions and state transitions instead of using a top-level state-tab storyboard as a substitute for behavior.
+- Updated compatibility HTML validation and the base template to reject legacy prominent state-tab strips and require boundary metadata.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/inspect_host_frontend.py scripts/validate_outputs.py scripts/validate_repo.py scripts/preflight_tools.py scripts/preflight_integrations.py scripts/run_delivery_checks.py scripts/validate_prototype_visual.py scripts/setup_visual_validation.py scripts/install_adapter.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Prototype template visual validation passes with `PLAYWRIGHT_BROWSER_CHANNEL=chrome python3 scripts/validate_prototype_visual.py /tmp/pmcopilot-prototype-template-check --browser-channel chrome --no-auto-setup`.
+
 ## [2.2.8] - 2026-05-21
 
 Commit: `2f57f53` fix: redefine ui delivery as source backed.

@@ -15,9 +15,11 @@
     .desktop-nav { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 92%, white); }
     .prototype-toolbar { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
     .prototype-toolbar > * { pointer-events: auto; }
-    .prototype-state-tabs { position: fixed; top: 12px; left: 50%; z-index: 30; display: inline-flex; transform: translateX(-50%); gap: 6px; max-width: calc(100vw - 120px); overflow-x: auto; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
-    .prototype-state-tabs button { min-height: 34px; border: 0; border-radius: 999px; padding: 0 12px; background: transparent; color: var(--text); cursor: pointer; white-space: nowrap; }
-    .prototype-state-tabs button.active { background: var(--primary); color: #fff; }
+    .reviewer-state-switcher { position: fixed; left: 16px; bottom: 16px; z-index: 31; max-width: min(280px, calc(100vw - 96px)); border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14); }
+    .reviewer-state-switcher summary { min-height: 36px; padding: 8px 12px; cursor: pointer; font-weight: 700; white-space: nowrap; }
+    .reviewer-state-options { display: grid; gap: 6px; padding: 0 8px 8px; }
+    .reviewer-state-options button { min-height: 34px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: #fff; color: var(--text); cursor: pointer; white-space: nowrap; text-align: left; }
+    .reviewer-state-options button.active { border-color: var(--primary); box-shadow: inset 3px 0 0 var(--primary); }
     .annotation-toggle { position: fixed; right: 16px; bottom: 16px; z-index: 43; display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 58px; border: 0; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; white-space: nowrap; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.24); transition: opacity 160ms ease, transform 160ms ease; }
     .annotation-toggle.hidden { opacity: 0; pointer-events: none; transform: scale(0.96); }
     .screen { display: none; }
@@ -46,21 +48,24 @@
     .annotation-list-item p { grid-column: 2; margin: 4px 0 0; }
     .note-group-title { margin: 10px 0 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
     @media (max-width: 760px) {
-      .prototype-state-tabs { top: 8px; max-width: calc(100vw - 16px); }
+      .reviewer-state-switcher { left: 12px; bottom: 12px; max-width: calc(100vw - 88px); }
       .annotation-toggle { right: 12px; bottom: 12px; }
-      .page-content { padding: 72px 16px 96px; }
+      .page-content { padding: 48px 16px 96px; }
     }
   </style>
 </head>
 <body>
-  <!-- Template note: match the current product style before filling this file. Marker clicks open small local popovers beside the marker; only the short annotation toggle opens the right-side full-height annotation-list panel. Do not use a full-screen/global marker modal. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. Prototype only. Not production code. -->
+  <!-- Template note: match the current product style before filling this file. Marker clicks open small local popovers beside the marker; only the short annotation toggle opens the right-side full-height annotation-list panel. Do not use a full-screen/global marker modal. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. -->
   <!-- style-source-summary: {{localized_style_source_summary}} -->
-  <div class="prototype-shell" data-style-source="{{localized_style_source_summary}}">
+  <div class="prototype-shell" data-style-source="{{localized_style_source_summary}}" data-delivery-boundary="compatibility_html_review_artifact">
     <div class="prototype-toolbar" aria-label="{{localized_prototype_controls}}">
-      <div class="prototype-state-tabs">
-        <button id="tab-current" class="active" type="button" onclick="showView('current')">{{localized_current_page}}</button>
-        <button id="tab-new" type="button" onclick="showView('new')">{{localized_new_state}}</button>
-      </div>
+      <details class="reviewer-state-switcher" data-reviewer-only="true">
+        <summary>{{localized_reviewer_state_switcher}}</summary>
+        <div class="reviewer-state-options">
+          <button id="review-state-current" class="active" type="button" onclick="showView('current')">{{localized_current_page}}</button>
+          <button id="review-state-new" type="button" onclick="showView('new')">{{localized_new_state}}</button>
+        </div>
+      </details>
       <button id="annotation-toggle" class="annotation-toggle" type="button" data-draggable="true" aria-label="{{localized_show_annotations}}">注释</button>
     </div>
 
@@ -68,10 +73,10 @@
       <div class="product-surface">
         <div class="desktop-nav">
           <strong>{{localized_product_name}}</strong>
-          <span class="muted">{{localized_prototype_boundary_note}}</span>
+          <span class="muted">{{localized_product_context_note}}</span>
         </div>
 
-        <section id="screen-current" class="screen active" data-prototype-state="current">
+        <section id="screen-current" class="screen active" data-prototype-state="current" data-ui-state="normal">
           <div class="page-content">
             <div class="annotation-target">
               <h1>{{localized_existing_page_surface}}</h1>
@@ -87,7 +92,7 @@
           </div>
         </section>
 
-        <section id="screen-new" class="screen" data-prototype-state="new">
+        <section id="screen-new" class="screen" data-prototype-state="new" data-ui-state="new-feature">
           <div class="page-content">
             <div class="annotation-target">
               <h1>{{localized_new_requirement_state}}</h1>
@@ -130,8 +135,8 @@
       currentView = name;
       document.getElementById('screen-current').classList.toggle('active', name === 'current');
       document.getElementById('screen-new').classList.toggle('active', name === 'new');
-      document.getElementById('tab-current').classList.toggle('active', name === 'current');
-      document.getElementById('tab-new').classList.toggle('active', name === 'new');
+      document.getElementById('review-state-current').classList.toggle('active', name === 'current');
+      document.getElementById('review-state-new').classList.toggle('active', name === 'new');
       closeAllAnnotations();
     }
 

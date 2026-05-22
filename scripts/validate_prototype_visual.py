@@ -485,9 +485,22 @@ def inspect_page_dom(page) -> dict[str, object]:
                     result.annotation_layout_issues.push("annotation toggle label must be only 注释 or Notes");
                 }
             }
-            const stateTabs = document.querySelector(".prototype-state-tabs");
-            if (stateTabs && window.getComputedStyle(stateTabs).position !== "fixed") {
-                result.annotation_layout_issues.push("state tabs are not fixed-position");
+            const legacyStateTabs = document.querySelector(".prototype-state-tabs");
+            if (legacyStateTabs && styleVisible(legacyStateTabs)) {
+                result.annotation_layout_issues.push("legacy prominent state tabs must not be used");
+            }
+            const reviewerSwitcher = document.querySelector(".reviewer-state-switcher,[data-reviewer-only='true']");
+            if (reviewerSwitcher) {
+                const switcherStyle = window.getComputedStyle(reviewerSwitcher);
+                if (reviewerSwitcher.getAttribute("data-reviewer-only") !== "true") {
+                    result.annotation_layout_issues.push("reviewer state switcher must be marked data-reviewer-only");
+                }
+                if (switcherStyle.position !== "fixed") {
+                    result.annotation_layout_issues.push("reviewer state switcher must be fixed-position");
+                }
+                if (reviewerSwitcher.tagName.toLowerCase() !== "details") {
+                    result.annotation_layout_issues.push("reviewer state switcher should be collapsed by default");
+                }
             }
             const markers = Array.from(document.querySelectorAll(".annotation-marker")).filter(styleVisible);
             for (const marker of markers) {

@@ -60,7 +60,7 @@ Account export, account deletion, data erasure, privacy settings, and retention 
 ## Reference and Regulated Content
 
 - For reference, policy, medical, legal, financial, safety, or operational content, record the content source, review owner, review status, disclaimer status, and launch impact.
-- Label unreviewed content as placeholder or draft in PRDs and UI deliverables.
+- Label unreviewed content as placeholder or draft in PRDs, annotations, run logs, and UI deliverables when the user or reviewer must see it. Do not scatter visible "example/demo/not production" labels across product UI as a generic safety substitute.
 - Do not present unreviewed content as approved final copy, advice, policy, or launch-ready guidance.
 - Do not use a recommended default to approve reference or regulated content. Defaults may choose a placeholder framework only; final content approval remains human-owned.
 - A content payload can block launch while the surrounding product framework remains ready for engineering only when the PRD states that split explicitly.

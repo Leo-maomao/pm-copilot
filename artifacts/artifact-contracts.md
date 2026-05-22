@@ -174,8 +174,10 @@ Required elements:
 - For repo-backed UI-delivery work, records `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, artifact mode, target surface, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
 - For repo-backed UI-delivery work, imports/renders `baseline_import` from original host source and puts only new feature behavior in `delta_patch`: preview composition, mock state, markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
 - For repo-backed frontend products, records concrete `style_evidence` in `run-log.yaml`, includes source-to-demo mappings for reused host components, and includes `style-source-summary` or `data-style-source` in the HTML.
+- For source-backed previews, records the preview command, preview route/screen/story, and changed preview/delta files; a localhost URL alone is not a complete UI deliverable reference.
+- For standalone compatibility HTML, records boundary metadata/comments and the generated HTML path without adding visible "example/demo/not production" copy to the product UI.
 - For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
-- Includes key screens and states.
+- Includes key screens and states through realistic product controls or mocked data/API transitions, not just a reviewer state switcher.
 - Includes interaction for the main path.
 - States its fidelity level: `low`, `mid`, or `high`.
 - Does not reserve a side annotation board by default. The product UI should keep its real layout width and height.
@@ -200,9 +202,9 @@ Minimum quality bar:
 - Text fits in the layout.
 - Callouts do not cover critical copy or controls.
 - Annotation overlays must not change product layout, reserve persistent side space, or shrink the product viewport.
-- Standalone HTML JavaScript parses when HTML is generated, and core buttons, tabs, dialogs, annotation markers, and the annotation toggle produce visible state changes.
+- Standalone HTML JavaScript parses when HTML is generated, and core buttons, product tabs, dialogs, annotation markers, and the annotation toggle produce visible state changes.
 - Annotation markers are visible, unclipped, and do not force compact controls or tab labels to wrap.
-- Standalone HTML does not claim to be production code. Source-backed preview/delta files can be implementation candidates only when the user explicitly asked for implementation-oriented work and the host mutation policy records that boundary.
+- The product surface avoids visible `示例`, `演示`, `Demo`, `Sample`, `Prototype`, `Not production code`, or `不是生产代码` labels unless the requirement explicitly needs visible draft status. Delivery boundaries belong in metadata, comments, run logs, PRD notes, or annotations.
 - The UI deliverable shows real screens, state changes, validation, empty states, errors, permissions, and success feedback where relevant.
 - When existing product UI exists, the UI deliverable adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
 - When host frontend code exists, the UI deliverable reuses the current app shell, component-library structure, tokens, spacing density, and copy tone rather than introducing a separate visual system, unless the raw request explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI.

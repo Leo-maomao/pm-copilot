@@ -14,6 +14,8 @@ When PM Copilot is embedded in a real product repository, UI-delivery-only work 
 
 The expected repo-backed artifact mode depends first on source availability. If host frontend source and a preview surface exist, use `source_delta_patch` by default: import/render the real frontend components, styles, assets, and platform chrome as the baseline, then add the new requirement only in isolated preview delta files. This does not require the user to say exact UI parity. Platform-specific source-rendered modes are `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use standalone HTML fallback only when the user's raw request explicitly asks for portable/standalone/HTML review, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence; "only generate a prototype" means review scope only and is not a standalone HTML or greenfield request. Mark standalone fallback fidelity as limited. Backend-dependent behavior should be represented with coherent mock data, loading/empty/error/permission states, and annotations that name the expected data contract or API behavior when known.
 
+A source-backed preview may be opened through a local dev URL, but the deliverable is not just that URL. Record the command, route/story/screen, changed preview/delta files, validation evidence, and any setup limits. If the user asks for direct HTML and exact source parity is not required, generate standalone compatibility HTML; if exact parity depends on host components, explain that HTML would be fidelity-limited.
+
 ## Two-Layer UI Delivery Model
 
 Repo-backed UI deliverables have two distinct layers:
@@ -73,6 +75,7 @@ For browser extension UI deliverables, show the extension container instead of a
 - Copy must fit on mobile-sized frames.
 - The UI deliverable must include realistic screen states: loading, empty, error, permission, confirmation, success, or rollback where relevant.
 - Loading states should match the final layout shape where possible instead of using generic spinners; form errors should be inline and close to the field.
+- State coverage must be reachable through realistic product interactions, permission gates, retry actions, form submissions, or mocked data/API transitions. A reviewer-only switcher can speed inspection, but it cannot be the only way a state exists.
 - Multi-page or multi-state UI deliverables should let reviewers switch state without shrinking the product surface. Use a lightweight overlay control outside the product layout when needed.
 - Long pages and modal dialogs must preserve real scrolling behavior. Use viewport-based max heights and internal scroll only when the host product does; do not clip important fields, buttons, or bottom content.
 - If access depends on account, role, eligibility, plan, location, consent, or setup state, show the eligible and ineligible states or state why one is not relevant.
@@ -83,7 +86,7 @@ For browser extension UI deliverables, show the extension container instead of a
 - Numbered callouts should not cover critical copy or controls. Place compact markers at the annotated component's top-right corner by default; offset them just outside that same corner when needed to avoid covering key content.
 - The default callout shape is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` on the UI surface. Place badges in a safe top-right spot that is visible, not clipped by `overflow: hidden`, and not causing labels or controls to wrap. Marker badges and matching number badges inside marker dialogs and the right-side page annotation panel must use the same red background, white text, no border line, rendered diameter, font size, font weight, line height, and centered digit alignment. Reuse one shared badge style or CSS variables so dialog and panel numbers do not inherit heading or list typography. Visual badges must contain plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. Marker visual style must not change after click. Clicking a marker opens a small local `annotation-dialog` popover beside that marker with the matching number; clicking the same marker again closes it. Marker clicks must not open a full-screen/global modal, backdrop, or centered note dialog.
 - A draggable annotation floating control with `data-draggable="true"` should show only `注释` in Chinese outputs or `Notes` in English outputs. Clicking it hides the floating control and opens an `annotation-list` panel from the right edge. The panel must fill viewport height, show annotations for the current page/state, and restore the floating control when closed.
-- If page or state switching controls are needed, keep them in a stable fixed position outside the product layout so they do not look like abrupt product UI.
+- If page or state switching controls are needed, keep them in a stable fixed/collapsed reviewer-only control outside the product layout, marked with `data-reviewer-only="true"`, so they do not look like abrupt product UI.
 
 ## Required Annotations
 
@@ -112,7 +115,7 @@ Annotation rules:
 
 Generate a single self-contained `.html` file only when standalone HTML is the selected artifact mode. When repo-backed fidelity requires source rendering, generate the isolated preview route/story/demo/page/screen delta files instead and record them in `isolated_ui_prototype.preview_files_changed`.
 
-Standalone HTML must clearly state that it is a compatibility review artifact and not production code, but it should be structured and styled to a standard that UI and engineering can use directly as reference.
+Standalone HTML must record that it is a compatibility review artifact through metadata, comments, run-log fields, or PRD notes, but it should not add visible "example/demo/not production" copy to the product surface. It should be structured and styled to a standard that UI and engineering can use directly as reference.
 
 For repo-backed UI-delivery-only work, self-contained HTML is acceptable only when the raw request asks for portable/standalone/HTML review, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering is concretely blocked. It may emulate inspected host components, token values, and local assets, but it cannot guarantee exact parity for icons, fonts, rendered component internals, browser-specific CSS, platform chrome, or runtime state. If frontend source exists, use a source-rendered preview mode after recording the mutation boundary and changed preview files. Production flows remain untouched unless production implementation is explicitly requested.
 
