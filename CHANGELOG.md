@@ -8,7 +8,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 
 ## [2.5.0] - 2026-05-27
 
-Commit: pending
+Commit: `6b3b8dc` feat: replace fixture evals with generic scenarios.
 
 ### Removed
 
