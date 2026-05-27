@@ -8,8 +8,11 @@
 | Scenario | Absorb a third-party skill repository without creating duplicate PM Copilot skills |
 | Platform | Cross-platform |
 | Product Area | PM Copilot capability governance |
+| Fixture Scope | None |
+| PM User Type | Senior PM |
+| Risk Profile | Security / Legal / Data quality |
 | Created | 2026-05-21 |
-| Last Updated | 2026-05-21 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -71,6 +74,7 @@
 - Rejected material is visible.
 - External tools remain candidates until preflight proves runtime availability.
 - `python3 scripts/validate_repo.py` passes.
+- Generated absorption reports pass `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` when the run emits PM-facing artifacts.
 - A targeted `preflight_integrations.py --require-ready` check fails for candidate-only tools.
 
 ## Latest Result

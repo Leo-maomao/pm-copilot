@@ -1,0 +1,68 @@
+cycle_id: ""
+date: ""
+goal: ""
+input_cases:
+  - eval_case: ""
+    run_id: ""
+    context_mode: "" # repo-backed | document-backed | brief-only
+    output_folder: ""
+scenario_portfolio:
+  context_mode: "" # repo-backed | document-backed | brief-only | screenshot-backed | mixed
+  product_type: "" # consumer | b2b_saas | marketplace | internal_ops | creator_tool | commerce | content | analytics | admin | other
+  pm_task_type: "" # discovery | prd | metrics | tracking | ui_delivery | research | experiment | launch | handoff | review
+  risk_profile: "" # normal | payment | privacy | security | legal | compliance | regulated_content | operations | data_quality
+  platform: "" # web | h5 | app | mini_program | cross_platform | non_ui
+  pm_user_maturity: "" # novice_pm | ai_product_manager | senior_pm | growth_pm | data_pm | ops_pm | founder_operator
+generalization_boundary:
+  reference_projects_are_fixtures: true
+  host_specific_terms_allowed_only_in:
+    - "outputs/<run-id>/"
+    - "fixture-scoped eval case"
+  host_specific_terms_must_not_enter:
+    - "PM_COPILOT.md"
+    - "README*.md"
+    - "workflow/"
+    - "prompts/"
+    - "agents/"
+    - "skills/"
+    - "templates/"
+    - "tools/"
+    - "artifacts/"
+    - "guardrails/"
+    - "docs/"
+    - "context/*.example.yaml"
+baseline:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures: []
+results:
+  generated_artifacts: []
+  validation_commands: []
+  validation_reports: []
+  review_scores:
+    delivery: null
+    prd: null
+    metrics_tracking: null
+    ui_delivery: null
+    delivery_review: null
+failure_classification:
+  - failure_code: ""
+    severity: "" # Critical | High | Medium | Low
+    area: ""
+    symptom: ""
+    evidence: ""
+    first_surface_to_fix: "" # contract | skill | workflow | guardrail | tool | agent | eval
+fixes:
+  - path: ""
+    change: ""
+    rationale: ""
+regression_updates:
+  evals_added_or_updated: []
+  validators_added_or_updated: []
+after:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures: []
+decision:
+  status: "" # improved | unchanged | regressed | inconclusive
+  next_action: ""

@@ -87,15 +87,17 @@ capabilities:
 
   - id: validation.visual
     category: validation
-    required_when: "A compatibility UI HTML file is generated."
+    required_when: "A compatibility UI HTML file is generated, or a source-backed UI preview is used."
     command: "python3 scripts/validate_prototype_visual.py outputs/<run-id>"
+    source_preview_command: "python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>"
     setup_command: "python3 scripts/setup_visual_validation.py"
-    behavior: "When no --prototype is provided, validates every supported compatibility HTML file in the run folder. Source-backed previews should be validated through the host dev/preview/Storybook/simulator path and recorded under visual_validation."
+    behavior: "When no --prototype is provided, validates every supported compatibility HTML file in the run folder. Source-backed previews should be validated with validate_ui_preview.py after the host dev/preview/Storybook/simulator path is running, or with equivalent simulator evidence recorded under visual_validation."
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - prd.md:validation_results
       - run-log.yaml:visual_validation
       - outputs/<run-id>/visual-review/visual-report.json
+      - outputs/<run-id>/visual-review/source-preview-report.json
     fallback: "Run setup first. Record skipped only after setup failure, browser launch restriction, or user-declined installation."
 
   - id: validation.html
@@ -117,6 +119,17 @@ capabilities:
       - outputs/<run-id>/tool-results/delivery-check-report.json
       - run-log.yaml:validation_results
     fallback: "Run individual validation commands and record why the orchestrator could not run."
+
+  - id: optimization.scorecard
+    category: optimization
+    required_when: "Self-iteration, benchmark loops, PM Copilot capability reviews, or release retrospectives."
+    command: "python3 scripts/agent_improvement_scorecard.py"
+    json_command: "python3 scripts/agent_improvement_scorecard.py --json --report outputs/improvement-scorecard.json"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - optimization cycle notes
+      - outputs/improvement-scorecard.json
+    fallback: "Manually summarize eval coverage, latest results, validation evidence, runtime outputs, failure severity, and next fixes."
 
   - id: handoff.dev_tasks
     category: handoff

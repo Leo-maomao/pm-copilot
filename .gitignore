@@ -10,3 +10,6 @@ context/*.local.yaml
 context/*.private.yaml
 outputs/
 tool-results/
+private/
+*.private.md
+*.local.md

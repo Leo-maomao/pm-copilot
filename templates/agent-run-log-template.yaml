@@ -316,6 +316,7 @@ visual_validation:
   required: false
   command: ""
   status: "" # passed | failed | skipped
+  preview_target: "" # source-backed preview URL/file when validate_ui_preview.py is used
   screenshots:
     - viewport: ""
       path: ""
@@ -325,6 +326,7 @@ visual_validation:
   observed_diff_ratio: null
   non_blank_ratio: null
   report_path: ""
+  source_preview_report_path: ""
   limitation: ""
 
 handoff_artifacts:

@@ -10,6 +10,15 @@
 | Product Area |  |
 | Created |  |
 | Last Updated |  |
+| Fixture Scope | None / Fixture-scoped / Public generic |
+| PM User Type | Novice PM / AI product manager / Senior PM / Growth PM / Data PM / Ops PM / Founder-operator |
+| Risk Profile | Normal / Payment / Privacy / Security / Legal / Compliance / Regulated content / Operations / Data quality |
+
+## Fixture Isolation Terms
+
+Use this section only when `Fixture Scope` is `Fixture-scoped`. List borrowed host project names, local path segments, route prefixes, API vocabulary, brand terms, and domain phrases that must not leak into PM Copilot's universal surface.
+
+- `<fixture-project-name>`
 
 ## Raw Request
 
@@ -24,6 +33,7 @@ Paste the original realistic product request here.
 ## Expected Workflow
 
 - Discovery and clarification
+- Preserve the generalization boundary: fixture-specific host facts may shape this eval, but must not become generic PM Copilot defaults.
 - PRD
 - Metrics and tracking sections inside PRD
 - Flow diagrams inside PRD, when useful
@@ -40,6 +50,7 @@ Paste the original realistic product request here.
 ## Known Risks
 
 - 
+- Fixture-specific product details leaking into generic PM Copilot docs, prompts, templates, tools, agents, skills, or workflow.
 
 ## Rubric Thresholds
 
@@ -76,6 +87,7 @@ Paste the original realistic product request here.
 - Development handoff and launch decision artifacts preserve blockers when generated.
 - Review findings include artifact, evidence, owner, required-before phase, and status, or an explicit no-finding summary.
 - Validation results are concrete and consistent between PRD and run log.
+- Fixture-specific names, local paths, domain nouns, route names, APIs, or business assumptions stay out of generic PM Copilot surfaces unless the eval is explicitly fixture-scoped.
 
 ## Latest Result
 

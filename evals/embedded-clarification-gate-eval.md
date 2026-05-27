@@ -8,8 +8,11 @@
 | Scenario | embedded-simple-request |
 | Platform | Unknown |
 | Product Area | Host project feature |
+| Fixture Scope | Public generic |
+| PM User Type | Senior PM |
+| Risk Profile | Security / Operations |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-18 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -47,6 +50,17 @@ Add a better approval flow for team changes.
 - The agent does not generate downstream artifacts until the user answers or explicitly asks for a draft with assumption or confirmation risk.
 - Generated prose follows the user's language, while file names and identifiers remain ASCII.
 - Output paths use `outputs/<run-id>/`, not a shared fixed folder.
+- Pre-clarification stops pass `python3 scripts/validate_outputs.py outputs/<run-id> --pre-clarification`; final artifacts pass `python3 scripts/validate_outputs.py outputs/<run-id> --language <zh|en>`.
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Embedded context inspection | 5 / 5 |
+| Must-answer question quality | 5 / 5 |
+| Clarification gate enforcement | 5 / 5 |
+| Artifact restraint before answers | 5 / 5 |
+| Validation evidence | 4 / 5 |
 
 ## Failure History
 

@@ -8,8 +8,11 @@
 | Scenario | chinese-checkout-improvement |
 | Platform | H5 |
 | Product Area | Checkout optimization |
+| Fixture Scope | Public generic |
+| PM User Type | AI product manager |
+| Risk Profile | Payment / Data quality |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-18 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -30,6 +33,16 @@
 - Table labels, status labels, UI delivery annotations, review labels, and next actions are Chinese.
 - File names, event names, property names, requirement IDs, and Mermaid node IDs remain ASCII.
 - Any English terms that remain are product names, technical identifiers, or intentionally preserved terms.
+- `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` passes for generated final artifacts.
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Language localization | 5 / 5 |
+| Identifier preservation | 4 / 5 |
+| Artifact completeness | 4 / 5 |
+| Validation evidence | 4 / 5 |
 
 ## Failure History
 

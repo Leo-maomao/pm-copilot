@@ -1,5 +1,26 @@
 # My Fund Site Web Iteration Eval
 
+## Metadata
+
+| Field | Value |
+|---|---|
+| Case ID | my-fund-site-web-iteration |
+| Scenario | financial-tool-web-iteration-portfolio |
+| Platform | Web |
+| Product Area | Financial tool and portfolio workflows |
+| Fixture Scope | Fixture-scoped |
+| PM User Type | Data PM / AI product manager |
+| Risk Profile | Privacy / Compliance / Data quality |
+| Created | 2026-05-21 |
+| Last Updated | 2026-05-26 |
+
+## Fixture Isolation Terms
+
+- `my-fund-site`
+- `apps/my-fund-site`
+- `fund-bff`
+- `fund-api`
+
 Use this eval when PM Copilot is validated inside `my-fund-site`, a Web financial-tool monorepo with:
 
 - `apps/my-fund-site` as the only user frontend.
@@ -24,6 +45,22 @@ python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
 ```
 
 If compatibility HTML is explicitly selected, `run_delivery_checks.py` runs the HTML parser checks and records optional `tidy` evidence when available. If source-backed preview files are selected, run the host dev/preview path and record equivalent browser or screenshot evidence under `visual_validation`.
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Web platform and container fit | 5 / 5 |
+| Financial risk boundary | 5 / 5 |
+| Privacy and compliance handling | 5 / 5 |
+| Source-backed UI delivery | 4 / 5 |
+| Validation evidence | 5 / 5 |
+
+## Failure History
+
+| Date | Failure Code | Severity | Symptom | Fix |
+|---|---|---|---|---|
+| 2026-05-21 | platform-assumption-regression | High | Prior self-iteration could carry Mini Program assumptions into Web financial-tool scenarios. | Add Web-specific scenario portfolio and source-backed Web validation expectations. |
 
 ## Scenario Set
 

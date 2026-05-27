@@ -1,5 +1,24 @@
 # Qiki Multi-Scenario Iteration Eval
 
+## Metadata
+
+| Field | Value |
+|---|---|
+| Case ID | qiki-multi-scenario-iteration |
+| Scenario | family-workspace-mini-program-iteration-portfolio |
+| Platform | Mini Program |
+| Product Area | Family workspace operations |
+| Fixture Scope | Fixture-scoped |
+| PM User Type | Founder-operator / Ops PM |
+| Risk Profile | Privacy / Security / Operations |
+| Created | 2026-05-21 |
+| Last Updated | 2026-05-26 |
+
+## Fixture Isolation Terms
+
+- `Qiki`
+- `qiki`
+
 Use this eval when PM Copilot is embedded in Qiki or a similar family/workspace product and the user asks for broad self-iteration instead of a single scenario.
 
 ## Context
@@ -8,6 +27,22 @@ Use this eval when PM Copilot is embedded in Qiki or a similar family/workspace 
 - Required artifacts per round: `prd.md`, a Mini Program UI deliverable (`prototype-mini-program.html` only for compatibility HTML mode), and `run-log.yaml`.
 - Validation: `python3 scripts/validate_repo.py`, `python3 scripts/validate_outputs.py outputs/<run-id> --language zh`, HTML parser fallback when system `tidy` reports old HTML5 warnings.
 - Default-option mode: choose conservative recommended defaults, record them in `run-log.yaml`, and keep security, privacy, content, launch, and analytics approvals open.
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Scenario diversity | 5 / 5 |
+| Privacy and security handling | 5 / 5 |
+| Mini Program state fidelity | 4 / 5 |
+| Default-option traceability | 4 / 5 |
+| Validation evidence | 5 / 5 |
+
+## Failure History
+
+| Date | Failure Code | Severity | Symptom | Fix |
+|---|---|---|---|---|
+| 2026-05-21 | iteration-narrowness | High | Broad self-iteration could overfit one family/workspace path and miss security, privacy, and operations variants. | Add multi-scenario portfolio with repeated validation and blocker separation. |
 
 ## Scenario Set
 

@@ -8,8 +8,11 @@
 | Scenario | public-resources-mini-program-prototype |
 | Platform | Mini Program |
 | Product Area | Public resources and common tab entry |
+| Fixture Scope | Public generic |
+| PM User Type | AI product manager |
+| Risk Profile | Operations |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-19 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -40,6 +43,17 @@
 - Long notes are summarized in marker dialogs and expanded through the annotation list instead of being dumped into one generic paragraph.
 - Markers and notes do not obscure key page content or controls.
 - PRD records the style sources used and any style limitations.
+- `python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh` passes, with Mini Program source preview or simulator evidence recorded when host source is available.
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Mini Program platform fidelity | 5 / 5 |
+| Existing style evidence | 4 / 5 |
+| Numbered callout placement | 5 / 5 |
+| Implementation-grade notes | 4 / 5 |
+| Validation evidence | 4 / 5 |
 
 ## Failure History
 

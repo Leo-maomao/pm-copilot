@@ -22,7 +22,6 @@ REQUIRED_DIRS = [
     "tools",
     "guardrails",
     "templates",
-    "evals",
     "docs",
     "scripts",
 ]
@@ -37,6 +36,7 @@ REQUIRED_FILES = [
     "CONTRIBUTING.md",
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
+    "requirements-dev.txt",
     "workflow/main-workflow.md",
     "workflow/context-loading.md",
     "workflow/execution-handoff-workflow.md",
@@ -66,11 +66,13 @@ REQUIRED_FILES = [
     "docs/direct-use.md",
     "docs/embedded-use.md",
     "docs/optimization-playbook.md",
+    "docs/self-improvement-system.md",
     "docs/failure-taxonomy.md",
     "docs/quality-rubric.md",
     "templates/agent-run-log-template.yaml",
     "templates/dev-tasks-template.yaml",
     "templates/evaluation-case-template.md",
+    "templates/optimization-cycle-template.yaml",
     "templates/launch-decision-template.yaml",
     "templates/direct-request-template.md",
     "templates/prd-template.md",
@@ -78,10 +80,14 @@ REQUIRED_FILES = [
     "scripts/install_adapter.py",
     "scripts/inspect_host_frontend.py",
     "scripts/preflight_tools.py",
+    "scripts/agent_improvement_scorecard.py",
     "scripts/run_delivery_checks.py",
     "scripts/setup_visual_validation.py",
     "scripts/validate_outputs.py",
     "scripts/validate_prototype_visual.py",
+    "scripts/validate_ui_preview.py",
+    "skills/skill-cleaner/SKILL.md",
+    "skills/skill-cleaner/scripts/skill_cleaner.py",
     "adapters/codex/AGENTS.snippet.md",
     "adapters/claude-code/CLAUDE.snippet.md",
     "adapters/cursor/.cursor/rules/pm-copilot.mdc",
@@ -126,6 +132,20 @@ IGNORED_DIR_NAMES = {
     "__pycache__",
 }
 
+REFERENCE_FIXTURE_ALLOWED_PREFIXES = (
+    "evals/",
+    "outputs/",
+)
+
+LOCAL_MACHINE_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9_])"
+    r"("
+    r"/Users/(?!<you>)[A-Za-z0-9._-]+/[^\s`'\"<>)]*"
+    r"|/home/(?!<you>)[A-Za-z0-9._-]+/[^\s`'\"<>)]*"
+    r"|[A-Za-z]:\\Users\\[A-Za-z0-9._-]+\\[^\s`'\"<>)]*"
+    r")"
+)
+
 MACHINE_PATH_RE = re.compile(r"^[A-Za-z0-9._@+/-]+$")
 PROPERTY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -156,12 +176,15 @@ EXPECTED_TOOL_IDS = [
     "validation.visual",
     "validation.html",
     "validation.delivery_orchestrator",
+    "optimization.scorecard",
     "handoff.dev_tasks",
     "launch.decision_support",
 ]
 
 REQUIRED_TEXT_TOKENS = {
     "PM_COPILOT.md": [
+        "Generalization Boundary",
+        "reference projects are fixtures",
         "engineering handoff",
         "launch status",
         "content source",
@@ -171,10 +194,12 @@ REQUIRED_TEXT_TOKENS = {
         "validate_outputs.py",
         "preflight_tools.py",
         "run_delivery_checks.py",
+        "agent_improvement_scorecard.py",
         "tool-registry.yaml",
         "tool-result-contract.md",
         "setup_visual_validation.py",
         "validate_prototype_visual.py",
+        "validate_ui_preview.py",
         "dev-tasks.yaml",
         "launch-decision.yaml",
     ],
@@ -184,10 +209,12 @@ REQUIRED_TEXT_TOKENS = {
         "validate_outputs.py",
         "preflight_tools.py",
         "run_delivery_checks.py",
+        "agent_improvement_scorecard.py",
         "tool-registry.yaml",
         "tool-result-contract.md",
         "setup_visual_validation.py",
         "validate_prototype_visual.py",
+        "validate_ui_preview.py",
         "dev-tasks.yaml",
         "launch-decision.yaml",
     ],
@@ -197,10 +224,12 @@ REQUIRED_TEXT_TOKENS = {
         "validate_outputs.py",
         "preflight_tools.py",
         "run_delivery_checks.py",
+        "agent_improvement_scorecard.py",
         "tool-registry.yaml",
         "tool-result-contract.md",
         "setup_visual_validation.py",
         "validate_prototype_visual.py",
+        "validate_ui_preview.py",
         "dev-tasks.yaml",
         "launch-decision.yaml",
     ],
@@ -208,8 +237,10 @@ REQUIRED_TEXT_TOKENS = {
         "validate_outputs.py",
         "preflight_tools.py",
         "run_delivery_checks.py",
+        "agent_improvement_scorecard.py",
         "setup_visual_validation.py",
         "visual diff",
+        "validate_ui_preview.py",
         "dev-tasks.yaml",
         "launch-decision.yaml",
     ],
@@ -237,6 +268,7 @@ REQUIRED_TEXT_TOKENS = {
         "Write Rules",
     ],
     "workflow/main-workflow.md": [
+        "Generalization Boundary",
         "Readiness Model",
         "engineering handoff status",
         "launch status",
@@ -333,6 +365,11 @@ REQUIRED_TEXT_TOKENS = {
         "<localized validation results>",
     ],
     "templates/evaluation-case-template.md": [
+        "Fixture Scope",
+        "PM User Type",
+        "Risk Profile",
+        "Fixture Isolation Terms",
+        "generalization boundary",
         "PRD status, engineering handoff status, and launch status",
         "Reference or regulated content records source status",
         "Review findings include artifact, evidence, owner",
@@ -344,6 +381,7 @@ REQUIRED_TEXT_TOKENS = {
         "setup_visual_validation.py",
         "run_delivery_checks.py",
         "preflight_tools.py",
+        "validate_ui_preview.py",
         "artifacts/tool-result-contract.md",
     ],
     "tools/tool-use-protocol.md": [
@@ -356,6 +394,10 @@ REQUIRED_TEXT_TOKENS = {
         "run_delivery_checks.py",
         "validate_outputs.py",
         "validate_prototype_visual.py",
+        "validate_ui_preview.py",
+    ],
+    "requirements-dev.txt": [
+        "playwright",
     ],
 }
 
@@ -398,6 +440,45 @@ def check_agent_definitions() -> None:
             fail(f"Agent definition does not reference handoff status: {agent_path.relative_to(ROOT)}")
 
 
+def markdown_table_value(text: str, field: str) -> str:
+    match = re.search(rf"^\|\s*{re.escape(field)}\s*\|\s*(.*?)\s*\|", text, re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def markdown_section(text: str, heading: str) -> str:
+    match = re.search(rf"^##\s+{re.escape(heading)}\s*$", text, re.MULTILINE)
+    if not match:
+        return ""
+    start = match.end()
+    next_match = re.search(r"^##\s+", text[start:], re.MULTILINE)
+    end = start + next_match.start() if next_match else len(text)
+    return text[start:end].strip()
+
+
+def fixture_isolation_terms(text: str) -> list[str]:
+    terms: list[str] = []
+    for raw_line in markdown_section(text, "Fixture Isolation Terms").splitlines():
+        match = re.match(r"^\s*-\s+(.+?)\s*$", raw_line)
+        if not match:
+            continue
+        term = match.group(1).split("#", 1)[0].strip().strip("`\"'")
+        if term and not term.startswith("<"):
+            terms.append(term)
+    return terms
+
+
+def collect_reference_fixture_terms() -> list[str]:
+    terms: list[str] = []
+    for eval_path in sorted((ROOT / "evals").glob("*.md")):
+        text = eval_path.read_text(encoding="utf-8")
+        if "fixture-scoped" in markdown_table_value(text, "Fixture Scope").lower():
+            terms.extend(fixture_isolation_terms(text))
+    deduped: dict[str, str] = {}
+    for term in terms:
+        deduped.setdefault(term.lower(), term)
+    return list(deduped.values())
+
+
 def check_tool_registry() -> None:
     registry_path = ROOT / "tools/tool-registry.yaml"
     text = registry_path.read_text(encoding="utf-8")
@@ -430,6 +511,28 @@ def check_preflight_tool_alignment() -> None:
         fail(f"preflight_tools.py missing registry capability IDs: {', '.join(missing)}")
     if extra:
         fail(f"preflight_tools.py has unregistered capability IDs: {', '.join(extra)}")
+
+
+def check_gitignore_does_not_hide_regression_assets() -> None:
+    gitignore_path = ROOT / ".gitignore"
+    if not gitignore_path.is_file():
+        return
+    ignored_public_assets = {
+        "docs/",
+        "scripts/",
+        "templates/",
+        "skills/",
+        "workflow/",
+        "artifacts/",
+        "tools/",
+        "guardrails/",
+    }
+    for line_number, raw_line in enumerate(gitignore_path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#") or line.startswith("!"):
+            continue
+        if line in ignored_public_assets:
+            fail(f".gitignore must not hide public PM Copilot assets ({line}) at line {line_number}")
 
 
 def strip_yaml_comment(line: str) -> str:
@@ -517,6 +620,36 @@ def check_quality_threshold_alignment() -> None:
     for label, score_text in rubric_checks:
         if score_text not in rubric:
             fail(f"Quality rubric missing {label} threshold {score_text}")
+
+
+def check_reference_fixture_boundary() -> None:
+    """Keep borrowed host-project evidence out of the universal PM Copilot surface."""
+    normalized_terms = [(term, term.lower()) for term in collect_reference_fixture_terms()]
+    for path in ROOT.rglob("*"):
+        if should_skip_text_file(path):
+            continue
+        if path.suffix.lower() in BINARY_SUFFIXES:
+            continue
+        relative_path = path.relative_to(ROOT).as_posix()
+        if relative_path.startswith(REFERENCE_FIXTURE_ALLOWED_PREFIXES):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        local_path_match = LOCAL_MACHINE_PATH_RE.search(text)
+        if local_path_match:
+            fail(
+                "Local machine path found outside evals/outputs: "
+                f"{local_path_match.group(1)!r} in {relative_path}"
+            )
+        lowered_text = text.lower()
+        for term, lowered_term in normalized_terms:
+            if lowered_term in lowered_text:
+                fail(
+                    "Reference fixture leakage found outside evals/outputs: "
+                    f"{term!r} in {relative_path}"
+                )
 
 
 def check_version() -> None:
@@ -641,6 +774,65 @@ def check_user_flows() -> None:
             fail(f"User flow markdown must include renderable Mermaid flowchart: {md_path.relative_to(ROOT)}")
 
 
+def check_eval_cases() -> None:
+    forbidden_required_artifacts = {
+        "task-brief.md",
+        "clarifying-questions.md",
+        "assumptions.md",
+        "pm-package.md",
+        "metrics-tree.md",
+        "tracking-plan.md",
+        "user-flow.md",
+        "review-checklist.md",
+        "final-package-summary.md",
+    }
+    required_metadata_fields = (
+        "Case ID",
+        "Scenario",
+        "Platform",
+        "Product Area",
+        "Fixture Scope",
+        "PM User Type",
+        "Risk Profile",
+    )
+    for eval_path in sorted((ROOT / "evals").glob("*.md")):
+        text = eval_path.read_text(encoding="utf-8")
+        for field in required_metadata_fields:
+            if not markdown_table_value(text, field):
+                fail(f"Eval case missing metadata field '{field}': {eval_path.relative_to(ROOT)}")
+        if "fixture-scoped" in markdown_table_value(text, "Fixture Scope").lower():
+            if not fixture_isolation_terms(text):
+                fail(
+                    "Fixture-scoped eval must list ## Fixture Isolation Terms: "
+                    f"{eval_path.relative_to(ROOT)}"
+                )
+        if "## Pass Criteria" not in text:
+            fail(f"Eval case missing ## Pass Criteria: {eval_path.relative_to(ROOT)}")
+        if not any(section in text for section in ("## Raw Request", "## Scenario Set", "## Context")):
+            fail(f"Eval case missing raw request, scenario set, or context: {eval_path.relative_to(ROOT)}")
+        if "## Raw Request" in text and "## Latest Result" not in text:
+            fail(f"Single-scenario eval missing ## Latest Result: {eval_path.relative_to(ROOT)}")
+        required_match = re.search(
+            r"## Required Artifacts\n(?P<body>.*?)(?:\n## |\Z)",
+            text,
+            re.DOTALL,
+        )
+        if required_match:
+            body = required_match.group("body")
+            for artifact in forbidden_required_artifacts:
+                if artifact in body:
+                    fail(
+                        f"Eval case requires forbidden default split artifact {artifact}: "
+                        f"{eval_path.relative_to(ROOT)}"
+                    )
+        if (
+            "validate_outputs.py" not in text
+            and "run_delivery_checks.py" not in text
+            and "pre-clarification" not in text.lower()
+        ):
+            fail(f"Eval case missing output validation expectation: {eval_path.relative_to(ROOT)}")
+
+
 def check_text_files_are_utf8() -> None:
     for path in ROOT.rglob("*"):
         if should_skip_text_file(path):
@@ -690,13 +882,16 @@ def main() -> None:
     check_contract_template_alignment()
     check_tool_registry()
     check_preflight_tool_alignment()
+    check_gitignore_does_not_hide_regression_assets()
     check_agent_definitions()
     check_yaml_template_duplicate_keys()
     check_quality_threshold_alignment()
+    check_reference_fixture_boundary()
     check_version()
     check_skills()
     check_tracking_plans()
     check_user_flows()
+    check_eval_cases()
     check_text_files_are_utf8()
     check_machine_readable_paths()
     print("PM Copilot repository validation passed.")

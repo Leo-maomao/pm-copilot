@@ -245,6 +245,11 @@ def main() -> None:
     parser.add_argument("--skip-repo", action="store_true")
     parser.add_argument("--skip-visual", action="store_true")
     parser.add_argument("--skip-visual-reason", default="")
+    parser.add_argument(
+        "--source-preview",
+        default="",
+        help="Source-backed preview URL or file path to validate with scripts/validate_ui_preview.py.",
+    )
     parser.add_argument("--report", type=Path, default=None)
     args = parser.parse_args()
 
@@ -307,6 +312,26 @@ def main() -> None:
         for prototype in prototypes:
             results.append(html_parser_check(prototype))
             results.append(tidy_check(prototype))
+
+    if output_folder and args.source_preview and not args.pre_clarification:
+        if args.skip_visual:
+            results.append({
+                "tool": "validate_ui_preview",
+                "required": True,
+                "status": "skipped",
+                "result": args.skip_visual_reason,
+            })
+        else:
+            results.append({
+                "tool": "validate_ui_preview",
+                **run_command([
+                    sys.executable,
+                    "scripts/validate_ui_preview.py",
+                    args.source_preview,
+                    "--run-folder",
+                    str(output_folder),
+                ]),
+            })
 
     if output_folder:
         command = [sys.executable, "scripts/validate_outputs.py", str(output_folder)]

@@ -6,8 +6,9 @@ or repair Playwright/browser dependencies with:
 
     python3 scripts/setup_visual_validation.py
 
-When a system Chrome, Edge, or Chromium is available, the script can use it
-instead of requiring Playwright's bundled Chromium download.
+The script prefers Playwright-managed browsers for automation stability.
+System Chrome, Edge, or Chromium can still be selected explicitly with
+`--browser-channel` or `PLAYWRIGHT_BROWSER_CHANNEL`.
 
 It writes screenshots plus a JSON report under
 `outputs/<run-id>/visual-review/` by default. If a baseline directory is
@@ -48,6 +49,13 @@ SYSTEM_BROWSER_CANDIDATES = (
     ("chromium", "chromium"),
     ("chromium", "chromium-browser"),
 )
+PLAYWRIGHT_BROWSER_PATTERNS = (
+    "chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell",
+    "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "chromium-*/chrome-linux/chrome",
+    "chromium-*/chrome-win/chrome.exe",
+)
+LAUNCH_TIMEOUT_MS = 15000
 
 
 def fail(message: str, code: int = 1) -> None:
@@ -64,6 +72,32 @@ def installed_browser_channel() -> str | None:
         if value and Path(value).exists():
             return "chrome"
     return None
+
+
+def playwright_cache_roots() -> list[Path]:
+    env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    roots: list[Path] = []
+    if env_path and env_path != "0":
+        roots.append(Path(env_path).expanduser())
+    roots.append(Path.home() / "Library" / "Caches" / "ms-playwright")
+    roots.append(Path.home() / ".cache" / "ms-playwright")
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        roots.append(Path(local_app_data) / "ms-playwright")
+    return roots
+
+
+def cached_playwright_browser_executable() -> Path | None:
+    candidates: list[Path] = []
+    for root in playwright_cache_roots():
+        if not root.is_dir():
+            continue
+        for pattern in PLAYWRIGHT_BROWSER_PATTERNS:
+            candidates.extend(path for path in root.glob(pattern) if path.is_file())
+    executable_candidates = [path for path in candidates if os.access(path, os.X_OK)]
+    if not executable_candidates:
+        return None
+    return max(executable_candidates, key=lambda path: path.stat().st_mtime)
 
 
 def run_setup_visual_validation(install_bundled_browser: bool = False) -> bool:
@@ -698,33 +732,42 @@ def inspect_page_dom(page) -> dict[str, object]:
 def launch_browser(playwright, browser_channel: str | None, auto_setup: bool):
     errors: list[str] = []
 
-    def try_launch(channel: str | None, label: str):
-        launch_options: dict[str, object] = {}
+    def try_launch(channel: str | None, label: str, executable_path: Path | None = None):
+        launch_options: dict[str, object] = {"timeout": LAUNCH_TIMEOUT_MS}
         if channel:
             launch_options["channel"] = channel
+        if executable_path:
+            launch_options["executable_path"] = str(executable_path)
         try:
             return playwright.chromium.launch(**launch_options)
         except Exception as error:
             errors.append(f"{label}: {error}")
             return None
 
-    attempts: list[tuple[str | None, str]] = [(browser_channel, browser_channel or "bundled/default")]
+    cached_executable = cached_playwright_browser_executable()
+    attempts: list[tuple[str | None, str, Path | None]] = []
     if browser_channel:
-        attempts.append((None, "bundled/default fallback"))
+        attempts.append((browser_channel, browser_channel, None))
+    attempts.append((None, "bundled/default", None))
+    if cached_executable:
+        attempts.append((None, f"cached executable {cached_executable}", cached_executable))
 
-    for channel, label in attempts:
-        browser = try_launch(channel, label)
+    for channel, label, executable_path in attempts:
+        browser = try_launch(channel, label, executable_path)
         if browser:
             return browser
 
     if auto_setup:
         setup_ok = run_setup_visual_validation(install_bundled_browser=bool(browser_channel))
         if setup_ok:
-            retry_attempts: list[tuple[str | None, str]] = [(None, "post-setup bundled/default")]
+            cached_executable = cached_playwright_browser_executable()
+            retry_attempts: list[tuple[str | None, str, Path | None]] = [(None, "post-setup bundled/default", None)]
+            if cached_executable:
+                retry_attempts.append((None, f"post-setup cached executable {cached_executable}", cached_executable))
             if browser_channel:
-                retry_attempts.append((browser_channel, f"post-setup {browser_channel}"))
-            for channel, label in retry_attempts:
-                browser = try_launch(channel, label)
+                retry_attempts.append((browser_channel, f"post-setup {browser_channel}", None))
+            for channel, label, executable_path in retry_attempts:
+                browser = try_launch(channel, label, executable_path)
                 if browser:
                     return browser
 
@@ -756,7 +799,7 @@ def main() -> None:
     parser.add_argument(
         "--browser-channel",
         default=None,
-        help="Use an installed browser channel such as chrome or msedge instead of Playwright's bundled Chromium. Defaults to PLAYWRIGHT_BROWSER_CHANNEL or an auto-detected system browser.",
+        help="Use an installed browser channel such as chrome or msedge. Defaults to Playwright-managed browser cache.",
     )
     parser.add_argument(
         "--no-auto-setup",
@@ -775,7 +818,6 @@ def main() -> None:
     browser_channel = (
         args.browser_channel
         or os.environ.get("PLAYWRIGHT_BROWSER_CHANNEL")
-        or installed_browser_channel()
     )
 
     report: dict[str, object] = {

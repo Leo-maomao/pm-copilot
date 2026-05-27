@@ -24,7 +24,7 @@ Use this checklist before tagging or publishing a release.
 
 ## Regression Cases
 
-- Real failures that should not regress are captured in `evals/`.
+- Real failures that should not regress are captured in private local evaluation cases or anonymized public regression notes.
 - Evaluation cases describe expected artifacts without committing generated runtime outputs.
 - Generated `outputs/` folders are not shipped as repository examples.
 - Multi-scenario evaluation covers at least one permissions/security case, one privacy/data-minimization case, one operational workflow, one reliability/offline case, one personalization/UI-state case, and one release/readiness case before claiming broad improvement.
@@ -37,6 +37,7 @@ Run:
 ```bash
 python3 scripts/preflight_tools.py --strict
 python3 scripts/validate_repo.py
+python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
 ```
 
 When a release claim depends on external research or source-backed examples, run preflight with a concrete network check:
@@ -66,7 +67,7 @@ tidy -errors -quiet -utf8 templates/prototype-template.html
 - Tool registry, preflight, delivery orchestrator, and tool result contracts are updated together when tool behavior changes.
 - Review findings include artifact, evidence, owner, required-before phase, and status.
 - `dev-tasks.yaml` and `launch-decision.yaml`, when generated, pass their contracts and do not mark blocked work or unapproved launch gates as ready.
-- Serious real-task failures are added to `evals/` as regression cases.
+- Serious real-task failures are added to private local evaluation cases or anonymized public regression notes.
 - Passing validators do not replace product, security, legal, analytics, or launch approval. Release notes must still list known limitations, required human approvals, and rollback expectations.
 - Contract checks should identify breaking field changes, fixture coverage, compatibility expectations, and rollback/downgrade paths. They do not replace integration tests or release approval.
 

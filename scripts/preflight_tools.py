@@ -31,6 +31,12 @@ SYSTEM_BROWSER_CANDIDATES = (
     ("chromium", "Chromium", "chromium"),
     ("chromium", "Chromium", "chromium-browser"),
 )
+PLAYWRIGHT_BROWSER_PATTERNS = (
+    "chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell",
+    "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "chromium-*/chrome-linux/chrome",
+    "chromium-*/chrome-win/chrome.exe",
+)
 
 
 def run(command: list[str], cwd: Path = ROOT) -> tuple[int, str, str]:
@@ -87,11 +93,41 @@ def browser_info() -> dict[str, Any]:
         value = os.environ.get(env_var)
         if value and Path(value).exists():
             found.append({"channel": "chrome", "name": env_var, "path": value})
+    cached = playwright_cached_browser_paths()
     return {
-        "available": bool(found),
-        "recommended_channel": found[0]["channel"] if found else "",
+        "available": bool(found or cached),
+        "recommended_channel": "",
+        "system_browser_channel": found[0]["channel"] if found else "",
         "browsers": found,
+        "cached_playwright_browsers": [str(path) for path in cached],
     }
+
+
+def playwright_cache_roots() -> list[Path]:
+    env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    roots: list[Path] = []
+    if env_path and env_path != "0":
+        roots.append(Path(env_path).expanduser())
+    roots.append(Path.home() / "Library" / "Caches" / "ms-playwright")
+    roots.append(Path.home() / ".cache" / "ms-playwright")
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        roots.append(Path(local_app_data) / "ms-playwright")
+    return roots
+
+
+def playwright_cached_browser_paths() -> list[Path]:
+    candidates: list[Path] = []
+    for root in playwright_cache_roots():
+        if not root.is_dir():
+            continue
+        for pattern in PLAYWRIGHT_BROWSER_PATTERNS:
+            candidates.extend(path for path in root.glob(pattern) if path.is_file())
+    return sorted(
+        [path for path in candidates if os.access(path, os.X_OK)],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
 
 
 def script_available(relative_path: str) -> bool:
@@ -148,6 +184,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     git = git_info()
     playwright = playwright_info()
     browsers = browser_info()
+    cached_browsers = browsers.get("cached_playwright_browsers", [])
     tidy = command_version("tidy", ["--version"])
     python = {
         "executable": sys.executable,
@@ -158,13 +195,19 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     research_required = bool(args.require_network)
 
     visual_status = "available"
-    visual_evidence = "Playwright package and browser channel are available"
-    if not script_available("scripts/validate_prototype_visual.py"):
+    visual_evidence = "Playwright package and Playwright-managed browser are available"
+    if not (
+        script_available("scripts/validate_prototype_visual.py")
+        and script_available("scripts/validate_ui_preview.py")
+    ):
         visual_status = "unavailable"
-        visual_evidence = "scripts/validate_prototype_visual.py missing"
-    elif not playwright["available"] or not browsers["available"]:
+        visual_evidence = "visual validation script missing"
+    elif not playwright["available"]:
         visual_status = "setup_required"
-        visual_evidence = "Playwright package or system browser is missing"
+        visual_evidence = "Playwright package is missing"
+    elif not cached_browsers:
+        visual_status = "setup_required"
+        visual_evidence = "Playwright-managed browser is missing; system browser is optional only"
 
     tools = [
         capability(
@@ -224,7 +267,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             visual_status,
             visual_evidence,
             True,
-            "python3 scripts/validate_prototype_visual.py outputs/<run-id>",
+            "python3 scripts/validate_prototype_visual.py outputs/<run-id>; python3 scripts/validate_ui_preview.py <preview-url> --run-folder outputs/<run-id>",
             "python3 scripts/setup_visual_validation.py",
         ),
         capability(
@@ -240,6 +283,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "scripts/run_delivery_checks.py",
             True,
             "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>",
+        ),
+        capability(
+            "optimization.scorecard",
+            "available" if script_available("scripts/agent_improvement_scorecard.py") else "unavailable",
+            "scripts/agent_improvement_scorecard.py",
+            False,
+            "python3 scripts/agent_improvement_scorecard.py",
         ),
         capability(
             "handoff.dev_tasks",
@@ -269,11 +319,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         )
     if visual_status == "setup_required":
         recommended.insert(0, "python3 scripts/setup_visual_validation.py")
-    if browsers["recommended_channel"]:
-        recommended.append(
-            f"PLAYWRIGHT_BROWSER_CHANNEL={browsers['recommended_channel']} "
-            "python3 scripts/validate_prototype_visual.py outputs/<run-id>"
-        )
+    if visual_status == "available":
+        recommended.append("python3 scripts/validate_prototype_visual.py outputs/<run-id>")
+        recommended.append("python3 scripts/validate_ui_preview.py <preview-url> --run-folder outputs/<run-id>")
+    recommended.append("python3 scripts/agent_improvement_scorecard.py")
 
     return {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),

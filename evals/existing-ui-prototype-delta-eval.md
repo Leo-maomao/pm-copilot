@@ -8,8 +8,11 @@
 | Scenario | existing-settings-enhancement |
 | Platform | Web |
 | Product Area | Existing settings page |
+| Fixture Scope | Public generic |
+| PM User Type | AI product manager |
+| Risk Profile | Normal |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-21 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -49,6 +52,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 - If host frontend source exists, the run uses a source-rendered delta patch, preview route, Storybook/demo, Mini Program preview page, or App preview screen as appropriate; otherwise the standalone HTML limitation is explicit.
 - Cross-page notes are separated from page-specific notes.
 - The PRD records which existing files or screenshots informed the UI deliverable.
+- Source-backed preview runs pass `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --source-preview <preview-url-or-file>` when a browser target is available, or record equivalent simulator evidence when it is not.
 
 ## Failure History
 
@@ -62,6 +66,16 @@ Add an approval reminder setting to the existing workspace settings page. There 
 | 2026-05-21 | source-first-missing | High | Agent treated source rendering as optional unless exact fidelity was requested. | Require source-rendered preview/delta whenever frontend source exists, except explicit standalone, explicit redesign/greenfield, or concrete blocker cases. |
 | 2026-05-21 | annotation-ui-inconsistency | Medium | Marker badges, note badges, annotation panel, and state switcher controls did not follow the required fixed interaction model. | Enforce red/white borderless badges, short annotation floating control, right-side full-height panel, and fixed state switchers. |
 | 2026-05-21 | prototype-term-handwrite-bias | High | The word "prototype" biased the agent toward rewriting a standalone HTML approximation even when source code was available. | Redefine default UI output as source-backed UI delivery; keep legacy prototype names only as compatibility machine names. |
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Existing-source inspection | 5 / 5 |
+| Source-backed preview or blocker evidence | 5 / 5 |
+| Style and component fidelity | 4 / 5 |
+| Annotation interaction contract | 5 / 5 |
+| Delivery validation evidence | 5 / 5 |
 
 ## Latest Result
 

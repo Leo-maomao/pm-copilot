@@ -8,8 +8,11 @@
 | Scenario | Convert a supplied UI image into a PM Copilot UI deliverable without creating a duplicate skill |
 | Platform | Web / H5 / App / Mini Program |
 | Product Area | UI Delivery |
+| Fixture Scope | None |
+| PM User Type | AI product manager |
+| Risk Profile | Normal / Data quality |
 | Created | 2026-05-22 |
-| Last Updated | 2026-05-22 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -65,6 +68,12 @@ Use this screenshot as the source of truth and recreate it as an annotated UI de
 | Fidelity verification evidence | 4 / 5 |
 | Asset handling honesty | 4 / 5 |
 
+## Failure History
+
+| Date | Failure Code | Severity | Symptom | Fix |
+|---|---|---|---|---|
+| 2026-05-22 | duplicate-image-skill-risk | Medium | Image-reference reconstruction could be implemented as a duplicate skill instead of strengthening the canonical UI delivery workflow. | Route screenshot reconstruction through the existing multi-platform prototype capability and require visual comparison evidence. |
+
 ## Pass Criteria
 
 - Image-reference reconstruction is handled by `multi-platform-prototype`.
@@ -73,6 +82,7 @@ Use this screenshot as the source of truth and recreate it as an annotated UI de
 - Fidelity claims match the available screenshot comparison evidence.
 - Missing assets are explicit and have one replacement path each.
 - `python3 scripts/validate_repo.py` passes after capability changes.
+- UI delivery runs pass `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --source-preview <preview-url-or-file>` when a source-backed browser target exists, or the compatibility HTML visual path when no host source is available.
 
 ## Latest Result
 

@@ -4,14 +4,14 @@
 
 <a id="english"></a>
 
-PM Copilot welcomes improvements to agents, skills, templates, guardrails, evals, and documentation.
+PM Copilot welcomes improvements to agents, skills, templates, guardrails, and documentation.
 
 ## Contribution Principles
 
 - Keep the project platform-neutral.
 - Prefer clear contracts over hidden assumptions.
 - Keep skills concise and reusable.
-- Put long regression cases in `evals/`, not inside skill bodies.
+- Keep long regression cases in local private materials, not inside skill bodies or public commits.
 - Do not add proprietary product data, private credentials, or real user data.
 
 ## How to Add a Skill
@@ -43,7 +43,7 @@ PM Copilot welcomes improvements to agents, skills, templates, guardrails, evals
 
 Use `templates/evaluation-case-template.md` as the starting point.
 
-Evaluation cases should describe the raw request, context source, expected workflow, required artifacts, known risks, pass criteria, and failure history. Do not commit generated `outputs/` artifacts as examples.
+Evaluation cases should describe the raw request, context source, expected workflow, required artifacts, known risks, pass criteria, and failure history. Do not commit generated `outputs/` artifacts as examples, and do not commit cases that contain real project names, local paths, customer information, or private business details.
 
 Use anonymized and synthetic data only.
 
@@ -55,7 +55,7 @@ Before changing a contract:
 
 1. Decide whether the change is breaking.
 2. Update templates.
-3. Update evals when the change prevents or captures a regression.
+3. Update local evaluation cases or add anonymized notes when the change prevents or captures a regression.
 4. Update `CHANGELOG.md`.
 5. Update `VERSION` when preparing a release.
 

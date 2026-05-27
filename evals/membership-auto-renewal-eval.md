@@ -8,8 +8,11 @@
 | Scenario | membership-auto-renewal |
 | Platform | H5 |
 | Product Area | Subscription retention |
+| Fixture Scope | None |
+| PM User Type | Growth PM |
+| Risk Profile | Payment / Legal |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-18 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -71,11 +74,12 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 - Delivery review findings block launch until legal copy, baseline metrics, and payment failure categories are confirmed.
 - PRD status is not `Ready for engineering` while required engineering-blocking billing or payment confirmations remain unresolved.
 - PRD status, engineering handoff status, and launch status are separate.
+- `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` passes for final artifacts.
 
 ## Latest Result
 
 | Field | Value |
 |---|---|
-| Run ID |  |
-| Status | Pending |
-| Notes | Needs rerun against PRD/UI delivery and confirmation-risk readiness rules. |
+| Run ID | membership-auto-renewal-20260526-1804 |
+| Status | Passed |
+| Notes | Non-fixture brief-only run generated PRD, run-log, and compatibility H5 UI delivery. `python3 scripts/run_delivery_checks.py outputs/membership-auto-renewal-20260526-1804 --language en` passed with visual evidence. Engineering and launch blockers remain visible for legal copy, subscription/payment contract, and analytics taxonomy confirmation. |

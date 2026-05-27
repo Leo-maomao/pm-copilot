@@ -68,12 +68,18 @@ Embedded UI deliverables should use red/white borderless component-level annotat
 
 Generated UI should use realistic product copy. Do not add visible example/demo/not-production labels to the product surface; put delivery boundaries in metadata, comments, run logs, PRD notes, or annotations unless visible draft status is part of the product requirement.
 
-For UI validation, embedded runs should use host context. Use `scripts/validate_prototype_visual.py` for compatibility HTML; use the host dev/preview/Storybook/simulator path for source-backed previews. If browser tooling is missing, run or guide `scripts/setup_visual_validation.py` before deciding to skip. Store screenshot/diff evidence under the generated run folder, not in host product source directories.
+For UI validation, embedded runs should use host context. Use `scripts/validate_prototype_visual.py` for compatibility HTML; use the host dev/preview/Storybook/simulator path for source-backed previews and `scripts/validate_ui_preview.py` when a browser URL or local preview file is available. If browser tooling is missing, run or guide `scripts/setup_visual_validation.py` before deciding to skip. Store screenshot/diff evidence under the generated run folder, not in host product source directories.
 
 Before final embedded delivery, prefer:
 
 ```bash
 python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language zh
+```
+
+For source-backed previews with a browser URL, include the preview target:
+
+```bash
+python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language zh --source-preview <preview-url-or-file>
 ```
 
 Record the resulting `tool-results/delivery-check-report.json` in the run log.

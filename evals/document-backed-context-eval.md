@@ -8,8 +8,11 @@
 | Scenario | document-backed-checkout |
 | Platform | Unknown |
 | Product Area | Existing product documented outside code |
+| Fixture Scope | None |
+| PM User Type | Novice PM |
+| Risk Profile | Operations / Data quality |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-18 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 
@@ -39,6 +42,17 @@ We do not have a project repository here. I uploaded last quarter's checkout PRD
 - The agent asks blocking questions before downstream generation when document context is insufficient.
 - The agent can proceed to review-ready PRD/UI delivery after answers or explicit assumption approval.
 - Generated prose follows the user's language, while file names and identifiers remain ASCII.
+- `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` or `--language en` passes according to the user's output language.
+
+## Rubric Thresholds
+
+| Area | Minimum Score |
+|---|---|
+| Context mode classification | 5 / 5 |
+| Document evidence separation | 5 / 5 |
+| Clarification control | 4 / 5 |
+| PRD and UI readiness | 4 / 5 |
+| Validation evidence | 4 / 5 |
 
 ## Failure History
 
@@ -50,6 +64,6 @@ We do not have a project repository here. I uploaded last quarter's checkout PRD
 
 | Field | Value |
 |---|---|
-| Run ID |  |
-| Status | Pending |
-| Notes | Regression case for PMs who have product documents but no code repository. |
+| Run ID | document-backed-checkout-20260526-1852 |
+| Status | Passed |
+| Notes | Non-fixture document-backed run generated PRD and run-log from uploaded-document context without requiring a repository. `python3 scripts/run_delivery_checks.py outputs/document-backed-checkout-20260526-1852 --language en` passed. Platform, service contracts, privacy review, and launch approvals remain explicit blockers. |

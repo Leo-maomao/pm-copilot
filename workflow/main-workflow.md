@@ -131,11 +131,38 @@ Current host files still matter, but they belong in current-state facts, backgro
 When the user explicitly asks PM Copilot to run iterative evaluation, self-iteration, benchmark loops, or to choose recommended options automatically, do not stop the loop for clarification questions. Instead:
 
 - Select the most conservative recommended option that fits the current product context.
+- Preserve the Generalization Boundary: any borrowed host project is a fixture for this run only, not a PM Copilot product default or reusable domain assumption.
 - Record the chosen option and rationale in `run-log.yaml`.
 - Generate the full `prd.md`, UI deliverable, and `run-log.yaml` for that round.
 - Keep unresolved launch or engineering confirmations visible in readiness and risks.
 - Downgrade readiness when a default option creates assumption or confirmation risk.
 - Never use default-option mode to approve payment, privacy, legal, compliance, security, financial, or regulated-content launch decisions.
+
+## Generalization Boundary
+
+PM Copilot serves product managers across industries and product types. Self-iteration may use real host projects to create pressure, but the durable output of that pressure must be a general capability improvement. Do not promote a host project's terminology, domain, local path, backend contract, route name, analytics vocabulary, visual style, or user journey into generic PM Copilot instructions.
+
+Allowed host-specific locations:
+
+- `outputs/<run-id>/` runtime evidence for that run.
+- `evals/` fixture-scoped regression cases that explicitly describe themselves as fixtures.
+
+Disallowed host-specific locations:
+
+- `PM_COPILOT.md`
+- `README*.md`
+- `workflow/`
+- `prompts/`
+- `agents/`
+- `skills/`
+- `templates/`
+- `tools/`
+- `artifacts/`
+- `guardrails/`
+- `docs/`
+- `context/*.example.yaml`
+
+When a host run finds a defect, rewrite the finding as a general rule. For example, "a source-backed preview can be polluted by authenticated background requests or development overlays" is reusable; the host project's product name, route name, and business nouns are not.
 
 ## Clarification Semantics
 
@@ -234,7 +261,7 @@ For compatibility HTML UI deliverables, run browser-based visual validation:
 - Add `--baseline-dir <path>` for regression suites.
 - Add `--update-baseline` only when intentionally establishing a new baseline.
 
-Without `--prototype`, the visual validator checks every supported compatibility HTML file in the run folder. For source-backed UI previews, run the host app's dev/preview/Storybook/simulator path and record equivalent screenshot or browser evidence. Record UI deliverable file names or preview surfaces, screenshots, visual report path, nonblank checks, diff status, and limitations in `run-log.yaml`. If Playwright or browser installation is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through setup. Record the check as skipped only after setup fails, browser launch is not permitted in the environment, or the user declines installation.
+Without `--prototype`, the visual validator checks every supported compatibility HTML file in the run folder. For source-backed UI previews, run the host app's dev/preview/Storybook/simulator path, then run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` when a browser URL or local preview file exists; otherwise record equivalent simulator evidence. Record UI deliverable file names or preview surfaces, screenshots, visual report path, nonblank checks, diff status, and limitations in `run-log.yaml`. If Playwright or browser installation is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through setup. Record the check as skipped only after setup fails, browser launch is not permitted in the environment, or the user declines installation.
 
 ## Delivery Orchestrator
 

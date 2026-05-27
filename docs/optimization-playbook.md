@@ -34,7 +34,10 @@ Use this loop for every improvement cycle.
 6. Choose the smallest fix
 7. Re-run the same cases
 8. Add the case to regression tests
+9. Generate the improvement scorecard and compare deltas
 ```
+
+Use `python3 scripts/agent_improvement_scorecard.py` after each cycle. The scorecard is the control surface for continuous improvement: it shows eval coverage, latest results, runtime evidence, capability gaps, and next actions. Do not use iteration count as a success metric.
 
 For full self-iteration or embedded-project benchmarking, every cycle must generate the complete round artifacts before judging the failure:
 
@@ -47,7 +50,7 @@ For full self-iteration or embedded-project benchmarking, every cycle must gener
 
 Do not optimize from a partial clarification-only run when the user asked for full-loop iteration. If clarification would normally block the workflow, use explicitly recorded conservative default options for the evaluation round, keep residual risks visible, and still produce the full artifact set.
 
-When an external repository is used only as a validation host, remove generated requirement folders from that host after the evaluation evidence has been scored and the PM Copilot fixes have been captured. Keep regression knowledge in PM Copilot evals, validators, docs, or logs rather than leaving stale generated demand files inside the host product repository.
+When an external repository is used only as a validation host, remove generated requirement folders from that host after the evaluation evidence has been scored and the PM Copilot fixes have been captured. Keep regression knowledge in private local evaluation notes, validators, docs, or logs rather than leaving stale generated demand files inside the host product repository.
 
 After a fixed iteration block, for example 20 rounds, decide whether the improvement is significant from evidence rather than intuition. Use these checks:
 
@@ -163,7 +166,7 @@ Track:
 
 ## Step 7: Build a Regression Set
 
-Every serious failure should become an eval case under `evals/`.
+Every serious failure should become a private local evaluation case or an anonymized public regression note.
 
 Each eval case should include:
 

@@ -33,7 +33,7 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - For UI delivery, use visible red/white borderless component markers, matching red/white borderless numbers inside annotation notes, click-open/click-again-close local annotation popovers beside each marker, a short `注释`/`Notes` floating control, and a right-edge full-height current-state annotation panel. Marker and note number badges should share the same rendered diameter, font size, font weight, line height, and centered digit alignment. Required states should be driven by realistic controls or mocked data/API transitions; reviewer state switching controls, if present, stay fixed, collapsed, marked `data-reviewer-only="true"`, and outside the product layout.
 - Run tool preflight and validation when required by `tools/tool-registry.yaml`.
 - Prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` before final delivery.
-- Run browser screenshot/visual diff validation for UI deliverables, including DOM smoke and access-state checks when applicable. Use `validate_prototype_visual.py` for compatibility HTML; use the host dev/preview/Storybook/simulator path for source-backed previews. If Playwright/browser tooling is missing, first run or guide `python3 scripts/setup_visual_validation.py`; skip only when setup fails, the environment forbids browser launch, or the user declines installation.
+- Run browser screenshot/visual diff validation for UI deliverables, including DOM smoke and access-state checks when applicable. Use `validate_prototype_visual.py` for compatibility HTML; use the host dev/preview/Storybook/simulator path for source-backed previews and `validate_ui_preview.py` when a browser URL or local preview file is available. If Playwright/browser tooling is missing, first run or guide `python3 scripts/setup_visual_validation.py`; skip only when setup fails, the environment forbids browser launch, or the user declines installation.
 - Generate `dev-tasks.yaml` or `launch-decision.yaml` only when you ask for engineering handoff, issue planning, release readiness, or launch decision support.
 
 ## Direct Entry
@@ -154,5 +154,6 @@ Extra setup is still useful when:
 - You want to prepare a carefully written task brief before running the agent.
 - You are building regression evals.
 - You want to compare outputs across multiple agent platforms.
+- You want a continuous-improvement scorecard from `python3 scripts/agent_improvement_scorecard.py`.
 
 In those cases, put the extra source material in the workspace and reference it in the request. The default delivery should still be `prd.md` plus a UI deliverable unless you ask for a specific export.

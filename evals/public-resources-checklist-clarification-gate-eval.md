@@ -8,8 +8,11 @@
 | Scenario | public-resources-checklist |
 | Platform | Mini Program |
 | Product Area | Public resources and home entry navigation |
+| Fixture Scope | Public generic |
+| PM User Type | Ops PM |
+| Risk Profile | Legal / Compliance / Regulated content |
 | Created | 2026-05-18 |
-| Last Updated | 2026-05-18 |
+| Last Updated | 2026-05-26 |
 
 ## Raw Request
 

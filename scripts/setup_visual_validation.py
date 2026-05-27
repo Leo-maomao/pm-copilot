@@ -22,6 +22,12 @@ SYSTEM_BROWSER_CANDIDATES = (
     ("chromium", "chromium"),
     ("chromium", "chromium-browser"),
 )
+PLAYWRIGHT_BROWSER_PATTERNS = (
+    "chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell",
+    "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "chromium-*/chrome-linux/chrome",
+    "chromium-*/chrome-win/chrome.exe",
+)
 
 
 def run(command: list[str]) -> int:
@@ -48,6 +54,30 @@ def installed_browser_channel() -> str | None:
     return None
 
 
+def playwright_cache_roots() -> list[Path]:
+    env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    roots: list[Path] = []
+    if env_path and env_path != "0":
+        roots.append(Path(env_path).expanduser())
+    roots.append(Path.home() / "Library" / "Caches" / "ms-playwright")
+    roots.append(Path.home() / ".cache" / "ms-playwright")
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        roots.append(Path(local_app_data) / "ms-playwright")
+    return roots
+
+
+def has_playwright_managed_browser() -> bool:
+    for root in playwright_cache_roots():
+        if not root.is_dir():
+            continue
+        for pattern in PLAYWRIGHT_BROWSER_PATTERNS:
+            for path in root.glob(pattern):
+                if path.is_file() and os.access(path, os.X_OK):
+                    return True
+    return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -58,20 +88,24 @@ def main() -> None:
     args = parser.parse_args()
 
     if not has_python_playwright():
-        result = run([sys.executable, "-m", "pip", "install", "--user", "playwright"])
+        requirements = Path(__file__).resolve().parents[1] / "requirements-dev.txt"
+        install_target = ["-r", str(requirements)] if requirements.is_file() else ["playwright"]
+        result = run([sys.executable, "-m", "pip", "install", "--user", *install_target])
         if result != 0:
             sys.exit(result)
 
-    channel = installed_browser_channel()
-    if channel and not args.install_bundled_browser:
-        print(
-            "Visual validation is ready. Use "
-            f"`PLAYWRIGHT_BROWSER_CHANNEL={channel} python3 scripts/validate_prototype_visual.py outputs/<run-id>`."
-        )
+    if has_playwright_managed_browser() and not args.install_bundled_browser:
+        print("Visual validation is ready with a Playwright-managed browser cache.")
         return
 
     result = run([sys.executable, "-m", "playwright", "install", "chromium", "--only-shell"])
     if result != 0:
+        channel = installed_browser_channel()
+        if channel:
+            print(
+                "Playwright-managed browser install failed. A system browser is available only as an explicit fallback: "
+                f"`PLAYWRIGHT_BROWSER_CHANNEL={channel} python3 scripts/validate_prototype_visual.py outputs/<run-id>`."
+            )
         sys.exit(result)
     print("Visual validation is ready with Playwright Chromium headless shell.")
 

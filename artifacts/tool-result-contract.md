@@ -45,7 +45,7 @@ Capability preflight uses availability status instead of execution status. Valid
 
 - Source-backed research: title, URL, access date, and observed fact.
 - File reads: paths inspected and the product fact learned from each path.
-- Visual validation: UI deliverable file names or preview surfaces, screenshot paths, viewport names, browser channel, nonblank ratios, report path, baseline/diff status.
+- Visual validation: UI deliverable file names or preview surfaces, screenshot paths, viewport names, browser channel, nonblank ratios, report path, baseline/diff status. For source-backed previews, include the preview URL/file, host render command, and `source-preview-report.json` path when `validate_ui_preview.py` is used.
 - Output validation: command, language mode, status, and any failing marker.
 - Development handoff: `dev-tasks.yaml` path, task count, blocked count, and readiness mode.
 - Launch decision: `launch-decision.yaml` path, decision mode, gate statuses, blockers, and required approvals.

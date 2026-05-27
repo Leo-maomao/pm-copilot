@@ -161,7 +161,6 @@ artifacts/     Output contracts and quality bars
 tools/         Tool registry, tool-use protocol, and capability-specific tooling notes
 guardrails/    Safety, privacy, source, assumption, and failover rules
 templates/     Reusable artifact templates
-evals/         Regression-oriented evaluation cases
 docs/          User, maintainer, and release documentation
 scripts/       Lightweight local validation
 ```
@@ -185,7 +184,7 @@ For reference, policy, medical, legal, financial, safety, or operational content
 
 Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, a UI-deliverable reference, and optionally `run-log.yaml`. In a repo with frontend source, the UI deliverable defaults to source-backed preview/delta files recorded in `run-log.yaml`; compatibility `prototype-<platform>.html` files are generated only for no-source work, explicit portable HTML, explicit redesign/greenfield UI, or concrete source-rendering blockers. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the inferred run id already exists, PM Copilot should append a local timestamp, for example `membership-renewal-20260518-1430`.
 
-When compatibility HTML UI deliverables are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. For source-backed UI previews, it should run the host dev/preview/Storybook/simulator path and record equivalent screenshot or browser evidence. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. Before final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` and store tool evidence under `outputs/<run-id>/tool-results/`. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
+When compatibility HTML UI deliverables are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. For source-backed UI previews, it should run the host dev/preview/Storybook/simulator path; when a browser preview URL or local preview file exists, run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>`, otherwise record equivalent screenshot or simulator evidence. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. Before final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` and store tool evidence under `outputs/<run-id>/tool-results/`. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
 
 PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese headings, labels, statuses, notes, and PM content; English requests should produce English equivalents. File names and machine-readable identifiers stay ASCII.
 
@@ -225,7 +224,7 @@ PM Copilot avoids dependency on a specific agent framework. Each agent and skill
 | Metrics and data | `metrics-tree`, `tracking-plan`, `experiment-design`, `product-ops-analysis` |
 | Research and communication | `competitor-research`, `roadmap-communication` |
 | UI delivery and UI evidence | `multi-platform-prototype` (including screenshot/image-to-UI reconstruction), `design-system-audit` |
-| Tool and capability governance | `tool-vetting`, `sharingan` |
+| Tool and capability governance | `tool-vetting`, `sharingan`, `skill-cleaner` |
 
 Each capability type has one canonical skill. External resources absorbed with `skills/sharingan/SKILL.md` go through risk review and merge into the canonical skill instead of creating duplicates.
 
@@ -294,7 +293,7 @@ python3 scripts/run_delivery_checks.py outputs/<run-id> --language en
 python3 scripts/validate_outputs.py outputs/<run-id> --language en
 ```
 
-If delivery depends on external research or source checks, run `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict`. When `--prototype` is omitted, `validate_prototype_visual.py` validates every supported compatibility HTML file in the run folder.
+If delivery depends on external research or source checks, run `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict`. When `--prototype` is omitted, `validate_prototype_visual.py` validates every supported compatibility HTML file in the run folder; source-backed previews use `validate_ui_preview.py` for browser evidence.
 
 ## Optimization
 
@@ -303,12 +302,19 @@ PM Copilot should be improved through real task runs, traces, quality scoring, f
 Start with:
 
 - `docs/optimization-playbook.md`
+- `docs/self-improvement-system.md`
 - `docs/failure-taxonomy.md`
 - `docs/quality-rubric.md`
 - `templates/agent-run-log-template.yaml`
 - `templates/dev-tasks-template.yaml`
 - `templates/launch-decision-template.yaml`
 - `templates/evaluation-case-template.md`
+
+For continuous improvement, run:
+
+```bash
+python3 scripts/agent_improvement_scorecard.py
+```
 
 ## Privacy Default
 

@@ -8,6 +8,12 @@ Use this file when an agent needs to run product manager work such as PRD, track
 
 Do not assume the product context comes from a code repository. Classify every run as `repo-backed`, `document-backed`, or `brief-only`, then load context and apply the clarification gate according to that mode.
 
+## Generalization Boundary
+
+PM Copilot is a universal product-agent system for product managers across domains. Reference projects are fixtures for capability testing only. A borrowed host project may shape one run's `outputs/<run-id>/` evidence, but it must not become PM Copilot's target product, default scenario, example vocabulary, or permanent product context.
+
+Keep host-specific names, local paths, APIs, domain nouns, data contracts, UI routes, and business assumptions out of generic docs, prompts, templates, tools, agents, skills, and workflow rules. When a host project exposes a weakness, extract the general capability failure and fix that layer: guardrail, workflow, validator, scorecard, skill, or agent contract.
+
 ## Activation
 
 Activate PM Copilot when the user asks for work involving:
@@ -91,11 +97,13 @@ The user should not need to manually copy templates or create folders. Do that f
    - Metrics and data: `skills/metrics-tree/SKILL.md`, `skills/tracking-plan/SKILL.md`, `skills/experiment-design/SKILL.md`, `skills/product-ops-analysis/SKILL.md`
    - Research and communication: `skills/competitor-research/SKILL.md`, `skills/roadmap-communication/SKILL.md`
    - UI delivery and UI evidence: `skills/multi-platform-prototype/SKILL.md` (including screenshot/image-to-UI reconstruction), `skills/design-system-audit/SKILL.md`
-   - Tool and capability governance: `skills/tool-vetting/SKILL.md`, `skills/sharingan/SKILL.md`
+   - Tool and capability governance: `skills/tool-vetting/SKILL.md`, `skills/sharingan/SKILL.md`, `skills/skill-cleaner/SKILL.md`
 
    Keep one canonical skill per capability type. When a new external skill or workflow overlaps an existing PM Copilot skill, use `skills/sharingan/SKILL.md` to merge the useful parts into the canonical skill instead of adding a duplicate sibling.
 
    Load `skills/sharingan/SKILL.md` when the user says "写轮眼" or "sharingan", or asks to copy, copy from, port, adapt, absorb, assimilate, internalize, or convert a third-party repo, document, prompt, workflow, template, script, tool, or example into PM Copilot capability.
+
+   Load `skills/skill-cleaner/SKILL.md` when the user asks to audit, trim, clean, de-duplicate, or measure prompt-budget pressure for PM Copilot, Codex, plugin, or personal skill roots.
 
    Record the active UI Delivery Agent (`agents/prototype-agent.md`, legacy name) and `multi-platform-prototype` skill in `run-log.yaml`. A UI delivery/prototype-stage handoff with `skills_used: []` is incomplete unless UI delivery was explicitly omitted.
 
@@ -231,8 +239,9 @@ The user should not need to manually copy templates or create folders. Do that f
    - `python3 scripts/validate_repo.py`
    - `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` for Chinese generated runs, or `--language en` for English runs, when `prd.md` or UI deliverable artifacts exist.
    - `python3 scripts/validate_outputs.py outputs/<run-id> --pre-clarification` when a run intentionally stops before generation with only `run-log.yaml`.
-   - `python3 scripts/validate_prototype_visual.py outputs/<run-id>` for compatibility standalone HTML browser screenshot and visual diff validation. Without `--prototype`, the command validates every supported compatibility HTML file in the run folder. For source-backed UI preview files, run the host dev/preview/Storybook/simulator path and record equivalent browser/simulator evidence under `visual_validation`.
+   - `python3 scripts/validate_prototype_visual.py outputs/<run-id>` for compatibility standalone HTML browser screenshot and visual diff validation. Without `--prototype`, the command validates every supported compatibility HTML file in the run folder. For source-backed UI preview files, run the host dev/preview/Storybook/simulator path, then run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` when a browser URL or file target is available; otherwise record equivalent simulator evidence under `visual_validation`.
    - `python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh` or `--language en` before final delivery or iteration scoring.
+   - `python3 scripts/agent_improvement_scorecard.py` after self-iteration or benchmark runs to turn eval coverage, runtime evidence, validation status, and failures into prioritized improvement work.
    - If Playwright or browser tooling is unavailable, first run `python3 scripts/setup_visual_validation.py` or guide the user through the same setup. Skip visual validation only when setup fails, browser launch is forbidden, or the user declines installation; record the exact reason.
    - HTML checks with `tidy -errors -quiet -utf8` if available.
    - Record the exact command, result, and limitation in `run-log.yaml` and the PRD validation section using `artifacts/tool-result-contract.md`. Do not claim validation was executed if it was skipped, and do not say validation "should be run" after it has already run.

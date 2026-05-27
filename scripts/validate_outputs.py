@@ -61,6 +61,14 @@ PROTOTYPE_FILE_NAMES = (
 )
 
 CIRCLED_ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
+BACKEND_BOUNDARY_RE = re.compile(
+    r"\b(BFF|API\s+contract|backend\s+contract|service\s+boundary)\b|后端|接口|契约",
+    re.IGNORECASE,
+)
+HOST_SERVICE_TERM_RE = re.compile(
+    r"\b[A-Za-z][A-Za-z0-9_-]*(?:bff|api|service|server|backend)[A-Za-z0-9_-]*\b",
+    re.IGNORECASE,
+)
 
 EXPECTED_REVIEW_SCORES = {
     "delivery": 32,
@@ -477,12 +485,16 @@ def check_pre_clarification(path: Path) -> None:
     run_log = read(path / "run-log.yaml")
     required_markers = (
         "stopped_before_generation:",
-        "must_answer_before_generation:",
         "unanswered_questions:",
     )
     for marker in required_markers:
         if marker not in run_log:
             fail(f"Pre-clarification run log missing marker: {marker}")
+    if (
+        "must_answer_before_generation:" not in run_log
+        and "must answer before generation" not in run_log
+    ):
+        fail("Pre-clarification run log missing must-answer classification evidence")
 
 
 def check_stale_validation(path: Path) -> None:
@@ -580,7 +592,7 @@ def check_agent_transition_shape(run_log: str) -> None:
             fail(f"agent_transitions validation_delta missing marker: {marker}")
 
     for scalar_name in ("artifact_delta", "validation_delta"):
-        scalar_re = re.compile(rf"^\s+{scalar_name}:\s+.+$", re.MULTILINE)
+        scalar_re = re.compile(rf"^[^\S\r\n]+{scalar_name}:[^\S\r\n]+.+$", re.MULTILINE)
         for match in scalar_re.finditer(section):
             fail(f"agent_transitions {scalar_name} must not be a prose scalar")
 
@@ -702,21 +714,22 @@ def check_default_option_trace(path: Path) -> None:
 
 def check_scope_and_surface_trace(path: Path) -> None:
     run_log = read(path / "run-log.yaml")
-    required = (
-        "scope_decisions:",
-        "confirmed_mvp_scope:",
-        "optional_scope:",
-        "future_scope:",
-        "non_goals:",
-        "surface_decisions:",
-        "entry_point:",
-        "navigation_visibility:",
-        "eligibility:",
-        "fallback:",
+    required = ("scope_decisions:", "future_scope:", "non_goals:", "surface_decisions:")
+    alternatives = (
+        ("confirmed_mvp:", "confirmed_mvp_scope:"),
+        ("optional_or_conditional:", "optional_scope:"),
+        ("entry_points:", "entry_point:"),
+        ("eligible_user_state:", "eligibility:"),
+        ("fallback_states:", "fallback:"),
     )
     for marker in required:
         if marker not in run_log:
             fail(f"Run log missing scope/surface marker: {marker}")
+    for canonical, legacy in alternatives:
+        if canonical not in run_log and legacy not in run_log:
+            fail(f"Run log missing scope/surface marker: {canonical} or {legacy}")
+    if "navigation_visibility:" not in run_log:
+        fail("Run log missing scope/surface marker: navigation_visibility:")
 
 
 def check_visual_validation_trace(path: Path) -> None:
@@ -731,6 +744,19 @@ def check_visual_validation_trace(path: Path) -> None:
         return
     if "visual_validation:" not in run_log and "validate_prototype_visual.py" not in run_log:
         fail("Run log missing visual_validation marker for UI delivery")
+    section = section_text(run_log, "visual_validation")
+    for marker in ("command:", "status:", "screenshots:", "report_path:", "limitation:"):
+        if marker not in section:
+            fail(f"visual_validation missing marker: {marker}")
+    status = yaml_scalar_field_value(section, "status")
+    if status == "passed":
+        if not yaml_scalar_field_value(section, "command"):
+            fail("visual_validation passed requires command")
+        if not yaml_scalar_field_value(section, "report_path") and "source_preview_report_path:" not in section:
+            fail("visual_validation passed requires report_path or source_preview_report_path")
+    if has_source_rendered_prototype and "validate_ui_preview.py" not in section:
+        if not re.search(r"(storybook|preview|simulator|browser|screenshot|截图)", section, re.IGNORECASE):
+            fail("Source-backed UI delivery needs validate_ui_preview.py or equivalent preview/simulator evidence")
 
 
 def check_prototype_agent_and_style_trace(path: Path, language: str | None = None) -> None:
@@ -1168,8 +1194,10 @@ def check_web_prototype(path: Path, language: str | None = None) -> None:
         if not html_has_state(text, *aliases):
             fail(f"Web UI HTML missing real state coverage marker: {label}")
     prd_text = read(path / "prd.md") if (path / "prd.md").is_file() else ""
-    if "fund-bff" in prd_text and "fund-bff" not in text:
-        fail("Repo-backed Web UI HTML missing BFF boundary marker")
+    if (HOST_SERVICE_TERM_RE.search(prd_text) or BACKEND_BOUNDARY_RE.search(prd_text)) and not (
+        HOST_SERVICE_TERM_RE.search(text) or BACKEND_BOUNDARY_RE.search(visible_html_text(text))
+    ):
+        fail("Repo-backed Web UI HTML missing backend/API boundary annotation")
     external_refs = ("http://", "https://", "cdn.", "unpkg.com", "cdnjs.")
     if any(ref in text for ref in external_refs):
         fail("Web UI HTML should be self-contained and avoid external network references")
