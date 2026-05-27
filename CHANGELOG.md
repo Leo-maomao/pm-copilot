@@ -8,7 +8,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 
 ## [2.4.0] - 2026-05-27
 
-Commit: pending
+Commit: `613a708` feat: harden universal product agent evidence.
 Backfills pushed commit: `123e787` feat: harden pm copilot self-improvement.
 
 ### Added
