@@ -8,7 +8,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 
 ## [2.6.0] - 2026-05-27
 
-Commit: pending
+Commit: `cc6ecd5` feat: add structured catalog handoff.
 
 ### Added
 
