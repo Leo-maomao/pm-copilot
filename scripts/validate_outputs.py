@@ -59,6 +59,46 @@ PROTOTYPE_FILE_NAMES = (
     "prototype-h5.html",
     "prototype-app.html",
 )
+CATALOG_FILE_NAMES = (
+    "catalog.md",
+    "catalog.html",
+)
+CATALOG_REQUIRED_COLUMNS = {
+    "item_id",
+    "display_name",
+    "source_status",
+    "review_status",
+    "owner",
+    "access_date",
+    "implementation_notes",
+}
+MODEL_CATALOG_REQUIRED_COLUMNS = {
+    "provider",
+    "model_id",
+    "version_or_release",
+    "input_modalities",
+    "output_modalities",
+    "context_window",
+    "required_parameters",
+    "optional_parameters",
+    "rate_limits",
+    "pricing_source",
+    "deprecation_status",
+}
+ALLOWED_CATALOG_SOURCE_STATUSES = {
+    "source_backed",
+    "user_supplied",
+    "mixed",
+    "draft",
+    "blocked",
+}
+ALLOWED_CATALOG_REVIEW_STATUSES = {
+    "unreviewed",
+    "pm_reviewed",
+    "engineering_reviewed",
+    "approved",
+    "blocked",
+}
 
 CIRCLED_ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
 BACKEND_BOUNDARY_RE = re.compile(
@@ -253,6 +293,111 @@ def yaml_list_item_blocks(block: str) -> list[str]:
     if current:
         items.append(current)
     return ["\n".join(item) for item in items]
+
+
+def parse_frontmatter(text: str) -> dict[str, str]:
+    if not text.startswith("---\n"):
+        return {}
+    end = text.find("\n---", 4)
+    if end == -1:
+        return {}
+    values: dict[str, str] = {}
+    for line in text[4:end].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        values[key.strip()] = value.strip().strip("\"'")
+    return values
+
+
+def markdown_table_headers(text: str) -> list[list[str]]:
+    lines = text.splitlines()
+    headers: list[list[str]] = []
+    for index, line in enumerate(lines[:-1]):
+        if not line.lstrip().startswith("|"):
+            continue
+        separator = lines[index + 1]
+        if not re.match(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$", separator):
+            continue
+        cells = [
+            normalize_table_cell(cell)
+            for cell in line.strip().strip("|").split("|")
+        ]
+        headers.append([cell for cell in cells if cell])
+    return headers
+
+
+def normalize_table_cell(value: str) -> str:
+    value = re.sub(r"<[^>]+>", " ", value)
+    value = value.replace("`", "")
+    value = re.sub(r"\s+", "_", value.strip().lower())
+    return value
+
+
+def headers_include_columns(headers: set[str], required_columns: set[str]) -> bool:
+    return all(
+        any(header == column or column in header for header in headers)
+        for column in required_columns
+    )
+
+
+def missing_columns(headers: set[str], required_columns: set[str]) -> list[str]:
+    return sorted(
+        column
+        for column in required_columns
+        if not any(header == column or column in header for header in headers)
+    )
+
+
+def table_cell_has_value(cell: str) -> bool:
+    value = cell.strip()
+    normalized = value.lower()
+    if not value or value in {"-", "—"}:
+        return False
+    if normalized in {"tbd", "todo", "to do", "待定", "待补充", "待填写"}:
+        return False
+    if re.fullmatch(r"<[^>|]+>", value):
+        return False
+    return True
+
+
+def column_index_map(headers: list[str], required_columns: set[str]) -> dict[str, int]:
+    mapping: dict[str, int] = {}
+    for column in required_columns:
+        for index, header in enumerate(headers):
+            if header == column or column in header:
+                mapping[column] = index
+                break
+    return mapping
+
+
+def markdown_table_has_data_for(text: str, required_columns: set[str]) -> bool:
+    lines = text.splitlines()
+    for index, line in enumerate(lines[:-2]):
+        if not line.lstrip().startswith("|"):
+            continue
+        separator = lines[index + 1]
+        if not re.match(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$", separator):
+            continue
+        headers = [normalize_table_cell(cell) for cell in line.strip().strip("|").split("|")]
+        header_set = {header for header in headers if header}
+        if not headers_include_columns(header_set, required_columns):
+            continue
+        required_indexes = column_index_map(headers, required_columns)
+        for data_line in lines[index + 2:]:
+            if not data_line.lstrip().startswith("|"):
+                break
+            if "---" in data_line:
+                continue
+            cells = [cell.strip() for cell in data_line.strip().strip("|").split("|")]
+            if all(
+                column in required_indexes
+                and required_indexes[column] < len(cells)
+                and table_cell_has_value(cells[required_indexes[column]])
+                for column in required_columns
+            ):
+                return True
+    return False
 
 
 def strip_yaml_comments(block: str) -> str:
@@ -534,6 +679,10 @@ def generated_prototypes(path: Path) -> list[Path]:
     return [path / name for name in PROTOTYPE_FILE_NAMES if (path / name).is_file()]
 
 
+def generated_catalogs(path: Path) -> list[Path]:
+    return [path / name for name in CATALOG_FILE_NAMES if (path / name).is_file()]
+
+
 def check_folder(path: Path) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
@@ -551,7 +700,7 @@ def check_folder(path: Path) -> None:
         "user-flow.mmd",
         "dev-tasks.yaml",
         "launch-decision.yaml",
-    } | set(PROTOTYPE_FILE_NAMES)
+    } | set(PROTOTYPE_FILE_NAMES) | set(CATALOG_FILE_NAMES)
     unexpected = sorted(item.name for item in path.iterdir() if item.is_file() and item.name not in allowed)
     if unexpected:
         fail(f"Unexpected output files present: {', '.join(unexpected)}")
@@ -580,7 +729,7 @@ def check_pre_clarification(path: Path) -> None:
 
 
 def check_stale_validation(path: Path) -> None:
-    for file_name in ("prd.md", "run-log.yaml"):
+    for file_name in ("prd.md", "run-log.yaml", "catalog.md", "catalog.html"):
         file_path = path / file_name
         if file_path.exists() and STALE_VALIDATION_RE.search(read(file_path)):
             fail(f"Stale validation placeholder found in {file_name}")
@@ -1294,6 +1443,103 @@ def check_mermaid(path: Path) -> None:
         fail("Mermaid block missing flowchart declaration")
 
 
+def check_structured_catalog(path: Path) -> None:
+    catalogs = generated_catalogs(path)
+    if not catalogs:
+        return
+
+    run_log = read(path / "run-log.yaml")
+    if "structured_catalog:" not in run_log:
+        fail("Run log missing structured_catalog section for catalog delivery")
+    for marker in ("catalog_type:", "primary_artifact:", "source_status:", "review_status:", "owner:"):
+        if marker not in extract_yaml_block(run_log, "structured_catalog"):
+            fail(f"structured_catalog run-log section missing marker: {marker}")
+
+    catalog_md = path / "catalog.md"
+    if catalog_md.exists():
+        check_catalog_markdown(catalog_md)
+
+    catalog_html = path / "catalog.html"
+    if catalog_html.exists():
+        check_catalog_html(catalog_html)
+
+
+def check_catalog_markdown(catalog_path: Path) -> None:
+    text = read(catalog_path)
+    frontmatter = parse_frontmatter(text)
+    if frontmatter.get("artifact_type") != "structured_catalog":
+        fail("catalog.md frontmatter must set artifact_type: structured_catalog")
+
+    source_status = frontmatter.get("source_status", "")
+    if source_status not in ALLOWED_CATALOG_SOURCE_STATUSES:
+        fail("catalog.md source_status has unsupported value")
+
+    review_status = frontmatter.get("review_status", "")
+    if review_status not in ALLOWED_CATALOG_REVIEW_STATUSES:
+        fail("catalog.md review_status has unsupported value")
+
+    for key in ("catalog_type", "language", "owner", "last_updated"):
+        if not frontmatter.get(key):
+            fail(f"catalog.md frontmatter missing non-empty {key}")
+
+    if not re.search(r"(catalog summary|清单摘要|目录摘要|目录概述|清单概述)", text, re.IGNORECASE):
+        fail("catalog.md missing catalog summary section")
+    if not re.search(r"(field dictionary|字段字典|字段说明)", text, re.IGNORECASE):
+        fail("catalog.md missing field dictionary section")
+    if not re.search(r"(source and review|来源.*审核|来源.*评审|source status)", text, re.IGNORECASE | re.DOTALL):
+        fail("catalog.md missing source and review status section")
+    if not re.search(r"(engineering handoff|研发交付|工程交付|工程说明)", text, re.IGNORECASE):
+        fail("catalog.md missing engineering handoff notes section")
+    if not re.search(r"(validation results|验证结果|校验结果|检查结果)", text, re.IGNORECASE):
+        fail("catalog.md missing validation results section")
+
+    header_union = {
+        header
+        for headers in markdown_table_headers(text)
+        for header in headers
+    }
+    missing = missing_columns(header_union, CATALOG_REQUIRED_COLUMNS)
+    if missing:
+        fail("catalog.md missing required catalog columns: " + ", ".join(missing))
+    if not markdown_table_has_data_for(text, CATALOG_REQUIRED_COLUMNS):
+        fail("catalog.md must contain at least one data row with required catalog columns")
+
+    is_model_catalog = (
+        "model" in frontmatter.get("catalog_type", "").lower()
+        or any("model_id" in header for header in header_union)
+        or "模型" in text
+    )
+    if is_model_catalog:
+        missing_model = missing_columns(header_union, MODEL_CATALOG_REQUIRED_COLUMNS)
+        if missing_model:
+            fail("catalog.md model catalog missing columns: " + ", ".join(missing_model))
+
+
+def check_catalog_html(catalog_path: Path) -> None:
+    text = read(catalog_path)
+    if "<!doctype html" not in text[:200].lower():
+        fail("catalog.html missing doctype")
+    if not re.search(
+        r"<meta[^>]+name=[\"']pm-copilot-artifact[\"'][^>]+content=[\"']structured_catalog[\"']",
+        text,
+        re.IGNORECASE,
+    ):
+        fail("catalog.html missing structured catalog meta marker")
+    if "<table" not in text.lower():
+        fail("catalog.html must include at least one table")
+    if re.search(r"https?://|cdn\.|unpkg\.com|cdnjs\.", text, re.IGNORECASE):
+        fail("catalog.html must be self-contained and avoid external network references")
+
+    normalized = normalize_table_cell(visible_html_text(text) + " " + text)
+    for column in CATALOG_REQUIRED_COLUMNS:
+        if column not in normalized:
+            fail(f"catalog.html missing required catalog column token: {column}")
+    if "model_id" in normalized or "model" in normalized or "模型" in visible_html_text(text):
+        for column in MODEL_CATALOG_REQUIRED_COLUMNS:
+            if column not in normalized:
+                fail(f"catalog.html model catalog missing column token: {column}")
+
+
 def check_handoff_artifacts(path: Path) -> None:
     dev_tasks = path / "dev-tasks.yaml"
     if dev_tasks.exists():
@@ -1502,6 +1748,7 @@ def main() -> None:
     check_mini_program_prototype(folder, args.language)
     check_web_prototype(folder, args.language)
     check_mermaid(folder)
+    check_structured_catalog(folder)
     check_handoff_artifacts(folder)
     print(f"PM Copilot output validation passed: {folder}")
 

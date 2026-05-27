@@ -29,6 +29,7 @@ S0 Intake
 | S4 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
 | S5 External product research | Research Agent | PRD solution shaping needs competitor, benchmark, comparable feature, market, policy, pricing, or source-backed context | Source-backed research brief is produced or limitation is stated |
 | S6 PRD drafting | Requirements Agent | Discovery output is usable | `prd.md` contract is satisfied |
+| S6b Structured catalog drafting | Knowledge Ops Agent | User asks for table-first reference handoff, model matrix, API catalog, vendor table, data dictionary, or migration inventory | `catalog.md` or requested `catalog.html` satisfies `artifacts/structured-catalog-contract.md` |
 | S7 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | Metrics and tracking sections are complete inside `prd.md` |
 | S8 Flow and UI delivery | UI Delivery Agent (`agents/prototype-agent.md`, legacy name) | Core flow and platform are known | Flow sections are complete inside `prd.md`; UI delivery contract is satisfied |
 | S9 Review | Review Agent | Draft PRD and UI deliverable exist | Risks, blockers, and required fixes are reflected in PRD status and validation sections |
@@ -246,12 +247,15 @@ The repository does not ship example output folders. `outputs/` is generated at 
 Default delivery should optimize for reviewability, not file count.
 
 - Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact.
+- For table-first reference handoffs, create `outputs/<run-id>/catalog.md` as the primary artifact instead of forcing the request into a PRD. Generate `outputs/<run-id>/catalog.html` only when the user asks for HTML or a browser-readable table.
 - Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode.
 - Create `outputs/<run-id>/run-log.yaml` as an internal trace when useful.
 - Keep source or export files only when they are useful for analytics import, Mermaid rendering, external review workflow, or user-requested iteration.
 - `prd.md` must include version history, requirement input and confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, flow diagrams when useful, tracking plan, UI delivery reference, risks/open confirmations, acceptance criteria, and validation results.
 - Do not create separate `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
 - Avoid making the user open many small Markdown files to understand one requirement.
+
+Structured catalog delivery must keep source facts and implementation notes separate. For model or API catalogs, fast-changing values such as model IDs, parameters, context windows, rate limits, pricing, region availability, SDK support, and deprecation status must be current-source-backed or explicitly marked draft/blocked with an owner.
 
 ## UI Visual Validation
 

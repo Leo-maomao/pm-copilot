@@ -81,6 +81,11 @@ The user should not need to manually copy templates or create folders. Do that f
    - `artifacts/prototype-contract.md`
    - `tools/prototype-tooling.md`
 
+   When the request is a table-first structured reference handoff, such as a model parameter matrix, API capability catalog, vendor matrix, data dictionary, or migration inventory, also load:
+   - `skills/knowledge-ops/SKILL.md`
+   - `artifacts/structured-catalog-contract.md`
+   - `templates/structured-catalog-template.md`
+
    When the request mentions external tools, MCP servers, SaaS APIs, workspace connectors, analytics platforms, databases, CRM/support systems, advertising platforms, automation tools, paid design-generation services, or operational data analysis, also load:
    - `agents/integration-governance-agent.md`
    - `skills/tool-vetting/SKILL.md`
@@ -181,6 +186,8 @@ The user should not need to manually copy templates or create folders. Do that f
 
 8. After the clarification gate passes, create or update the product-manager delivery artifacts:
    - `outputs/<run-id>/prd.md`
+   - `outputs/<run-id>/catalog.md` when the request is primarily a structured reference/table handoff such as a model parameter matrix, API capability catalog, vendor matrix, data dictionary, or migration inventory
+   - `outputs/<run-id>/catalog.html` only when the user asks for HTML or a browser-readable structured table
    - UI deliverable reference:
      - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
      - `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode
@@ -189,7 +196,8 @@ The user should not need to manually copy templates or create folders. Do that f
      - `outputs/<run-id>/tracking-plan.csv`
      - `outputs/<run-id>/user-flow.mmd`
    - Do not create `pm-package.md`, `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
-   - Avoid split Markdown handoff files unless the user explicitly asks for them.
+   - Avoid split Markdown handoff files unless the user explicitly asks for them or the request is a table-first structured catalog handoff.
+   - For structured catalog handoffs, follow `artifacts/structured-catalog-contract.md`: include row-level source status, review status, access date, owner, field dictionary, required/optional parameters when relevant, and engineering handoff notes.
    - Keep confirmed MVP scope, optional scope, and future scope separate. Do not place an unconfirmed optional capability in MVP requirements or acceptance criteria.
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the UI deliverable, PRD, and engineering handoff agree.
    - Each specialist step must follow `agents/agent-interface.md`: record status, confidence, artifact delta, validation delta, risks, and next expected output. PM Orchestrator owns final readiness labels and resolves contradictions before delivery.
@@ -238,6 +246,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict` when source-backed research is required.
    - `python3 scripts/validate_repo.py`
    - `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` for Chinese generated runs, or `--language en` for English runs, when `prd.md` or UI deliverable artifacts exist.
+   - The same output validation command applies when `catalog.md` or `catalog.html` exists.
    - `python3 scripts/validate_outputs.py outputs/<run-id> --pre-clarification` when a run intentionally stops before generation with only `run-log.yaml`.
    - `python3 scripts/validate_prototype_visual.py outputs/<run-id>` for compatibility standalone HTML browser screenshot and visual diff validation. Without `--prototype`, the command validates every supported compatibility HTML file in the run folder. For source-backed UI preview files, run the host dev/preview/Storybook/simulator path, then run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` when a browser URL or file target is available; otherwise record equivalent simulator evidence under `visual_validation`.
    - `python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh` or `--language en` before final delivery or iteration scoring.

@@ -289,6 +289,18 @@ content_sources:
     disclaimer_status: "" # approved | pending | not applicable
     launch_impact: "" # blocks launch | does not block launch | not applicable
 
+structured_catalog:
+  catalog_type: "" # model_integration_matrix | api_capability_catalog | vendor_matrix | data_dictionary | migration_inventory | other | not_applicable
+  primary_artifact: "" # catalog.md
+  html_artifact: "" # catalog.html when requested
+  source_status: "" # source_backed | user_supplied | mixed | draft | blocked | not_applicable
+  review_status: "" # unreviewed | pm_reviewed | engineering_reviewed | approved | blocked | not_applicable
+  owner: ""
+  row_count: 0
+  required_fields: []
+  source_freshness_limitations: []
+  blocked_rows: []
+
 open_questions:
   - id: ""
     question: ""
@@ -301,6 +313,7 @@ open_questions:
 artifacts:
   prd: ""
   prototype: "" # legacy key; use for compatibility HTML path or source-backed UI preview reference
+  catalog: ""
   ui_deliverable: ""
   run_log: ""
   tool_results_dir: ""

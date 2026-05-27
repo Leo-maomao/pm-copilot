@@ -72,6 +72,7 @@ style_evidence:
 existing_ui_visual_baseline:
 design_calibration:
 content_sources:
+structured_catalog:
 open_questions:
 artifacts:
 visual_validation:
@@ -125,7 +126,7 @@ next_actions:
 - Record content source and review status when reference, policy, medical, legal, financial, safety, or operational content appears in the scope or UI deliverable.
 - Record review scores when quality review is performed.
 - Review score maximums and thresholds must match `docs/quality-rubric.md`.
-- `review_scores`, `quality_thresholds`, `handoff_artifacts`, `content_sources`, `guardrail_events`, and `security_and_audit` must keep the canonical field names from `templates/agent-run-log-template.yaml` so `validate_outputs.py` can reject ad hoc trace shapes.
+- `review_scores`, `quality_thresholds`, `handoff_artifacts`, `content_sources`, `structured_catalog`, `guardrail_events`, and `security_and_audit` must keep the canonical field names from `templates/agent-run-log-template.yaml` so `validate_outputs.py` can reject ad hoc trace shapes.
 - Every unresolved question must be classified as exactly one of:
   - `must answer before generation`
   - `can draft with stated assumption`

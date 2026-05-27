@@ -6,6 +6,28 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.6.0] - 2026-05-27
+
+Commit: pending
+
+### Added
+
+- Added `artifacts/structured-catalog-contract.md` and `templates/structured-catalog-template.md` for table-first engineering handoffs such as model parameter matrices, API capability catalogs, vendor matrices, data dictionaries, and migration inventories.
+- Added output validation for `catalog.md` and `catalog.html`, including structured catalog metadata, field dictionaries, localized machine-token table headers, required row cells, model-specific parameter columns, source/review status, self-contained HTML checks, and run-log trace requirements.
+- Added a model integration catalog eval covering model IDs, modalities, context windows, required/optional parameters, rate limits, pricing source, deprecation status, source freshness, and engineering handoff notes.
+
+### Changed
+
+- Updated the main workflow, direct-use guidance, run-log template, trace contract, knowledge-ops skill, and scorecard so pure text/table requests can produce `catalog.md` or `catalog.html` without being forced into PRD/UI delivery.
+- Extended scorecard artifact expectations and capability coverage with `structured_catalog` and `knowledge_catalog`.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py scripts/agent_improvement_scorecard.py`.
+- Temporary structured catalog delivery checks pass with `python3 scripts/run_delivery_checks.py /tmp/pmcopilot-catalog-test --language en`.
+- Improvement scorecard reports no current risks after 27 non-fixture eval cases, including 1 structured-catalog eval.
+
 ## [2.5.0] - 2026-05-27
 
 Commit: `6b3b8dc` feat: replace fixture evals with generic scenarios.
