@@ -6,6 +6,30 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.5.0] - 2026-05-27
+
+Commit: pending
+
+### Removed
+
+- Removed named fixture evals and local evidence tied to borrowed host projects so the tracked eval portfolio is fully generic.
+- Removed tracked borrowed-host names, path fragments, and domain vocabulary from PM Copilot assets.
+
+### Added
+
+- Added a generic source-backed preview stability eval that preserves repo-backed UI validation without naming a borrowed host project.
+- Added 10 non-fixture scenario evals for payment refund/chargeback support, marketplace seller suspension appeals, cross-region data retention, AI customer-message review, offline sync conflict resolution, pricing/tax/invoice currentness, incident status communication, API deprecation migration, age-gated community safety, and bulk notification fatigue controls.
+
+### Changed
+
+- Rebalanced the eval portfolio so fixture-scoped cases are no longer required for current scorecard coverage.
+- Kept source-backed preview pressure as a universal product-agent capability rather than a host-project story.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Improvement scorecard reports no current risks after 26 non-fixture eval cases and 5 delivery-checked runtime runs.
+
 ## [2.4.0] - 2026-05-27
 
 Commit: `613a708` feat: harden universal product agent evidence.
