@@ -47,6 +47,16 @@ Paste the original realistic product request here.
 - `outputs/<run-id>/run-log.yaml` when trace is useful
 - Optional exports such as `tracking-plan.csv` or `user-flow.mmd` when useful
 
+## Artifact Expectation Matrix
+
+| Artifact | Required When | Validation |
+|---|---|---|
+| `prd.md` | Requirement, review, launch, or engineering handoff is requested after clarification gates pass. | `python3 scripts/validate_outputs.py outputs/<run-id>` |
+| UI deliverable | UI behavior, surface fit, visual parity, or interaction states are in scope. | `python3 scripts/validate_prototype_visual.py outputs/<run-id>` or `python3 scripts/validate_ui_preview.py <preview> --run-folder outputs/<run-id>` |
+| `dev-tasks.yaml` | Engineering handoff, implementation planning, issue creation, or make-ready-for-engineering is requested. | `python3 scripts/run_delivery_checks.py outputs/<run-id>` |
+| `launch-decision.yaml` | Release readiness, go/no-go support, rollout, rollback, or launch approval risk is in scope. | `python3 scripts/run_delivery_checks.py outputs/<run-id>` |
+| `tracking-plan.csv` or PRD tracking table | Metrics, analytics, experiment, conversion, audit, or behavioral event review is in scope. | `python3 scripts/validate_outputs.py outputs/<run-id>` |
+
 ## Known Risks
 
 - 

@@ -86,6 +86,45 @@ EXPECTED_QUALITY_THRESHOLDS = {
     "review_checklist": 15,
 }
 
+ALLOWED_TASK_TYPES = {
+    "frontend",
+    "backend",
+    "data",
+    "analytics",
+    "qa",
+    "docs",
+    "release",
+    "design",
+}
+
+ALLOWED_HANDOFF_STATUSES = {"ready", "blocked", "draft"}
+ALLOWED_HANDOFF_MODES = {"human_confirmed", "unattended_candidate"}
+ALLOWED_LAUNCH_DECISIONS = {
+    "launch_blocked",
+    "ready_for_engineering",
+    "ready_for_staging",
+    "ready_for_release_review",
+    "ready_to_launch",
+    "not_applicable",
+}
+ALLOWED_LAUNCH_MODES = {"human_confirmed", "unattended_candidate"}
+ALLOWED_GATE_STATUSES = {
+    "passed",
+    "passed_with_blockers",
+    "passed_with_required_skips",
+    "failed",
+    "blocked",
+    "skipped",
+    "not_applicable",
+}
+BLOCKING_GATE_STATUSES = {"failed", "blocked"}
+PRODUCTION_DECISIONS = {
+    "launch_blocked",
+    "ready_for_staging",
+    "ready_for_release_review",
+    "ready_to_launch",
+}
+
 
 def fail(message: str) -> None:
     print(f"FAIL: {message}")
@@ -171,6 +210,49 @@ def yaml_scalar_field_value(block: str, key: str) -> str:
     if value in ("[]", "{}", '""', "''"):
         return ""
     return value.strip("\"'")
+
+
+def yaml_field_value(block: str, key: str) -> str:
+    match = re.search(
+        rf"^\s*(?:-\s*)?{re.escape(key)}:\s*(?P<value>.*?)\s*(?:#.*)?$",
+        block,
+        re.MULTILINE,
+    )
+    if not match:
+        return ""
+    value = match.group("value").strip()
+    if value in ("", "[]", "{}", '""', "''"):
+        return ""
+    return value.strip("\"'")
+
+
+def yaml_bool_field_value(block: str, key: str) -> bool | None:
+    value = yaml_field_value(block, key).lower()
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return None
+
+
+def yaml_list_item_blocks(block: str) -> list[str]:
+    items: list[list[str]] = []
+    current: list[str] = []
+    base_indent: int | None = None
+    for line in block.splitlines():
+        match = re.match(r"^(?P<indent>\s*)-\s+", line)
+        if match and base_indent is None:
+            base_indent = len(match.group("indent"))
+        if match and len(match.group("indent")) == base_indent:
+            if current:
+                items.append(current)
+            current = [line]
+            continue
+        if current:
+            current.append(line)
+    if current:
+        items.append(current)
+    return ["\n".join(item) for item in items]
 
 
 def strip_yaml_comments(block: str) -> str:
@@ -1229,6 +1311,7 @@ def check_handoff_artifacts(path: Path) -> None:
         ):
             if marker not in text:
                 fail(f"dev-tasks.yaml missing marker: {marker}")
+        check_dev_tasks_contract(text)
 
     launch_decision = path / "launch-decision.yaml"
     if launch_decision.exists():
@@ -1254,6 +1337,140 @@ def check_handoff_artifacts(path: Path) -> None:
             text,
         ):
             fail("launch-decision.yaml cannot mark ready_to_launch without human_confirmed mode")
+        check_launch_decision_contract(text)
+
+
+def check_dev_tasks_contract(text: str) -> None:
+    handoff_status = yaml_field_value(text, "handoff_status")
+    if handoff_status not in ALLOWED_HANDOFF_STATUSES:
+        fail("dev-tasks.yaml handoff_status must be ready, blocked, or draft")
+
+    generation_mode = yaml_field_value(text, "generation_mode")
+    if generation_mode not in ALLOWED_HANDOFF_MODES:
+        fail("dev-tasks.yaml generation_mode must be human_confirmed or unattended_candidate")
+
+    tasks_block = extract_yaml_block(text, "tasks")
+    task_blocks = yaml_list_item_blocks(tasks_block)
+    if not task_blocks:
+        fail("dev-tasks.yaml must contain at least one task")
+
+    blocked_task_count = 0
+    ready_task_count = 0
+    for index, task in enumerate(task_blocks, start=1):
+        task_id = yaml_field_value(task, "id") or f"task {index}"
+        for field in ("id", "title", "type", "owner_role", "description"):
+            if not yaml_field_value(task, field):
+                fail(f"dev-tasks.yaml {task_id} missing non-empty {field}")
+
+        task_type = yaml_field_value(task, "type")
+        if task_type not in ALLOWED_TASK_TYPES:
+            fail(f"dev-tasks.yaml {task_id} has unsupported task type: {task_type}")
+
+        for field in ("source_requirements", "acceptance_criteria", "validation_commands"):
+            if not yaml_list_field_has_values(task, field):
+                fail(f"dev-tasks.yaml {task_id} must include non-empty {field}")
+
+        has_blockers = yaml_list_field_has_values(task, "blocked_by")
+        if has_blockers:
+            blocked_task_count += 1
+
+        ready_for_issue = yaml_bool_field_value(task, "ready_for_issue")
+        if ready_for_issue is None:
+            fail(f"dev-tasks.yaml {task_id} ready_for_issue must be true or false")
+        if ready_for_issue:
+            ready_task_count += 1
+            if has_blockers:
+                fail(f"dev-tasks.yaml {task_id} cannot be ready_for_issue while blocked_by is non-empty")
+            if not (
+                yaml_list_field_has_values(task, "affected_surfaces")
+                or yaml_list_field_has_values(task, "likely_files")
+            ):
+                fail(
+                    f"dev-tasks.yaml {task_id} ready_for_issue true requires affected_surfaces "
+                    "or likely_files"
+                )
+            if not yaml_list_field_has_values(task, "dependencies"):
+                fail(f"dev-tasks.yaml {task_id} ready_for_issue true requires dependencies")
+
+    if handoff_status in {"blocked", "draft"} and not (
+        yaml_list_field_has_values(text, "blocking_summary") or blocked_task_count
+    ):
+        fail("dev-tasks.yaml blocked or draft handoff must expose blocking_summary or task blocked_by")
+
+    if handoff_status == "ready" and ready_task_count == 0:
+        fail("dev-tasks.yaml ready handoff must include at least one ready_for_issue task")
+
+
+def check_launch_decision_contract(text: str) -> None:
+    decision = yaml_field_value(text, "decision")
+    if decision not in ALLOWED_LAUNCH_DECISIONS:
+        fail("launch-decision.yaml decision has unsupported value")
+
+    decision_mode = yaml_field_value(text, "decision_mode")
+    if decision_mode not in ALLOWED_LAUNCH_MODES:
+        fail("launch-decision.yaml decision_mode must be human_confirmed or unattended_candidate")
+
+    owner_required = yaml_bool_field_value(text, "decision_owner_required")
+    if owner_required is None:
+        fail("launch-decision.yaml decision_owner_required must be true or false")
+
+    gates_block = extract_yaml_block(text, "gates")
+    gate_statuses: dict[str, str] = {}
+    for gate in (
+        "prd_complete",
+        "engineering_handoff",
+        "validation",
+        "visual_validation",
+        "content_approval",
+        "analytics_approval",
+        "privacy_security_legal",
+        "rollout_and_rollback",
+    ):
+        gate_block = extract_yaml_block(gates_block, gate)
+        if not gate_block:
+            fail(f"launch-decision.yaml gates.{gate} missing")
+        status = yaml_field_value(gate_block, "status")
+        evidence = yaml_field_value(gate_block, "evidence")
+        if status not in ALLOWED_GATE_STATUSES:
+            fail(f"launch-decision.yaml gates.{gate}.status has unsupported value: {status}")
+        if not evidence:
+            fail(f"launch-decision.yaml gates.{gate}.evidence must be non-empty")
+        gate_statuses[gate] = status
+
+    if any(status in BLOCKING_GATE_STATUSES for status in gate_statuses.values()):
+        if decision != "launch_blocked":
+            fail("launch-decision.yaml must use launch_blocked when any gate is failed or blocked")
+
+    if decision == "launch_blocked":
+        for field in ("blockers", "required_human_approvals", "disallowed_actions"):
+            if not yaml_list_field_has_values(text, field):
+                fail(f"launch-decision.yaml launch_blocked requires non-empty {field}")
+
+    if decision == "ready_to_launch":
+        if decision_mode != "human_confirmed":
+            fail("launch-decision.yaml ready_to_launch requires human_confirmed mode")
+        if yaml_list_field_has_values(text, "blockers"):
+            fail("launch-decision.yaml ready_to_launch cannot have blockers")
+        if any(
+            status not in {"passed", "not_applicable"}
+            for status in gate_statuses.values()
+        ):
+            fail("launch-decision.yaml ready_to_launch requires all gates passed or not_applicable")
+
+    if decision in {"ready_for_staging", "ready_for_release_review", "ready_to_launch"}:
+        if gate_statuses["validation"] not in {"passed", "passed_with_required_skips"}:
+            fail("launch-decision.yaml ready decisions require validation gate evidence")
+
+    rollback_block = extract_yaml_block(text, "rollback_plan")
+    if decision in PRODUCTION_DECISIONS:
+        for field in ("owner", "trigger", "steps"):
+            has_value = (
+                yaml_list_field_has_values(rollback_block, field)
+                if field == "steps"
+                else bool(yaml_field_value(rollback_block, field))
+            )
+            if not has_value:
+                fail(f"launch-decision.yaml production-facing decision requires rollback_plan.{field}")
 
 
 def main() -> None:

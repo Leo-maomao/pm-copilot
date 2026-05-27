@@ -13,6 +13,13 @@ scenario_portfolio:
   risk_profile: "" # normal | payment | privacy | security | legal | compliance | regulated_content | operations | data_quality
   platform: "" # web | h5 | app | mini_program | cross_platform | non_ui
   pm_user_maturity: "" # novice_pm | ai_product_manager | senior_pm | growth_pm | data_pm | ops_pm | founder_operator
+artifact_expectations:
+  prd: false
+  ui_delivery: false
+  tracking_plan: false
+  dev_tasks: false
+  launch_decision: false
+  pre_clarification_only: false
 generalization_boundary:
   reference_projects_are_fixtures: true
   host_specific_terms_allowed_only_in:

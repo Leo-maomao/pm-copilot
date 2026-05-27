@@ -77,6 +77,7 @@ For browser extension UI deliverables, show the extension container instead of a
 - At least one non-happy state must be represented when relevant.
 - Buttons and links must have visible outcomes.
 - Copy must fit on mobile-sized frames.
+- Conversion or speed pressure must not remove accessible names, visible labels, focus order, consent clarity, total cost visibility, or error recovery. If an accessible or consent-preserving state is not visually shown, record the implementation requirement and owner before delivery.
 - The UI deliverable must include realistic screen states: loading, empty, error, permission, confirmation, success, or rollback where relevant.
 - Loading states should match the final layout shape where possible instead of using generic spinners; form errors should be inline and close to the field.
 - State coverage must be reachable through realistic product interactions, permission gates, retry actions, form submissions, or mocked data/API transitions. A reviewer-only switcher can speed inspection, but it cannot be the only way a state exists.

@@ -76,6 +76,16 @@ Progress is not more files or longer prompts. Progress means:
 - Failures move from repeated runtime surprises into explicit evals or validators.
 - Fixes become smaller because the responsible surface is clear.
 
+## Evidence Gates
+
+Use artifact expectations to avoid false confidence. An eval should say which outputs are required for that scenario and which command proves them.
+
+- `prd.md` proves requirement reasoning only when readiness, scope, risks, tracking, review findings, and validation evidence agree.
+- UI deliverables prove surface quality only when source-backed preview or compatibility HTML validation has screenshot or preview evidence.
+- `dev-tasks.yaml` proves handoff readiness only when tasks trace to PRD IDs, owners, validation commands, blockers, and `ready_for_issue` are machine-checkable.
+- `launch-decision.yaml` proves launch discipline only when gates, human approvals, blockers, allowed/disallowed actions, and rollback are explicit.
+- A pre-clarification `run-log.yaml` is a valid success only when downstream artifacts are absent and must-answer blockers are recorded.
+
 ## Anti-Patterns
 
 - Counting iteration rounds without score deltas.

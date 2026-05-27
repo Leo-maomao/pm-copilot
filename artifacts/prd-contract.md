@@ -60,6 +60,10 @@ For public Web or SEO surfaces, include indexability, canonical URL, sitemap/rob
 
 For data freshness, source-status, health, or reliability indicators, include source owner, refresh cadence, cache/staleness rule, partial-failure behavior, stale-data display, user-facing trust copy, and what actions remain enabled or disabled while data is degraded.
 
+For AI assistants, automations, admin exports, workflow agents, or tool-enabled features, include trusted trigger, untrusted input boundary, tool allowlist/denylist, data scope, mutation permissions, redaction, audit logging, abuse tests, and human approval gates.
+
+For accessibility-critical surfaces such as checkout, payment, account recovery, public service, support, consent, or cancellation flows, include visible labels, accessible names, keyboard/focus behavior, screen-reader expectations, error recovery, consent/price clarity, localization, and non-dark-pattern guardrails.
+
 ## Repo-Backed Engineering Map
 
 For repo-backed product changes, include a localized engineering implementation map in the PRD. It should name likely routes, pages, services, components, data/config files, analytics integration points, permission boundaries, and validation entry points. This is not production code, but it must be specific enough for engineering to estimate and plan the change.
@@ -81,7 +85,8 @@ For repo-backed product changes, include a localized engineering implementation 
 - For simulations or forecasts, specify assumptions and limitations prominently enough for reviewers to see them in both PRD and UI deliverable.
 - For SEO or public Web pages, specify index/noindex rules, metadata ownership, structured data, and private-data exclusion.
 - For data reliability surfaces, specify freshness, staleness, partial failure, and degradation behavior in user-visible terms.
-- For reference, policy, medical, legal, financial, safety, or operational content, record source status, review owner, review status, disclaimer status, and launch impact.
+- For reference, policy, medical, legal, financial, tax, public-benefit, safety, or operational content, record source status, source currentness, review owner, review status, disclaimer status, and launch impact. If current authoritative sources are missing, keep launch blocked and do not present definitive guidance.
+- For AI/tool-enabled features, do not treat untrusted content as user instruction or tool permission. Permission-sensitive actions must have owner-approved boundaries and abuse tests.
 - Put tracking events and property definitions in the PRD by default; create a CSV export only when useful.
 - Put functional or operation flow diagrams in the PRD when they help review; create Mermaid source exports only when useful.
 - UI delivery details belong in the UI artifact and its annotations. The PRD should only link the source-backed preview/delta or compatibility HTML file, summarize covered screens/states, and state that page-level logic and interaction notes live in the UI delivery annotations.

@@ -151,6 +151,14 @@ MIN_PORTFOLIO_COVERAGE = {
     "edge_case_pressures": 4,
 }
 
+MIN_PASSED_PORTFOLIO_COVERAGE = {
+    "passed_platforms": 3,
+    "passed_pm_user_types": 3,
+    "passed_risk_profiles": 4,
+    "passed_context_modes": 3,
+    "passed_edge_case_pressures": 4,
+}
+
 UNKNOWN_VALUES = {"", "unknown", "tbd", "n/a", "not specified"}
 
 EDGE_CASE_PRESSURES = {
@@ -210,6 +218,28 @@ EDGE_CASE_PRESSURES = {
     ),
 }
 
+ARTIFACT_EXPECTATION_TERMS = {
+    "prd": ("prd.md",),
+    "ui_delivery": (
+        "ui deliverable",
+        "source-backed preview",
+        "source-rendered preview",
+        "prototype-web.html",
+        "prototype-h5.html",
+        "prototype-app.html",
+        "prototype-mini-program.html",
+    ),
+    "tracking_plan": (
+        "tracking-plan.csv",
+        "tracking plan",
+        "analytics",
+        "event_name",
+    ),
+    "dev_tasks": ("dev-tasks.yaml",),
+    "launch_decision": ("launch-decision.yaml",),
+    "run_log": ("run-log.yaml",),
+}
+
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -234,6 +264,21 @@ def section_body(text: str, heading: str) -> str:
     next_match = re.search(r"^##\s+", text[start:], re.MULTILINE)
     end = start + next_match.start() if next_match else len(text)
     return text[start:end].strip()
+
+
+def scenario_set_round_count(text: str) -> int:
+    body = section_body(text, "Scenario Set")
+    count = 0
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|") or "---" in stripped:
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if not cells or cells[0].lower() in {"round", "case", "scenario"}:
+            continue
+        if any(cell for cell in cells):
+            count += 1
+    return count
 
 
 def validation_terms(text: str) -> list[str]:
@@ -266,6 +311,15 @@ def edge_case_pressures_for(text: str) -> list[str]:
         if any(term.lower() in lowered for term in terms):
             pressures.append(pressure)
     return pressures
+
+
+def artifact_expectations_for(text: str) -> list[str]:
+    lowered = text.lower()
+    expectations = []
+    for artifact, terms in ARTIFACT_EXPECTATION_TERMS.items():
+        if any(term.lower() in lowered for term in terms):
+            expectations.append(artifact)
+    return expectations
 
 
 def metadata_values(value: str, *, keep_none: bool = False) -> list[str]:
@@ -314,11 +368,14 @@ def build_scenario_portfolio(evals: list[dict[str, Any]]) -> dict[str, Any]:
 
     context_mode_counts: dict[str, int] = {}
     edge_case_counts: dict[str, int] = {}
+    artifact_expectation_counts: dict[str, int] = {}
     for item in evals:
         for mode in item["context_modes"]:
             context_mode_counts[mode] = context_mode_counts.get(mode, 0) + 1
         for pressure in item["edge_case_pressures"]:
             edge_case_counts[pressure] = edge_case_counts.get(pressure, 0) + 1
+        for artifact in item["artifact_expectations"]:
+            artifact_expectation_counts[artifact] = artifact_expectation_counts.get(artifact, 0) + 1
 
     return {
         "metadata_complete": metadata_complete,
@@ -335,6 +392,25 @@ def build_scenario_portfolio(evals: list[dict[str, Any]]) -> dict[str, Any]:
         "risk_profiles": count_metadata_values(evals, "risk_profile"),
         "context_modes": dict(sorted(context_mode_counts.items())),
         "edge_case_pressures": dict(sorted(edge_case_counts.items())),
+        "artifact_expectations": dict(sorted(artifact_expectation_counts.items())),
+        "passed_platforms": count_metadata_values(passed_evals, "platform"),
+        "passed_pm_user_types": count_metadata_values(passed_evals, "pm_user_type"),
+        "passed_risk_profiles": count_metadata_values(passed_evals, "risk_profile"),
+        "passed_context_modes": dict(sorted(
+            (mode, sum(1 for item in passed_evals if mode in item["context_modes"]))
+            for mode in {mode for item in passed_evals for mode in item["context_modes"]}
+        )),
+        "passed_edge_case_pressures": dict(sorted(
+            (
+                pressure,
+                sum(1 for item in passed_evals if pressure in item["edge_case_pressures"]),
+            )
+            for pressure in {
+                pressure
+                for item in passed_evals
+                for pressure in item["edge_case_pressures"]
+            }
+        )),
     }
 
 
@@ -362,7 +438,9 @@ def collect_evals() -> list[dict[str, Any]]:
                 platform and product_area and fixture_scope and pm_user_type and risk_profile
             ),
             "has_raw_request": bool(section_body(text, "Raw Request") or section_body(text, "Scenario Set")),
+            "scenario_set_round_count": scenario_set_round_count(text),
             "has_required_artifacts": bool(section_body(text, "Required Artifacts")),
+            "has_artifact_expectation_matrix": bool(section_body(text, "Artifact Expectation Matrix")),
             "has_rubric_thresholds": bool(section_body(text, "Rubric Thresholds")),
             "has_failure_history": bool(section_body(text, "Failure History")),
             "has_pass_criteria": bool(section_body(text, "Pass Criteria")),
@@ -370,6 +448,7 @@ def collect_evals() -> list[dict[str, Any]]:
             "capability_areas": capability_areas_for(text),
             "context_modes": context_modes_for(text),
             "edge_case_pressures": edge_case_pressures_for(text),
+            "artifact_expectations": artifact_expectations_for(text),
         })
     return evals
 
@@ -462,14 +541,44 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
     eval_quality = {
         "total": total_evals,
         "with_required_artifacts": sum(1 for item in evals if item["has_required_artifacts"]),
+        "with_artifact_expectation_matrix": sum(
+            1 for item in evals if item["has_artifact_expectation_matrix"]
+        ),
+        "expecting_dev_tasks": sum(
+            1 for item in evals if "dev_tasks" in item["artifact_expectations"]
+        ),
+        "expecting_launch_decision": sum(
+            1 for item in evals if "launch_decision" in item["artifact_expectations"]
+        ),
+        "passed_expecting_dev_tasks": sum(
+            1
+            for item in evals
+            if item["latest_status"].strip().lower() == "passed"
+            and "dev_tasks" in item["artifact_expectations"]
+        ),
+        "passed_expecting_launch_decision": sum(
+            1
+            for item in evals
+            if item["latest_status"].strip().lower() == "passed"
+            and "launch_decision" in item["artifact_expectations"]
+        ),
         "with_rubric_thresholds": sum(1 for item in evals if item["has_rubric_thresholds"]),
         "with_failure_history": sum(1 for item in evals if item["has_failure_history"]),
         "with_validation_terms": sum(1 for item in evals if item["validation_terms"]),
+        "scenario_set_rounds": sum(item["scenario_set_round_count"] for item in evals),
     }
     run_quality = {
         "total": len(runs),
         "with_prd": sum(1 for item in runs if item["has_prd"]),
         "with_run_log": sum(1 for item in runs if item["has_run_log"]),
+        "with_dev_tasks": sum(1 for item in runs if item["has_dev_tasks"]),
+        "with_launch_decision": sum(1 for item in runs if item["has_launch_decision"]),
+        "passed_with_dev_tasks": sum(
+            1 for item in runs if item["has_dev_tasks"] and item["delivery_status"] == "passed"
+        ),
+        "passed_with_launch_decision": sum(
+            1 for item in runs if item["has_launch_decision"] and item["delivery_status"] == "passed"
+        ),
         "with_delivery_report": sum(1 for item in runs if item["delivery_status"]),
         "with_visual_evidence": sum(
             1 for item in runs if item["visual_status"] or item["source_preview_status"]
@@ -534,6 +643,18 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
             "area": "delivery_validation",
             "issue": "Some generated runs do not have delivery-check-report.json evidence.",
         })
+    if eval_quality["expecting_dev_tasks"] and run_quality["passed_with_dev_tasks"] == 0:
+        risks.append({
+            "severity": "High",
+            "area": "handoff_evidence",
+            "issue": "Some eval cases expect dev-tasks.yaml, but no passed runtime run has engineering handoff evidence.",
+        })
+    if eval_quality["expecting_launch_decision"] and run_quality["passed_with_launch_decision"] == 0:
+        risks.append({
+            "severity": "High",
+            "area": "launch_evidence",
+            "issue": "Some eval cases expect launch-decision.yaml, but no passed runtime run has launch decision evidence.",
+        })
     if run_quality["with_visual_required_but_missing"]:
         risks.append({
             "severity": "High",
@@ -580,6 +701,18 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
                     f"target at least {minimum} before treating the suite as broadly representative."
                 ),
             })
+    if scenario_portfolio["passed_evals"]:
+        for dimension, minimum in MIN_PASSED_PORTFOLIO_COVERAGE.items():
+            count = len(scenario_portfolio[dimension])
+            if count < minimum:
+                risks.append({
+                    "severity": "Medium",
+                    "area": "passed_evidence_portfolio",
+                    "issue": (
+                        f"Passing eval evidence covers {count} {dimension.replace('passed_', '').replace('_', ' ')}; "
+                        f"target at least {minimum} before claiming robust general-agent behavior."
+                    ),
+                })
 
     next_actions = prioritize_actions(risks, eval_quality, run_quality, scenario_portfolio)
     return {
@@ -631,6 +764,14 @@ def prioritize_actions(
         actions.append(
             "Backfill run_delivery_checks.py evidence for generated runs or mark the exact skipped-tool reason."
         )
+    if "handoff_evidence" in risk_areas:
+        actions.append(
+            "Run at least one handoff-heavy eval through dev-tasks.yaml generation and delivery checks."
+        )
+    if "launch_evidence" in risk_areas:
+        actions.append(
+            "Run at least one launch-readiness eval through launch-decision.yaml generation and delivery checks."
+        )
     if run_quality.get("with_visual_required_but_missing"):
         actions.append(
             "Run validate_prototype_visual.py or validate_ui_preview.py for UI runs that marked visual validation as required."
@@ -665,6 +806,17 @@ def prioritize_actions(
             + ", ".join(missing_dimensions)
             + "."
         )
+    if "passed_evidence_portfolio" in risk_areas:
+        missing_passed_dimensions = [
+            dimension.replace("passed_", "").replace("_", " ")
+            for dimension, minimum in MIN_PASSED_PORTFOLIO_COVERAGE.items()
+            if len(scenario_portfolio[dimension]) < minimum
+        ]
+        actions.append(
+            "Run and pass additional non-fixture evals that broaden passed-evidence coverage: "
+            + ", ".join(missing_passed_dimensions)
+            + "."
+        )
     actions.append(
         "For every high-severity failure, fix the smallest responsible surface first: contract, skill, workflow, guardrail, tool, then agent role."
     )
@@ -695,6 +847,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- validation term rate: {report['eval_quality']['validation_term_rate']}",
         f"- rubric threshold rate: {report['eval_quality']['rubric_threshold_rate']}",
         f"- failure history rate: {report['eval_quality']['failure_history_rate']}",
+        f"- scenario-set rounds: {report['eval_quality']['scenario_set_rounds']}",
+        f"- evals with artifact expectation matrix: {report['eval_quality']['with_artifact_expectation_matrix']}",
+        f"- evals expecting dev tasks: {report['eval_quality']['expecting_dev_tasks']}",
+        f"- evals expecting launch decision: {report['eval_quality']['expecting_launch_decision']}",
+        f"- passed evals expecting dev tasks: {report['eval_quality']['passed_expecting_dev_tasks']}",
+        f"- passed evals expecting launch decision: {report['eval_quality']['passed_expecting_launch_decision']}",
         "",
         "## Scenario Portfolio",
         "",
@@ -706,8 +864,14 @@ def render_markdown(report: dict[str, Any]) -> str:
         count_line("platforms", portfolio["platforms"]),
         count_line("context modes", portfolio["context_modes"]),
         count_line("edge-case pressures", portfolio["edge_case_pressures"]),
+        count_line("artifact expectations", portfolio["artifact_expectations"]),
         count_line("PM user types", portfolio["pm_user_types"]),
         count_line("risk profiles", portfolio["risk_profiles"]),
+        count_line("passed platforms", portfolio["passed_platforms"]),
+        count_line("passed context modes", portfolio["passed_context_modes"]),
+        count_line("passed edge-case pressures", portfolio["passed_edge_case_pressures"]),
+        count_line("passed PM user types", portfolio["passed_pm_user_types"]),
+        count_line("passed risk profiles", portfolio["passed_risk_profiles"]),
         "",
         "## Runtime Evidence",
         "",
@@ -715,6 +879,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- runs with delivery report: {report['run_quality']['with_delivery_report']}",
         f"- runs with visual evidence: {report['run_quality']['with_visual_evidence']}",
         f"- runs with explicit UI evidence gap: {report['run_quality']['with_explicit_ui_gap']}",
+        f"- runs with dev tasks: {report['run_quality']['with_dev_tasks']}",
+        f"- runs with launch decision: {report['run_quality']['with_launch_decision']}",
+        f"- passed runs with dev tasks: {report['run_quality']['passed_with_dev_tasks']}",
+        f"- passed runs with launch decision: {report['run_quality']['passed_with_launch_decision']}",
         f"- passed delivery reports: {report['run_quality']['passed_delivery']}",
         "",
         "## Capability Coverage",

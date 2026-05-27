@@ -369,6 +369,7 @@ REQUIRED_TEXT_TOKENS = {
         "PM User Type",
         "Risk Profile",
         "Fixture Isolation Terms",
+        "Artifact Expectation Matrix",
         "generalization boundary",
         "PRD status, engineering handoff status, and launch status",
         "Reference or regulated content records source status",

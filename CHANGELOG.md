@@ -6,6 +6,41 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.4.0] - 2026-05-27
+
+Commit: pending
+Backfills pushed commit: `123e787` feat: harden pm copilot self-improvement.
+
+### Added
+
+- Added `skill-cleaner` for local skill hygiene checks and duplicate/packaging review.
+- Added Playwright-based source preview validation through `scripts/validate_ui_preview.py`, `requirements-dev.txt`, and delivery-check integration.
+- Added `scripts/agent_improvement_scorecard.py` and `docs/self-improvement-system.md` for evidence-based PM Copilot self-iteration.
+- Added scenario portfolio metadata, fixture isolation terms, edge-case pressure coverage, and new regression evals for source-backed host previews, regulated health clarification gates, and B2B permission handoff.
+- Added `templates/optimization-cycle-template.yaml` for recording improvement cycles.
+- Added artifact expectation matrices so evals can declare when PRD, UI delivery, tracking, engineering handoff, launch decision, or pre-clarification artifacts are required.
+- Added broad non-fixture regression coverage for prompt-injection/tool-permission admin agents, accessibility-critical checkout recovery, public-sector source currentness, and a ten-scenario universal product-agent stress portfolio.
+- Added a passed non-fixture runtime evidence run for prompt-injection/tool-permission engineering handoff and launch blocking.
+
+### Changed
+
+- Established the generalization boundary: borrowed host projects are fixtures, not PM Copilot product defaults.
+- Hardened repository validation so fixture-specific terms stay out of the universal PM Copilot surface and public regression assets such as `evals/` cannot be hidden by `.gitignore`.
+- Extended scorecard reporting across eval quality, runtime evidence, visual evidence, fixture/non-fixture proof, edge-case pressure, and engineering handoff artifacts.
+- Extended scorecard reporting for scenario-set rounds, passed-evidence portfolio coverage, artifact expectations, and passed handoff/launch-decision runtime evidence.
+- Broadened eval metadata with fixture scope, PM user type, risk profile, rubric thresholds, and failure history.
+- Improved output validation for source-backed UI evidence, backend/API boundary annotations, visual-validation trace shape, and pre-clarification stops.
+- Hardened `dev-tasks.yaml` and `launch-decision.yaml` validation so handoff and release artifacts must contain actionable task fields, blockers, gate evidence, human approvals, and rollback plans.
+- Tightened guardrails and contracts for untrusted input/tool permissions, source currentness for high-stakes claims, accessibility-preserving checkout or consent flows, and non-dark-pattern UI delivery.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Tool preflight passes with `python3 scripts/preflight_tools.py --strict`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py`.
+- Delivery checks pass for the recorded non-fixture and fixture evidence runs, including membership auto-renewal, document-backed checkout, regulated-health pre-clarification, B2B permission handoff, and prompt-injection/tool-permission admin handoff scenarios.
+- Improvement scorecard reports no current risks after 18 eval cases and 6 delivery-checked runtime runs.
+
 ## [2.3.0] - 2026-05-22
 
 Commit: pending

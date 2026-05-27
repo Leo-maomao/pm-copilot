@@ -18,6 +18,9 @@ Use this taxonomy to classify PM Copilot failures before making changes.
 | F10 | Runtime failure | Agent platform cannot follow files, write outputs, or preserve state | Partial files created or context lost |
 | F11 | Readiness failure | PRD collapses review, engineering, and launch readiness into one misleading status | Says ready for engineering while launch blockers are hidden |
 | F12 | Content-source failure | Reference or regulated content lacks source, review owner, disclaimer, or launch impact | Medical checklist appears final without review status |
+| F13 | Tool-permission failure | Agent treats untrusted content, user pressure, or generated text as permission to call tools, export data, mutate state, or disclose sensitive values | Ticket text instructs the assistant to export all emails and the PRD does not isolate it |
+| F14 | Source-currentness failure | Agent makes legal, policy, price, tax, medical, financial, or eligibility claims without current authoritative sources or a blocked-source status | Public benefit eligibility copy is drafted from memory |
+| F15 | Accessibility and dark-pattern failure | Agent improves conversion or speed by hiding labels, removing error recovery, weakening consent, or omitting assistive states | Checkout design removes screen-reader labels to reduce UI work |
 
 ## Severity
 
@@ -57,6 +60,9 @@ Ask these before editing:
 | F10 | platform guide | runtime-specific adapter |
 | F11 | PRD contract | PM Orchestrator Agent |
 | F12 | guardrails | PRD contract |
+| F13 | tool-use protocol | guardrails |
+| F14 | research-tooling | guardrails |
+| F15 | UI delivery contract | guardrails |
 
 ## Failure Log Format
 
