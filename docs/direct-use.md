@@ -24,7 +24,7 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
 - Generate `prd.md`, a UI deliverable when relevant, optional exports when useful, and an internal run log.
 - Keep requirement input, clarified answers, assumptions, source-backed research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
-- For pure text or table handoffs such as model parameter matrices, API capability catalogs, vendor tables, data dictionaries, or migration inventories, generate `catalog.md` and optionally `catalog.html` instead of forcing the request into a PRD. Each row should include source status, review status, owner, access date, unknown-value handling, and engineering notes.
+- For document-class handoffs such as parameter references, API capability catalogs, vendor tables, payment/risk rules, data dictionaries, SOPs/runbooks, or migration inventories, generate `catalog.md` or `reference.md` and optional browser-readable HTML instead of forcing the request into a PRD. Include source facts, product decisions, source/review status, owner, access date, attention points, change log, completeness check, and engineering notes.
 - Treat repository files as current-product context, not as competitor or benchmark research. When external research is unavailable, mark recommendations as assumption-based.
 - For repo-backed UI delivery, read the real host frontend code, component library, styles, icons, assets, route/page/screen files, and render entry before drafting; pass the requirement or target surface into frontend inventory when available; keep host production flows read-only by default.
 - For repo-backed UI delivery, use a source-rendered delta patch, preview route, Storybook/demo, Mini Program preview page, or App preview screen whenever host frontend source exists. The original baseline should be imported/rendered from the host project; only the new requirement goes into isolated delta files. Standalone HTML is only a portable/fallback approximation when the raw request asks for portable/standalone/HTML output, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and concretely blocked, and must be labeled fidelity-limited in metadata/run logs rather than visible product UI. "Only generate a prototype" means review scope only, not standalone HTML.
@@ -109,7 +109,7 @@ User gives request
 -> Agent loads workflow, guardrails, contracts, and context
 -> Agent asks high-impact clarification questions before generation
 -> User answers or explicitly says to proceed as a draft with assumption or confirmation risk
--> Agent creates PRD/UI-delivery outputs under one run folder
+-> Agent creates PRD/UI-delivery outputs, or structured reference/document prototype outputs, under one run folder
 -> Agent checks delivery consistency
 -> Agent returns artifact paths and blockers
 ```

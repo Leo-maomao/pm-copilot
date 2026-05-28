@@ -62,6 +62,8 @@ PROTOTYPE_FILE_NAMES = (
 CATALOG_FILE_NAMES = (
     "catalog.md",
     "catalog.html",
+    "reference.md",
+    "reference.html",
 )
 CATALOG_REQUIRED_COLUMNS = {
     "item_id",
@@ -98,6 +100,16 @@ ALLOWED_CATALOG_REVIEW_STATUSES = {
     "engineering_reviewed",
     "approved",
     "blocked",
+}
+DOCUMENT_ATTENTION_TYPES = {
+    "source_gap",
+    "pm_override",
+    "conflict",
+    "engineering_must_read",
+    "launch_blocker",
+    "cost_or_quota_risk",
+    "security_or_compliance",
+    "change_marker",
 }
 
 CIRCLED_ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
@@ -683,6 +695,17 @@ def generated_catalogs(path: Path) -> list[Path]:
     return [path / name for name in CATALOG_FILE_NAMES if (path / name).is_file()]
 
 
+def is_document_prototype_html(text: str) -> bool:
+    return bool(
+        re.search(
+            r"<meta[^>]+name=[\"']pm-copilot-artifact[\"'][^>]+content=[\"']document_prototype[\"']",
+            text,
+            re.IGNORECASE,
+        )
+        or "data-document-prototype" in text
+    )
+
+
 def check_folder(path: Path) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
@@ -965,7 +988,12 @@ def check_scope_and_surface_trace(path: Path) -> None:
 
 def check_visual_validation_trace(path: Path) -> None:
     run_log = read(path / "run-log.yaml")
-    has_html_prototype = bool(generated_prototypes(path))
+    ui_html_prototypes = [
+        prototype
+        for prototype in generated_prototypes(path)
+        if not is_document_prototype_html(read(prototype))
+    ]
+    has_html_prototype = bool(ui_html_prototypes)
     has_source_rendered_prototype = "isolated_ui_prototype:" in run_log and re.search(
         r"^\s*mode:\s*(source_delta_patch|source_rendered_preview|code_preview_route|storybook_or_demo|mini_program_preview|app_preview_screen)\b",
         run_log,
@@ -994,6 +1022,22 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
     prototypes = generated_prototypes(path)
     run_log = read(path / "run-log.yaml")
     if not prototypes and "isolated_ui_prototype:" not in run_log:
+        return
+
+    document_prototypes = [
+        prototype
+        for prototype in prototypes
+        if is_document_prototype_html(read(prototype))
+    ]
+    ui_prototypes = [
+        prototype
+        for prototype in prototypes
+        if prototype not in document_prototypes
+    ]
+    for prototype in document_prototypes:
+        check_document_prototype_html(prototype)
+
+    if not ui_prototypes and "isolated_ui_prototype:" not in run_log:
         return
 
     if "UI Delivery Agent" not in run_log and "Prototype Agent" not in run_log:
@@ -1052,7 +1096,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
 
         check_repo_backed_style_evidence_quality(run_log)
 
-        for prototype in prototypes:
+        for prototype in ui_prototypes:
             text = read(prototype)
             if "style-source-summary" not in text and "data-style-source" not in text:
                 fail(
@@ -1060,7 +1104,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
                     f"{prototype.name}"
                 )
 
-    for prototype in prototypes:
+    for prototype in ui_prototypes:
         check_annotation_marker_contract(read(prototype), prototype.name, language)
 
 
@@ -1398,6 +1442,8 @@ def check_web_prototype(path: Path, language: str | None = None) -> None:
         return
 
     text = read(prototypes[0])
+    if is_document_prototype_html(text):
+        return
     check_compatibility_html_boundary(text, prototypes[0].name)
     check_annotation_marker_contract(text, prototypes[0].name, language)
     required = [
@@ -1449,26 +1495,33 @@ def check_structured_catalog(path: Path) -> None:
         return
 
     run_log = read(path / "run-log.yaml")
-    if "structured_catalog:" not in run_log:
-        fail("Run log missing structured_catalog section for catalog delivery")
+    run_log_section_name = "structured_reference" if "structured_reference:" in run_log else "structured_catalog"
+    if f"{run_log_section_name}:" not in run_log:
+        fail("Run log missing structured_reference or structured_catalog section for reference delivery")
+    section = extract_yaml_block(run_log, run_log_section_name)
     for marker in ("catalog_type:", "primary_artifact:", "source_status:", "review_status:", "owner:"):
-        if marker not in extract_yaml_block(run_log, "structured_catalog"):
-            fail(f"structured_catalog run-log section missing marker: {marker}")
+        if marker not in section:
+            fail(f"{run_log_section_name} run-log section missing marker: {marker}")
+    if run_log_section_name == "structured_reference":
+        for marker in ("entities:", "fields:", "rules:", "decisions:", "attention_points:"):
+            if marker not in section:
+                fail(f"structured_reference run-log section missing marker: {marker}")
 
-    catalog_md = path / "catalog.md"
-    if catalog_md.exists():
-        check_catalog_markdown(catalog_md)
+    for catalog_md in (path / "catalog.md", path / "reference.md"):
+        if catalog_md.exists():
+            check_catalog_markdown(catalog_md)
 
-    catalog_html = path / "catalog.html"
-    if catalog_html.exists():
-        check_catalog_html(catalog_html)
+    for catalog_html in (path / "catalog.html", path / "reference.html"):
+        if catalog_html.exists():
+            check_catalog_html(catalog_html)
 
 
 def check_catalog_markdown(catalog_path: Path) -> None:
     text = read(catalog_path)
     frontmatter = parse_frontmatter(text)
-    if frontmatter.get("artifact_type") != "structured_catalog":
-        fail("catalog.md frontmatter must set artifact_type: structured_catalog")
+    artifact_type = frontmatter.get("artifact_type")
+    if artifact_type not in {"structured_catalog", "structured_reference"}:
+        fail(f"{catalog_path.name} frontmatter must set artifact_type: structured_catalog or structured_reference")
 
     source_status = frontmatter.get("source_status", "")
     if source_status not in ALLOWED_CATALOG_SOURCE_STATUSES:
@@ -1480,18 +1533,18 @@ def check_catalog_markdown(catalog_path: Path) -> None:
 
     for key in ("catalog_type", "language", "owner", "last_updated"):
         if not frontmatter.get(key):
-            fail(f"catalog.md frontmatter missing non-empty {key}")
+            fail(f"{catalog_path.name} frontmatter missing non-empty {key}")
 
     if not re.search(r"(catalog summary|清单摘要|目录摘要|目录概述|清单概述)", text, re.IGNORECASE):
-        fail("catalog.md missing catalog summary section")
+        fail(f"{catalog_path.name} missing catalog summary section")
     if not re.search(r"(field dictionary|字段字典|字段说明)", text, re.IGNORECASE):
-        fail("catalog.md missing field dictionary section")
+        fail(f"{catalog_path.name} missing field dictionary section")
     if not re.search(r"(source and review|来源.*审核|来源.*评审|source status)", text, re.IGNORECASE | re.DOTALL):
-        fail("catalog.md missing source and review status section")
+        fail(f"{catalog_path.name} missing source and review status section")
     if not re.search(r"(engineering handoff|研发交付|工程交付|工程说明)", text, re.IGNORECASE):
-        fail("catalog.md missing engineering handoff notes section")
+        fail(f"{catalog_path.name} missing engineering handoff notes section")
     if not re.search(r"(validation results|验证结果|校验结果|检查结果)", text, re.IGNORECASE):
-        fail("catalog.md missing validation results section")
+        fail(f"{catalog_path.name} missing validation results section")
 
     header_union = {
         header
@@ -1500,9 +1553,20 @@ def check_catalog_markdown(catalog_path: Path) -> None:
     }
     missing = missing_columns(header_union, CATALOG_REQUIRED_COLUMNS)
     if missing:
-        fail("catalog.md missing required catalog columns: " + ", ".join(missing))
+        fail(f"{catalog_path.name} missing required catalog columns: " + ", ".join(missing))
     if not markdown_table_has_data_for(text, CATALOG_REQUIRED_COLUMNS):
-        fail("catalog.md must contain at least one data row with required catalog columns")
+        fail(f"{catalog_path.name} must contain at least one data row with required catalog columns")
+
+    if artifact_type == "structured_reference" or "attention_points" in text:
+        check_attention_points_text(text, catalog_path.name)
+        for marker in (
+            "source_facts",
+            "product_decisions",
+            "change_log",
+            "completeness_check",
+        ):
+            if marker not in text:
+                fail(f"{catalog_path.name} structured reference missing {marker}")
 
     is_model_catalog = (
         "model" in frontmatter.get("catalog_type", "").lower()
@@ -1512,32 +1576,65 @@ def check_catalog_markdown(catalog_path: Path) -> None:
     if is_model_catalog:
         missing_model = missing_columns(header_union, MODEL_CATALOG_REQUIRED_COLUMNS)
         if missing_model:
-            fail("catalog.md model catalog missing columns: " + ", ".join(missing_model))
+            fail(f"{catalog_path.name} model catalog missing columns: " + ", ".join(missing_model))
 
 
 def check_catalog_html(catalog_path: Path) -> None:
     text = read(catalog_path)
     if "<!doctype html" not in text[:200].lower():
-        fail("catalog.html missing doctype")
+        fail(f"{catalog_path.name} missing doctype")
     if not re.search(
-        r"<meta[^>]+name=[\"']pm-copilot-artifact[\"'][^>]+content=[\"']structured_catalog[\"']",
+        r"<meta[^>]+name=[\"']pm-copilot-artifact[\"'][^>]+content=[\"'](?:structured_catalog|structured_reference)[\"']",
         text,
         re.IGNORECASE,
     ):
-        fail("catalog.html missing structured catalog meta marker")
+        fail(f"{catalog_path.name} missing structured catalog/reference meta marker")
     if "<table" not in text.lower():
-        fail("catalog.html must include at least one table")
+        fail(f"{catalog_path.name} must include at least one table")
     if re.search(r"https?://|cdn\.|unpkg\.com|cdnjs\.", text, re.IGNORECASE):
-        fail("catalog.html must be self-contained and avoid external network references")
+        fail(f"{catalog_path.name} must be self-contained and avoid external network references")
 
     normalized = normalize_table_cell(visible_html_text(text) + " " + text)
     for column in CATALOG_REQUIRED_COLUMNS:
         if column not in normalized:
-            fail(f"catalog.html missing required catalog column token: {column}")
+            fail(f"{catalog_path.name} missing required catalog column token: {column}")
     if "model_id" in normalized or "model" in normalized or "模型" in visible_html_text(text):
         for column in MODEL_CATALOG_REQUIRED_COLUMNS:
             if column not in normalized:
-                fail(f"catalog.html model catalog missing column token: {column}")
+                fail(f"{catalog_path.name} model catalog missing column token: {column}")
+    if "structured_reference" in normalized or "attention_points" in text or "attention-point" in text:
+        check_attention_points_text(text, catalog_path.name)
+
+
+def check_attention_points_text(text: str, artifact_name: str) -> None:
+    normalized = normalize_table_cell(visible_html_text(text) + " " + text)
+    attention_hits = sorted(attention_type for attention_type in DOCUMENT_ATTENTION_TYPES if attention_type in normalized)
+    if not attention_hits:
+        fail(f"{artifact_name} missing structured document attention_points")
+    if not re.search(r"(target_ref|scope|field|rule|entity|字段|规则|对象)", normalized, re.IGNORECASE):
+        fail(f"{artifact_name} attention_points must identify the target object, field, or rule")
+
+
+def check_document_prototype_html(prototype_path: Path) -> None:
+    text = read(prototype_path)
+    if "<!doctype html" not in text[:200].lower():
+        fail(f"{prototype_path.name} missing doctype")
+    if not is_document_prototype_html(text):
+        fail(f"{prototype_path.name} missing document_prototype meta marker")
+    if re.search(r"https?://|cdn\.|unpkg\.com|cdnjs\.", text, re.IGNORECASE):
+        fail(f"{prototype_path.name} must be self-contained and avoid external network references")
+    for marker in ("document-nav", "data-document-section", "attention-point", "data-attention-type"):
+        if marker not in text:
+            fail(f"{prototype_path.name} missing document prototype marker: {marker}")
+    for marker in ("source_status", "review_status"):
+        if marker not in text:
+            fail(f"{prototype_path.name} missing source/review status token: {marker}")
+    if "<table" not in text.lower():
+        fail(f"{prototype_path.name} document prototype must include structured tables")
+    if "annotation-marker" in text and "attention-point" not in text:
+        fail(f"{prototype_path.name} document prototype must use semantic attention points, not only UI annotations")
+    check_attention_points_text(text, prototype_path.name)
+    check_prototype_script_syntax(text, prototype_path.name)
 
 
 def check_handoff_artifacts(path: Path) -> None:

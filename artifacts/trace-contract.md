@@ -73,6 +73,7 @@ existing_ui_visual_baseline:
 design_calibration:
 content_sources:
 structured_catalog:
+structured_reference:
 open_questions:
 artifacts:
 visual_validation:
@@ -126,7 +127,10 @@ next_actions:
 - Record content source and review status when reference, policy, medical, legal, financial, safety, or operational content appears in the scope or UI deliverable.
 - Record review scores when quality review is performed.
 - Review score maximums and thresholds must match `docs/quality-rubric.md`.
-- `review_scores`, `quality_thresholds`, `handoff_artifacts`, `content_sources`, `structured_catalog`, `guardrail_events`, and `security_and_audit` must keep the canonical field names from `templates/agent-run-log-template.yaml` so `validate_outputs.py` can reject ad hoc trace shapes.
+- `review_scores`, `quality_thresholds`, `handoff_artifacts`, `content_sources`, `structured_catalog`, `structured_reference`, `guardrail_events`, and `security_and_audit` must keep the canonical field names from `templates/agent-run-log-template.yaml` so `validate_outputs.py` can reject ad hoc trace shapes.
+- For document-class deliveries, record `structured_reference` with the delivery class, source facts, product decisions, entity/field/rule structure, attention points, calibration mode, object-level change log, and completeness check. Use `structured_catalog` for backward-compatible flat table handoffs and `structured_reference` for broader document reference or document prototype work.
+- Document attention points must use typed values such as `source_gap`, `pm_override`, `conflict`, `engineering_must_read`, `launch_blocker`, `cost_or_quota_risk`, `security_or_compliance`, or `change_marker`, and each must target a concrete document, entity, field, rule, or decision.
+- Multi-turn document calibration must preserve object-level continuity. If one entity, field group, or rule is updated, record the patch scope and protected objects instead of silently rewriting unrelated objects. If the user asks only to adjust presentation, set calibration workflow or patch scope to `presentation_only` and do not change structured content.
 - Every unresolved question must be classified as exactly one of:
   - `must answer before generation`
   - `can draft with stated assumption`

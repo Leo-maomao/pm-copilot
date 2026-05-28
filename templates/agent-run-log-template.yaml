@@ -301,6 +301,79 @@ structured_catalog:
   source_freshness_limitations: []
   blocked_rows: []
 
+structured_reference:
+  delivery_class: "" # structured_reference | document_prototype | mixed_delivery | not_applicable
+  catalog_type: "" # parameter_reference | capability_catalog | rule_reference | data_dictionary | migration_inventory | sop_runbook | vendor_matrix | other | not_applicable
+  primary_artifact: "" # catalog.md or reference.md
+  html_artifact: "" # catalog.html, reference.html, or prototype-<platform>.html with document_prototype meta
+  source_status: "" # source_backed | user_supplied | mixed | draft | blocked | not_applicable
+  review_status: "" # unreviewed | pm_reviewed | engineering_reviewed | approved | blocked | not_applicable
+  owner: ""
+  entities:
+    - entity_id: ""
+      display_name: ""
+      entity_type: "" # model | api | rule | policy | data_object | sop_step | vendor | other
+      source_status: ""
+      review_status: ""
+      owner: ""
+  fields:
+    - field_id: ""
+      entity_id: ""
+      name: ""
+      type: ""
+      required: null
+      default: ""
+      enum: []
+      limits: []
+      children: []
+      conditions: []
+      source_facts: []
+      product_decisions: []
+  rules:
+    - rule_id: ""
+      target_ref: ""
+      condition: ""
+      behavior: ""
+      source: ""
+      review_status: ""
+  decisions:
+    - decision_id: ""
+      target_ref: ""
+      vendor_default: ""
+      product_decision: ""
+      owner: ""
+      rationale: ""
+  attention_points:
+    - attention_id: ""
+      type: "" # source_gap | pm_override | conflict | engineering_must_read | launch_blocker | cost_or_quota_risk | security_or_compliance | change_marker
+      target_ref: ""
+      finding: ""
+      impact: ""
+      owner: ""
+      required_before: "" # review | engineering | launch | none
+      status: "" # open | fixed | accepted | not_applicable
+  calibration:
+    workflow: "" # source_extract_then_product_decision | user_supplied_patch | presentation_only | not_applicable
+    patch_scope: "" # entity | field | rule | global | presentation_only
+    protected_objects: []
+    conflicts_detected: []
+  change_log:
+    - turn: ""
+      object_ref: ""
+      change_type: "" # added | changed | removed | presentation_only
+      summary: ""
+      source: ""
+      owner: ""
+  completeness_check:
+    entity_count: 0
+    field_coverage: []
+    defaults_checked: []
+    enums_checked: []
+    limits_checked: []
+    sources_checked: []
+    pending_confirmations: []
+    conflicts: []
+
 open_questions:
   - id: ""
     question: ""

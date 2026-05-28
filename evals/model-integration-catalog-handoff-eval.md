@@ -22,11 +22,13 @@ We are integrating a batch of new AI models. Please list every model's provider,
 
 ## Expected Workflow
 
-- Classify this as a structured catalog handoff, not a PRD/UI task.
+- Classify this as a structured reference/catalog handoff, not a PRD/UI task.
 - Use `knowledge-ops` and `artifacts/structured-catalog-contract.md`.
+- If HTML is generated for document review, use document prototype semantics and do not require ordinary product UI annotation markers.
 - Ask for source documents or use current official sources before filling fast-changing model facts.
 - Mark unknown parameters, limits, pricing, availability, regions, or deprecation status per row instead of inventing values.
 - Generate `catalog.md` by default and `catalog.html` only when requested or useful.
+- Preserve source facts separately from product decisions when user calibration changes model parameters or defaults.
 - Run delivery checks.
 
 ## Required Artifacts
@@ -51,6 +53,7 @@ We are integrating a batch of new AI models. Please list every model's provider,
 - Every row includes `item_id`, `provider`, `model_id`, `display_name`, `version_or_release`, `input_modalities`, `output_modalities`, `context_window`, `required_parameters`, `optional_parameters`, `rate_limits`, `pricing_source`, `deprecation_status`, `source_status`, `review_status`, `owner`, `access_date`, and `implementation_notes`.
 - Fast-changing values are source-backed or explicitly marked draft/blocked with owner confirmation.
 - HTML, when generated, is self-contained and includes the structured catalog meta marker.
+- Document prototype HTML, when generated instead of a flat catalog HTML, is self-contained, includes `pm-copilot-artifact=document_prototype`, and uses typed attention points for source gaps, overrides, conflicts, engineering must-read notes, blockers, and changes.
 - `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` passes.
 
 ## Rubric Thresholds

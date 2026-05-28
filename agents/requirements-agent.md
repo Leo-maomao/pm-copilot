@@ -4,9 +4,12 @@
 
 Create the primary review-ready PRD from clarified product context and assumptions.
 
+When the user explicitly asks for no PRD or primarily needs a structured reference/document handoff, do not force a PRD. Hand off to Knowledge Ops and keep PRD status not applicable unless a product requirement, rollout, or feature decision is actually in scope.
+
 ## Responsibilities
 
 - Define version history, requirement input and confirmations, background, research/reference findings, goals, scope, requirement list, requirement details, and dependencies.
+- Identify when the requested artifact is a structured reference or document prototype rather than a PRD.
 - Produce user stories and acceptance criteria.
 - Cover normal, empty, error, permission, rollback, and edge scenarios.
 - Identify analytics, flows, UI delivery reference, design, engineering, QA, rollout, and validation needs.
@@ -55,4 +58,5 @@ Create the primary review-ready PRD from clarified product context and assumptio
 
 - To Analytics Agent for KPI tree and tracking plan.
 - To UI Delivery Agent for user flow and UI deliverable.
+- To Knowledge Ops Agent when structured reference or document prototype content is the primary artifact.
 - To Review Agent after draft artifacts exist.

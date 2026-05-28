@@ -6,6 +6,29 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.7.0] - 2026-05-28
+
+### Added
+
+- Added document-class delivery across workflow, agents, skills, contracts, templates, adapters, validation, and evals so structured references and document prototypes do not have to be forced into PRD or product-page UI flows.
+- Added `templates/document-prototype-template.html` for browser-readable reference documents with navigation, structured tables, hierarchy, source/review status, and typed `attention_points`.
+- Added structured reference run-log fields for entities, fields, rules, decisions, source facts, product decisions, calibration, object-level change logs, completeness checks, and document attention points.
+- Added document prototype validation that accepts document-native `attention_points` instead of requiring product UI `annotation-marker` controls.
+
+### Changed
+
+- Extended the structured catalog contract and template into a broader structured reference contract while preserving existing `structured_catalog` compatibility.
+- Updated adapters and prompt/workflow guidance so document-class requests can omit `prd.md` when the user explicitly says no PRD is needed.
+- Delivery check reports now separate optional warnings, such as non-required HTML tidy results, from required failures.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/run_delivery_checks.py scripts/validate_repo.py scripts/validate_prototype_visual.py`.
+- Git whitespace validation passes with `git diff --check`.
+- Temporary document-class delivery validation passes with `python3 scripts/validate_outputs.py /tmp/pmcopilot-doc-test --language en`.
+- Delivery orchestrator smoke validation passes with `python3 scripts/run_delivery_checks.py /tmp/pmcopilot-doc-test --language en --skip-repo --skip-visual --skip-visual-reason document-prototype-smoke-test-no-browser-required`.
+
 ## [2.6.0] - 2026-05-27
 
 Commit: `cc6ecd5` feat: add structured catalog handoff.

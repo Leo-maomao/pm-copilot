@@ -4,7 +4,7 @@
 
 <a id="english"></a>
 
-PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into two practical handoff artifacts: a complete PRD and a source-first annotated UI deliverable.
+PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into practical handoff artifacts: a complete PRD, a source-first annotated UI deliverable, and structured reference documents or document prototypes when the work is knowledge-heavy.
 
 中文简介：PM Copilot 是面向产品经理的开源 AI Agent 工作流套件，支持生成 PRD、需求文档、埋点方案、源码优先的带标注 UI 交付物、研发交接和上线决策材料。
 
@@ -24,6 +24,8 @@ PM Copilot treats English and Chinese as first-class user-facing languages. Gene
 - Requirement list and detailed requirement tables with logic, content, rules, interactions, data, permissions, edge states, tracking links, and acceptance links
 - Goals, metrics, tracking plan, and flow diagrams inside the PRD
 - Annotated UI deliverable for Web, H5, App, or Mini Program scenarios. When frontend source exists, the default is a source-backed preview or delta patch; local HTML is a compatibility artifact only for no-source work, explicit portable HTML requests, explicit redesign/greenfield requests, or concrete source-rendering blockers.
+- Structured reference delivery for document-class requests such as parameter tables, capability matrices, rule references, data dictionaries, SOPs/runbooks, or migration inventories. When the user explicitly says no PRD is needed, PM Copilot should not force one.
+- Document prototype HTML that presents reference content with navigation, tables, hierarchical fields, source/review status, and typed `attention_points` instead of ordinary product-page annotations.
 - `run-log.yaml` as an internal trace when useful, not as the PM-facing deliverable
 - Tool preflight, delivery orchestration, HTML parsing, browser screenshots, and optional visual diff validation for compatibility HTML UI deliverables; missing Playwright/browser tooling should trigger setup before any skipped status is recorded
 - Optional `dev-tasks.yaml` and `launch-decision.yaml` for controlled engineering handoff and release decision support
@@ -174,7 +176,7 @@ Request intake
 -> Requirement clarification
 -> User answer or explicit assumption approval
 -> PRD with goals, research, requirements, metrics, tracking, and flows
--> Multi-platform UI deliverable
+-> Multi-platform UI deliverable, or structured reference / document prototype
 -> Delivery check
 ```
 

@@ -73,6 +73,19 @@ Minimum recommended analytics score: 21 / 28.
 
 Minimum recommended UI delivery score: 24 / 32. The run-log score key may remain `prototype` for backward compatibility.
 
+## Structured Reference And Document Prototype Rubric
+
+| Dimension | 0 | 2 | 4 |
+|---|---|---|---|
+| Delivery fit | Forced into PRD/UI | Mostly document-shaped | Correctly uses structured reference or document prototype without forcing PRD |
+| Structure | Flat prose only | Some tables | Entities, fields, rules, decisions, hierarchy, and conditions are structured |
+| Source and review | Missing | Some source notes | Source status, review status, owner, access date, and freshness limits are explicit |
+| Calibration | Rewrites or loses prior content | Some change tracking | Object-level patches, presentation-only edits, conflicts, and change log are traceable |
+| Attention points | Generic notes | Some useful notes | Typed points target concrete objects/fields/rules and cover source gaps, overrides, risks, blockers, and engineering must-read items |
+| Consistency | Markdown/HTML/run-log diverge | Minor mismatch | Markdown, HTML, and run-log derive from or reconcile the same structured data |
+
+Minimum recommended structured reference score: 18 / 24.
+
 ## Delivery Review Rubric
 
 | Dimension | 0 | 2 | 4 |
@@ -97,6 +110,8 @@ Minimum recommended review score: 15 / 20.
 - Unreviewed reference content looks like final approved guidance.
 - Open questions are not visible in the PRD.
 - Agent generates all artifacts without first clarifying the task.
+- Document-class work is forced into a PRD or ordinary page prototype.
+- Document annotations are generic filler instead of source, decision, conflict, blocker, risk, or engineering attention points.
 
 ## Manual Evaluation Template
 

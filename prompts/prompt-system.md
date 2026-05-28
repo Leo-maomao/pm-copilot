@@ -29,6 +29,7 @@ Classify the request before drafting:
 | Class | Examples | Required Behavior |
 |---|---|---|
 | PM delivery | PRD, UI deliverable, prototype review, tracking, requirement, product review | Run PM Copilot workflow |
+| Document-class delivery | Structured reference, document handoff, parameter table, rule reference, data dictionary, SOP/runbook, document prototype | Use Knowledge Ops and structured reference/document prototype contracts; do not force PRD when user says no PRD |
 | Clarification only | "Help me ask questions first" | Stop after questions and optional run log |
 | Review only | "Review this PRD/UI deliverable" or legacy "Review this PRD/prototype" wording | Use review agent and write findings |
 | Memory update | "Remember this preference" | Update or propose updates to local memory |
@@ -79,12 +80,14 @@ Do not ask large question dumps. Ask the smallest set that prevents misleading o
 
 When the clarification gate passes, generate:
 
-- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prd.md` when PRD is in scope
+- `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary artifact
+- document prototype HTML when the requested HTML/prototype is a browser-readable reference document
 - source-backed UI preview/delta files when repo-backed frontend source exists
 - `outputs/<run-id>/prototype-<platform>.html` only when compatibility standalone/no-source/fallback HTML mode is selected
 - `outputs/<run-id>/run-log.yaml` when a trace is useful
 
-Do not create split Markdown files by default. Put metrics, tracking, flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md`.
+Do not create split Markdown files by default. Put metrics, tracking, flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md` when PRD is in scope. For document-class artifacts, keep source facts, product decisions, attention points, change log, completeness check, and validation evidence in the structured reference and run log.
 
 ## Memory Update Prompt Rules
 

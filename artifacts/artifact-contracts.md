@@ -17,7 +17,7 @@ The default product-manager delivery contains only:
   - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
   - `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode
 
-When the user asks primarily for a structured reference handoff instead of a product requirement, such as a model parameter matrix, API capability catalog, vendor table, data dictionary, or migration inventory, PM Copilot may generate `outputs/<run-id>/catalog.md` as the primary delivery artifact. Generate `outputs/<run-id>/catalog.html` only when the user asks for HTML or a browser-readable table. These files must follow `artifacts/structured-catalog-contract.md`.
+When the user asks primarily for a document-class handoff instead of a product requirement, such as a structured reference, parameter table, model matrix, API capability catalog, vendor table, data dictionary, payment or risk rule reference, SOP/runbook, or migration inventory, PM Copilot may generate `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary delivery artifact. Generate `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` HTML only when the user asks for HTML, browser-readable review, or richer document presentation. These files must follow `artifacts/structured-catalog-contract.md`.
 
 For repo-backed UI work with frontend source, the UI delivery reference should be a source-rendered delta patch, preview route, Storybook story, demo entry, Mini Program preview page, or App preview screen recorded in `run-log.yaml` and referenced from the PRD. In that mode, PM Copilot should import/render the original baseline from host source, change only isolated delta/preview files, and should not hand-recreate the real UI as standalone HTML while claiming product fit. User words such as "prototype", "原型", "demo", or "only generate a prototype" describe review scope, not the artifact method.
 
@@ -34,7 +34,7 @@ When the user asks for engineering handoff, issue planning, unattended task plan
 
 These are controlled handoff artifacts. They must follow `artifacts/dev-task-contract.md` and `artifacts/launch-decision-contract.md`.
 
-The original request, clarified answers, low-risk assumptions, scope decisions, metrics, tracking plan, flow diagrams, risks, and validation results belong in `prd.md`. Structured catalog requests keep reference facts, field dictionary, source status, review status, row-level unknowns, and engineering handoff notes in `catalog.md` instead.
+The original request, clarified answers, low-risk assumptions, scope decisions, metrics, tracking plan, flow diagrams, risks, and validation results belong in `prd.md` when a PRD is in scope. Document-class requests keep source facts, product decisions, field dictionary, source status, review status, attention points, object-level changes, completeness checks, and engineering handoff notes in the structured reference artifact instead. If the user explicitly says no PRD is needed, do not create `prd.md`.
 
 ## Clarification Gate
 
@@ -232,9 +232,33 @@ Minimum quality bar:
 - Unattended launch decisions cannot mark `ready_to_launch` unless explicit human approval evidence is present.
 - Allowed and disallowed next actions are explicit.
 
-## Structured Catalogs
+## Document Prototype
 
-Use `catalog.md` or `catalog.html` for table-first knowledge handoffs: model integration matrices, API capability catalogs, vendor comparison tables, parameter dictionaries, migration inventories, data dictionaries, feature-flag lists, or other structured reference artifacts.
+Use a document prototype when the requested HTML/prototype is a browser-readable document or reference surface rather than a user-facing product page. The artifact may use legacy filenames such as `prototype-web.html` for compatibility, but it must declare:
+
+```html
+<meta name="pm-copilot-artifact" content="document_prototype">
+```
+
+Required elements:
+
+- Self-contained HTML with no external scripts, fonts, stylesheets, images, or CDNs.
+- Document navigation, stable anchors, source/review status, structured tables, hierarchical fields or grouped rules when relevant, and responsive reading behavior.
+- `attention_points` rendered as semantic badges, inline markers, risk summaries, change highlights, or filters. Traditional UI `annotation-marker` controls are optional and should not be used as filler.
+- Attention points must use typed values such as `source_gap`, `pm_override`, `conflict`, `engineering_must_read`, `launch_blocker`, `cost_or_quota_risk`, `security_or_compliance`, or `change_marker`, and must target a concrete object, field, rule, or decision.
+- Markdown, HTML, and run-log summaries must come from the same structured reference data or be checked for consistency before delivery.
+- Presentation-only edits must not change structured source facts, product decisions, enums, defaults, limits, or rules.
+
+Minimum quality bar:
+
+- Reviewers can navigate the document quickly and see what is confirmed, uncertain, changed, blocked, or important for engineering.
+- Generic notes that do not change reviewer behavior are not counted as valid attention points.
+- Object-level patching preserves unrelated entities across multi-turn calibration.
+- Document prototype validation should check document semantics, source/review state, attention points, and script parsing; it should not require product UI annotation controls.
+
+## Structured References
+
+Use `catalog.md`, `reference.md`, `catalog.html`, `reference.html`, or document prototype HTML for document-class knowledge handoffs: model integration matrices, API capability catalogs, vendor comparison tables, parameter dictionaries, migration inventories, data dictionaries, feature-flag lists, payment/risk rules, SOPs/runbooks, or other structured reference artifacts.
 
 Minimum quality bar:
 
@@ -243,6 +267,9 @@ Minimum quality bar:
 - Model catalogs include provider, model ID, version/release, modalities, context window, required/optional parameters, rate limits, pricing source, and deprecation status.
 - Fast-changing facts are source-backed or explicitly marked draft/blocked.
 - HTML catalogs are self-contained and do not load external scripts, fonts, stylesheets, images, or CDNs.
+- Structured references distinguish extracted `source_facts` from final `product_decisions`.
+- Document attention points are typed, useful, and target concrete objects, fields, rules, or decisions.
+- Multi-turn calibration is object-level and records `change_log`, conflicts, protected objects, and presentation-only edits.
 
 ## Optional Exports
 

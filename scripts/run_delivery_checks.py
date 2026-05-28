@@ -349,6 +349,10 @@ def main() -> None:
         result for result in results
         if result.get("required") and result.get("status") == "skipped"
     ]
+    optional_warnings = [
+        result for result in results
+        if not result.get("required") and result.get("status") in {"failed", "skipped"}
+    ]
     status = "failed" if required_failures else "passed"
     status_detail = "passed_with_required_skips" if status == "passed" and required_skips else status
     report = {
@@ -360,6 +364,7 @@ def main() -> None:
         "results": results,
         "required_failures": required_failures,
         "required_skips": required_skips,
+        "optional_warnings": optional_warnings,
     }
 
     path = report_path(output_folder, args.report)

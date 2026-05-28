@@ -1,6 +1,6 @@
 ---
-artifact_type: structured_catalog
-catalog_type: "<model_integration_matrix | api_capability_catalog | vendor_matrix | data_dictionary | other>"
+artifact_type: structured_catalog # use structured_reference for broader document-reference handoffs
+catalog_type: "<parameter_reference | model_integration_matrix | api_capability_catalog | vendor_matrix | data_dictionary | rule_reference | sop_runbook | migration_inventory | other>"
 language: "<zh | en>"
 source_status: "<source_backed | user_supplied | mixed | draft | blocked>"
 review_status: "<unreviewed | pm_reviewed | engineering_reviewed | approved | blocked>"
@@ -26,6 +26,22 @@ last_updated: "<YYYY-MM-DD>"
 |---|---|---|---|---|---|---|---|
 | S1 | <official_docs / user_supplied / repo_file / unknown> | <URL or document path> | <YYYY-MM-DD> | <owner> | <owner> | <status> | <what may change> |
 
+## <localized structured source facts>
+
+Use this section for document-reference handoffs before final PM/product decisions are applied.
+
+| `entity_id` | `target_ref` | Source Fact | Source | Confidence | Extracted At | Notes |
+|---|---|---|---|---|---|---|
+| <entity_1> | <entity_1.field> | <fact from source> | <S1> | <high / medium / low> | <YYYY-MM-DD> | <source limitation> |
+
+## <localized product decisions>
+
+Use this section to distinguish final product decisions from source/vendor defaults.
+
+| `decision_id` | `target_ref` | Source Default | Product Decision | Owner | Review Status | Rationale |
+|---|---|---|---|---|---|---|
+| D1 | <entity_1.field> | <vendor/default value> | <final value used by product> | <owner> | <status> | <why this override or decision exists> |
+
 ## <localized field dictionary>
 
 | Field Name | Type | Required | Allowed Values | Source | Implementation Meaning |
@@ -44,6 +60,14 @@ last_updated: "<YYYY-MM-DD>"
 |---|---|---|---|---|---|---|
 | <item_1> | <name> | <status> | <status> | <owner> | <YYYY-MM-DD> | <implementation note> |
 
+## <localized structured fields and rules>
+
+Use this section when the reference contains hierarchical fields, conditional rules, enums, defaults, or limits.
+
+| `item_id` | `display_name` | `field_id` | `name` | `type` | Required | Default | Enum | Limits | Children | Conditions | Source | Product Decision | `source_status` | `review_status` | `owner` | `access_date` | `implementation_notes` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| <item_1> | <name> | <field_1> | <field name> | <type> | <yes/no/conditional> | <default> | <values> | <limits> | <child refs> | <condition refs> | <S1> | <decision ref> | <status> | <status> | <owner> | <YYYY-MM-DD> | <note> |
+
 ## <localized model integration table>
 
 Use this section only for model/provider catalogs.
@@ -58,6 +82,31 @@ Use this section only for model/provider catalogs.
 |---|---|---|---|
 | Integration scope | <decision or gap> | <owner> | <review / engineering / launch> |
 | Validation | <test or check expectation> | <owner> | <engineering> |
+
+## <localized attention_points>
+
+| `attention_id` | Type | `target_ref` | Finding | Impact | Owner | Required Before | Status |
+|---|---|---|---|---|---|---|---|
+| A1 | `source_gap` | <entity_1.field> | <missing or stale source> | <review or engineering impact> | <owner> | <review / engineering / launch> | <open / fixed / accepted> |
+| A2 | `pm_override` | <entity_1.field> | <product decision overrides source default> | <implementation impact> | <owner> | <engineering> | <open / fixed / accepted> |
+| A3 | `engineering_must_read` | <entity_1.rule> | <implementation-critical rule> | <handoff impact> | <owner> | <engineering> | <open / fixed / accepted> |
+
+Supported types: `source_gap`, `pm_override`, `conflict`, `engineering_must_read`, `launch_blocker`, `cost_or_quota_risk`, `security_or_compliance`, `change_marker`.
+
+## <localized change_log>
+
+| Turn Or Version | Object | Change Type | Summary | Source | Owner |
+|---|---|---|---|---|---|
+| <turn> | <entity_id / field_id> | <added / changed / removed / presentation_only> | <change summary> | <user / source / agent> | <owner> |
+
+## <localized completeness_check>
+
+| Check | Status | Covered Items | Missing Or Conflicting Items | Owner |
+|---|---|---|---|---|
+| Entity count | <passed / needs_review> | <count/list> | <gaps> | <owner> |
+| Field coverage | <passed / needs_review> | <fields> | <gaps> | <owner> |
+| Defaults/enums/limits | <passed / needs_review> | <items> | <gaps> | <owner> |
+| Sources and review | <passed / needs_review> | <sources> | <gaps> | <owner> |
 
 ## <localized validation results>
 

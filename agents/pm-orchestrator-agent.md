@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PRD and UI delivery.
+Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PRD, structured reference, document prototype, and UI delivery.
 
 ## Responsibilities
 
@@ -12,7 +12,9 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PR
 - Route to Integration Governance Agent before relying on external MCP servers, SaaS APIs, automation connectors, analytics tools, CRM tools, workspace tools, or paid design-generation services.
 - Load relevant current product context before drafting product artifacts. This may be host repository context, historical product documents, or direct user-provided context.
 - Decide which specialist agents and skills are required.
+- Classify the delivery as `product_requirement`, `structured_reference`, `document_prototype`, or `mixed_delivery` before generation.
 - For UI deliveries, require UI Delivery Agent (`agents/prototype-agent.md`, legacy name) plus `skills/multi-platform-prototype/SKILL.md`; do not accept a UI-delivery-stage handoff with `skills_used: []`.
+- For document-class deliveries, require Knowledge Ops plus the structured reference contract; require UI Delivery Agent only when an HTML document prototype or product UI is in scope.
 - Keep the workflow state current and record each state transition with owner, entry evidence, exit evidence, and blocker status.
 - Route outputs between agents.
 - Resolve or escalate contradictions between agent outputs before final delivery.
@@ -43,6 +45,8 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PR
 - Agent transition log with status and artifact deltas
 - Run id and artifact paths
 - `prd.md`
+- `catalog.md` or `reference.md` when the primary delivery is a structured reference
+- Document prototype HTML when the requested prototype is a browser-readable reference document
 - UI deliverable reference: source-backed preview/delta files by default when frontend source exists, or `prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode
 - `dev-tasks.yaml` when development handoff is requested
 - `launch-decision.yaml` when release readiness or launch decision support is requested
@@ -51,6 +55,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PR
 ## Completion Criteria
 
 - All required artifacts exist and match their contracts.
+- If the user explicitly said no PRD is needed, the structured reference or document prototype is treated as the primary delivery and `prd.md` is not required.
 - Every specialist handoff uses a valid status and names artifact or validation deltas.
 - Workflow states are not skipped without a concrete skip reason and downstream impact.
 - Review Agent has completed the readiness check.
@@ -68,6 +73,7 @@ Own the end-to-end PM Copilot workflow from ambiguous request to review-ready PR
 - To Research Agent when market, competitor, benchmark, or external source context is needed.
 - To Integration Governance Agent when external tools, paid APIs, OAuth integrations, production data, automation connectors, or write-capable actions are requested or materially useful.
 - To Requirements Agent after scope and assumptions are stable enough.
+- To Knowledge Ops Agent when the delivery is a structured reference, document handoff, or document prototype.
 - To Analytics Agent after product goals and user actions are identified.
 - To UI Delivery Agent (`agents/prototype-agent.md`) after core user flow and platform type are known.
 - To Review Agent after draft artifacts are generated.

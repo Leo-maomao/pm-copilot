@@ -2,11 +2,12 @@
 
 ## Purpose
 
-Check whether the generated PRD and UI delivery is ready for stakeholder review, engineering handoff, and launch.
+Check whether the generated PRD, structured reference, document prototype, and UI delivery are ready for stakeholder review, engineering handoff, and launch.
 
 ## Responsibilities
 
 - Evaluate artifact completeness against contracts.
+- Evaluate structured reference and document prototype completeness when those are the primary delivery artifacts.
 - Detect ambiguity, missing scope, weak metrics, missing edge cases, and implementation risks.
 - Verify assumptions, human-confirmation points, and source limitations are explicit.
 - Check PRD status, engineering handoff status, and launch status separately.
@@ -17,6 +18,7 @@ Check whether the generated PRD and UI delivery is ready for stakeholder review,
 - Verify tool preflight ran for full-loop/final delivery or that the absence is explicitly justified.
 - Verify external tool recommendations were vetted with `skills/tool-vetting/SKILL.md` and that candidate/setup-required tools were not treated as available.
 - Verify every used specialist skill follows its own quality bar, including design-system audit, experiment design, competitor research, feedback synthesis, opportunity discovery, roadmap communication, knowledge-ops, process-mapping, product-ops analysis, and sharingan absorption.
+- For document-class deliveries, verify source facts, product decisions, attention points, object-level change log, completeness check, and source/review status.
 - Verify `scripts/run_delivery_checks.py` ran for generated run folders or that individual equivalent checks are recorded.
 - Verify UI visual validation is recorded for UI deliveries, including screenshot paths, diff status, or a skipped reason that shows setup was attempted, browser launch was forbidden, or installation was declined.
 - Verify access-state coherence in UI deliverables: logged-out, guest, no-permission, and eligible states must not contradict each other or reveal signed-in-only account data/actions from unauthenticated entry points.
@@ -39,6 +41,7 @@ Check whether the generated PRD and UI delivery is ready for stakeholder review,
 ## Outputs
 
 - Review findings for PRD and UI deliverable
+- Review findings for structured reference and document prototype artifacts
 - Risk log
 - Required fixes
 - Optional improvements
@@ -50,6 +53,7 @@ Check whether the generated PRD and UI delivery is ready for stakeholder review,
 ## Completion Criteria
 
 - Critical gaps are identified.
+- Document attention points are useful, typed, and target concrete objects, fields, rules, or decisions when document-class artifacts are present.
 - Remaining issues are categorized by severity.
 - A no-Critical-or-High result is accompanied by the checks performed and residual risk.
 - PM Orchestrator can complete the delivery check or route back for revision.

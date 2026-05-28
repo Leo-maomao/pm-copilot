@@ -4,6 +4,8 @@ UI deliverables are annotated artifacts used for product review, UI reference, a
 
 Legacy file and script names still use "prototype" for compatibility (`prototype-<platform>.html`, `validate_prototype_visual.py`, `isolated_ui_prototype`). Treat that word as a legacy container name, not permission to hand-write a fake UI.
 
+Document prototypes are a separate HTML artifact mode for browser-readable document/reference review. They are not product-page UI deliverables and should declare `<meta name="pm-copilot-artifact" content="document_prototype">`. They use document attention points, source/review status, structured tables, and change/risk markers instead of required product UI `annotation-marker` controls.
+
 If a current demo, screenshot, route, component, design system, or frontend source exists, the UI deliverable must extend that existing surface. It should show what changes, what stays the same, and where the new requirement fits. Do not create a new product shell unless the raw request explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI or no current surface exists.
 
 Visual style fit is part of the contract, not a polish step. When current UI evidence exists, match the existing navigation structure, platform chrome, tab bar, typography scale, spacing rhythm, color tokens, icon style, card density, border radius, shadows, and copy tone before adding the new requirement. Record the style sources used and the intended delta. If no style source is available and the user expects a product-specific UI deliverable, ask for a screenshot, demo, route, or design reference before creating a mid- or high-fidelity artifact.
@@ -104,6 +106,8 @@ Include annotations for:
 - Permission, privacy, payment, compliance, or operational notes.
 - Engineering handoff notes and known assumptions.
 
+For document prototypes, use `attention_points` instead of product UI annotations. Valid attention types include `source_gap`, `pm_override`, `conflict`, `engineering_must_read`, `launch_blocker`, `cost_or_quota_risk`, `security_or_compliance`, and `change_marker`. Each attention point must target a concrete document section, entity, field, rule, or decision. Generic explanatory notes do not satisfy the document prototype quality bar.
+
 Annotation rules:
 
 - The default annotation layout keeps the product UI full-width and uses marker-triggered local popovers beside the relevant marker. Do not add a full-screen/global marker modal unless the user explicitly asks for that annotation style.
@@ -120,6 +124,8 @@ Annotation rules:
 ## Output Rule
 
 Generate a single self-contained `.html` file only when standalone HTML is the selected artifact mode. When repo-backed fidelity requires source rendering, generate the isolated preview route/story/demo/page/screen delta files instead and record them in `isolated_ui_prototype.preview_files_changed`.
+
+For document-class requests, generate a document prototype only when the requested HTML is a document/reference surface. Use `templates/document-prototype-template.html` as the base shape and record `structured_reference.delivery_class: document_prototype` in the run log. Do not force UI annotation controls onto document prototypes.
 
 Standalone HTML must record that it is a compatibility review artifact through metadata, comments, run-log fields, or PRD notes, but it should not add visible "example/demo/not production" copy to the product surface. It should be structured and styled to a standard that UI and engineering can use directly as reference.
 

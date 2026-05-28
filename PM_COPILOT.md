@@ -2,7 +2,7 @@
 
 This is the canonical cross-platform entry for PM Copilot.
 
-Use this file when an agent needs to run product manager work such as PRD, tracking plan, product requirements, UI delivery, prototype review, competitor research, metrics, review, or PRD/UI-delivery generation.
+Use this file when an agent needs to run product manager work such as PRD, tracking plan, product requirements, UI delivery, prototype review, structured reference documents, document prototypes, competitor research, metrics, review, or PRD/UI-delivery generation.
 
 ## Context Source Rule
 
@@ -29,6 +29,7 @@ Activate PM Copilot when the user asks for work involving:
 - tracking plan or analytics events
 - A/B test, experiment, beta rollout, fake-door test, or decision-metric design
 - UI deliverable, prototype, or wireframe
+- structured reference, document handoff, knowledge base, parameter table, rule reference, SOP/runbook, data dictionary, migration inventory, or browser-readable document prototype
 - user flow
 - competitor research
 - competitive teardown, battlecard, pricing comparison, or positioning analysis
@@ -81,10 +82,11 @@ The user should not need to manually copy templates or create folders. Do that f
    - `artifacts/prototype-contract.md`
    - `tools/prototype-tooling.md`
 
-   When the request is a table-first structured reference handoff, such as a model parameter matrix, API capability catalog, vendor matrix, data dictionary, or migration inventory, also load:
+   When the request is a document-class handoff, such as a structured reference, parameter table, API capability catalog, vendor matrix, data dictionary, migration inventory, payment/risk rule reference, SOP/runbook, or browser-readable document prototype, also load:
    - `skills/knowledge-ops/SKILL.md`
    - `artifacts/structured-catalog-contract.md`
    - `templates/structured-catalog-template.md`
+   - `templates/document-prototype-template.html` when HTML or browser-readable document review is requested
 
    When the request mentions external tools, MCP servers, SaaS APIs, workspace connectors, analytics platforms, databases, CRM/support systems, advertising platforms, automation tools, paid design-generation services, or operational data analysis, also load:
    - `agents/integration-governance-agent.md`
@@ -185,9 +187,9 @@ The user should not need to manually copy templates or create folders. Do that f
    - Record source title, URL, access date when available, observed fact, implication, and confidence in `run-log.yaml`.
 
 8. After the clarification gate passes, create or update the product-manager delivery artifacts:
-   - `outputs/<run-id>/prd.md`
-   - `outputs/<run-id>/catalog.md` when the request is primarily a structured reference/table handoff such as a model parameter matrix, API capability catalog, vendor matrix, data dictionary, or migration inventory
-   - `outputs/<run-id>/catalog.html` only when the user asks for HTML or a browser-readable structured table
+   - `outputs/<run-id>/prd.md` when the user asks for a product requirement, rollout, product decision, or feature change PRD
+   - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when the request is primarily a structured reference/document handoff such as a parameter table, capability catalog, rule reference, data dictionary, SOP/runbook, or migration inventory
+   - `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` HTML only when the user asks for HTML, a browser-readable structured document, or a richer document review view
    - UI deliverable reference:
      - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
      - `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode
@@ -196,8 +198,9 @@ The user should not need to manually copy templates or create folders. Do that f
      - `outputs/<run-id>/tracking-plan.csv`
      - `outputs/<run-id>/user-flow.mmd`
    - Do not create `pm-package.md`, `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
-   - Avoid split Markdown handoff files unless the user explicitly asks for them or the request is a table-first structured catalog handoff.
-   - For structured catalog handoffs, follow `artifacts/structured-catalog-contract.md`: include row-level source status, review status, access date, owner, field dictionary, required/optional parameters when relevant, and engineering handoff notes.
+   - Avoid split Markdown handoff files unless the user explicitly asks for them or the request is a structured reference/document handoff.
+   - For structured reference handoffs, follow `artifacts/structured-catalog-contract.md`: include source/review status, access date, owner, field dictionary, entity/field/rule structure when relevant, source facts, product decisions, attention points, change log, completeness check, and engineering handoff notes.
+   - If the user explicitly says no PRD is needed, do not generate `prd.md`; record the PRD omission as not applicable in `run-log.yaml` and make the structured reference or document prototype the primary delivery.
    - Keep confirmed MVP scope, optional scope, and future scope separate. Do not place an unconfirmed optional capability in MVP requirements or acceptance criteria.
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the UI deliverable, PRD, and engineering handoff agree.
    - Each specialist step must follow `agents/agent-interface.md`: record status, confidence, artifact delta, validation delta, risks, and next expected output. PM Orchestrator owns final readiness labels and resolves contradictions before delivery.
@@ -220,6 +223,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - In repo-backed UI-delivery work, keep host production flows read-only by default, but treat a user request for exact online/source-code UI parity, or the mere availability of a renderable host frontend, as approval to create an isolated source-rendered preview route, Storybook story, demo entry, or preview-only screen. Read real frontend code, assets, data shapes, state rules, and screenshots, then choose the lowest-risk artifact mode that preserves the current UI.
    - Before drafting any repo-backed UI, build `host_frontend_inventory`: platform source kind, frontend entry files, route/page/screen files, component-library files, style token/global style files, icon/asset sources, data/mock sources, render command, and preview surface. When available, pass the user requirement or target surface as the inventory query so relevant files are ranked ahead of unrelated routes. Cover Web/H5, Mini Program/Taro/uni-app, React Native/Flutter/native App, and other host frontend stacks with their native page/component/style files. If the frontend source or render entry cannot be found and the user expects real-product UI, stop and ask for the host app path or runnable preview instead of inventing a shell.
    - Choose the UI artifact mode before drafting: use `source_delta_patch` as the default for any renderable repo-backed frontend, where the baseline is imported/rendered from original host source and only the new requirement is added in preview-only delta files. Use `code_preview_route` for Web/H5 routes, `storybook_or_demo` for component demos, `mini_program_preview` for Mini Program/Taro/uni-app pages, or `app_preview_screen` for React Native/Flutter/native App screens when those platform containers are a better fit. Use `self_contained_html_from_host_code` only when the user's raw request explicitly asks for a portable/standalone/HTML artifact, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or after source rendering is attempted and blocked by a concrete command, browser, simulator, dependency, or preview-surface failure. "Only generate a prototype" means review scope only; it does not authorize standalone HTML or greenfield UI. Production files being read-only is not a blocking reason because isolated preview files are allowed. In fallback mode, capture an existing UI screenshot baseline when possible, mark the parity claim as fidelity-limited, and do not call it exact. In source-rendered modes, add only isolated preview route/story/demo/page/screen files and record changed files in `isolated_ui_prototype`; do not touch production flows unless explicitly requested.
+   - For document-class HTML, use `document_prototype` mode instead of a normal product-page UI prototype. A document prototype should render a structured reference as a readable review surface with navigation, sections, tables, hierarchical fields, source/review state, attention points, change log, and completeness check. It does not need product UI `annotation-marker` controls unless the artifact also represents a user-facing product UI.
    - Structure repo-backed UI deliverables as two layers: `baseline_import` imports or renders the original product page/screen/components/styles/assets from host source without rewriting them; `delta_patch` contains only the new feature, mock state, wrapper/story/page/screen composition, markers, explanation dialogs, backend simulation notes, and tracking/edge-case annotations. Multi-turn conversations must continue from the same `delta_patch.next_delta_anchor` and append to `multi_turn_change_log`, not reconstruct the baseline.
    - A source-backed preview may require a local dev URL, but the handoff is incomplete if it gives only a localhost address. Always record the preview command, preview route/screen, and changed preview/delta files. If the user explicitly asks for a direct HTML file and source-level parity is not required or is allowed to be limited, generate `prototype-<platform>.html`; otherwise explain that exact UI parity is source-rendered and provide the runnable source-backed entry.
    - The baseline layer should not be redesigned or filled with UI-delivery-only explanatory copy. Delta markers and annotation controls must not resize, crop, recolor, or cover critical unchanged UI.
@@ -235,6 +239,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - If the existing frontend style source cannot be inspected and the user expects a product-specific UI deliverable, ask for the missing screenshot/demo/component reference or mark the UI Delivery Agent output `degraded`; do not mark the UI deliverable `complete`.
    - Use visible numbered annotation markers on the UI element being explained. The default UI marker is a small red circular badge using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`; markers and the matching number badges inside marker dialogs and the right-side page annotation panel must share the same red background, white text, no border line, rendered diameter, font size, font weight, line height, and centered digit alignment. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. Number badges should reuse one shared badge style or CSS variables and must not inherit larger heading or list typography. Place markers at a safe top-right position that is not clipped by overflow and does not force component text to wrap. Marker visual style must not change after click. Clicking a marker opens a small local `annotation-dialog` popover beside that marker, clicking the same marker again closes it, and marker clicks must not open a full-screen/global modal.
    - Use a short draggable annotation floating control with only the label `注释` in Chinese outputs or `Notes` in English outputs. Clicking it hides the floating control and slides in a right-edge full-height `annotation-list` panel for the current page/state; closing the panel restores the floating control. The panel must not shrink, reflow, or cover the product surface by reserving layout space.
+   - For document prototypes, replace UI annotations with `attention_points`. These must identify meaningful document risks or decisions such as `source_gap`, `pm_override`, `conflict`, `engineering_must_read`, `launch_blocker`, `cost_or_quota_risk`, `security_or_compliance`, or `change_marker`, each with a concrete `target_ref`. Do not add generic notes just to satisfy an annotation count.
    - Do not use a row of reviewer state tabs as the main UI. Required states must be reached through realistic product controls, form submissions, permissions, retry actions, or loaded data. If a reviewer-only page/state switcher is still useful, make it a secondary fixed/collapsed control marked `data-reviewer-only="true"` outside the product layout; it must not replace real interactions or look like product navigation.
    - Before delivery, verify standalone UI HTML JavaScript parses when HTML is generated, all primary buttons visibly change real product state, annotation markers open dialogs, the annotation toggle opens and closes the right-side current-state list panel, every marker dialog and page annotation panel number badge uses matching plain digit text plus the same rendered size, font sizing, and centered alignment as the UI marker, reviewer-only state switches stay fixed/collapsed if present, and compact labels such as tabs or segmented controls do not fold because of annotation placement.
    - Keep access states coherent. Logged-out, guest, or no-permission controls must not reveal signed-in-only account data, user IDs, account-management links, sync actions, logout actions, or privileged navigation when clicked.
@@ -246,7 +251,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict` when source-backed research is required.
    - `python3 scripts/validate_repo.py`
    - `python3 scripts/validate_outputs.py outputs/<run-id> --language zh` for Chinese generated runs, or `--language en` for English runs, when `prd.md` or UI deliverable artifacts exist.
-   - The same output validation command applies when `catalog.md` or `catalog.html` exists.
+   - The same output validation command applies when `catalog.md`, `reference.md`, `catalog.html`, `reference.html`, or document prototype HTML exists.
    - `python3 scripts/validate_outputs.py outputs/<run-id> --pre-clarification` when a run intentionally stops before generation with only `run-log.yaml`.
    - `python3 scripts/validate_prototype_visual.py outputs/<run-id>` for compatibility standalone HTML browser screenshot and visual diff validation. Without `--prototype`, the command validates every supported compatibility HTML file in the run folder. For source-backed UI preview files, run the host dev/preview/Storybook/simulator path, then run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` when a browser URL or file target is available; otherwise record equivalent simulator evidence under `visual_validation`.
    - `python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh` or `--language en` before final delivery or iteration scoring.

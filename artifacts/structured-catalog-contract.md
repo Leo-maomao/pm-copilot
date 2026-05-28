@@ -1,16 +1,16 @@
-# Structured Catalog Contract
+# Structured Reference Contract
 
-Use this contract when the requested deliverable is primarily a structured text or table artifact rather than a product requirement or UI flow. Typical examples include model integration matrices, API capability catalogs, vendor comparison tables, parameter dictionaries, migration inventories, data dictionaries, feature flags, and engineering reference lists.
+Use this contract when the requested deliverable is primarily a structured document, reference, or table artifact rather than a product requirement or user-facing product flow. Typical examples include model integration matrices, API capability catalogs, vendor comparison tables, parameter dictionaries, migration inventories, data dictionaries, feature flags, payment rules, risk rules, SOPs, runbooks, and engineering reference lists.
 
-The default file is `outputs/<run-id>/catalog.md`. Generate `outputs/<run-id>/catalog.html` only when the user asks for an HTML handoff, a browser-readable review artifact, or a richer table view.
+The default file remains `outputs/<run-id>/catalog.md` for backward compatibility. `outputs/<run-id>/reference.md` is also valid when the run is a broader document-reference handoff. Generate `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` compatibility HTML only when the user asks for HTML, a browser-readable review artifact, or a richer document review view.
 
 ## Required Metadata
 
-`catalog.md` must start with YAML frontmatter:
+Markdown reference files must start with YAML frontmatter:
 
 ```yaml
 ---
-artifact_type: structured_catalog
+artifact_type: structured_catalog # or structured_reference
 catalog_type: ""
 language: ""
 source_status: "" # source_backed | user_supplied | mixed | draft | blocked
@@ -20,10 +20,16 @@ last_updated: ""
 ---
 ```
 
-`catalog.html` must include:
+HTML reference files must include:
 
 ```html
 <meta name="pm-copilot-artifact" content="structured_catalog">
+```
+
+Document prototype HTML must instead include:
+
+```html
+<meta name="pm-copilot-artifact" content="document_prototype">
 ```
 
 ## Required Sections
@@ -36,6 +42,14 @@ last_updated: ""
 - Catalog table: one row per item and stable IDs.
 - Engineering handoff notes: integration implications, blockers, required decisions, validation or test expectations, and version/deprecation notes.
 - Validation results: exact command results or explicit not-run reason.
+
+For `structured_reference` or document prototype runs, also include:
+
+- Structured source facts: extracted facts before PM decisions, with source and confidence.
+- Product decisions: final PM/product-approved position, including overrides of source defaults.
+- Attention points: document-specific points reviewers must notice.
+- Change log: object-level changes across multi-turn calibration.
+- Completeness check: object count, field coverage, defaults, enums, limits, sources, pending confirmations, and conflicts.
 
 ## Required Catalog Columns
 
@@ -63,6 +77,72 @@ For model-integration catalogs, also include:
 - `pricing_source`
 - `deprecation_status`
 
+## Structured Reference Schema
+
+When a request is broader than a flat table, maintain one structured source of truth before rendering Markdown or HTML. The run log or working reference may use this shape:
+
+```yaml
+structured_reference:
+  catalog_type: "" # parameter_reference | capability_catalog | rule_reference | data_dictionary | migration_inventory | sop_runbook | vendor_matrix | other
+  primary_artifact: ""
+  html_artifact: ""
+  source_status: ""
+  review_status: ""
+  owner: ""
+  entities:
+    - entity_id: ""
+      display_name: ""
+      entity_type: "" # model | api | rule | policy | data_object | sop_step | vendor | other
+      source_status: ""
+      review_status: ""
+      owner: ""
+      fields:
+        - field_id: ""
+          name: ""
+          type: ""
+          required: null
+          default: ""
+          enum: []
+          limits: []
+          children: []
+          conditions: []
+          source_facts: []
+          product_decisions: []
+          attention_points: []
+  rules: []
+  decisions: []
+  attention_points: []
+  change_log: []
+  completeness_check:
+    entity_count: 0
+    fields_checked: []
+    defaults_checked: []
+    enums_checked: []
+    limits_checked: []
+    sources_checked: []
+    pending_confirmations: []
+    conflicts: []
+```
+
+Use object-level patching for multi-turn calibration. If a user updates one entity, only that entity's fields, rules, decisions, attention points, and change log entries should change unless the user explicitly asks for a global rewrite.
+
+Use presentation-only mode when the user asks to change layout, HTML styling, expansion, ordering, or readability without changing content. In that mode, the structured reference data must not change.
+
+## Attention Points
+
+Document artifacts should not copy UI annotation behavior blindly. Traditional UI annotations explain product logic and interaction. Document attention points explain information quality, decisions, and delivery risk. Supported attention types are:
+
+- `source_gap`: missing, stale, unofficial, or unverifiable source.
+- `pm_override`: product decision overrides vendor/source/default behavior.
+- `conflict`: source, user, or previous-round statements conflict.
+- `engineering_must_read`: implementation-critical parameter, compatibility, or integration note.
+- `launch_blocker`: confirmation required before release.
+- `cost_or_quota_risk`: pricing, quota, rate-limit, or operational cost risk.
+- `security_or_compliance`: permission, privacy, safety, or compliance risk.
+- `change_marker`: key addition, deletion, or modification in the current turn.
+
+Each attention point must include a `target_ref` that points to a document, entity, field, rule, or decision. Do not add generic notes that cannot change a reviewer or engineer's behavior.
+
 ## Rules
 
 - Do not invent parameters, limits, pricing, region support, availability, or deprecation status.
@@ -70,7 +150,10 @@ For model-integration catalogs, also include:
 - Preserve uncertainty per row. Do not hide unknown values behind blank cells; use `Unknown`, `Not supplied`, `Not applicable`, or `Needs owner confirmation`.
 - Separate model/provider facts from PM Copilot recommendations. The catalog can include implementation notes, but it must not imply legal, privacy, security, cost, or launch approval.
 - Parameter names, event names, model IDs, API fields, and enum values should stay ASCII and copy-paste-safe.
-- HTML catalogs must be self-contained. Do not load external scripts, fonts, stylesheets, images, or CDNs.
+- HTML catalogs and document prototypes must be self-contained. Do not load external scripts, fonts, stylesheets, images, or CDNs.
+- Markdown, HTML, and run-log summaries must be rendered from the same structured reference data or checked for object/field/count consistency before delivery.
+- Do not force PRD generation when the user explicitly asks for a structured reference or document prototype and says no PRD is needed.
+- Document prototype HTML must provide document-specific attention points through badges, inline markers, change highlights, source/risk summaries, or filters. It does not need UI `annotation-marker` controls unless the artifact is also a user-facing product UI.
 
 ## Quality Bar
 
@@ -79,3 +162,5 @@ For model-integration catalogs, also include:
 - Every important unknown has an owner or required confirmation.
 - Fast-changing facts have access dates and source freshness limitations.
 - The output distinguishes reference facts from implementation recommendations.
+- Attention points are specific, typed, and target a concrete object, field, rule, or decision.
+- Multi-turn changes are object-level and traceable.

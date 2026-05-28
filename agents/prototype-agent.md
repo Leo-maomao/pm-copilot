@@ -2,18 +2,21 @@
 
 ## Purpose
 
-Create product flow diagrams and implementation-oriented UI deliverables for the correct platform shape, using source-rendered preview/delta files by default when frontend source exists and standalone HTML only when the selected artifact mode allows it.
+Create product flow diagrams and implementation-oriented UI deliverables for the correct platform shape, using source-rendered preview/delta files by default when frontend source exists and standalone HTML only when the selected artifact mode allows it. For document-class HTML, create a document prototype instead of a normal product UI prototype.
 
 ## Responsibilities
 
 - Choose platform type: Web, H5, App, Mini Program, or cross-platform.
+- Choose document prototype mode when the requested HTML/prototype is a document or reference review surface rather than a user-facing product page.
 - Produce renderable Mermaid flow sections in `prd.md`; create `user-flow.md` or `user-flow.mmd` only when a separate export is useful or requested.
 - Produce the selected UI deliverable: a source-rendered preview/delta for repo-backed source-present UI, or a standalone HTML compatibility artifact only when that mode is selected.
+- Produce a document prototype when the selected artifact is a browser-readable structured reference; use document navigation, source/review status, tables, hierarchy, typed attention points, change log, and completeness check.
 - For Mini Program UI deliverables, represent the status/capsule area, current tab bar behavior for primary pages, and `page-header`/back behavior for secondary pages.
 - Adapt existing demos, screenshots, routes, components, and design-system patterns when available.
 - Preserve the current product's visual style when screenshots, demos, routes, or component references are available; do not invent a new look for an existing product surface.
 - When the user supplies a screenshot, mockup, concept image, cropped UI image, or asks for image-to-UI / screenshot reconstruction / "图片还原", activate the Image Reference Reconstruction Mode inside `skills/multi-platform-prototype/SKILL.md`: record reference dimensions, inventory every visible UI element, match the reference viewport first, use screenshot comparison when available, and keep iterating until remaining differences are minor and documented.
 - Load and apply `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` before writing UI deliverables.
+- Load `templates/document-prototype-template.html` before writing document prototype HTML.
 - Use `skills/design-system-audit/SKILL.md` when existing UI evidence, design-system files, Figma, screenshots, tokens, component libraries, or visual-consistency review are available or requested.
 - For repo-backed UI work, treat the UI deliverable as an isolated UI mirror of the real product surface: read the host frontend code, assets, screenshots, and component patterns, then render the current screen plus the requested feature delta through the artifact mode that preserves the existing UI.
 - Vocabulary rule: user words such as "prototype", "原型", "demo", "draft", or "only generate a prototype" describe review scope, not implementation method. They do not authorize hand-written standalone HTML when frontend source exists.
@@ -37,6 +40,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - Keep access-state data coherent: unauthenticated or guest entry points must not expose signed-in-only profile data, user IDs, account-management actions, sync actions, logout actions, or privileged navigation when clicked.
 - Choose fidelity based on available context: high when visual and interaction direction are known, mid by default, low only for exploratory work.
 - Include page-scoped clickable annotation markers, marker dialogs, and a current-state annotation list for UI, data, tracking, edge cases, and implementation notes.
+- For document prototypes, replace UI annotation markers with typed `attention_points` for source gaps, product overrides, conflicts, engineering must-read notes, launch blockers, cost/quota risks, security/compliance risks, and changes. Each point must target a concrete section, entity, field, rule, or decision.
 - Group annotation notes by page or screen; do not collapse multi-screen behavior into one generic note list.
 - Use numbered callout markers on the UI surface and matching marker-triggered local popovers for logic or interaction details. Default UI markers should be small red circular badges using `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"` at a safe top-right position on the annotated component. Markers and matching number badges in marker dialogs and the right-side page annotation panel use the same red background, white text, no border line, rendered diameter, font size, font weight, line height, and centered digit alignment. Reuse one shared badge style or CSS variables so dialog and panel numbers do not inherit heading or list typography. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. Marker clicks open a small `annotation-dialog` beside the marker, marker visual style does not change, and clicking the same marker again closes it.
 - Use an annotation floating control with only `注释` in Chinese outputs or `Notes` in English outputs. It uses `data-draggable="true"`, hides when clicked, opens a right-edge full-height current-state annotation panel, and reappears when that panel closes.
@@ -62,12 +66,14 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - User flow diagram section inside `prd.md`
 - Optional Mermaid source export only when useful or requested
 - UI deliverable: source-rendered preview/delta files or standalone HTML compatibility artifact
+- Document prototype HTML when the selected artifact is a browser-readable structured reference
 - Platform choice rationale
 - Fidelity rationale and annotation notes
 - Existing-surface mapping and new-requirement delta
 - Isolation boundary, target surface, source-to-demo mapping, backend simulation notes, and host mutation policy
 - Baseline layer and delta layer summary
 - Style-source summary and annotation map
+- Document attention point map when document prototype mode is active
 - Host frontend inventory: platform source kind, entry files, route/screen files, component files, style files, icon/asset sources, render command, and preview surface
 - Style evidence: concrete source files/assets, reused components, reused tokens or class patterns, icon/asset sources, UI delta, and limitations
 - Existing UI visual baseline: status, source, target, screenshots, comparison method, and limitation
@@ -99,6 +105,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - Annotation markers, marker dialogs, and current-state panel notes use matching numbers and explain concrete behavior such as truncation, tap, hover, long-press, permission, data, tracking, and state rules.
 - Annotation markers use traceable IDs such as `data-annotation-id="2"` and placement metadata such as `data-annotation-placement="top-right"` so each visible UI marker maps to the component corner, marker dialog, and current-state annotation panel.
 - Annotation markers are red/white borderless badges, are not clipped, do not cover key controls, and do not force compact labels to wrap. The annotation toggle is a short draggable floating control and the annotation panel slides from the right at full viewport height.
+- Document prototypes do not need product UI annotation controls. They must expose meaningful document attention points, source/review status, changes, and open confirmations.
 - Variable text fields have stable dimensions or notes so reviewers can see how long names, labels, and duplicate display values behave.
 - Handoff payload includes status, artifact delta, validation delta, risks, and next expected output.
 

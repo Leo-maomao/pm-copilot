@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="pm-copilot-artifact" content="document_prototype">
+  <title>Document Reference Prototype</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #20242a;
+      --muted: #626b76;
+      --line: #d9dee7;
+      --accent: #255c99;
+      --risk: #b42318;
+      --warn: #a15c07;
+      --ok: #18794e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    .document-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+    }
+    .document-nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 24px 20px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      overflow: auto;
+    }
+    .document-nav a {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    .document-nav a.active { color: var(--accent); background: #eef5ff; }
+    main {
+      width: min(1120px, 100%);
+      padding: 32px;
+    }
+    section {
+      margin-bottom: 28px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    h1, h2, h3 { margin: 0 0 12px; }
+    p { color: var(--muted); line-height: 1.6; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .summary-item {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfe;
+    }
+    .summary-item strong { display: block; margin-bottom: 4px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: #3b4450;
+      background: #f2f5f9;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .field-child { padding-left: 22px; border-left: 2px solid var(--line); }
+    .attention-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .attention-point {
+      padding: 10px 12px;
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      background: #f8fbff;
+    }
+    .attention-point[data-attention-type="source_gap"],
+    .attention-point[data-attention-type="conflict"],
+    .attention-point[data-attention-type="launch_blocker"],
+    .attention-point[data-attention-type="security_or_compliance"] {
+      border-left-color: var(--risk);
+      background: #fff7f6;
+    }
+    .attention-point[data-attention-type="pm_override"],
+    .attention-point[data-attention-type="cost_or_quota_risk"],
+    .attention-point[data-attention-type="change_marker"] {
+      border-left-color: var(--warn);
+      background: #fffaf0;
+    }
+    .attention-type {
+      display: inline-block;
+      margin-right: 8px;
+      color: var(--accent);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .attention-target {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    @media (max-width: 760px) {
+      .document-shell { grid-template-columns: 1fr; }
+      .document-nav {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      main { padding: 20px; }
+      section { padding: 18px; }
+      .summary-grid { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body data-document-prototype="true">
+  <div class="document-shell">
+    <nav class="document-nav" aria-label="Document sections">
+      <h1>Reference</h1>
+      <a href="#summary">Summary</a>
+      <a href="#sources">Sources</a>
+      <a href="#fields">Fields</a>
+      <a href="#attention">Attention</a>
+      <a href="#handoff">Handoff</a>
+    </nav>
+    <main>
+      <section id="summary" data-document-section="summary">
+        <h2>Catalog Summary</h2>
+        <p>Replace this section with the document purpose, audience, intended use, and out-of-scope boundaries.</p>
+        <div class="summary-grid">
+          <div class="summary-item"><strong>source_status</strong><span>mixed</span></div>
+          <div class="summary-item"><strong>review_status</strong><span>unreviewed</span></div>
+          <div class="summary-item"><strong>owner</strong><span>owner gap</span></div>
+        </div>
+      </section>
+
+      <section id="sources" data-document-section="sources">
+        <h2>Source And Review Status</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Source ID</th>
+              <th>Source</th>
+              <th>Access Date</th>
+              <th>source_status</th>
+              <th>review_status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>S1</td>
+              <td>User supplied brief</td>
+              <td>YYYY-MM-DD</td>
+              <td>user_supplied</td>
+              <td>unreviewed</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="fields" data-document-section="fields">
+        <h2>Structured Fields</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>item_id</th>
+              <th>display_name</th>
+              <th>Field</th>
+              <th>Type</th>
+              <th>Required</th>
+              <th>Default</th>
+              <th>Limits</th>
+              <th>source_status</th>
+              <th>review_status</th>
+              <th>owner</th>
+              <th>access_date</th>
+              <th>implementation_notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>item_1</td>
+              <td>Example entity</td>
+              <td><code>media</code></td>
+              <td>array<object></td>
+              <td>yes</td>
+              <td>none</td>
+              <td>1-4 items</td>
+              <td>mixed</td>
+              <td>unreviewed</td>
+              <td>owner gap</td>
+              <td>YYYY-MM-DD</td>
+              <td>Parent field rule.</td>
+            </tr>
+            <tr>
+              <td>item_1.type</td>
+              <td>Example entity</td>
+              <td class="field-child"><code>media[].type</code></td>
+              <td>enum</td>
+              <td>yes</td>
+              <td>none</td>
+              <td><code>image</code>, <code>video</code></td>
+              <td>mixed</td>
+              <td>unreviewed</td>
+              <td>owner gap</td>
+              <td>YYYY-MM-DD</td>
+              <td>Child field rule.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="attention" data-document-section="attention">
+        <h2>attention_points</h2>
+        <div class="attention-list">
+          <div class="attention-point" data-attention-type="source_gap" data-target-ref="item_1.media">
+            <span class="attention-type">source_gap</span>
+            <span class="attention-target">target_ref: item_1.media</span>
+            <p>Record missing, stale, or non-authoritative source evidence here.</p>
+          </div>
+          <div class="attention-point" data-attention-type="pm_override" data-target-ref="item_1.media.type">
+            <span class="attention-type">pm_override</span>
+            <span class="attention-target">target_ref: item_1.media.type</span>
+            <p>Record product decisions that override source defaults here.</p>
+          </div>
+          <div class="attention-point" data-attention-type="engineering_must_read" data-target-ref="item_1">
+            <span class="attention-type">engineering_must_read</span>
+            <span class="attention-target">target_ref: item_1</span>
+            <p>Record implementation-critical notes here.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="handoff" data-document-section="handoff">
+        <h2>Engineering Handoff</h2>
+        <p>Include change_log, completeness_check, open decisions, and validation results here.</p>
+      </section>
+    </main>
+  </div>
+  <script>
+    const links = Array.from(document.querySelectorAll(".document-nav a"));
+    const sections = Array.from(document.querySelectorAll("[data-document-section]"));
+    const setActive = () => {
+      let current = sections[0]?.id || "";
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= 96) current = section.id;
+      }
+      for (const link of links) {
+        link.classList.toggle("active", link.getAttribute("href") === "#" + current);
+      }
+      if (current && location.hash !== "#" + current) {
+        history.replaceState(null, "", "#" + current);
+      }
+    };
+    window.addEventListener("scroll", setActive, { passive: true });
+    window.addEventListener("hashchange", setActive);
+    setActive();
+  </script>
+</body>
+</html>

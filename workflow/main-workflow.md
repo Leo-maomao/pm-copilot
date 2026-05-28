@@ -29,9 +29,10 @@ S0 Intake
 | S4 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
 | S5 External product research | Research Agent | PRD solution shaping needs competitor, benchmark, comparable feature, market, policy, pricing, or source-backed context | Source-backed research brief is produced or limitation is stated |
 | S6 PRD drafting | Requirements Agent | Discovery output is usable | `prd.md` contract is satisfied |
-| S6b Structured catalog drafting | Knowledge Ops Agent | User asks for table-first reference handoff, model matrix, API catalog, vendor table, data dictionary, or migration inventory | `catalog.md` or requested `catalog.html` satisfies `artifacts/structured-catalog-contract.md` |
+| S6b Structured reference drafting | Knowledge Ops Agent | User asks for document-class handoff, structured reference, parameter table, model/API/vendor matrix, rule reference, data dictionary, SOP/runbook, or migration inventory | `catalog.md`, `reference.md`, requested HTML, or document prototype satisfies `artifacts/structured-catalog-contract.md` |
 | S7 Metrics and tracking | Analytics Agent | PRD includes goals and user actions | Metrics and tracking sections are complete inside `prd.md` |
 | S8 Flow and UI delivery | UI Delivery Agent (`agents/prototype-agent.md`, legacy name) | Core flow and platform are known | Flow sections are complete inside `prd.md`; UI delivery contract is satisfied |
+| S8b Document prototype delivery | UI Delivery Agent + Knowledge Ops Agent | User asks for HTML/prototype where the content is a document/reference review surface | Document prototype declares `pm-copilot-artifact=document_prototype`, renders structured reference data, and uses typed `attention_points` instead of required product UI annotations |
 | S9 Review | Review Agent | Draft PRD and UI deliverable exist | Risks, blockers, and required fixes are reflected in PRD status and validation sections |
 | S10 Revision loop | PM Orchestrator | Review finds critical gaps | Artifacts are updated or gaps are accepted as open risks |
 | S11 Delivery check | PM Orchestrator | Critical gaps are closed or accepted | `run_delivery_checks.py` passes or failures are fixed/recorded |
@@ -50,6 +51,8 @@ All specialist work follows `agents/agent-interface.md`. PM Orchestrator records
 - Next expected output or human confirmation.
 
 State transitions are append-only for audit purposes. If a later agent changes an earlier decision, record the superseding decision, evidence, and affected artifact rather than deleting the earlier state.
+
+Document-class revision loops must use object-level patching. Updating one entity, field group, rule, or SOP step must not rewrite unrelated objects. Presentation-only requests must not change structured source facts, product decisions, defaults, enums, limits, or rules.
 
 PM Orchestrator is the only owner of final readiness labels. Specialist agents may recommend readiness, blockers, and fixes, but final `prd_status`, `engineering_handoff_status`, and `launch_status` must be reconciled after Review Agent and delivery checks.
 
@@ -126,6 +129,21 @@ For PRD deliveries, S5 is expected by default when a product solution, feature d
 Use Research Agent to look for relevant competitors, benchmark products, comparable feature patterns, public docs, help center pages, product screenshots/articles, or official policy/pricing sources. When the requested feature changes a common product flow, the research must include same-flow competitor or comparable-product evidence, not only general policy, security, or implementation references. Record source-backed findings and product implications. If browsing is unavailable or the user explicitly says not to research, record `external_research.status: skipped` or `degraded`, the reason, and the impact on recommendation confidence.
 
 Current host files still matter, but they belong in current-state facts, background, product-fit decisions, or the engineering implementation map. Keep external research and repository context separate so reviewers can tell which product decisions are market-informed and which are implementation constraints.
+
+## Document-Class Delivery
+
+Use document-class delivery when the user primarily needs structured knowledge rather than a product feature spec. Examples include parameter references, API or vendor capability catalogs, payment/risk rules, data dictionaries, SOPs, runbooks, migration inventories, and browser-readable document summaries.
+
+Classify the delivery before drafting:
+
+- `product_requirement`: PRD and normal UI delivery are in scope.
+- `structured_reference`: structured facts, fields, rules, decisions, attention points, and handoff notes are the primary artifact.
+- `document_prototype`: HTML prototype is a document/reference review surface.
+- `mixed_delivery`: PRD plus structured reference or document prototype are both needed.
+
+If the user explicitly says no PRD is needed, do not generate `prd.md`. Record PRD as not applicable in the run log and make the structured reference or document prototype the primary delivery.
+
+For document-class artifacts, maintain one structured source of truth before rendering. Separate extracted `source_facts` from final `product_decisions`, preserve hierarchy and conditional rules, record `attention_points`, and run a completeness check before delivery.
 
 ## Evaluation And Default-Option Mode
 
@@ -246,8 +264,8 @@ The repository does not ship example output folders. `outputs/` is generated at 
 
 Default delivery should optimize for reviewability, not file count.
 
-- Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact.
-- For table-first reference handoffs, create `outputs/<run-id>/catalog.md` as the primary artifact instead of forcing the request into a PRD. Generate `outputs/<run-id>/catalog.html` only when the user asks for HTML or a browser-readable table.
+- Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact when PRD is in scope.
+- For document-class reference handoffs, create `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary artifact instead of forcing the request into a PRD. Generate `catalog.html`, `reference.html`, or a `document_prototype` HTML only when the user asks for HTML or a browser-readable document.
 - Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode.
 - Create `outputs/<run-id>/run-log.yaml` as an internal trace when useful.
 - Keep source or export files only when they are useful for analytics import, Mermaid rendering, external review workflow, or user-requested iteration.
@@ -255,7 +273,7 @@ Default delivery should optimize for reviewability, not file count.
 - Do not create separate `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `pm-package.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
 - Avoid making the user open many small Markdown files to understand one requirement.
 
-Structured catalog delivery must keep source facts and implementation notes separate. For model or API catalogs, fast-changing values such as model IDs, parameters, context windows, rate limits, pricing, region availability, SDK support, and deprecation status must be current-source-backed or explicitly marked draft/blocked with an owner.
+Structured reference delivery must keep source facts, product decisions, attention points, and implementation notes separate. For model, API, payment, risk, data, or SOP references, fast-changing values such as model IDs, parameters, limits, pricing, region availability, SDK support, rules, and deprecation status must be current-source-backed or explicitly marked draft/blocked with an owner.
 
 ## UI Visual Validation
 
