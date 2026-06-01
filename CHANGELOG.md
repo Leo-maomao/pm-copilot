@@ -6,6 +6,24 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.7.1] - 2026-06-01
+
+### Added
+
+- Added source-extracted HTML UI handoff support for turning selected source regions into deliverable UI handoff artifacts.
+- Added `scripts/extract_ui_region.py` for extracting bounded UI source regions.
+- Added `evals/source-extracted-html-handoff-eval.md` to cover source-extracted HTML handoff behavior.
+
+### Changed
+
+- Updated prototype, tooling, validation, and documentation guidance so source-extracted HTML handoffs are recorded as a supported delivery path.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/run_delivery_checks.py scripts/validate_repo.py scripts/validate_prototype_visual.py scripts/validate_ui_preview.py scripts/extract_ui_region.py scripts/preflight_tools.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.7.0] - 2026-05-28
 
 ### Added
