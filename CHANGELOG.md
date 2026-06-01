@@ -6,6 +6,28 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.7.2] - 2026-06-01
+
+### Added
+
+- Added a real-run UI delivery improvement plan covering run naming, source-first parity, offline prototype expectations, annotation behavior, validation, and maintainer handoff.
+- Added compatibility support for `index.html` as an offline UI delivery entry inside a dated run folder, while preserving `prototype-<platform>.html` and source-extracted HTML handoff support.
+- Added validation for dated ASCII run folder names under `outputs/`.
+- Added stricter annotation validation so marker popovers contain only annotation body text, avoid horizontal overflow, and the right-side annotation list closes when clicking outside the panel.
+
+### Changed
+
+- Updated the compatibility HTML template so marker popovers no longer render the annotation number, title, or close button; the full numbered note list remains in the right-side annotation panel.
+- Updated UI delivery guidance to treat screenshot-only pages as evidence, not prototypes, unless backed by real interactive controls and source/style mapping.
+- Updated run-id guidance from bare scenario slugs or compact timestamps to `requirement-slug-YYYY-MM-DD`, with a numeric suffix only for same-day collisions.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/run_delivery_checks.py scripts/validate_repo.py scripts/validate_prototype_visual.py scripts/validate_ui_preview.py scripts/extract_ui_region.py scripts/preflight_tools.py`.
+- Prototype template HTML and inline JavaScript validation passes with Python `html.parser` and `node --check`.
+- Dated `index.html` compatibility output smoke validation passes with `python3 scripts/validate_outputs.py /tmp/outputs/pmcopilot-index-smoke-2026-06-01 --language zh`.
+
 ## [2.7.1] - 2026-06-01
 
 ### Added

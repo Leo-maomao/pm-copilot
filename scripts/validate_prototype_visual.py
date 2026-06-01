@@ -33,6 +33,7 @@ from typing import Any, Iterable
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SUPPORTED_PROTOTYPES = (
+    "index.html",
     "prototype-web.html",
     "prototype-h5.html",
     "prototype-app.html",
@@ -595,14 +596,15 @@ def inspect_page_dom(page) -> dict[str, object]:
                         result.annotation_layout_issues.push("annotation marker does not open a visible dialog");
                     } else {
                         const dialogRect = dialogs[0].getBoundingClientRect();
-                        const dialogNumber = dialogs[0].querySelector(".annotation-number");
-                        if (!dialogNumber) {
-                            result.annotation_layout_issues.push("annotation dialog missing matching annotation number badge");
-                        } else {
-                            const markerLabel = (marker.innerText || marker.textContent || "").replace(/\\s+/g, " ").trim()
-                                || marker.getAttribute("data-annotation-id")
-                                || "";
-                            checkAnnotationNumberBadge(dialogNumber, markerLabel, "annotation dialog number badge");
+                        if (dialogs[0].querySelector(".annotation-number,header,h1,h2,h3,h4,h5,h6,.annotation-close")) {
+                            result.annotation_layout_issues.push(
+                                "annotation marker dialog must contain only annotation body text",
+                            );
+                        }
+                        if (dialogs[0].scrollWidth - dialogs[0].clientWidth > 2) {
+                            result.annotation_layout_issues.push(
+                                "annotation marker dialog has horizontal overflow",
+                            );
                         }
                         const tooLarge = dialogRect.width > window.innerWidth * 0.9
                             || dialogRect.height > window.innerHeight * 0.66;
@@ -690,7 +692,36 @@ def inspect_page_dom(page) -> dict[str, object]:
                         if (!closeButton) {
                             result.annotation_layout_issues.push("annotation panel missing close control");
                         } else {
-                            closeButton.click();
+                            if (panelRect.left > 2) {
+                                const outsideTarget = document.elementFromPoint(8, 8) || document.body;
+                                outsideTarget.dispatchEvent(new MouseEvent("click", {
+                                    bubbles: true,
+                                    cancelable: true,
+                                    clientX: 8,
+                                    clientY: 8,
+                                }));
+                                await new Promise((resolve) => setTimeout(resolve, 220));
+                                if (styleVisible(panel)) {
+                                    result.annotation_layout_issues.push(
+                                        "annotation panel does not close when clicking outside",
+                                    );
+                                }
+                                if (!styleVisible(annotationToggle)) {
+                                    result.annotation_layout_issues.push(
+                                        "annotation toggle does not reappear after outside-click closing panel",
+                                    );
+                                }
+                                annotationToggle.click();
+                                await new Promise((resolve) => setTimeout(resolve, 220));
+                            }
+                            const activeCloseButton = panel.querySelector(".annotation-close");
+                            if (!activeCloseButton) {
+                                result.annotation_layout_issues.push(
+                                    "annotation panel close control missing after reopening",
+                                );
+                            } else {
+                                activeCloseButton.click();
+                            }
                             await new Promise((resolve) => setTimeout(resolve, 220));
                             if (!styleVisible(annotationToggle)) {
                                 result.annotation_layout_issues.push(

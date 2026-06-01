@@ -18,7 +18,7 @@ Use my request language for headings, labels, statuses, notes, and UI delivery a
 
 The agent should automatically follow `PM_COPILOT.md` and:
 
-- Infer a scenario name and unique run id.
+- Infer a scenario name and dated ASCII run id, such as `membership-renewal-2026-05-18`.
 - Create all generated run artifacts under `outputs/<run-id>/`.
 - Ask must-answer clarification questions before downstream generation.
 - Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
@@ -28,10 +28,10 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Treat repository files as current-product context, not as competitor or benchmark research. When external research is unavailable, mark recommendations as assumption-based.
 - For repo-backed UI delivery, read the real host frontend code, component library, styles, icons, assets, route/page/screen files, and render entry before drafting; pass the requirement or target surface into frontend inventory when available; keep host production flows read-only by default.
 - For repo-backed UI delivery, use a source-rendered delta patch, preview route, Storybook/demo, Mini Program preview page, or App preview screen whenever host frontend source exists. The original baseline should be imported/rendered from the host project; only the new requirement goes into isolated delta files. If the PM workflow needs an independent HTML file after the target UI is already rendered in the original project, use `source_extract_html` and `extract_ui_region.py` to extract the selected region into `prototype-<platform>.html` with annotation metadata. Standalone compatibility HTML is only a portable/fallback approximation when the raw request asks for portable/standalone/HTML output without source implementation, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and concretely blocked, and must be labeled fidelity-limited in metadata/run logs rather than visible product UI. "Only generate a prototype" means review scope only, not standalone HTML.
-- Source-backed UI preview handoff must include the changed preview/delta files, route/screen/story, and run command. Do not hand off only a localhost URL. Source-extracted HTML handoff must also include the source target, selector, extraction command, region screenshot, generated HTML path, style capture method, asset handling, annotation layer, validation report, and limitations. If direct HTML is explicitly requested without source implementation, generate compatibility HTML only when source-level parity can be limited or source rendering is not required.
+- Source-backed UI preview handoff must include the changed preview/delta files, route/screen/story, and run command. Do not hand off only a localhost URL. Source-extracted HTML handoff must also include the source target, selector, extraction command, region screenshot, generated HTML path, style capture method, asset handling, annotation layer, validation report, and limitations. If direct HTML is explicitly requested without source implementation, generate compatibility HTML only when source-level parity can be limited or source rendering is not required. Offline folder handoffs may use `index.html` as the entry file, but the artifact must still be an interactive HTML prototype, not a screenshot-only page.
 - Product-surface copy should be launch-like and realistic. Do not scatter visible "example", "demo", "not production", or equivalent labels through UI; use annotations, PRD notes, comments, or metadata for delivery boundaries.
 - For repo-backed UI delivery, import/render the original UI as `baseline_import` and add the new feature as `delta_patch`; only the delta patch should carry visible markers, explanation dialogs, backend notes, tracking notes, and edge-case annotations.
-- For UI delivery, use visible red/white borderless component markers, matching red/white borderless numbers inside annotation notes, click-open/click-again-close local annotation popovers beside each marker, a short `注释`/`Notes` floating control, and a right-edge full-height current-state annotation panel. Marker and note number badges should share the same rendered diameter, font size, font weight, line height, and centered digit alignment. Required states should be driven by realistic controls or mocked data/API transitions; reviewer state switching controls, if present, stay fixed, collapsed, marked `data-reviewer-only="true"`, and outside the product layout.
+- For UI delivery, use visible red/white borderless component markers, body-only click-open/click-again-close local annotation popovers beside each marker, a short `注释`/`Notes` floating control, and a right-edge full-height current-state annotation panel. Marker popovers must not repeat the number, title/name, or close button. The side panel may include numbered notes and titles, and it should close through its close control or by clicking outside the panel. Required states should be driven by realistic controls or mocked data/API transitions; reviewer state switching controls, if present, stay fixed, collapsed, marked `data-reviewer-only="true"`, and outside the product layout.
 - Run tool preflight and validation when required by `tools/tool-registry.yaml`.
 - Prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` before final delivery.
 - Run browser screenshot/visual diff validation for UI deliverables, including DOM smoke and access-state checks when applicable. Use `validate_prototype_visual.py` for compatibility HTML; use the host dev/preview/Storybook/simulator path for source-backed previews and `validate_ui_preview.py` when a browser URL or local preview file is available. If Playwright/browser tooling is missing, first run or guide `python3 scripts/setup_visual_validation.py`; skip only when setup fails, the environment forbids browser launch, or the user declines installation.
@@ -141,11 +141,11 @@ outputs/membership-renewal/prototype-h5.html
 outputs/membership-renewal/run-log.yaml
 ```
 
-If the same scenario already exists, the agent should create a timestamped run folder such as:
+If the same dated scenario already exists, the agent should create a collision-suffixed run folder such as:
 
 ```text
-outputs/membership-renewal-20260518-1430/prd.md
-outputs/membership-renewal-20260518-1430/prototype-h5.html
+outputs/membership-renewal-2026-05-18-2/prd.md
+outputs/membership-renewal-2026-05-18-2/prototype-h5.html
 ```
 
 ## When to Prepare Extra Context

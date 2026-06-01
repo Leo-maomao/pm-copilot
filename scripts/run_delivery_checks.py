@@ -17,6 +17,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PROTOTYPE_NAMES = (
+    "index.html",
     "prototype-web.html",
     "prototype-h5.html",
     "prototype-app.html",

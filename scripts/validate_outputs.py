@@ -54,6 +54,7 @@ REQUIRED_PRD_SECTIONS_ZH = [
 ]
 
 PROTOTYPE_FILE_NAMES = (
+    "index.html",
     "prototype-mini-program.html",
     "prototype-web.html",
     "prototype-h5.html",
@@ -742,6 +743,14 @@ def is_document_prototype_html(text: str) -> bool:
 def check_folder(path: Path) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
+    if path.parent.name == "outputs" and not re.fullmatch(
+        r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?",
+        path.name,
+    ):
+        fail(
+            "Output folder names under outputs/ must use "
+            "requirement-slug-YYYY-MM-DD with an optional numeric collision suffix"
+        )
 
     forbidden = sorted(name for name in FORBIDDEN_DEFAULT_FILES if (path / name).exists())
     if forbidden:
@@ -1138,7 +1147,9 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
                 )
 
     for prototype in ui_prototypes:
-        check_annotation_marker_contract(read(prototype), prototype.name, language)
+        text = read(prototype)
+        check_compatibility_html_boundary(text, prototype.name)
+        check_annotation_marker_contract(text, prototype.name, language)
 
 
 def css_rule_body(text: str, selector: str) -> str:
@@ -1202,7 +1213,7 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
         fail(f"{prototype_name} missing draggable annotation-toggle metadata")
     if not re.search(r"(pointerdown|mousedown|touchstart)", text):
         fail(f"{prototype_name} missing drag interaction handlers for annotation-toggle")
-    if "note-panel" in text or "annotation-panel" in text:
+    if re.search(r"class=[\"'][^\"']*(?:note-panel|annotation-panel)[^\"']*[\"']", text):
         fail(f"{prototype_name} should not use a persistent side annotation panel")
     if "annotation-backdrop" in text:
         fail(f"{prototype_name} should not use a global annotation backdrop for marker notes")
@@ -1237,6 +1248,37 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
     if not re.search(r"data-active-annotation-id", text) or not re.search(r"classList\.contains\(['\"]active['\"]\)", text):
         fail(f"{prototype_name} marker annotation dialog must toggle closed when clicking the same marker again")
     marker_body = css_rule_body(text, ".annotation-marker")
+    dialog_body = css_rule_body(text, ".annotation-dialog")
+    if dialog_body:
+        overflow_x = css_property_value(dialog_body, "overflow-x")
+        if overflow_x and overflow_x not in {"hidden", "clip"}:
+            fail(f"{prototype_name} annotation-dialog must not allow horizontal scrolling")
+        if not overflow_x and css_property_value(dialog_body, "overflow") == "auto":
+            fail(f"{prototype_name} annotation-dialog must use overflow-x hidden instead of overflow auto")
+    show_annotation_match = re.search(
+        r"function\s+showAnnotation\s*\([^)]*\)\s*\{(?P<body>.*?)\n\s*function\s+showAnnotationList\b",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if show_annotation_match:
+        show_annotation_body = show_annotation_match.group("body")
+        if re.search(r"<\s*(?:header|h[1-6])\b|annotation-number|annotation-close", show_annotation_body):
+            fail(
+                f"{prototype_name} marker annotation popover must render only annotation body text, "
+                "without number, title, or close button"
+            )
+        if not re.search(r"<p\b", show_annotation_body):
+            fail(f"{prototype_name} marker annotation popover should render body text in a paragraph")
+    if "annotation-list-panel" in text:
+        has_outside_click = (
+            "document.addEventListener('click'" in text or 'document.addEventListener(\"click\"' in text
+        ) and (
+            "closest('#annotation-list-panel')" in text
+            or 'closest("#annotation-list-panel")' in text
+            or ".contains(event.target)" in text
+        ) and "closeAnnotationPanel()" in text
+        if not has_outside_click:
+            fail(f"{prototype_name} annotation list panel must close when clicking outside the side panel")
     if marker_body:
         if css_rule_uses_nonzero_border(marker_body):
             fail(f"{prototype_name} annotation-marker must be red fill with white text and no border line")

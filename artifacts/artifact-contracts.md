@@ -16,6 +16,7 @@ The default product-manager delivery contains only:
 - a UI deliverable when a user-facing UI artifact is relevant:
   - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
   - `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode
+  - `outputs/<run-id>/index.html` only as an offline folder entry when the user explicitly asks for portable/offline HTML handoff
 
 When the user asks primarily for a document-class handoff instead of a product requirement, such as a structured reference, parameter table, model matrix, API capability catalog, vendor table, data dictionary, payment or risk rule reference, SOP/runbook, or migration inventory, PM Copilot may generate `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary delivery artifact. Generate `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` HTML only when the user asks for HTML, browser-readable review, or richer document presentation. These files must follow `artifacts/structured-catalog-contract.md`.
 

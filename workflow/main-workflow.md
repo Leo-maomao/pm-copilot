@@ -254,7 +254,7 @@ The style reuse pass should inspect the smallest relevant host files: app shell 
 
 ## Run Folder Rules
 
-Use `outputs/<run-id>/` as the single generated-artifact folder for each real requirement run. The run id is the scenario slug unless that output folder already exists. For repeat or similar requirements, append a local timestamp such as `team-permissions-20260518-1430`.
+Use `outputs/<run-id>/` as the single generated-artifact folder for each real requirement run. The run id uses an English kebab-case requirement slug plus day-precision date, for example `team-permissions-2026-05-18`. For same-day collisions, append a numeric suffix such as `team-permissions-2026-05-18-2`.
 
 Only update an existing run folder when the user explicitly names that folder or asks to revise the existing requirement.
 
@@ -266,7 +266,7 @@ Default delivery should optimize for reviewability, not file count.
 
 - Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact when PRD is in scope.
 - For document-class reference handoffs, create `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary artifact instead of forcing the request into a PRD. Generate `catalog.html`, `reference.html`, or a `document_prototype` HTML only when the user asks for HTML or a browser-readable document.
-- Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode.
+- Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode. `outputs/<run-id>/index.html` is allowed as the offline folder entry when the user explicitly asks for a portable/offline handoff.
 - Create `outputs/<run-id>/run-log.yaml` as an internal trace when useful.
 - Keep source or export files only when they are useful for analytics import, Mermaid rendering, external review workflow, or user-requested iteration.
 - `prd.md` must include version history, requirement input and confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, flow diagrams when useful, tracking plan, UI delivery reference, risks/open confirmations, acceptance criteria, and validation results.

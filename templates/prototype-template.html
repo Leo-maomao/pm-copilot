@@ -32,7 +32,7 @@
     .annotation-marker,
     .annotation-number { display: inline-flex; flex: 0 0 var(--annotation-badge-size); align-items: center; justify-content: center; width: var(--annotation-badge-size); height: var(--annotation-badge-size); min-width: var(--annotation-badge-size); padding: 0; border: 0; border-radius: 999px; background: var(--annotation-red); color: #fff; font-size: var(--annotation-badge-font-size); font-weight: 800; line-height: 1; text-align: center; vertical-align: middle; }
     .annotation-marker { position: absolute; top: 6px; right: 6px; z-index: 12; cursor: pointer; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.22); }
-    .annotation-dialog { position: fixed; z-index: 41; display: none; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22); }
+    .annotation-dialog { position: fixed; z-index: 41; display: none; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-x: hidden; overflow-y: auto; overflow-wrap: anywhere; word-break: break-word; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22); }
     .annotation-dialog.active { display: block; }
     .annotation-dialog::before { content: ""; position: absolute; top: 14px; left: -6px; width: 10px; height: 10px; transform: rotate(45deg); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; }
     .annotation-dialog.is-left::before { right: -6px; left: auto; border: 0; border-top: 1px solid var(--line); border-right: 1px solid var(--line); }
@@ -185,13 +185,7 @@
         closeAnnotation();
         return;
       }
-      renderAnnotationDialog(
-        '<header><h2><span class="annotation-number">' + item.number + '</span>' + item.title + '</h2>' +
-        '<button class="annotation-close" type="button" onclick="closeAnnotation()">{{localized_close}}</button></header>' +
-        '<p class="muted">' + item.detail + '</p>',
-        id,
-        trigger
-      );
+      renderAnnotationDialog('<p class="muted">' + item.detail + '</p>', id, trigger);
     }
 
     function showAnnotationList() {
@@ -274,6 +268,17 @@
         showAnnotationList();
       });
     }
+
+    document.addEventListener('click', function (event) {
+      var panel = document.getElementById('annotation-list-panel');
+      if (
+        panel.classList.contains('active') &&
+        !event.target.closest('#annotation-list-panel') &&
+        !event.target.closest('#annotation-toggle')
+      ) {
+        closeAnnotationPanel();
+      }
+    });
 
     initDraggableAnnotationToggle();
   </script>

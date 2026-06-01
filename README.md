@@ -182,7 +182,7 @@ scripts/       轻量级本地校验
 
 对于政策、医疗、法律、金融、安全或运营内容，PM Copilot 会记录来源状态、评审 owner、评审状态、免责声明状态和上线影响。未经评审的内容必须标记为占位或草稿，即使周边产品框架已经可以交接研发。
 
-每次真实需求运行都会在 `outputs/<run-id>/` 下生成一个产物目录，通常包含 `prd.md`、UI 交付物引用和可选 `run-log.yaml`。在有前端源码的仓库中，UI 交付物默认是源码驱动预览/增量补丁并记录在 `run-log.yaml`；在无源码、明确便携 HTML、明确重做视觉或源码渲染被阻塞时，才生成兼容文件 `prototype-<platform>.html`。`outputs/` 目录在运行时生成，不随仓库发布示例产物。如果推断出的 run id 已存在，PM Copilot 应追加本地时间戳，例如 `membership-renewal-20260518-1430`。
+每次真实需求运行都会在 `outputs/<run-id>/` 下生成一个产物目录，通常包含 `prd.md`、UI 交付物引用和可选 `run-log.yaml`。run id 使用英文 kebab-case 需求名加日期，例如 `membership-renewal-2026-05-18`；同一天同名冲突时追加 `-2`、`-3` 等数字后缀。在有前端源码的仓库中，UI 交付物默认是源码驱动预览/增量补丁并记录在 `run-log.yaml`；在无源码、明确便携 HTML、明确重做视觉或源码渲染被阻塞时，才生成兼容文件 `prototype-<platform>.html`，离线文件夹交付也可以使用同目录下的 `index.html` 作为入口。`outputs/` 目录在运行时生成，不随仓库发布示例产物。
 
 生成兼容 HTML UI 交付物时，PM Copilot 应运行 `python3 scripts/validate_prototype_visual.py outputs/<run-id>`。生成源码驱动 UI 预览时，应通过宿主项目的 dev/preview/Storybook/模拟器路径运行；有浏览器预览 URL 或本地预览文件时运行 `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>`，否则记录等价截图或模拟器证据。如果缺少 Playwright 或浏览器工具，应先运行或引导 `python3 scripts/setup_visual_validation.py`；只有安装失败、环境禁止启动浏览器，或用户拒绝安装时，才允许记录跳过原因。最终交付前应优先运行 `python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh`，并把工具证据写入 `outputs/<run-id>/tool-results/`。当用户请求研发交接或上线就绪检查时，同一个运行目录也可以包含 `dev-tasks.yaml` 和 `launch-decision.yaml`。
 
