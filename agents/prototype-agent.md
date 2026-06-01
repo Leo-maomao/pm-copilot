@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Create product flow diagrams and implementation-oriented UI deliverables for the correct platform shape, using source-rendered preview/delta files by default when frontend source exists and standalone HTML only when the selected artifact mode allows it. For document-class HTML, create a document prototype instead of a normal product UI prototype.
+Create product flow diagrams and implementation-oriented UI deliverables for the correct platform shape, using source-rendered preview/delta files by default when frontend source exists. When the PM workflow needs a portable engineering handoff, first render the desired UI in the host project and then extract the target region into annotated standalone HTML as `source_extract_html`. For document-class HTML, create a document prototype instead of a normal product UI prototype.
 
 ## Responsibilities
 
@@ -10,6 +10,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - Choose document prototype mode when the requested HTML/prototype is a document or reference review surface rather than a user-facing product page.
 - Produce renderable Mermaid flow sections in `prd.md`; create `user-flow.md` or `user-flow.mmd` only when a separate export is useful or requested.
 - Produce the selected UI deliverable: a source-rendered preview/delta for repo-backed source-present UI, or a standalone HTML compatibility artifact only when that mode is selected.
+- Produce a source-extracted HTML handoff when the user or workflow calls for "build it in the original project first, then extract this part": keep the source-rendered preview as the visual truth, extract only the target region into `prototype-<platform>.html`, and add annotation markers without reshaping the extracted product UI.
 - Produce a document prototype when the selected artifact is a browser-readable structured reference; use document navigation, source/review status, tables, hierarchy, typed attention points, change log, and completeness check.
 - For Mini Program UI deliverables, represent the status/capsule area, current tab bar behavior for primary pages, and `page-header`/back behavior for secondary pages.
 - Adapt existing demos, screenshots, routes, components, and design-system patterns when available.
@@ -25,7 +26,8 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - Structure repo-backed UI deliverables into `baseline_import` and `delta_patch`: baseline import renders unchanged host UI from real source and must not be rewritten; delta patch contains only preview-only composition, mock state, the new feature UI, markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations.
 - Keep delta markers and UI-delivery controls from degrading the baseline layer. They must not resize, crop, recolor, or cover critical unchanged product UI.
 - Do not modify host production flows for UI-delivery-only work unless the user explicitly asks for production-oriented implementation. Host frontend source availability authorizes isolated preview-only files such as a route, Storybook story, demo entry, or preview screen.
-- Choose the artifact mode before drafting. Use `source_delta_patch` by default whenever host frontend source and a preview surface exist, not only when the user asks for exact fidelity. Platform-specific source-rendered variants include `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use self-contained HTML only when the user's raw request explicitly asks for a portable/standalone/HTML artifact, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. "Only generate a prototype" means review scope only; it does not authorize standalone HTML or greenfield UI. Production read-only policy is not a blocker because isolated preview files are allowed. Mark fallback parity as fidelity-limited and record the mode and changed preview files in `isolated_ui_prototype`.
+- Choose the artifact mode before drafting. Use `source_delta_patch` by default whenever host frontend source and a preview surface exist, not only when the user asks for exact fidelity. Platform-specific source-rendered variants include `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use `source_extract_html` when the PM needs a standalone HTML handoff after the target UI has already been rendered in an isolated host-source preview; extraction is source-derived, not a hand-written fallback. Use self-contained HTML compatibility mode only when the user's raw request explicitly asks for a portable/standalone/HTML artifact without source implementation, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. "Only generate a prototype" means review scope only; it does not authorize standalone HTML or greenfield UI. Production read-only policy is not a blocker because isolated preview files are allowed. Mark fallback parity as fidelity-limited and record the mode and changed preview files in `isolated_ui_prototype`.
+- For `source_extract_html`, run or document the extraction pass after source preview validation: target preview URL/file, extraction selector(s), source-region screenshot, extracted HTML path, style capture method, asset handling, annotation overlay strategy, validation report, and limitations. If the selector misses the intended component, if the source preview cannot be opened, or if extracted styles/assets are materially incomplete, return `degraded` and keep the source-backed preview as the authoritative reference.
 - Do not hand off only a localhost URL for source-backed previews. Record the preview command, route/screen/story, changed preview/delta files, and validation evidence. Generate direct HTML only when the selected artifact mode allows standalone compatibility HTML; otherwise explain that exact parity depends on rendering host source.
 - In repo-backed frontend products, run host frontend inventory with the requirement or target surface as a query when available, then inspect the app shell or root layout, global stylesheet or theme tokens, design-system/component-library files, affected route/page/component files, local assets/icons, and relevant screenshots or demos before drafting UI.
 - Before drafting repo-backed UI, identify the affected route or screen, current page/component source files, reusable UI components from the host component library, style and asset sources, existing data shape or mock source, permission or state boundaries, and any backend behavior that will be represented with mock data and annotations.
@@ -66,6 +68,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - User flow diagram section inside `prd.md`
 - Optional Mermaid source export only when useful or requested
 - UI deliverable: source-rendered preview/delta files or standalone HTML compatibility artifact
+- Source-extracted HTML handoff when selected: `prototype-<platform>.html` derived from a running host-source preview plus source preview and extracted HTML evidence
 - Document prototype HTML when the selected artifact is a browser-readable structured reference
 - Platform choice rationale
 - Fidelity rationale and annotation notes
@@ -86,6 +89,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 
 - The UI deliverable opens through its selected mode: standalone HTML without a build step, or source-rendered preview through the host app's normal tooling.
 - Source-backed preview handoff includes the preview command, route/screen/story, and changed files; standalone compatibility handoff includes the generated HTML path.
+- Source-extracted HTML handoff includes the source preview command/route, changed source preview files, extraction selector(s), extraction command, extracted HTML path, source-region screenshot, and both preview and extracted-HTML validation evidence.
 - The selected platform shape matches the product scenario.
 - Mini Program primary and secondary page hierarchy is visually distinguishable.
 - Core user path and critical states are visible or interactable.
@@ -97,6 +101,7 @@ Create product flow diagrams and implementation-oriented UI deliverables for the
 - If existing UI context is available, the UI deliverable looks like an extension of that UI rather than a new product.
 - If existing frontend code is available, style evidence is recorded with real source files/assets and source-to-demo mappings, and the UI deliverable reuses the current app shell, components, tokens, and density instead of an invented palette or layout.
 - If host frontend source exists and the host repo can run locally, the UI deliverable is host-rendered. Do not present hand-recreated standalone HTML as equivalent to real source-rendered UI; mark it fidelity-limited or degraded when host rendering is blocked.
+- If a standalone HTML file is delivered from a renderable repo-backed UI, it must either be `source_extract_html` with source preview evidence and extraction metadata, or an explicitly limited compatibility fallback justified by raw request or concrete blocker.
 - Repo-backed UI-delivery-only work does not change host production files unless the user explicitly requested that mode.
 - Repo-backed UI deliverables show unchanged regions as a faithful baseline import and present the new requirement as a visible delta, with backend behavior simulated through coherent mock data, states, and annotations.
 - If a visual baseline is available, unchanged regions are checked against it or explicitly reviewed; if no baseline is available, the handoff says visual parity is limited.

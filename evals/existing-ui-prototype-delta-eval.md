@@ -50,6 +50,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 - Any page/state switching control is fixed outside the product layout.
 - Marker-triggered notes do not open a full-screen/global modal or backdrop.
 - If host frontend source exists, the run uses a source-rendered delta patch, preview route, Storybook/demo, Mini Program preview page, or App preview screen as appropriate; otherwise the standalone HTML limitation is explicit.
+- If the user needs an independent HTML handoff after the UI is implemented in the host preview, the run uses `source_extract_html`: extracted HTML is traceable to the source preview target, selector, source-region screenshot, style capture method, asset handling, annotation layer, validation report, and limitations.
 - Cross-page notes are separated from page-specific notes.
 - The PRD records which existing files or screenshots informed the UI deliverable.
 - Source-backed preview runs pass `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --source-preview <preview-url-or-file>` when a browser target is available, or record equivalent simulator evidence when it is not.
@@ -66,6 +67,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 | 2026-05-21 | source-first-missing | High | Agent treated source rendering as optional unless exact fidelity was requested. | Require source-rendered preview/delta whenever frontend source exists, except explicit standalone, explicit redesign/greenfield, or concrete blocker cases. |
 | 2026-05-21 | annotation-ui-inconsistency | Medium | Marker badges, note badges, annotation panel, and state switcher controls did not follow the required fixed interaction model. | Enforce red/white borderless badges, short annotation floating control, right-side full-height panel, and fixed state switchers. |
 | 2026-05-21 | prototype-term-handwrite-bias | High | The word "prototype" biased the agent toward rewriting a standalone HTML approximation even when source code was available. | Redefine default UI output as source-backed UI delivery; keep legacy prototype names only as compatibility machine names. |
+| 2026-06-01 | missing-source-extract-handoff | High | PM workflow required first shaping the UI in the original project and then extracting only that region as an independent annotated HTML file, but PM Copilot only knew source preview or standalone fallback modes. | Add `source_extract_html`, extraction metadata, `extract_ui_region.py`, and review/validation requirements. |
 
 ## Rubric Thresholds
 

@@ -4,7 +4,7 @@
 
 <a id="english"></a>
 
-PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into practical handoff artifacts: a complete PRD, a source-first annotated UI deliverable, and structured reference documents or document prototypes when the work is knowledge-heavy.
+PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into practical handoff artifacts: a complete PRD, a source-first annotated UI deliverable, source-extracted standalone HTML handoffs, and structured reference documents or document prototypes when the work is knowledge-heavy.
 
 中文简介：PM Copilot 是面向产品经理的开源 AI Agent 工作流套件，支持生成 PRD、需求文档、埋点方案、源码优先的带标注 UI 交付物、研发交接和上线决策材料。
 
@@ -23,7 +23,7 @@ PM Copilot treats English and Chinese as first-class user-facing languages. Gene
 - Research and reference findings, prioritizing external competitor, comparable feature, user-research, or public solution sources; current implementation is treated as product context and engineering constraint
 - Requirement list and detailed requirement tables with logic, content, rules, interactions, data, permissions, edge states, tracking links, and acceptance links
 - Goals, metrics, tracking plan, and flow diagrams inside the PRD
-- Annotated UI deliverable for Web, H5, App, or Mini Program scenarios. When frontend source exists, the default is a source-backed preview or delta patch; local HTML is a compatibility artifact only for no-source work, explicit portable HTML requests, explicit redesign/greenfield requests, or concrete source-rendering blockers.
+- Annotated UI deliverable for Web, H5, App, or Mini Program scenarios. When frontend source exists, the default is a source-backed preview or delta patch. If the PM needs an independent HTML handoff, the agent should first render the target region in the original project and then use `extract_ui_region.py` to produce an annotated `prototype-<platform>.html`. Local compatibility HTML is only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield requests, or concrete source-rendering blockers.
 - Structured reference delivery for document-class requests such as parameter tables, capability matrices, rule references, data dictionaries, SOPs/runbooks, or migration inventories. When the user explicitly says no PRD is needed, PM Copilot should not force one.
 - Document prototype HTML that presents reference content with navigation, tables, hierarchical fields, source/review status, and typed `attention_points` instead of ordinary product-page annotations.
 - `run-log.yaml` as an internal trace when useful, not as the PM-facing deliverable
@@ -72,7 +72,7 @@ A useful run should produce:
 | Artifact | What to look for |
 |---|---|
 | `outputs/team-permissions/prd.md` | Target users, current-product constraints, external reference findings, MVP/optional/future scope, member invites, role changes, permission blocking, audit logs, loading/empty/error/no-permission states |
-| Web UI deliverable | When frontend source exists, a source-backed preview route, Storybook/demo, or `source_delta_patch` that reuses the existing admin shell, component library, and table density; `prototype-web.html` is only the compatibility fallback for explicit portable HTML or blocked source rendering |
+| Web UI deliverable | When frontend source exists, a source-backed preview route, Storybook/demo, or `source_delta_patch` that reuses the existing admin shell, component library, and table density; when an independent HTML handoff is required, a `source_extract_html` file derived from the source preview; `prototype-web.html` compatibility fallback is only for explicit portable HTML without source implementation or blocked source rendering |
 | `outputs/team-permissions/dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
 | `outputs/team-permissions/run-log.yaml` | Context mode, host project files loaded, external research sources, style evidence, existing UI baseline, tool validation, and unresolved risks |
 

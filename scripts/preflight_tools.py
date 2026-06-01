@@ -271,6 +271,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "python3 scripts/setup_visual_validation.py",
         ),
         capability(
+            "ui_delivery.source_extract",
+            "available" if script_available("scripts/extract_ui_region.py") else "unavailable",
+            "scripts/extract_ui_region.py",
+            False,
+            "python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>",
+            "python3 scripts/setup_visual_validation.py",
+        ),
+        capability(
             "validation.html",
             "available",
             f"html.parser available; tidy={'available' if tidy['available'] else 'not found'}",

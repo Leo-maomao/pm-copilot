@@ -100,6 +100,17 @@ capabilities:
       - outputs/<run-id>/visual-review/source-preview-report.json
     fallback: "Run setup first. Record skipped only after setup failure, browser launch restriction, or user-declined installation."
 
+  - id: ui_delivery.source_extract
+    category: ui_delivery
+    required_when: "A repo-backed UI handoff needs independent standalone HTML after the desired UI has first been rendered in the host project."
+    command: "python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:isolated_ui_prototype.source_extract
+      - run-log.yaml:visual_validation
+      - outputs/<run-id>/visual-review/source-extract-report.json
+    fallback: "Keep the source-rendered preview as the authoritative handoff, or generate compatibility HTML only with explicit limitation. Do not hand-recreate standalone HTML while claiming source-derived fidelity."
+
   - id: validation.html
     category: validation
     required_when: "A compatibility UI HTML file is generated."

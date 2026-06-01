@@ -58,11 +58,11 @@ For UI work, embedded runs should reuse the host app's current surface instead o
 
 UI-delivery-only work should be isolated from host production implementation by default. The agent should read real frontend code, assets, data shapes, and state rules, then use the host source as the baseline whenever it exists. It should not modify production flows unless the user explicitly asks for production-oriented implementation. Record this boundary in `isolated_ui_prototype`.
 
-When host frontend source exists, embedded runs should switch from hand-recreated standalone HTML to a source-rendered delta patch, preview route, Storybook story, demo entry, Mini Program preview page, or App preview screen. Source availability is enough permission for isolated preview-only delta files, not production implementation. The original page/screen should be imported/rendered from host source; new ideas are layered through wrapper/story/page/screen composition and mock state. If source rendering is blocked, the run log and PRD must state that standalone HTML is a fidelity-limited approximation.
+When host frontend source exists, embedded runs should switch from hand-recreated standalone HTML to a source-rendered delta patch, preview route, Storybook story, demo entry, Mini Program preview page, or App preview screen. Source availability is enough permission for isolated preview-only delta files, not production implementation. The original page/screen should be imported/rendered from host source; new ideas are layered through wrapper/story/page/screen composition and mock state. If the product manager needs to hand engineering an independent HTML file after shaping the UI in the original project, use `source_extract_html` and `scripts/extract_ui_region.py` to extract the target region from the running source preview. If source rendering is blocked, the run log and PRD must state that standalone HTML is a fidelity-limited approximation.
 
 Repo-backed UI deliverables should be split into two layers: `baseline_import` renders the original product UI from host code and visual evidence without rewriting it; `delta_patch` contains only the new feature, visible markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations. Annotation controls should not distort the imported baseline UI. Standalone HTML fallback is acceptable only when the raw request asks for portable/standalone/HTML output, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. "Only generate a prototype" means review scope only, not standalone HTML or greenfield UI.
 
-When the selected artifact is source-backed, the final handoff should name the changed preview/delta files, preview route/screen/story, run command, and validation evidence; a localhost URL alone is not sufficient. When the selected artifact is compatibility HTML, provide the generated HTML path.
+When the selected artifact is source-backed, the final handoff should name the changed preview/delta files, preview route/screen/story, run command, and validation evidence; a localhost URL alone is not sufficient. When the selected artifact is `source_extract_html`, also provide the source target, selector, extraction command, region screenshot, generated HTML path, style capture method, asset handling, annotation layer, validation report, and limitations. When the selected artifact is compatibility HTML, provide the generated HTML path and fidelity limitation.
 
 Embedded UI deliverables should use red/white borderless component-level annotation markers with matching red/white borderless numbers in notes, click-open local annotation popovers beside each marker, click-again-to-close marker behavior, a short `注释`/`Notes` floating control, and a right-edge full-height current-state annotation panel while preserving the product surface's real page width, scroll behavior, modals, and access states. Marker and note number badges should share the same rendered diameter, font size, font weight, line height, and centered digit alignment. Marker visuals should not change after click. Required states should be driven by realistic controls, form submissions, permission gates, retry actions, or mocked data/API transitions; reviewer-only state switching controls should be fixed, collapsed, marked `data-reviewer-only="true"`, and outside the product layout. They should not expose signed-in-only account data or privileged actions in logged-out, guest, or no-permission states.
 
@@ -80,6 +80,12 @@ For source-backed previews with a browser URL, include the preview target:
 
 ```bash
 python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language zh --source-preview <preview-url-or-file>
+```
+
+For source-extracted HTML handoff, extract from the running preview first:
+
+```bash
+python3 pm-copilot/scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output pm-copilot/outputs/<run-id>/prototype-web.html --run-folder pm-copilot/outputs/<run-id>
 ```
 
 Record the resulting `tool-results/delivery-check-report.json` in the run log.

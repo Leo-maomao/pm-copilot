@@ -68,7 +68,7 @@ Minimum recommended analytics score: 21 / 28.
 | Access/content states | Missing | Only some gated or draft states visible | Gated eligibility and placeholder or unreviewed content states are represented when relevant |
 | Local usability | Does not open | Opens with issues | Standalone HTML opens with no build step, or source-backed preview runs through host tooling |
 | Fidelity and handoff clarity | Pretends standalone HTML is production or is too vague to implement | UI deliverable is usable but lacks annotations or key states | Clearly labeled UI deliverable with appropriate fidelity, annotations, and implementation notes |
-| Existing surface fit | Invents unrelated product UI, mutates production files unexpectedly, or mixes UI-delivery notes into unchanged UI | Some existing context reflected | Preserves baseline UI through source-backed preview/delta when source exists and shows the new requirement delta with separate markers/dialogs |
+| Existing surface fit | Invents unrelated product UI, mutates production files unexpectedly, or mixes UI-delivery notes into unchanged UI | Some existing context reflected | Preserves baseline UI through source-backed preview/delta when source exists; when standalone HTML is required, source extraction is traceable to a validated host preview with selector, screenshot, style, asset, and limitation evidence |
 | Annotation mapping | Notes are detached from UI | Some notes tied to controls | Page-scoped annotations are reachable from specific UI elements or transitions |
 
 Minimum recommended UI delivery score: 24 / 32. The run-log score key may remain `prototype` for backward compatibility.

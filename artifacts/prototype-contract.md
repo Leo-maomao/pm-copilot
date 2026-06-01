@@ -1,6 +1,6 @@
 # UI Delivery Contract (Legacy Prototype Contract)
 
-UI deliverables are annotated artifacts used for product review, UI reference, and engineering handoff. In repo-backed products, the default deliverable is source-backed: import or render the original frontend code as the baseline, then add only the requested change through an isolated preview/delta layer. Standalone HTML is a compatibility mode for no-source work, explicit portable HTML requests, explicit redesign/greenfield requests, or concrete source-rendering blockers.
+UI deliverables are annotated artifacts used for product review, UI reference, and engineering handoff. In repo-backed products, the default deliverable is source-backed: import or render the original frontend code as the baseline, then add only the requested change through an isolated preview/delta layer. When product managers need to give engineering an independent HTML file after first shaping the UI in the original project, use `source_extract_html`: render the target UI in the host source preview, extract the selected region, and add the annotation handoff layer. Standalone HTML is otherwise a compatibility mode for no-source work, explicit portable HTML requests without source implementation, explicit redesign/greenfield requests, or concrete source-rendering blockers.
 
 Legacy file and script names still use "prototype" for compatibility (`prototype-<platform>.html`, `validate_prototype_visual.py`, `isolated_ui_prototype`). Treat that word as a legacy container name, not permission to hand-write a fake UI.
 
@@ -16,9 +16,20 @@ When the user supplies a screenshot, generated concept image, mockup, or cropped
 
 When PM Copilot is embedded in a real product repository, UI-delivery-only work should be isolated from production implementation by default. The agent may read host frontend code, styles, assets, screenshots, stories, routes, and mock/API shapes. It must not modify production flows unless the user explicitly asks for production-oriented implementation, but frontend source availability authorizes an isolated preview route, story, demo entry, or preview-only screen that renders real host components.
 
-The expected repo-backed artifact mode depends first on source availability. If host frontend source and a preview surface exist, use `source_delta_patch` by default: import/render the real frontend components, styles, assets, and platform chrome as the baseline, then add the new requirement only in isolated preview delta files. This does not require the user to say exact UI parity. Platform-specific source-rendered modes are `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use standalone HTML fallback only when the user's raw request explicitly asks for portable/standalone/HTML review, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence; "only generate a prototype" means review scope only and is not a standalone HTML or greenfield request. Mark standalone fallback fidelity as limited. Backend-dependent behavior should be represented with coherent mock data, loading/empty/error/permission states, and annotations that name the expected data contract or API behavior when known.
+The expected repo-backed artifact mode depends first on source availability. If host frontend source and a preview surface exist, use `source_delta_patch` by default: import/render the real frontend components, styles, assets, and platform chrome as the baseline, then add the new requirement only in isolated preview delta files. This does not require the user to say exact UI parity. Platform-specific source-rendered modes are `code_preview_route`, `storybook_or_demo`, `mini_program_preview`, and `app_preview_screen`. Use `source_extract_html` when a standalone engineering handoff is needed after the UI was first rendered in the host project. This mode is allowed for renderable repo-backed products because the HTML is derived from the source preview, not hand-recreated. Use standalone HTML fallback only when the user's raw request explicitly asks for portable/standalone/HTML review without source implementation, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or when source rendering was attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence; "only generate a prototype" means review scope only and is not a standalone HTML or greenfield request. Mark standalone fallback fidelity as limited. Backend-dependent behavior should be represented with coherent mock data, loading/empty/error/permission states, and annotations that name the expected data contract or API behavior when known.
 
 A source-backed preview may be opened through a local dev URL, but the deliverable is not just that URL. Record the command, route/story/screen, changed preview/delta files, validation evidence, and any setup limits. If the user asks for direct HTML and exact source parity is not required, generate standalone compatibility HTML; if exact parity depends on host components, explain that HTML would be fidelity-limited.
+
+For `source_extract_html`, record and hand off both layers:
+
+- Source layer: preview command, preview URL/file or route/screen/story, changed isolated source preview files, baseline imports, delta patch files, mocked data/state, and source preview validation.
+- Extraction layer: CSS selector or region target, extraction command, extracted HTML path, source-region screenshot path, extracted-region screenshot path, region screenshot diff result, interaction replay scope and results, style capture method, asset handling, annotation overlay strategy, extracted HTML validation report, and known limits such as missing pseudo states, portal content, canvas/video contents, shadow DOM, remote fonts, or cross-origin assets.
+
+The extracted HTML must include non-visible metadata such as `data-source-extract="true"`, `data-source-target`, `data-source-selector`, or a `source-extract-summary` comment so reviewers can trace it back to the source preview. Do not put "demo", "prototype", or "not production" labels inside the product surface.
+
+`source_extract_html` must not claim "what the demo looks like is exactly what the standalone HTML looks like" unless the extraction report compares a screenshot of the original selected region with a screenshot of the extracted HTML region at the same viewport and the diff passes the recorded threshold. The default extraction tool writes `source_region_screenshot`, `extracted_region_screenshot`, `region_diff`, and `max_diff_ratio`; if this comparison is skipped or fails, the handoff must say the extracted HTML is source-derived but not visually proven equivalent.
+
+For dynamic pages, visual equivalence of the initial state is not enough. Any interaction that matters for product review or engineering handoff must be represented in `source_extract.interaction_checks`: replay the same actions against the source preview and the extracted HTML, then compare the resulting region screenshots. Supported extraction-tool actions include click, hover, fill, press, select, and wait. If no interaction replay is supplied, the artifact may only claim snapshot equivalence for the captured state, not behavioral equivalence. If an interaction cannot be migrated because it depends on framework runtime, backend requests, global app stores, portals, timers, or platform APIs, the extracted HTML must be marked behavior-limited and the source preview remains the authoritative interactive reference.
 
 ## Two-Layer UI Delivery Model
 
@@ -123,15 +134,15 @@ Annotation rules:
 
 ## Output Rule
 
-Generate a single self-contained `.html` file only when standalone HTML is the selected artifact mode. When repo-backed fidelity requires source rendering, generate the isolated preview route/story/demo/page/screen delta files instead and record them in `isolated_ui_prototype.preview_files_changed`.
+Generate a single self-contained `.html` file only when standalone HTML is the selected artifact mode or when `source_extract_html` is selected after a source-rendered preview exists. When repo-backed fidelity requires source rendering and no extracted HTML handoff is requested, generate the isolated preview route/story/demo/page/screen delta files instead and record them in `isolated_ui_prototype.preview_files_changed`.
 
 For document-class requests, generate a document prototype only when the requested HTML is a document/reference surface. Use `templates/document-prototype-template.html` as the base shape and record `structured_reference.delivery_class: document_prototype` in the run log. Do not force UI annotation controls onto document prototypes.
 
 Standalone HTML must record that it is a compatibility review artifact through metadata, comments, run-log fields, or PRD notes, but it should not add visible "example/demo/not production" copy to the product surface. It should be structured and styled to a standard that UI and engineering can use directly as reference.
 
-For repo-backed UI-delivery-only work, self-contained HTML is acceptable only when the raw request asks for portable/standalone/HTML review, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering is concretely blocked. It may emulate inspected host components, token values, and local assets, but it cannot guarantee exact parity for icons, fonts, rendered component internals, browser-specific CSS, platform chrome, or runtime state. If frontend source exists, use a source-rendered preview mode after recording the mutation boundary and changed preview files. Production flows remain untouched unless production implementation is explicitly requested.
+For repo-backed UI-delivery-only work, self-contained HTML is acceptable as `source_extract_html` only after the target UI has been source-rendered and the selected region is extracted with evidence. Compatibility self-contained HTML is acceptable only when the raw request asks for portable/standalone/HTML review without source implementation, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering is concretely blocked. It may emulate inspected host components, token values, and local assets, but it cannot guarantee exact parity for icons, fonts, rendered component internals, browser-specific CSS, platform chrome, or runtime state. If frontend source exists, use a source-rendered preview mode after recording the mutation boundary and changed preview files. Production flows remain untouched unless production implementation is explicitly requested.
 
-Standalone HTML files must not depend on external scripts, fonts, CDNs, network images, or remote CSS. If a visual asset is necessary, embed it, use an existing local asset reference only when the host project path is stable, or explain the limitation in the PRD and run log. Source-rendered previews should use verified host-project dependencies and assets through the host build path.
+Standalone HTML files must not depend on external scripts, fonts, CDNs, network images, or remote CSS. Source-extracted HTML should inline computed styles and embed or localize assets where feasible; unresolved asset dependencies must be listed under `source_extract.asset_handling` and `limitations`. If a visual asset is necessary, embed it, use an existing local asset reference only when the host project path is stable, or explain the limitation in the PRD and run log. Source-rendered previews should use verified host-project dependencies and assets through the host build path.
 
 Do not import React, Next.js, Tailwind, Framer Motion, icon libraries, fonts, or remote assets into standalone HTML. For source-rendered previews, import only verified dependencies already used by the host project. For local HTML compatibility artifacts, express any motion with lightweight CSS using `transform` and `opacity`; avoid scroll listeners, layout-changing animation, and anything that makes screenshot validation unstable.
 
@@ -149,4 +160,17 @@ For final delivery, prefer the delivery orchestrator so HTML parsing and output 
 
 ```bash
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>
+```
+
+For source-extracted HTML handoffs, the expected extraction command is:
+
+```bash
+python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>
+```
+
+Then validate the source preview and extracted file:
+
+```bash
+python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>
+python3 scripts/validate_prototype_visual.py outputs/<run-id>
 ```

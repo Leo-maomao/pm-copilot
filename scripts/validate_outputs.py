@@ -513,6 +513,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     mode = yaml_scalar_field_value(isolated_block, "mode")
     allowed_modes = {
         "self_contained_html_from_host_code",
+        "source_extract_html",
         "source_delta_patch",
         "source_rendered_preview",
         "code_preview_route",
@@ -568,10 +569,12 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         "mini_program_preview",
         "app_preview_screen",
     }
+    source_derived_html_modes = {"source_extract_html"}
     non_source_rendered_modes = allowed_modes - source_rendered_modes
     if (
         mode in non_source_rendered_modes
         and frontend_source_available
+        and mode not in source_derived_html_modes
         and not explicit_portable_or_blocked
     ):
         fail(
@@ -645,6 +648,36 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
             fail("Source-rendered UI delivery mode must record delta_patch.patch_strategy")
         if not yaml_scalar_field_value(delta_patch_block, "next_delta_anchor"):
             fail("Source-rendered UI delivery mode must record delta_patch.next_delta_anchor for multi-turn continuation")
+    if mode == "source_extract_html":
+        if not yaml_list_field_has_values(isolated_block, "preview_files_changed"):
+            fail("source_extract_html must record preview_files_changed for the source-rendered preview")
+        if not yaml_scalar_field_value(inventory_block, "render_entrypoint"):
+            fail("source_extract_html must record host_frontend_inventory.render_entrypoint")
+        if not yaml_list_field_has_values(baseline_import_block, "imported_sources"):
+            fail("source_extract_html must record baseline_import.imported_sources")
+        if not yaml_list_field_has_values(delta_patch_block, "patch_files"):
+            fail("source_extract_html must record delta_patch.patch_files")
+        source_extract_block = extract_yaml_block(isolated_block, "source_extract")
+        if not source_extract_block:
+            fail("source_extract_html must record isolated_ui_prototype.source_extract")
+        for field in (
+            "source_target",
+            "selector",
+            "extraction_command",
+            "extracted_html_path",
+            "source_region_screenshot",
+            "extracted_region_screenshot",
+            "region_diff",
+            "interaction_scope",
+            "interaction_checks",
+            "style_capture_method",
+            "asset_handling",
+            "annotation_layer",
+            "validation_report",
+            "limitations",
+        ):
+            if not yaml_mapping_field_has_value(source_extract_block, field):
+                fail(f"source_extract_html must record source_extract.{field}")
 
 
 class PrototypeScriptParser(HTMLParser):
