@@ -240,11 +240,11 @@ If the agent cannot determine the current product state from available repositor
 
 Before S8 exits for any UI delivery, PM Orchestrator must confirm that `agents/prototype-agent.md`, `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, and `tools/prototype-tooling.md` were applied and recorded in `run-log.yaml`. The file names keep the legacy "prototype" label for compatibility; the active definition is UI delivery.
 
-For repo-backed UI-delivery work, S8 must preserve the host production code boundary by default. The agent should read real frontend code, assets, data shapes, state rules, and screenshots, then generate a source-backed preview/delta that imports or renders the current product surface with only the requested feature delta. Do not modify production routes, pages, components, global styles, assets, package files, or backend code unless the user explicitly requests production-oriented implementation.
+For repo-backed UI-delivery work, S8 must preserve the host production code boundary by default. The agent should read real frontend code, assets, data shapes, state rules, and screenshots, then generate a source-backed preview/delta that imports or renders the current product surface with only the requested feature delta. Do not modify production routes, pages, components, global styles, assets, package files, or backend code unless the user explicitly requests production-oriented implementation. If the user does ask to implement the UI in the current repository first and then hand off a 1:1 artifact, record the changed implementation files and extract from the running implemented UI rather than hand-recreating the result.
 
 S8 repo-backed UI output must be evaluated as two layers. `baseline_import` imports or renders the original product UI from host source; `delta_patch` contains the requested new feature, visible markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations. UI-delivery markers and controls must not degrade the baseline layer.
 
-Repo-backed S8 is not complete until the run log contains `isolated_ui_prototype` with host mutation policy, artifact mode, target surface, source-to-demo mapping, backend simulation method, parity claim, and limitations. Backend-dependent behavior can be represented with mock data and annotations, but the UI deliverable must not imply that backend implementation exists.
+Repo-backed S8 is not complete until the run log contains `isolated_ui_prototype` with host mutation policy, artifact mode, target surface, source-to-demo mapping, backend simulation method, parity claim, changed preview files or user-approved implementation files, and limitations. Backend-dependent behavior can be represented with mock data and annotations, but the UI deliverable must not imply that backend implementation exists unless implementation work was explicitly requested and verified.
 
 For repo-backed UI delivery, S8 is not complete until the run log contains `style_evidence` with source files, reused components, reused tokens or class patterns, UI delta, and limitations. Compatibility HTML must include a traceable `style-source-summary` comment or `data-style-source` attribute. If existing frontend code, screenshots, or demos are available but style evidence is missing, route the work back to UI Delivery Agent instead of accepting a polished-looking greenfield artifact.
 
@@ -260,13 +260,15 @@ Only update an existing run folder when the user explicitly names that folder or
 
 The repository does not ship example output folders. `outputs/` is generated at runtime by real user runs and should not be treated as product context.
 
+If PM Copilot or the host project is expected to be a repository but the current workspace does not contain the matching git checkout, look for a same-name source folder under the local Desktop. Writing source or artifact changes there is allowed when the folder exists, but the final handoff must say that no repository push occurred and that the user can push from that local folder.
+
 ## Delivery Rules
 
 Default delivery should optimize for reviewability, not file count.
 
 - Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact when PRD is in scope.
 - For document-class reference handoffs, create `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary artifact instead of forcing the request into a PRD. Generate `catalog.html`, `reference.html`, or a `document_prototype` HTML only when the user asks for HTML or a browser-readable document.
-- Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode. `outputs/<run-id>/index.html` is allowed as the offline folder entry when the user explicitly asks for a portable/offline handoff.
+- Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, `outputs/<run-id>/prototype-<platform>.html` for source-extracted HTML or compatibility standalone/no-source/fallback mode, and `outputs/<run-id>/index.html` as the offline folder entry when the user explicitly asks for a portable/offline handoff. If the user asks to implement the UI in the current repo before handoff, run the host implementation or approved preview first, then extract the finished region as the portable artifact instead of hand-recreating it.
 - Create `outputs/<run-id>/run-log.yaml` as an internal trace when useful.
 - Keep source or export files only when they are useful for analytics import, Mermaid rendering, external review workflow, or user-requested iteration.
 - `prd.md` must include version history, requirement input and confirmation record, background, research/reference findings, goals/metrics, scope, requirement list, requirement details, flow diagrams when useful, tracking plan, UI delivery reference, risks/open confirmations, acceptance criteria, and validation results.

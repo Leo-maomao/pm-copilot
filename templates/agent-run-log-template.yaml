@@ -217,6 +217,7 @@ isolated_ui_prototype:
   host_mutation_policy: "" # production_flows_read_only | isolated_preview_files_only | production_implementation_requested | not_applicable
   target_surface: ""
   preview_files_changed: [] # required for source-rendered modes; keep production flow files out unless requested
+  implementation_files_changed: [] # only when the user explicitly asks to implement in the current repo before extraction
   baseline_import:
     imported_sources: [] # original host page/screen/components/styles/assets imported or rendered directly
     render_method: "" # route_composition | story_composition | page_import | screen_import | wrapper_component | not_applicable
@@ -240,6 +241,23 @@ isolated_ui_prototype:
     states_represented: []
     limitations: []
   parity_claim: "" # source_rendered | baseline_compared | style_evidence_only_fidelity_limited | degraded | not_applicable
+  source_extract:
+    source_target: "" # preview URL/file, route, story, screen, or implemented host page
+    selector: ""
+    extraction_command: ""
+    extracted_html_path: ""
+    source_region_screenshot: ""
+    extracted_region_screenshot: ""
+    region_diff: ""
+    interaction_scope: ""
+    interaction_checks: []
+    style_capture_method: ""
+    asset_handling: ""
+    annotation_layer: ""
+    annotation_config: "" # e.g. annotationConfig.notes
+    source_change_scope: "" # preview_only_delta | user_approved_implementation | production_oriented_implementation | other
+    validation_report: ""
+    limitations: []
   limitations: []
 
 existing_ui_visual_baseline:

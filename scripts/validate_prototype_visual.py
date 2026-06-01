@@ -514,6 +514,9 @@ def inspect_page_dom(page) -> dict[str, object]:
             if (annotationToggle && annotationToggle.getAttribute("data-draggable") !== "true") {
                 result.annotation_layout_issues.push("annotation toggle is not marked draggable");
             }
+            if (!window.annotationConfig || !Array.isArray(window.annotationConfig.notes)) {
+                result.annotation_layout_issues.push("editable annotationConfig.notes mapping is missing");
+            }
             if (annotationToggle) {
                 const toggleLabel = (annotationToggle.innerText || "").replace(/\\s+/g, "").trim();
                 if (!/^(注释|Notes?)$/.test(toggleLabel)) {

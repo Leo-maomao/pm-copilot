@@ -650,13 +650,24 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         if not yaml_scalar_field_value(delta_patch_block, "next_delta_anchor"):
             fail("Source-rendered UI delivery mode must record delta_patch.next_delta_anchor for multi-turn continuation")
     if mode == "source_extract_html":
-        if not yaml_list_field_has_values(isolated_block, "preview_files_changed"):
-            fail("source_extract_html must record preview_files_changed for the source-rendered preview")
+        has_preview_files = yaml_list_field_has_values(isolated_block, "preview_files_changed")
+        has_user_approved_implementation = yaml_list_field_has_values(
+            isolated_block,
+            "implementation_files_changed",
+        ) or re.search(
+            r"source_change_scope\s*:\s*(user_approved_implementation|production_oriented_implementation)",
+            isolated_block,
+        )
+        if not has_preview_files and not has_user_approved_implementation:
+            fail(
+                "source_extract_html must record preview_files_changed or "
+                "user-approved implementation_files_changed for the source-rendered UI"
+            )
         if not yaml_scalar_field_value(inventory_block, "render_entrypoint"):
             fail("source_extract_html must record host_frontend_inventory.render_entrypoint")
-        if not yaml_list_field_has_values(baseline_import_block, "imported_sources"):
+        if not yaml_list_field_has_values(baseline_import_block, "imported_sources") and not has_user_approved_implementation:
             fail("source_extract_html must record baseline_import.imported_sources")
-        if not yaml_list_field_has_values(delta_patch_block, "patch_files"):
+        if not yaml_list_field_has_values(delta_patch_block, "patch_files") and not has_user_approved_implementation:
             fail("source_extract_html must record delta_patch.patch_files")
         source_extract_block = extract_yaml_block(isolated_block, "source_extract")
         if not source_extract_block:
@@ -674,6 +685,8 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
             "style_capture_method",
             "asset_handling",
             "annotation_layer",
+            "annotation_config",
+            "source_change_scope",
             "validation_report",
             "limitations",
         ):
@@ -1202,7 +1215,21 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
         fail(f"{prototype_name} missing red annotation-marker badges")
     if "data-annotation-id" not in text:
         fail(f"{prototype_name} missing data-annotation-id mapping for annotation markers")
-    if 'data-annotation-placement="top-right"' not in text and "data-annotation-placement='top-right'" not in text:
+    if not re.search(r"annotationConfig\s*=\s*\{", text) or "notes:" not in text:
+        fail(f"{prototype_name} missing editable annotationConfig.notes mapping")
+    if "renderAnnotationMarkers" not in text:
+        fail(f"{prototype_name} must render annotation markers from the editable annotation config")
+    if "data-annotation-anchor" not in text and "selector:" not in text:
+        fail(f"{prototype_name} missing editable annotation anchor or selector mapping")
+    has_top_right_placement = (
+        'data-annotation-placement="top-right"' in text
+        or "data-annotation-placement='top-right'" in text
+        or re.search(
+            r"setAttribute\(\s*['\"]data-annotation-placement['\"]\s*,\s*['\"]top-right['\"]\s*\)",
+            text,
+        )
+    )
+    if not has_top_right_placement:
         fail(f"{prototype_name} missing top-right annotation placement metadata")
     if "annotation-target" not in text:
         fail(f"{prototype_name} missing annotation-target wrappers for component-corner markers")
@@ -1333,6 +1360,7 @@ def check_annotation_marker_contract(text: str, prototype_name: str, language: s
         fail(f"{prototype_name} missing nowrap protection for compact controls and annotation toggles")
 
     annotation_ids = set(re.findall(r"data-annotation-id=[\"']([0-9]+)[\"']", text))
+    annotation_ids.update(re.findall(r"\bid\s*:\s*['\"]([0-9]+)['\"]", text))
     if not annotation_ids:
         fail(f"{prototype_name} missing annotation ID values")
     if CIRCLED_ANNOTATION_NUMERAL_RE.search(text):

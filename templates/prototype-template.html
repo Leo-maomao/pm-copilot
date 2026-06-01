@@ -55,7 +55,7 @@
   </style>
 </head>
 <body>
-  <!-- Template note: match the current product style before filling this file. Marker clicks open small local popovers beside the marker; only the short annotation toggle opens the right-side full-height annotation-list panel. Do not use a full-screen/global marker modal. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. -->
+  <!-- Template note: match the current product style before filling this file. Edit annotationConfig.notes to add, remove, reorder, or change callouts; markers are rendered from that config. Marker clicks open small local popovers beside the marker; only the short annotation toggle opens the right-side full-height annotation-list panel. Do not use a full-screen/global marker modal. Add a style-source-summary comment or data-style-source attribute when repo-backed style evidence exists. -->
   <!-- style-source-summary: {{localized_style_source_summary}} -->
   <div class="prototype-shell" data-style-source="{{localized_style_source_summary}}" data-delivery-boundary="compatibility_html_review_artifact">
     <div class="prototype-toolbar" aria-label="{{localized_prototype_controls}}">
@@ -78,13 +78,11 @@
 
         <section id="screen-current" class="screen active" data-prototype-state="current" data-ui-state="normal">
           <div class="page-content">
-            <div class="annotation-target">
+            <div class="annotation-target" data-annotation-anchor="existing-entry">
               <h1>{{localized_existing_page_surface}}</h1>
-              <button id="marker-1" class="annotation-marker" data-annotation-id="1" data-annotation-placement="top-right" type="button" onclick="showAnnotation('1', this)">1</button>
             </div>
             <p class="muted">{{localized_existing_page_note}}</p>
-            <div class="card annotation-target">
-              <button id="marker-2" class="annotation-marker" data-annotation-id="2" data-annotation-placement="top-right" type="button" onclick="showAnnotation('2', this)">2</button>
+            <div class="card annotation-target" data-annotation-anchor="existing-card">
               <strong>{{localized_existing_card_title}}</strong>
               <p class="muted">{{localized_existing_card_summary}}</p>
             </div>
@@ -94,19 +92,16 @@
 
         <section id="screen-new" class="screen" data-prototype-state="new" data-ui-state="new-feature">
           <div class="page-content">
-            <div class="annotation-target">
+            <div class="annotation-target" data-annotation-anchor="new-entry">
               <h1>{{localized_new_requirement_state}}</h1>
-              <button id="marker-3" class="annotation-marker" data-annotation-id="3" data-annotation-placement="top-right" type="button" onclick="showAnnotation('3', this)">3</button>
             </div>
             <p class="muted">{{localized_new_state_note}}</p>
-            <div class="card annotation-target">
-              <button id="marker-4" class="annotation-marker" data-annotation-id="4" data-annotation-placement="top-right" type="button" onclick="showAnnotation('4', this)">4</button>
+            <div class="card annotation-target" data-annotation-anchor="new-component">
               <strong>{{localized_new_component_title}}</strong>
               <p class="muted">{{localized_new_component_summary}}</p>
             </div>
-            <div class="annotation-target">
-              <button class="button" type="button" onclick="showAnnotation('5', document.getElementById('marker-5'))">{{localized_primary_action}}</button>
-              <button id="marker-5" class="annotation-marker" data-annotation-id="5" data-annotation-placement="top-right" type="button" onclick="showAnnotation('5', this)">5</button>
+            <div class="annotation-target" data-annotation-anchor="primary-action">
+              <button class="button" type="button" onclick="showAnnotation('5', findMarker('5'))">{{localized_primary_action}}</button>
             </div>
           </div>
         </section>
@@ -119,13 +114,32 @@
 
   <script type="text/javascript">
     var currentView = 'current';
-    var annotations = [
-      { id: '1', view: 'current', number: '1', title: '{{localized_existing_entry_note_label}}', detail: '{{localized_note_1_expanded_annotation}}' },
-      { id: '2', view: 'current', number: '2', title: '{{localized_existing_card_note_label}}', detail: '{{localized_note_2_expanded_annotation}}' },
-      { id: '3', view: 'new', number: '3', title: '{{localized_added_page_note_label}}', detail: '{{localized_note_3_expanded_annotation}}' },
-      { id: '4', view: 'new', number: '4', title: '{{localized_added_component_note_label}}', detail: '{{localized_note_4_expanded_annotation}}' },
-      { id: '5', view: 'new', number: '5', title: '{{localized_submit_tracking_note_label}}', detail: '{{localized_note_5_expanded_annotation}}' }
-    ];
+    var annotationConfig = {
+      notes: [
+        { id: '1', view: 'current', number: '1', anchor: 'existing-entry', title: '{{localized_existing_entry_note_label}}', detail: '{{localized_note_1_expanded_annotation}}' },
+        { id: '2', view: 'current', number: '2', anchor: 'existing-card', title: '{{localized_existing_card_note_label}}', detail: '{{localized_note_2_expanded_annotation}}' },
+        { id: '3', view: 'new', number: '3', anchor: 'new-entry', title: '{{localized_added_page_note_label}}', detail: '{{localized_note_3_expanded_annotation}}' },
+        { id: '4', view: 'new', number: '4', anchor: 'new-component', title: '{{localized_added_component_note_label}}', detail: '{{localized_note_4_expanded_annotation}}' },
+        { id: '5', view: 'new', number: '5', anchor: 'primary-action', title: '{{localized_submit_tracking_note_label}}', detail: '{{localized_note_5_expanded_annotation}}' }
+      ]
+    };
+    var annotations = annotationConfig.notes;
+
+    function renderAnnotationMarkers() {
+      annotations.forEach(function (item) {
+        var anchor = document.querySelector('[data-annotation-anchor="' + item.anchor + '"]');
+        if (!anchor || anchor.querySelector('[data-annotation-id="' + item.id + '"]')) return;
+        var marker = document.createElement('button');
+        marker.id = 'marker-' + item.id;
+        marker.className = 'annotation-marker';
+        marker.type = 'button';
+        marker.setAttribute('data-annotation-id', item.id);
+        marker.setAttribute('data-annotation-placement', 'top-right');
+        marker.textContent = item.number;
+        marker.addEventListener('click', function () { showAnnotation(item.id, marker); });
+        anchor.appendChild(marker);
+      });
+    }
 
     function activeAnnotations() {
       return annotations.filter(function (item) { return item.view === currentView; });
@@ -280,6 +294,7 @@
       }
     });
 
+    renderAnnotationMarkers();
     initDraggableAnnotationToggle();
   </script>
 </body>

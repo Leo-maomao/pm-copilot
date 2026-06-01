@@ -6,6 +6,27 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.7.3] - 2026-06-01
+
+### Added
+
+- Added an implementation-then-extraction UI delivery path for requests where the feature is first completed in the current host repository and then handed off as a 1:1 source-derived HTML artifact for engineering review.
+- Added editable annotation-layer guidance so generated markers and notes are driven by a default configuration that users can add to, remove from, or edit without rewriting the product surface.
+- Added fallback handoff guidance for missing PM Copilot git metadata: when the target repository cannot be found, write the source files to a same-name folder under the local Desktop and avoid claiming a remote push.
+
+### Changed
+
+- Updated the prototype template so annotation markers are generated from `annotationConfig.notes`, making the note set easier to edit while preserving body-only marker popovers and the right-side annotation list.
+- Clarified that `source_extract_html` may be derived from an explicitly user-approved host implementation, not only from an isolated preview route, when the user asks to complete the feature in the current repository first.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/run_delivery_checks.py scripts/validate_repo.py scripts/validate_prototype_visual.py scripts/validate_ui_preview.py scripts/extract_ui_region.py scripts/preflight_tools.py`.
+- Prototype template inline JavaScript validation passes with `node --check`.
+- Dated `index.html` compatibility output smoke validation passes with `python3 scripts/validate_outputs.py /tmp/outputs/pmcopilot-index-smoke-2026-06-01 --language zh`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.7.2] - 2026-06-01
 
 ### Added
