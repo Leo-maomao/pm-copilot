@@ -60,6 +60,7 @@ PROTOTYPE_FILE_NAMES = (
     "prototype-h5.html",
     "prototype-app.html",
 )
+PRD_HTML_FILE_NAMES = ("prd.html",)
 CATALOG_FILE_NAMES = (
     "catalog.md",
     "catalog.html",
@@ -112,6 +113,20 @@ DOCUMENT_ATTENTION_TYPES = {
     "security_or_compliance",
     "change_marker",
 }
+REQUIREMENT_DETAIL_HEADER_GROUPS = (
+    ("id", "编号", "需求id", "功能id"),
+    ("function", "功能"),
+    ("scenario", "场景", "用户场景"),
+    ("entry", "trigger", "入口", "触发"),
+    ("content", "page", "页面", "内容"),
+    ("business", "logic", "业务逻辑"),
+    ("interaction", "交互"),
+    ("data", "数据"),
+    ("permission", "权限"),
+    ("edge", "fallback", "边界", "异常", "失败", "空状态"),
+    ("tracking", "event", "埋点"),
+    ("acceptance", "验收"),
+)
 
 CIRCLED_ANNOTATION_NUMERAL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨]")
 BACKEND_BOUNDARY_RE = re.compile(
@@ -411,6 +426,39 @@ def markdown_table_has_data_for(text: str, required_columns: set[str]) -> bool:
             ):
                 return True
     return False
+
+
+def headers_match_requirement_detail_contract(headers: list[str] | set[str]) -> bool:
+    normalized_headers = [normalize_table_cell(header) for header in headers if header]
+    if len(normalized_headers) < len(REQUIREMENT_DETAIL_HEADER_GROUPS):
+        return False
+    return all(
+        any(
+            any(alias in header for alias in aliases)
+            for header in normalized_headers
+        )
+        for aliases in REQUIREMENT_DETAIL_HEADER_GROUPS
+    )
+
+
+def markdown_has_requirement_detail_table(text: str) -> bool:
+    return any(
+        headers_match_requirement_detail_contract(headers)
+        for headers in markdown_table_headers(text)
+    )
+
+
+def markdown_image_count_in_tables(text: str) -> int:
+    count = 0
+    in_table = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("|"):
+            in_table = True
+            count += len(re.findall(r"!\[[^\]]*\]\([^)]+\)|<img\b", line, re.IGNORECASE))
+            continue
+        if in_table and line.strip():
+            in_table = False
+    return count
 
 
 def strip_yaml_comments(block: str) -> str:
@@ -721,6 +769,63 @@ class PrototypeScriptParser(HTMLParser):
             self.scripts[-1] += data
 
 
+class PRDHTMLInspectionParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.stack: list[str] = []
+        self.images: list[dict[str, object]] = []
+        self.scripts: list[str] = []
+        self.stylesheets: list[str] = []
+        self.tables: list[dict[str, object]] = []
+        self._current_header_text: list[str] = []
+        self._in_th = False
+        self.mermaid_nodes = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        attr_map = {name.lower(): value or "" for name, value in attrs}
+        class_name = attr_map.get("class", "")
+        if "mermaid" in class_name.split():
+            self.mermaid_nodes += 1
+        if tag == "script":
+            self.scripts.append(attr_map.get("src", ""))
+        if tag == "link" and "stylesheet" in attr_map.get("rel", "").lower():
+            self.stylesheets.append(attr_map.get("href", ""))
+        if tag == "table":
+            self.tables.append({"headers": [], "image_count": 0})
+        if tag == "th":
+            self._in_th = True
+            self._current_header_text = []
+        if tag == "img":
+            in_table = "table" in self.stack
+            self.images.append({
+                "src": attr_map.get("src", ""),
+                "alt": attr_map.get("alt", ""),
+                "in_table": in_table,
+            })
+            if in_table and self.tables:
+                self.tables[-1]["image_count"] = int(self.tables[-1].get("image_count", 0)) + 1
+        self.stack.append(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag == "th" and self._in_th:
+            if self.tables:
+                headers = self.tables[-1].setdefault("headers", [])
+                if isinstance(headers, list):
+                    headers.append(normalize_table_cell(" ".join(self._current_header_text)))
+            self._in_th = False
+            self._current_header_text = []
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index] == tag:
+                del self.stack[index]
+                break
+
+    def handle_data(self, data: str) -> None:
+        if self._in_th:
+            self._current_header_text.append(data)
+
+
 def section_text(text: str, name: str) -> str:
     match = re.search(rf"^{re.escape(name)}:\s*(?:[^#\n]*)?(?:#.*)?$", text, re.MULTILINE)
     if not match:
@@ -736,6 +841,10 @@ def section_text(text: str, name: str) -> str:
 
 def generated_prototypes(path: Path) -> list[Path]:
     return [path / name for name in PROTOTYPE_FILE_NAMES if (path / name).is_file()]
+
+
+def generated_prd_html_documents(path: Path) -> list[Path]:
+    return [path / name for name in PRD_HTML_FILE_NAMES if (path / name).is_file()]
 
 
 def generated_catalogs(path: Path) -> list[Path]:
@@ -773,6 +882,7 @@ def check_folder(path: Path) -> None:
         fail("Missing run-log.yaml")
     allowed = {
         "prd.md",
+        "prd.html",
         "run-log.yaml",
         "tracking-plan.csv",
         "user-flow.mmd",
@@ -807,7 +917,7 @@ def check_pre_clarification(path: Path) -> None:
 
 
 def check_stale_validation(path: Path) -> None:
-    for file_name in ("prd.md", "run-log.yaml", "catalog.md", "catalog.html"):
+    for file_name in ("prd.md", "prd.html", "run-log.yaml", "catalog.md", "catalog.html"):
         file_path = path / file_name
         if file_path.exists() and STALE_VALIDATION_RE.search(read(file_path)):
             fail(f"Stale validation placeholder found in {file_name}")
@@ -1039,6 +1149,44 @@ def check_scope_and_surface_trace(path: Path) -> None:
             fail(f"Run log missing scope/surface marker: {canonical} or {legacy}")
     if "navigation_visibility:" not in run_log:
         fail("Run log missing scope/surface marker: navigation_visibility:")
+
+
+def check_implemented_feature_prd_trace(path: Path) -> None:
+    run_log = read(path / "run-log.yaml")
+    section = extract_yaml_block(run_log, "implemented_feature_prd")
+    if not section:
+        return
+    active = yaml_bool_field_value(section, "active")
+    mode = yaml_scalar_field_value(section, "mode")
+    if active is not True and mode not in {
+        "implemented_feature_prd",
+        "implemented_feature_prd_html",
+        "implemented_feature_prd_review",
+    }:
+        return
+    for marker in (
+        "diff_commands:",
+        "changed_files:",
+        "behavior_evidence:",
+        "screenshots_and_placeholders:",
+        "validation_evidence:",
+        "completeness_check:",
+    ):
+        if marker not in section:
+            fail(f"implemented_feature_prd missing marker: {marker}")
+    if not yaml_list_field_has_values(section, "changed_files"):
+        fail("implemented_feature_prd.changed_files must list inspected branch files or an explicit not_applicable item")
+    if not yaml_mapping_field_has_value(section, "evidence_id"):
+        fail("implemented_feature_prd.behavior_evidence must include evidence_id entries")
+    for marker in ("observed_behavior:", "related_requirement_ids:", "coverage_status:"):
+        if marker not in section:
+            fail(f"implemented_feature_prd.behavior_evidence missing marker: {marker}")
+    completeness = extract_yaml_block(section, "completeness_check")
+    for field in ("implementation_behaviors_checked", "represented_in_prd", "unresolved_product_intent"):
+        if not yaml_list_field_has_values(completeness, field):
+            fail(f"implemented_feature_prd.completeness_check.{field} must be populated")
+    if mode == "implemented_feature_prd_html" and not (path / "prd.html").is_file():
+        fail("implemented_feature_prd_html mode requires prd.html")
 
 
 def check_visual_validation_trace(path: Path) -> None:
@@ -1740,6 +1888,94 @@ def check_document_prototype_html(prototype_path: Path) -> None:
     check_prototype_script_syntax(text, prototype_path.name)
 
 
+def check_prd_html_documents(path: Path) -> None:
+    for prd_html in generated_prd_html_documents(path):
+        check_prd_html_document(prd_html, path)
+
+
+def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
+    text = read(prd_html_path)
+    markdown_text = read(output_folder / "prd.md") if (output_folder / "prd.md").is_file() else ""
+    if "<!doctype html" not in text[:200].lower():
+        fail(f"{prd_html_path.name} missing doctype")
+    if "<main" not in text.lower() and "<body" not in text.lower():
+        fail(f"{prd_html_path.name} missing readable document body")
+    if re.search(r"class=[\"'][^\"']*(card|panel|module|tile)[^\"']*[\"']", text, re.IGNORECASE):
+        fail(f"{prd_html_path.name} should render as a normal document, not a card/module layout")
+
+    parser = PRDHTMLInspectionParser()
+    try:
+        parser.feed(text)
+        parser.close()
+    except Exception as error:
+        fail(f"{prd_html_path.name} HTML parse failed: {error}")
+
+    for resource in [*parser.scripts, *parser.stylesheets]:
+        if resource and re.match(r"^(?:https?:)?//", resource, re.IGNORECASE):
+            fail(f"{prd_html_path.name} must avoid remote runtime dependency: {resource}")
+
+    for src in [str(item.get("src") or "") for item in parser.images]:
+        if not src:
+            fail(f"{prd_html_path.name} contains image without src")
+        if re.match(r"^[a-z]+:", src, re.IGNORECASE) and not src.startswith("data:"):
+            fail(f"{prd_html_path.name} image must use local relative path or data URI: {src}")
+        if src.startswith("data:"):
+            continue
+        image_path = (prd_html_path.parent / src).resolve()
+        try:
+            image_path.relative_to(prd_html_path.parent.resolve())
+        except ValueError:
+            fail(f"{prd_html_path.name} image path escapes output folder: {src}")
+        if not image_path.is_file():
+            fail(f"{prd_html_path.name} image path not found: {src}")
+
+    markdown_image_count = len(re.findall(r"!\[[^\]]*\]\([^)]+\)|<img\b", markdown_text, re.IGNORECASE))
+    markdown_table_image_count = markdown_image_count_in_tables(markdown_text)
+    html_table_image_count = sum(1 for item in parser.images if bool(item.get("in_table")))
+    placeholder_count = len(re.findall(r"图片占位|截图占位|image placeholder|screenshot placeholder", markdown_text, re.IGNORECASE))
+    if markdown_image_count and not parser.images:
+        fail(f"{prd_html_path.name} missing images referenced by prd.md")
+    if parser.images:
+        if markdown_table_image_count and html_table_image_count < markdown_table_image_count:
+            fail(f"{prd_html_path.name} must keep table images inside the corresponding table cells")
+        if not re.search(r"lightbox|fullscreen|requestFullscreen|image-viewer|dialog", text, re.IGNORECASE):
+            fail(f"{prd_html_path.name} images must support click-to-fullscreen or equivalent lightbox viewing")
+    if placeholder_count and not re.search(r"图片占位|截图占位|image placeholder|screenshot placeholder", visible_html_text(text), re.IGNORECASE):
+        fail(f"{prd_html_path.name} missing inline image placeholders from prd.md")
+    if re.search(r"(图片列表|截图列表|image list|screenshot list)", visible_html_text(text), re.IGNORECASE):
+        fail(f"{prd_html_path.name} must not move images into a separate image list")
+
+    has_requirement_detail_table = False
+    for table in parser.tables:
+        headers = {
+            str(header)
+            for header in table.get("headers", [])
+            if isinstance(header, str)
+        }
+        if headers_match_requirement_detail_contract(headers):
+            has_requirement_detail_table = True
+            break
+    if markdown_has_requirement_detail_table(markdown_text) and not has_requirement_detail_table:
+        fail(f"{prd_html_path.name} missing complete requirement-detail table columns")
+
+    if "```mermaid" in markdown_text:
+        has_mermaid_script = any("mermaid" in script.lower() for script in parser.scripts) or "mermaid.initialize" in text
+        if not has_mermaid_script:
+            fail(f"{prd_html_path.name} missing Mermaid runtime for PRD flow diagrams")
+        if parser.mermaid_nodes <= 0:
+            fail(f"{prd_html_path.name} missing rendered Mermaid container")
+        raw_mermaid_pre = re.search(
+            r"<pre(?![^>]*class=[\"'][^\"']*\bmermaid\b)[^>]*>\s*(?:<code[^>]*>)?\s*(flowchart|sequenceDiagram|graph)\b",
+            text,
+            re.IGNORECASE,
+        )
+        if raw_mermaid_pre:
+            fail(f"{prd_html_path.name} still exposes raw Mermaid code blocks")
+
+    if "<table" in text.lower() and not re.search(r"overflow-x\s*:\s*auto|table-layout\s*:\s*fixed|min-width|max-width", text, re.IGNORECASE):
+        fail(f"{prd_html_path.name} missing wide-table readability styling")
+
+
 def check_handoff_artifacts(path: Path) -> None:
     dev_tasks = path / "dev-tasks.yaml"
     if dev_tasks.exists():
@@ -1939,6 +2175,7 @@ def main() -> None:
     check_structured_run_log_trace(folder)
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
+    check_implemented_feature_prd_trace(folder)
     check_visual_validation_trace(folder)
     check_prototype_agent_and_style_trace(folder, args.language)
     if args.language == "zh":
@@ -1948,6 +2185,7 @@ def main() -> None:
     check_mini_program_prototype(folder, args.language)
     check_web_prototype(folder, args.language)
     check_mermaid(folder)
+    check_prd_html_documents(folder)
     check_structured_catalog(folder)
     check_handoff_artifacts(folder)
     print(f"PM Copilot output validation passed: {folder}")

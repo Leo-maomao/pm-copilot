@@ -6,6 +6,27 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.7.4] - 2026-06-15
+
+### Added
+
+- Added implemented-feature-to-PRD delivery guidance for reconstructing complete PRDs from current branch evidence, changed files, UI surfaces, screenshots/assets, validation, and unverified product intent.
+- Added `prd.html` as a browser-readable PRD document artifact for external delivery, separate from UI prototypes and document prototypes.
+- Added PRD HTML expectations for inline image placeholders, table-cell images, click-to-fullscreen image viewing, rendered Mermaid diagrams, readable wide tables, and neutral document styling.
+- Added `implemented_feature_prd` run-log trace fields for diff evidence, changed files, behavior evidence, screenshots/placeholders, validation evidence, and completeness checks.
+
+### Changed
+
+- Updated PRD, workflow, package, artifact, and direct-use guidance so implemented branch behavior is fully represented in Markdown and HTML without detached screenshot lists or manual reviewer backfill.
+- Updated output and delivery validators to accept and inspect `prd.html` alongside `prd.md`.
+- Updated repository validation to ignore generated binary/review asset folders under `outputs/` during text scans.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/run_delivery_checks.py scripts/validate_repo.py scripts/validate_prototype_visual.py scripts/validate_ui_preview.py scripts/extract_ui_region.py scripts/preflight_tools.py scripts/inspect_host_frontend.py scripts/install_adapter.py scripts/agent_improvement_scorecard.py scripts/preflight_integrations.py scripts/setup_visual_validation.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.7.3] - 2026-06-01
 
 ### Added

@@ -6,6 +6,7 @@
 S0 Intake
 -> S1 Tool preflight
 -> S2 Context loading
+-> S2b Implemented feature evidence scan (when current branch already contains the feature)
 -> S3 Discovery and clarification
 -> S4 Clarification gate
 -> S5 External product research
@@ -25,6 +26,7 @@ S0 Intake
 | S0 Intake | PM Orchestrator | Task brief received | Request goal and artifact needs are identified |
 | S1 Tool preflight | PM Orchestrator | Full-loop, embedded, final delivery, or external integration work is expected | Available, setup-required, and unavailable tools are recorded |
 | S2 Context loading | PM Orchestrator | Product context source is known or needs discovery | Relevant PM Copilot context and available product context are loaded |
+| S2b Implemented feature evidence scan | PM Orchestrator + Requirements Agent | User asks to generate PRD/HTML from an already implemented branch or current diff | Changed files, UI surfaces, behavior evidence, screenshots/assets, tests, validation, and unverified intent are recorded |
 | S3 Discovery and clarification | Discovery Agent | Request is ambiguous, incomplete, or needs current-product-fit validation | Critical questions, assumptions, and open decisions are captured |
 | S4 Clarification gate | PM Orchestrator | Clarification questions exist or blocking assumptions are detected | User answers are applied, or the user explicitly asks for a draft with assumption or confirmation risk |
 | S5 External product research | Research Agent | PRD solution shaping needs competitor, benchmark, comparable feature, market, policy, pricing, or source-backed context | Source-backed research brief is produced or limitation is stated |
@@ -144,6 +146,42 @@ Classify the delivery before drafting:
 If the user explicitly says no PRD is needed, do not generate `prd.md`. Record PRD as not applicable in the run log and make the structured reference or document prototype the primary delivery.
 
 For document-class artifacts, maintain one structured source of truth before rendering. Separate extracted `source_facts` from final `product_decisions`, preserve hierarchy and conditional rules, record `attention_points`, and run a completeness check before delivery.
+
+## Implemented-Feature PRD Delivery
+
+Use this mode when the feature has already been implemented or changed in the current branch and the user asks PM Copilot to restore, reverse-engineer, or package the requirement into Markdown and HTML.
+
+Classification:
+
+- `implemented_feature_prd`: PRD is reconstructed from current branch evidence.
+- `implemented_feature_prd_html`: PRD plus browser-readable `prd.html` are requested.
+- `implemented_feature_prd_review`: existing PRD/HTML is being corrected against the implementation.
+
+Before S3 clarification, run S2b:
+
+- Inspect branch status and diff using the host environment's normal source-control tools.
+- Read changed files and nearby product context, including UI entry points, menus, dialogs, feature flags, permissions, data operations, analytics, copy, i18n, and tests when present.
+- Inspect existing screenshots/assets supplied by the user. If images are not ready, define inline placeholder positions in the PRD instead of creating a detached image list.
+- Record evidence in `run-log.yaml` under `implemented_feature_prd`: branch name when available, diff summary, files inspected, behavior evidence, UI surfaces, screenshots or placeholders, validation evidence, and unverified product intent.
+- Ask only for facts that cannot be recovered from implementation evidence and that affect product intent, rollout, launch approval, metrics, legal/privacy/compliance, or screenshot replacement.
+
+Drafting rules:
+
+- Treat implementation evidence as current-product truth, but distinguish observed behavior from product intent.
+- Reconstruct complete product requirements: background, goals, scope, entry points, interaction flow, business logic, data rules, permissions, edge cases, tracking, acceptance criteria, and risks.
+- Include an implementation-to-requirement coverage map so reviewers can see which code evidence supports each requirement and which behavior remains unverified.
+- If implementation reveals behavior that seems incomplete, inconsistent, or not product-approved, record it as a risk or open confirmation instead of smoothing it over.
+- Do not require the user to manually查漏补缺. If a behavior is visible in the branch, include it in the PRD; if it cannot be verified, mark the gap explicitly with owner and impact.
+
+HTML rendering rules:
+
+- Generate `outputs/<run-id>/prd.html` when the user asks for HTML, browser-readable output, or externally deliverable documents.
+- `prd.html` is a document rendering of `prd.md`, not a product UI prototype. It may have a left table of contents, but the right side is the normal document content area; do not wrap content in decorative cards, nested scrolling containers, or mixed module/text blocks.
+- Use neutral document styling. Avoid unusual background colors, gradients, shadows, card-heavy sections, or a marketing/prototype visual style.
+- Preserve full table readability. Wide requirement tables must keep all semantic columns present and use wrapping or horizontal overflow without hiding the acceptance column or other rightmost fields.
+- Render Mermaid diagrams as diagrams in HTML. Do not leave raw Mermaid code blocks visible in final HTML.
+- Put images and image placeholders inline at the exact relevant PRD position, including table cells when the image explains that row. Do not add a separate screenshot/image list.
+- Local image paths must resolve inside the run folder or its `assets/` subfolder. Real images should support click-to-fullscreen or equivalent lightbox viewing.
 
 ## Evaluation And Default-Option Mode
 
@@ -268,6 +306,7 @@ Default delivery should optimize for reviewability, not file count.
 
 - Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact when PRD is in scope.
 - For document-class reference handoffs, create `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary artifact instead of forcing the request into a PRD. Generate `catalog.html`, `reference.html`, or a `document_prototype` HTML only when the user asks for HTML or a browser-readable document.
+- For implemented-feature PRD delivery, create `outputs/<run-id>/prd.md` and, when requested, `outputs/<run-id>/prd.html`. This HTML is a document rendering and should not be named `prototype-<platform>.html`.
 - Create or record a UI deliverable when a user-facing UI artifact is relevant: source-backed preview/delta files by default when frontend source exists, `outputs/<run-id>/prototype-<platform>.html` for source-extracted HTML or compatibility standalone/no-source/fallback mode, and `outputs/<run-id>/index.html` as the offline folder entry when the user explicitly asks for a portable/offline handoff. If the user asks to implement the UI in the current repo before handoff, run the host implementation or approved preview first, then extract the finished region as the portable artifact instead of hand-recreating it.
 - Create `outputs/<run-id>/run-log.yaml` as an internal trace when useful.
 - Keep source or export files only when they are useful for analytics import, Mermaid rendering, external review workflow, or user-requested iteration.

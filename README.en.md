@@ -12,6 +12,8 @@ The project is intentionally not a web app, CLI, or Figma plugin. It is a reusab
 
 PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `brief-only`. The agent should choose the mode from available inputs before drafting, so it does not require a code repository when product documents or a short brief are the actual starting point.
 
+PM Copilot also supports an implemented-feature-to-PRD workflow. When a feature is already built on the current branch, the agent should inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the real implementation into a complete `prd.md` and, when needed for delivery, a browser-readable `prd.html`.
+
 ## Language Support
 
 PM Copilot treats English and Chinese as first-class user-facing languages. Generated PM artifacts, UI delivery labels, annotations, review findings, readiness statuses, and validation notes should follow the user's language with the same workflow, artifact set, and quality bar. File names, event names, property names, requirement IDs, and other machine-readable identifiers stay ASCII for portability.
@@ -19,9 +21,11 @@ PM Copilot treats English and Chinese as first-class user-facing languages. Gene
 ## What It Produces
 
 - `prd.md` suitable for product, design, engineering, QA, and analytics review
+- `prd.html` for browser-readable or external PRD delivery, as a document rendering rather than a UI prototype
 - Version history, requirement input, clarified answers, assumptions, and open confirmations inside the PRD
 - Research and reference findings, prioritizing external competitor, comparable feature, user-research, or public solution sources; current implementation is treated as product context and engineering constraint
 - Requirement list and detailed requirement tables with logic, content, rules, interactions, data, permissions, edge states, tracking links, and acceptance links
+- Implementation evidence and coverage mapping for implemented-feature PRDs, showing which requirements came from current-branch evidence and which product intent still needs confirmation
 - Goals, metrics, tracking plan, and flow diagrams inside the PRD
 - Annotated UI deliverable for Web, H5, App, or Mini Program scenarios. When frontend source exists, the default is a source-backed preview or delta patch. If the PM needs an independent HTML handoff, the agent should first render the target region in the original project or user-approved current-repo implementation and then use `extract_ui_region.py` to produce an annotated `prototype-<platform>.html` or offline `index.html` with editable annotation configuration. Local compatibility HTML is only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield requests, or concrete source-rendering blockers.
 - Structured reference delivery for document-class requests such as parameter tables, capability matrices, rule references, data dictionaries, SOPs/runbooks, or migration inventories. When the user explicitly says no PRD is needed, PM Copilot should not force one.
@@ -46,6 +50,14 @@ We want to improve the H5 membership auto-renewal experience. Users say renewal 
 
 If important information is missing, ask me first.
 If enough information is available, create `prd.md` and the matching UI deliverable.
+```
+
+For an already implemented feature, use:
+
+```text
+The feature is already implemented on the current branch. Please inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the feature into a complete PRD Markdown file and generate a browser-readable `prd.html` in the same run folder.
+
+If final screenshots are not ready, put inline placeholders at the relevant requirement positions for manual replacement. Do not create a separate image list.
 ```
 
 ## Two Practical Demos
@@ -173,6 +185,7 @@ scripts/       Lightweight local validation
 Request intake
 -> Tool preflight
 -> Current product context scan
+-> Implemented feature evidence scan (when the current branch already contains the feature)
 -> Requirement clarification
 -> User answer or explicit assumption approval
 -> PRD with goals, research, requirements, metrics, tracking, and flows
@@ -184,7 +197,9 @@ The default interaction mode is "clarify before generation." If must-answer info
 
 For reference, policy, medical, legal, financial, safety, or operational content, PM Copilot records source status, review owner, review status, disclaimer status, and launch impact. Unreviewed content must be labeled as placeholder or draft even when the surrounding product framework is ready for engineering.
 
-Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, a UI-deliverable reference, and optionally `run-log.yaml`. The run id uses an English kebab-case requirement name plus day-precision date, for example `membership-renewal-2026-05-18`; same-day collisions append `-2`, `-3`, and so on. In a repo with frontend source, the UI deliverable defaults to source-backed preview/delta files recorded in `run-log.yaml`; when the user asks to implement the UI in the current repository first and then hand off a 1:1 artifact, PM Copilot should run the implemented host UI and extract the target region into source-derived HTML. Compatibility `prototype-<platform>.html` files are generated only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield UI, or concrete source-rendering blockers. Offline folder handoffs may also use `index.html` as the entry file in the same run folder. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the target git repository cannot be found but a same-name source folder exists on the Desktop, files may be written there and the user should push from that folder.
+Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, a UI-deliverable reference, and optionally `run-log.yaml`. The run id uses an English kebab-case requirement name plus day-precision date, for example `membership-renewal-2026-05-18`; same-day collisions append `-2`, `-3`, and so on. In a repo with frontend source, the UI deliverable defaults to source-backed preview/delta files recorded in `run-log.yaml`; when the user asks to implement the UI in the current repository first and then hand off a 1:1 artifact, PM Copilot should run the implemented host UI and extract the target region into source-derived HTML. Compatibility `prototype-<platform>.html` files are generated only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield UI, or concrete source-rendering blockers. Offline folder handoffs may also use `index.html` as the entry file in the same run folder. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the target git repository is unavailable but a same-name source folder exists on the Desktop, the agent may write source changes there and state that no remote push was performed.
+
+When the user asks for an implemented feature to be delivered as a document, the same run folder may contain `prd.html`. It should be a browser-readable version of `prd.md`: normal document styling, optional left table of contents, complete tables, rendered Mermaid diagrams, inline images or screenshot placeholders at the relevant requirement position, and click-to-fullscreen viewing for real images. Do not turn `prd.html` into a UI prototype, card-heavy page, or detached screenshot list.
 
 When compatibility HTML UI deliverables are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. For source-backed UI previews, it should run the host dev/preview/Storybook/simulator path; when a browser preview URL or local preview file exists, run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>`, otherwise record equivalent screenshot or simulator evidence. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. Before final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` and store tool evidence under `outputs/<run-id>/tool-results/`. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
 

@@ -76,6 +76,13 @@
 | <localized content area> | <localized source status> | <localized review owner> | <localized review status> | <localized disclaimer status> | <localized launch impact> |
 |---|---|---|---|---|---|
 
+## <localized implementation evidence and coverage map>
+
+<!-- Use this section when the PRD is reconstructed from an implemented branch/current diff. Remove it only when no implementation evidence exists. Screenshots or placeholders should appear inline in the related evidence/requirement row, not in a separate image list. -->
+
+| <localized evidence id> | <localized source> | <localized observed behavior> | <localized related requirement ids> | <localized coverage status> | <localized gap or risk> |
+|---|---|---|---|---|---|
+
 ## <localized requirement list>
 
 | ID | <localized requirement item> | <localized priority> | <localized status> | <localized notes> |
@@ -127,6 +134,7 @@ flowchart TD
 | <localized item> | <localized value> |
 |---|---|
 | <localized UI delivery artifact> | <localized source-backed preview/delta path, or `prototype-<platform>.html` only for compatibility HTML mode> |
+| <localized PRD HTML document> | <localized `prd.html` when browser-readable PRD delivery is requested; not applicable otherwise> |
 | <localized covered screens and states> |  |
 | <localized note> | <localized detailed product design, logic rules, and interaction notes live in the numbered annotations inside the UI deliverable> |
 

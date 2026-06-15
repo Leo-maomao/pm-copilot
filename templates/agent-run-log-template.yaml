@@ -88,6 +88,40 @@ workflow:
     evidence: ""
   revision_loops: 0
 
+implemented_feature_prd:
+  active: false
+  mode: "" # implemented_feature_prd | implemented_feature_prd_html | implemented_feature_prd_review | not_applicable
+  branch_name: ""
+  diff_commands: []
+  changed_files: []
+  nearby_context_files: []
+  ui_surfaces:
+    - surface: ""
+      entry_point: ""
+      evidence: ""
+  behavior_evidence:
+    - evidence_id: ""
+      source: "" # branch diff, file path, screenshot, asset, test, user note
+      observed_behavior: ""
+      related_requirement_ids: []
+      coverage_status: "" # covered | partial | unverified | conflict
+      gap_or_risk: ""
+  screenshots_and_placeholders:
+    - target_ref: "" # requirement id, evidence id, flow step, or table row
+      type: "" # image | placeholder
+      path: ""
+      replacement_instruction: ""
+  validation_evidence:
+    - command: ""
+      status: ""
+      result: ""
+      related_requirement_ids: []
+  completeness_check:
+    implementation_behaviors_checked: []
+    represented_in_prd: []
+    unresolved_product_intent: []
+    omitted_as_non_goal: []
+
 agent_transitions:
   - state: ""
     agent: ""

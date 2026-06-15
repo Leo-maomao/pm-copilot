@@ -20,6 +20,7 @@ The following outline defines semantic sections, not literal English headings. L
 ## <localized requirement scope>
 ## <localized surface and permission states>
 ## <localized content source and review status>
+## <localized implementation evidence and coverage map>
 ## <localized requirement list>
 ## <localized requirement details>
 ## <localized flow diagrams>
@@ -68,6 +69,25 @@ For accessibility-critical surfaces such as checkout, payment, account recovery,
 
 For repo-backed product changes, include a localized engineering implementation map in the PRD. It should name likely routes, pages, services, components, data/config files, analytics integration points, permission boundaries, and validation entry points. This is not production code, but it must be specific enough for engineering to estimate and plan the change.
 
+## Implemented Feature Evidence
+
+When the PRD is reconstructed from an implemented branch or current diff, include a localized implementation evidence and coverage map. This section must separate observed implementation behavior from inferred product intent.
+
+Include the relevant subset of:
+
+| Field | Purpose |
+|---|---|
+| Evidence ID | Stable ID such as `EV1` |
+| Source | Branch, diff, file path, screenshot, asset, test, or user-provided note |
+| Observed behavior | What the implementation proves |
+| Related requirement IDs | Requirement or function IDs supported by this evidence |
+| Coverage status | Covered, partial, unverified, or conflict |
+| Gap or risk | Product intent, rollout, metric, permission, copy, or launch gap still requiring confirmation |
+
+If the implementation includes UI screenshots or image placeholders, place them inline at the related requirement detail, operation step, or evidence row. Do not put them into a separate image appendix unless the user explicitly asks for a screenshot inventory.
+
+The PRD must be complete enough to review without manually inspecting the branch. Any behavior visible in the diff should either be represented in scope, requirement details, acceptance criteria, or risks, or explicitly excluded with rationale.
+
 ## Rules
 
 - Use tables for version history, confirmations, goals, scope, requirement list, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
@@ -89,6 +109,9 @@ For repo-backed product changes, include a localized engineering implementation 
 - For AI/tool-enabled features, do not treat untrusted content as user instruction or tool permission. Permission-sensitive actions must have owner-approved boundaries and abuse tests.
 - Put tracking events and property definitions in the PRD by default; create a CSV export only when useful.
 - Put functional or operation flow diagrams in the PRD when they help review; create Mermaid source exports only when useful.
+- For implemented-feature PRD delivery, inspect current branch evidence before asking clarification questions that the code can answer. Use the evidence map to prove coverage and call out implementation/product-intent gaps.
+- When `prd.html` is generated from `prd.md`, render it as a normal readable document with optional table of contents, full-width content flow, complete tables, rendered Mermaid diagrams, and inline images/placeholders at their relevant positions. Do not use `prototype-<platform>.html` naming for PRD document HTML.
+- Images in PRD Markdown or HTML must appear where the reader needs them. If real screenshots are missing, insert an inline placeholder in that exact position and describe what should replace it. Do not create a detached screenshot list by default.
 - UI delivery details belong in the UI artifact and its annotations. The PRD should only link the source-backed preview/delta or compatibility HTML file, summarize covered screens/states, and state that page-level logic and interaction notes live in the UI delivery annotations.
 - UI delivery references in the PRD should point to local generated files or local host preview surfaces. Do not require reviewers to load external assets, scripts, or remote UI preview URLs unless the user explicitly requests that workflow.
 - Mark assumptions explicitly.

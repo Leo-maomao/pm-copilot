@@ -13,10 +13,13 @@ Repository templates are structure guides, not literal English copy. Translate t
 The default product-manager delivery contains only:
 
 - `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prd.html` when the user requests a browser-readable, externally deliverable, or copy/share-friendly PRD document
 - a UI deliverable when a user-facing UI artifact is relevant:
   - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
   - `outputs/<run-id>/prototype-<platform>.html` for source-extracted HTML handoff or compatibility standalone/no-source/fallback mode
   - `outputs/<run-id>/index.html` only as an offline folder entry when the user explicitly asks for portable/offline HTML handoff
+
+When the user asks to turn an already implemented branch or current diff into a requirement delivery, PM Copilot may generate `outputs/<run-id>/prd.html` beside `prd.md`. This file is a browser-readable PRD document rendering, not a UI prototype and not a document-class structured catalog.
 
 When the user asks primarily for a document-class handoff instead of a product requirement, such as a structured reference, parameter table, model matrix, API capability catalog, vendor table, data dictionary, payment or risk rule reference, SOP/runbook, or migration inventory, PM Copilot may generate `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary delivery artifact. Generate `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` HTML only when the user asks for HTML, browser-readable review, or richer document presentation. These files must follow `artifacts/structured-catalog-contract.md`.
 
@@ -63,6 +66,7 @@ Required sections:
 - Requirement scope
 - Surface and permission states, when relevant
 - Content source and review status, when relevant
+- Implementation evidence and coverage map, when reconstructed from a current branch or implementation
 - Requirement list
 - Requirement details
 - Flow diagrams, when useful
@@ -83,6 +87,7 @@ Required formatting:
 - Acceptance criteria cover confirmed MVP requirements only.
 - PRD status, engineering handoff status, and launch status are separate and non-contradictory.
 - Existing-product entry points, navigation visibility, permission or eligibility states, and fallback states are explicit when the feature adds or changes a surface.
+- Implemented-feature PRDs include a branch evidence map that links changed files, screenshots/assets, tests, and observed UI behavior to requirement IDs, plus any unverified product intent.
 
 Requirement details must be implementation-grade. For each functional item, include the relevant subset of:
 
@@ -113,6 +118,28 @@ Minimum quality bar:
 - UI visual validation should include browser screenshot and visual diff checks. If tooling is unavailable, PM Copilot should attempt or guide setup first. A skipped visual check must include the setup failure, environment restriction, or user-declined reason in `run-log.yaml` and the PRD validation section.
 - Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
 - Delivery review findings include artifact, evidence, owner, required-before phase, and status, or explicitly state that no Critical or High findings were found after review.
+
+## PRD HTML Document
+
+Use `prd.html` when a PRD must be opened directly in a browser or delivered as a polished document package.
+
+Required elements:
+
+- Renders the same product requirement content as `prd.md`; it must not omit requirement rows, acceptance criteria, risks, validation results, or images/placeholders that appear in the Markdown.
+- Uses a readable document layout with optional left table of contents and a normal content area. Do not create a card-heavy, module-heavy, marketing-style, or prototype-style page.
+- Uses neutral document styling. Avoid unusual background colors, gradients, shadows, nested scrolling content containers, and mixed decorative modules.
+- Preserves full table readability. Wide tables must keep all semantic columns present, including acceptance criteria, and use wrapping, fixed layout, or horizontal overflow when needed.
+- Renders Mermaid diagrams as diagrams. Final HTML must not leave raw Mermaid code blocks visible when Markdown contains Mermaid.
+- Uses local relative paths or data URIs for images. Runtime scripts/styles needed for rendering should be local, except ordinary external reference links in document text.
+- Places images and image placeholders inline at the relevant requirement, flow, or evidence position. If the Markdown has images inside table cells, the HTML must keep them inside the corresponding table cells.
+- Real images support click-to-fullscreen or equivalent lightbox/dialog viewing.
+- Does not create a detached screenshot/image list by default.
+
+Minimum quality bar:
+
+- A reviewer can read `prd.html` alone and understand the complete requirement without opening the Markdown or manually查漏补缺.
+- The HTML document is portable with its local `assets/` folder when one is needed.
+- The document is easy to scan and print/share as a PRD; it should not feel like a UI prototype.
 
 ## Tracking Plan
 
@@ -178,7 +205,6 @@ Required elements:
 - For repo-backed UI-delivery work, imports/renders `baseline_import` from original host source and puts only new feature behavior in `delta_patch`: preview composition, mock state, markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
 - For repo-backed frontend products, records concrete `style_evidence` in `run-log.yaml`, includes source-to-demo mappings for reused host components, and includes `style-source-summary` or `data-style-source` in the HTML.
 - For source-backed previews, records the preview command, preview route/screen/story, and changed preview/delta files; a localhost URL alone is not a complete UI deliverable reference.
-- For source-extracted HTML, records whether the source was preview-only delta files or user-approved implementation files, then records the extraction selector, source and extracted screenshots, region diff, extracted file path, editable annotation configuration, validation evidence, and limitations.
 - For standalone compatibility HTML, records boundary metadata/comments and the generated HTML path without adding visible "example/demo/not production" copy to the product UI.
 - For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
 - For screenshot/image-to-UI work, records `image_reference_reconstruction` in `run-log.yaml`, including reference dimensions, intended viewport, visual inventory summary, asset handling, comparison method, mismatches fixed, and remaining fidelity limits.
@@ -187,7 +213,7 @@ Required elements:
 - States its fidelity level: `low`, `mid`, or `high`.
 - Does not reserve a side annotation board by default. The product UI should keep its real layout width and height.
 - Places compact numbered callouts at the top-right corner of the concrete UI component, state, or transition being explained, offset just outside the corner when needed to avoid covering content.
-- Uses small red/white borderless `annotation-marker` badges generated from an editable annotation configuration, with `data-annotation-id` and `data-annotation-placement="top-right"` on the UI surface. Marker badges and matching number badges in the right-side page annotation panel must show plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content, and must share the same rendered diameter, font size, font weight, line height, and centered digit alignment. Clicking a marker opens a body-only local `annotation-dialog` popover beside that marker, clicking the same marker again closes it, and the marker's visual style does not change. Marker clicks must not open a full-screen/global modal. A short draggable `注释`/`Notes` floating control with `data-draggable="true"` opens a right-edge full-height `annotation-list` panel for the current page/state, hides while the panel is open, and reappears when it closes.
+- Uses small red/white borderless `annotation-marker` badges with `data-annotation-id` and `data-annotation-placement="top-right"` on the UI surface. Marker badges and matching number badges inside marker dialogs and the right-side page annotation panel must show plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content, and must share the same rendered diameter, font size, font weight, line height, and centered digit alignment. Clicking a marker opens a local `annotation-dialog` popover beside that marker, clicking the same marker again closes it, and the marker's visual style does not change. Marker clicks must not open a full-screen/global modal. A short draggable `注释`/`Notes` floating control with `data-draggable="true"` opens a right-edge full-height `annotation-list` panel for the current page/state, hides while the panel is open, and reappears when it closes.
 
 UI delivery annotations must cover the relevant subset of:
 

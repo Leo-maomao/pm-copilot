@@ -136,6 +136,12 @@ IGNORED_DIR_NAMES = {
     "__pycache__",
 }
 
+IGNORED_TEXT_SCAN_DIR_NAMES = {
+    "assets",
+    "tool-results",
+    "visual-review",
+}
+
 REFERENCE_FIXTURE_ALLOWED_PREFIXES = (
     "evals/",
     "outputs/",
@@ -910,6 +916,9 @@ def should_skip_text_file(path: Path) -> bool:
         return True
     if path.name in IGNORED_FILE_NAMES:
         return True
+    relative_parts = path.relative_to(ROOT).parts
+    if relative_parts and relative_parts[0] == "outputs":
+        return any(part in IGNORED_TEXT_SCAN_DIR_NAMES for part in relative_parts)
     return any(part in IGNORED_DIR_NAMES for part in path.parts)
 
 

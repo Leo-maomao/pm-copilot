@@ -23,6 +23,7 @@ PROTOTYPE_NAMES = (
     "prototype-app.html",
     "prototype-mini-program.html",
 )
+PRD_HTML_NAMES = ("prd.html",)
 EXTERNAL_REF_RE = re.compile(r"https?://|cdn\.|unpkg\.com|cdnjs\.", re.IGNORECASE)
 
 
@@ -95,6 +96,10 @@ def parse_json_output(result: dict[str, Any]) -> dict[str, Any] | None:
 
 def find_prototypes(folder: Path) -> list[Path]:
     return [folder / name for name in PROTOTYPE_NAMES if (folder / name).is_file()]
+
+
+def find_prd_html_documents(folder: Path) -> list[Path]:
+    return [folder / name for name in PRD_HTML_NAMES if (folder / name).is_file()]
 
 
 def existing_visual_report_check(
@@ -313,6 +318,11 @@ def main() -> None:
         for prototype in prototypes:
             results.append(html_parser_check(prototype))
             results.append(tidy_check(prototype))
+
+    if output_folder and not args.pre_clarification:
+        for prd_html in find_prd_html_documents(output_folder):
+            results.append(html_parser_check(prd_html))
+            results.append(tidy_check(prd_html))
 
     if output_folder and args.source_preview and not args.pre_clarification:
         if args.skip_visual:

@@ -5,6 +5,7 @@ This workflow verifies that the PM-facing deliverables are complete and consiste
 ## Inputs
 
 - `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prd.html` when browser-readable PRD delivery is requested
 - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary delivery
 - Document prototype HTML when the requested prototype is a browser-readable reference document
 - UI deliverable reference, when user-facing UI is relevant: source-backed preview/delta files by default, or `outputs/<run-id>/prototype-<platform>.html` for compatibility standalone/fallback mode
@@ -14,23 +15,27 @@ This workflow verifies that the PM-facing deliverables are complete and consiste
 ## Delivery Check Steps
 
 1. Verify `prd.md` exists and follows the PRD contract when PRD is in scope. If the user explicitly requested no PRD, verify the structured reference or document prototype is the primary delivery.
-2. Verify the UI deliverable exists or is recorded when the requirement has user-facing UI.
-3. Verify PRD and UI deliverable agree on scope, states, logic, interaction rules, tracking, and blockers.
-4. Verify the PRD links the UI deliverable and says that detailed page-level design and interaction annotations live inside it.
-5. For document-class delivery, verify the structured reference or document prototype includes source facts, product decisions, source/review status, typed attention points, change log, and completeness check.
-6. Verify optional exports are genuinely useful or explicitly requested.
-7. Verify readiness fields are separate: PRD status, engineering handoff status, and launch status.
-8. Verify content source, review status, disclaimer status, and launch impact are recorded when relevant.
-9. Verify structured review findings are reflected in the PRD with artifact, evidence, owner, required-before phase, and status.
-10. Verify validation commands and limitations are recorded consistently in PRD and run log.
-11. Verify tool preflight was run for final/full-loop delivery, or that an explicit reason is recorded.
-12. Run or verify `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` and inspect `tool-results/delivery-check-report.json`.
-13. For UI deliverables, verify browser screenshot/visual validation ran, or that setup was attempted/guided before a skipped status was recorded with the exact tooling limitation.
-14. When requested, verify `dev-tasks.yaml` follows the development task contract and `launch-decision.yaml` follows the launch decision contract.
+2. For implemented-feature PRD delivery, verify implementation evidence exists in the run log and PRD, and that visible branch behavior is represented as requirements, acceptance criteria, or explicit gaps.
+3. Verify `prd.html` exists when requested and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
+4. Verify `prd.html` preserves complete tables, renders Mermaid diagrams, uses local image paths, supports click-to-fullscreen for real images, and keeps images/placeholders inline at the relevant PRD position.
+5. Verify the UI deliverable exists or is recorded when the requirement has user-facing UI.
+6. Verify PRD and UI deliverable agree on scope, states, logic, interaction rules, tracking, and blockers.
+7. Verify the PRD links the UI deliverable and says that detailed page-level design and interaction annotations live inside it.
+8. For document-class delivery, verify the structured reference or document prototype includes source facts, product decisions, source/review status, typed attention points, change log, and completeness check.
+9. Verify optional exports are genuinely useful or explicitly requested.
+10. Verify readiness fields are separate: PRD status, engineering handoff status, and launch status.
+11. Verify content source, review status, disclaimer status, and launch impact are recorded when relevant.
+12. Verify structured review findings are reflected in the PRD with artifact, evidence, owner, required-before phase, and status.
+13. Verify validation commands and limitations are recorded consistently in PRD and run log.
+14. Verify tool preflight was run for final/full-loop delivery, or that an explicit reason is recorded.
+15. Run or verify `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` and inspect `tool-results/delivery-check-report.json`.
+16. For UI deliverables, verify browser screenshot/visual validation ran, or that setup was attempted/guided before a skipped status was recorded with the exact tooling limitation.
+17. When requested, verify `dev-tasks.yaml` follows the development task contract and `launch-decision.yaml` follows the launch decision contract.
 
 ## Default Delivery Files
 
 - `prd.md`
+- `prd.html` when browser-readable PRD delivery is requested
 - Structured reference or document prototype when PRD is not in scope
 - UI deliverable reference; `prototype-<platform>.html` only for compatibility standalone/fallback mode
 - `run-log.yaml` as internal trace only

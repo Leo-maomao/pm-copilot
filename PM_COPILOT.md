@@ -8,6 +8,20 @@ Use this file when an agent needs to run product manager work such as PRD, track
 
 Do not assume the product context comes from a code repository. Classify every run as `repo-backed`, `document-backed`, or `brief-only`, then load context and apply the clarification gate according to that mode.
 
+## Implemented Feature PRD Delivery
+
+When the user has already implemented or changed a feature and asks PM Copilot to produce a PRD or delivery document from the current branch, use `implemented-feature-prd` mode.
+
+In this mode the implementation is the primary evidence source. Inspect the current branch, diff, touched files, UI entry points, screenshots/assets, tests, analytics changes, and any existing docs before drafting. Reconstruct the product requirement from what the implementation actually does, then call out gaps, assumptions, and any behavior that cannot be proven from the branch. Do not invent hidden scope to make the PRD look complete.
+
+The default deliverables are:
+
+- `outputs/<run-id>/prd.md`
+- `outputs/<run-id>/prd.html` when the user asks for a browser-readable or externally deliverable document
+- `outputs/<run-id>/run-log.yaml`
+
+`prd.html` is a document rendering of the PRD, not a UI prototype. It should use a normal readable document layout with optional left table of contents and a single content area. Avoid decorative cards, module blocks, unusual background colors, gradients, or nested scroll containers. Tables must preserve all columns and wrap content readably. Mermaid diagrams must render as diagrams. Images or image placeholders must appear inline exactly where reviewers need them, including inside requirement/detail tables when that is the relevant position; do not move them into a separate image list. Real images should use local relative paths and support click-to-fullscreen or equivalent lightbox viewing. If the user will replace images manually, insert explicit inline placeholders at the intended location.
+
 ## Generalization Boundary
 
 PM Copilot is a universal product-agent system for product managers across domains. Reference projects are fixtures for capability testing only. A borrowed host project may shape one run's `outputs/<run-id>/` evidence, but it must not become PM Copilot's target product, default scenario, example vocabulary, or permanent product context.
@@ -20,6 +34,7 @@ Activate PM Copilot when the user asks for work involving:
 
 - PRD
 - product requirements
+- implemented feature to PRD or branch-to-PRD delivery
 - requirement clarification
 - product discovery, opportunity validation, or assumption mapping
 - customer feedback, interview, support ticket, survey, or review synthesis
@@ -43,6 +58,7 @@ Activate PM Copilot when the user asks for work involving:
 - development handoff, issue planning, launch decision support, or go/no-go review
 - external MCP/API/SaaS tool selection, integration planning, or automation setup for PM workflows
 - Chinese-language requests for requirements, tracking plans, UI deliverables, prototypes, competitor research, or review materials
+- Chinese-language requests such as "我先写好功能，你还原 PRD/Markdown/HTML", "按当前分支生成 PRD", "把实现还原成需求文档", or equivalent delivery-document requests
 
 The user should not need to remember the project name. If the task is clearly product-manager work, run this workflow.
 
@@ -54,7 +70,7 @@ The intended experience is:
 User: I need a PRD for checkout coupon optimization.
 Agent: I will inspect the relevant product context, then clarify the key unknowns before generation.
 Agent: <asks must-answer questions and stops if blocking unknowns exist>
-Agent: <after answers or explicit permission to draft with risk, creates outputs/<run-id>/prd.md and the selected UI deliverable: source-backed preview/delta files by default when frontend source exists, or a compatibility prototype-<platform>.html only for standalone/no-source/fallback mode>
+Agent: <after answers or explicit permission to draft with risk, creates outputs/<run-id>/prd.md and the selected UI deliverable: source-backed preview/delta files by default when frontend source exists, source-extracted HTML when the UI was first rendered in the host project, or a compatibility prototype-<platform>.html only for standalone/no-source/fallback mode>
 ```
 
 The user should not need to manually copy templates or create folders. Do that for them.
@@ -157,6 +173,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - Create or update only `outputs/<run-id>/run-log.yaml` when a persistent trace is useful.
    - Do not create final delivery artifacts until the clarification gate passes.
    - Do not create separate `task-brief.md`, `clarifying-questions.md`, or `assumptions.md` by default. The original request, answered clarifications, and low-risk assumptions belong in `prd.md` after generation.
+   - In `implemented-feature-prd` mode, do not ask for information that can be discovered from the current branch. Inspect the implementation first, then ask only for product intent, rollout, metric, launch, legal, or screenshot gaps that remain unprovable after inspection.
 
 6. Enforce the clarification gate before generation:
    - The default target is a PRD and UI deliverable that can be used for product review and engineering handoff, not a speculative draft.
@@ -189,6 +206,7 @@ The user should not need to manually copy templates or create folders. Do that f
 
 8. After the clarification gate passes, create or update the product-manager delivery artifacts:
    - `outputs/<run-id>/prd.md` when the user asks for a product requirement, rollout, product decision, or feature change PRD
+   - `outputs/<run-id>/prd.html` when the user asks for browser-readable, externally deliverable, or copy/share-friendly PRD output; this is a PRD document rendering, not a UI prototype
    - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when the request is primarily a structured reference/document handoff such as a parameter table, capability catalog, rule reference, data dictionary, SOP/runbook, or migration inventory
    - `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` HTML only when the user asks for HTML, a browser-readable structured document, or a richer document review view
    - UI deliverable reference:
@@ -206,6 +224,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - If the user explicitly says no PRD is needed, do not generate `prd.md`; record the PRD omission as not applicable in `run-log.yaml` and make the structured reference or document prototype the primary delivery.
    - Keep confirmed MVP scope, optional scope, and future scope separate. Do not place an unconfirmed optional capability in MVP requirements or acceptance criteria.
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the UI deliverable, PRD, and engineering handoff agree.
+   - For `implemented-feature-prd` mode, include a branch evidence map in `prd.md`: changed files or modules inspected, user-facing surfaces found, behavior inferred from code, screenshots/assets used, tests or validation found, unverified product intent, and implementation-to-requirement coverage. The PRD must be complete enough to review without manually searching the branch for missing behavior.
    - Each specialist step must follow `agents/agent-interface.md`: record status, confidence, artifact delta, validation delta, risks, and next expected output. PM Orchestrator owns final readiness labels and resolves contradictions before delivery.
 
 9. Continue with assumptions only when:
@@ -267,6 +286,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - Record the exact command, result, and limitation in `run-log.yaml` and the PRD validation section using `artifacts/tool-result-contract.md`. Do not claim validation was executed if it was skipped, and do not say validation "should be run" after it has already run.
    - Use `tools/tool-registry.yaml` to decide whether a tool is required, optional, setup-required, or not applicable.
    - After validation commands finish, do a validation-finalization pass: replace any earlier placeholder such as `pending`, `待执行`, `should run`, or `to be verified` in both `prd.md` and `run-log.yaml` with the actual pass/fail/skipped result and the observed limitation.
+   - When `prd.html` exists, validate that image paths resolve, images/placeholders are inline at the relevant PRD position, there is no separate screenshot list, requirement-detail tables keep all semantic columns visible, Mermaid diagrams are renderable, and the page reads as a normal document instead of a decorative UI prototype.
    - On resumed runs, load `outputs/<run-id>/run-log.yaml` first, continue from `workflow.last_reliable_state`, and keep prior blockers visible until answered, explicitly accepted as draft risk, or moved out of current scope.
 
 12. Create execution handoff artifacts when requested:
