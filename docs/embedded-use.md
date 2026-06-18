@@ -76,6 +76,14 @@ Before final embedded delivery, prefer:
 python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language zh
 ```
 
+For implemented-feature-to-PRD delivery in embedded mode, generated files must live under `pm-copilot/outputs/<run-id>/`. Use `pm-copilot/templates/implemented-feature-prd-template.md` as the structure source, save real screenshots under `pm-copilot/outputs/<run-id>/assets/`, and render browser-readable PRD HTML with:
+
+```bash
+python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>
+```
+
+Missing screenshots must stay inline with the relevant requirement, using only the exact `占位图` block and a recommended content-based file name such as `文件上传-上传中.png` or `文件上传-上传失败.png`. Do not create a standalone screenshot list, and do not write generated PRD files to the host root `outputs/` folder.
+
 For source-backed previews with a browser URL, include the preview target:
 
 ```bash

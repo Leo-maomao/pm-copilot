@@ -87,6 +87,23 @@ When the clarification gate passes, generate:
 - `outputs/<run-id>/prototype-<platform>.html` only when compatibility standalone/no-source/fallback HTML mode is selected
 - `outputs/<run-id>/run-log.yaml` when a trace is useful
 
+In embedded host repositories, the same files must live under `pm-copilot/outputs/<run-id>/`, not the host root.
+
+For implemented-feature PRD delivery:
+
+- Use `templates/implemented-feature-prd-template.md`.
+- Generate `prd.html` with `scripts/render_prd_html.py` when HTML is requested.
+- Put real screenshots under `<run-folder>/assets/` and place Markdown image references inline where the requirement needs them.
+- If an image is missing in a Chinese PRD, use only this inline block and avoid the marker words elsewhere:
+
+```markdown
+> 占位图：文件上传-上传中.png
+> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+```
+
+- Do not create a detached image, figure, or screenshot list.
+- Name screenshots by content. For multiple states of one object, use object plus concrete state, for example `文件上传-上传中.png` or `文件上传-上传失败.png`, not `文件上传-状态.png`.
+
 Do not create split Markdown files by default. Put metrics, tracking, flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md` when PRD is in scope. For document-class artifacts, keep source facts, product decisions, attention points, change log, completeness check, and validation evidence in the structured reference and run log.
 
 ## Memory Update Prompt Rules

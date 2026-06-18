@@ -16,11 +16,12 @@ In this mode the implementation is the primary evidence source. Inspect the curr
 
 The default deliverables are:
 
-- `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prd.html` when the user asks for a browser-readable or externally deliverable document
-- `outputs/<run-id>/run-log.yaml`
+- Direct PM Copilot root: `outputs/<run-id>/prd.md`, optional `outputs/<run-id>/prd.html`, and `outputs/<run-id>/run-log.yaml`
+- Embedded host repository: `pm-copilot/outputs/<run-id>/prd.md`, optional `pm-copilot/outputs/<run-id>/prd.html`, and `pm-copilot/outputs/<run-id>/run-log.yaml`
 
 `prd.html` is a document rendering of the PRD, not a UI prototype. It should use a normal readable document layout with optional left table of contents and a single content area. Avoid decorative cards, module blocks, unusual background colors, gradients, or nested scroll containers. Tables must preserve all columns and wrap content readably. Mermaid diagrams must render as diagrams. Images or image placeholders must appear inline exactly where reviewers need them, including inside requirement/detail tables when that is the relevant position; do not move them into a separate image list. Real images should use local relative paths and support click-to-fullscreen or equivalent lightbox viewing. If the user will replace images manually, insert explicit inline placeholders at the intended location.
+
+For implemented-feature PRDs, use `templates/implemented-feature-prd-template.md` as the default structure and render browser-readable delivery with `scripts/render_prd_html.py`. Missing screenshots must be marked only with the exact inline `占位图` block at the relevant requirement position. Recommend screenshot file names by content; when one object has multiple states, include the concrete state, for example `文件上传-上传中.png` and `文件上传-上传失败.png`, not `文件上传-状态.png`.
 
 ## Generalization Boundary
 
@@ -225,6 +226,11 @@ The user should not need to manually copy templates or create folders. Do that f
    - Keep confirmed MVP scope, optional scope, and future scope separate. Do not place an unconfirmed optional capability in MVP requirements or acceptance criteria.
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the UI deliverable, PRD, and engineering handoff agree.
    - For `implemented-feature-prd` mode, include a branch evidence map in `prd.md`: changed files or modules inspected, user-facing surfaces found, behavior inferred from code, screenshots/assets used, tests or validation found, unverified product intent, and implementation-to-requirement coverage. The PRD must be complete enough to review without manually searching the branch for missing behavior.
+   - For `implemented-feature-prd` mode, use `templates/implemented-feature-prd-template.md`, keep generated artifacts under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, and generate `prd.html` with `scripts/render_prd_html.py` when HTML is requested.
+   - For `implemented-feature-prd` mode, put real screenshots under `<run-folder>/assets/` and reference them inline. If a screenshot is missing, insert only the exact `占位图` block at that requirement position, including the recommended image file name and purpose; do not use the words outside that block.
+   - For `implemented-feature-prd` mode, do not create a standalone image, figure, or screenshot list by default. Images and missing-image markers must travel with the requirement, flow step, table row, dialog, or state they explain.
+   - For `implemented-feature-prd` mode, name state screenshots as `<screenshot-object>-<specific-state>`, for example `文件上传-上传中.png`; never recommend generic names such as `文件上传-状态.png` or `asset-upload-state.png`.
+   - Validate implemented-feature PRD output with `python3 scripts/render_prd_html.py outputs/<run-id>` when HTML is needed and `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>`. In embedded mode, use `python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>` and `python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language <zh|en>`.
    - Each specialist step must follow `agents/agent-interface.md`: record status, confidence, artifact delta, validation delta, risks, and next expected output. PM Orchestrator owns final readiness labels and resolves contradictions before delivery.
 
 9. Continue with assumptions only when:

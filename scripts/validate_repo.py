@@ -78,6 +78,7 @@ REQUIRED_FILES = [
     "templates/direct-request-template.md",
     "templates/document-prototype-template.html",
     "templates/prd-template.md",
+    "templates/implemented-feature-prd-template.md",
     "templates/structured-catalog-template.md",
     "templates/tracking-plan-template.csv",
     "scripts/install_adapter.py",
@@ -87,9 +88,11 @@ REQUIRED_FILES = [
     "scripts/agent_improvement_scorecard.py",
     "scripts/run_delivery_checks.py",
     "scripts/setup_visual_validation.py",
+    "scripts/render_prd_html.py",
     "scripts/validate_outputs.py",
     "scripts/validate_prototype_visual.py",
     "scripts/validate_ui_preview.py",
+    "docs/implemented-feature-prd-workflow.md",
     "skills/skill-cleaner/SKILL.md",
     "skills/skill-cleaner/scripts/skill_cleaner.py",
     "adapters/codex/AGENTS.snippet.md",
@@ -216,6 +219,9 @@ REQUIRED_TEXT_TOKENS = {
         "launch-decision.yaml",
         "structured-catalog-contract.md",
         "structured-catalog-template.md",
+        "implemented-feature-prd-template.md",
+        "render_prd_html.py",
+        "占位图",
     ],
     "README.md": [
         "README.en.md",
@@ -230,6 +236,8 @@ REQUIRED_TEXT_TOKENS = {
         "validate_prototype_visual.py",
         "validate_ui_preview.py",
         "extract_ui_region.py",
+        "render_prd_html.py",
+        "占位图",
         "dev-tasks.yaml",
         "launch-decision.yaml",
     ],
@@ -246,6 +254,8 @@ REQUIRED_TEXT_TOKENS = {
         "validate_prototype_visual.py",
         "validate_ui_preview.py",
         "extract_ui_region.py",
+        "render_prd_html.py",
+        "占位图",
         "dev-tasks.yaml",
         "launch-decision.yaml",
     ],
@@ -258,6 +268,8 @@ REQUIRED_TEXT_TOKENS = {
         "visual diff",
         "validate_ui_preview.py",
         "extract_ui_region.py",
+        "render_prd_html.py",
+        "占位图",
         "dev-tasks.yaml",
         "launch-decision.yaml",
     ],
@@ -268,6 +280,7 @@ REQUIRED_TEXT_TOKENS = {
         "Memory Use",
         "Clarification Prompt Rules",
         "Memory Update Prompt Rules",
+        "文件上传-上传中.png",
     ],
     "agents/agent-interface.md": [
         "Runtime Protocol",
@@ -311,6 +324,7 @@ REQUIRED_TEXT_TOKENS = {
         "tool-result-contract.md",
         "tool-results",
         "Optional Exports",
+        "文件上传-上传中.png",
     ],
     "artifacts/tool-result-contract.md": [
         "tool_id:",
@@ -445,6 +459,32 @@ REQUIRED_TEXT_TOKENS = {
         "validate_outputs.py",
         "validate_prototype_visual.py",
         "validate_ui_preview.py",
+        "render_prd_html.py",
+    ],
+    "skills/prd-writing/SKILL.md": [
+        "文件上传-上传中.png",
+    ],
+    "artifacts/prd-contract.md": [
+        "文件上传-上传中.png",
+    ],
+    "docs/implemented-feature-prd-workflow.md": [
+        "Output Folder",
+        "render_prd_html.py",
+        "占位图",
+    ],
+    "templates/implemented-feature-prd-template.md": [
+        "<parameters and rules>",
+        "<data and API requirements>",
+        "占位图",
+    ],
+    "scripts/render_prd_html.py": [
+        "pagetitle",
+        "image-lightbox",
+    ],
+    "scripts/validate_outputs.py": [
+        "check_prd_output_contract",
+        "GENERIC_STATE_SUFFIX_RE",
+        "DETACHED_IMAGE_SECTION_RE",
     ],
     "requirements-dev.txt": [
         "playwright",
@@ -926,6 +966,9 @@ def should_skip_machine_path(path: Path) -> bool:
     if ".git" in path.parts:
         return True
     if path.name in IGNORED_FILE_NAMES:
+        return True
+    relative_parts = path.relative_to(ROOT).parts
+    if relative_parts and relative_parts[0] == "outputs":
         return True
     return any(part in IGNORED_DIR_NAMES for part in path.parts)
 

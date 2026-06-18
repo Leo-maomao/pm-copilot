@@ -23,11 +23,18 @@ Run the delivery orchestrator before final delivery or iteration scoring:
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
 ```
 
+Render implemented-feature PRD HTML before final validation when `prd.html` is requested:
+
+```bash
+python3 scripts/render_prd_html.py outputs/<run-id>
+```
+
 ## Required Behavior
 
 - Run `python3 scripts/preflight_tools.py` before full-loop iteration, embedded host evaluation, or release checks.
 - Use `python3 scripts/preflight_tools.py --strict` before release validation so required `setup_required`, `unavailable`, or `skipped` capabilities block the release check.
 - Run `python3 scripts/run_delivery_checks.py` for final run-folder validation whenever a run folder exists.
+- For implemented-feature PRD folders, validate that outputs live directly under `outputs/<run-id>`, PRD Markdown has one top-level title, `prd.html` is a document rendering, images or `占位图` blocks remain inline, no detached screenshot list exists, and screenshot names use content plus concrete state such as `文件上传-上传中.png`.
 - Do not leave validation placeholders after commands run.
 - Record every command and result using `artifacts/tool-result-contract.md`.
 

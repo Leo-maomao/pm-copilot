@@ -61,6 +61,21 @@ outputs/<feature-slug>-YYYY-MM-DD/run-log.yaml
 
 The agent should treat implementation evidence as observed truth and product intent as unverified unless the code, docs, or user confirms it. The PRD should include an evidence/coverage map that links changed files, screenshots, tests, or observed UI behavior to requirement IDs. `prd.html` should read like a normal document with a left table of contents if useful; it should not use decorative cards, mixed module blocks, unusual background colors, or nested scroll containers. Images and placeholders belong inline at the relevant requirement or table row, and Mermaid diagrams should render correctly.
 
+Use `templates/implemented-feature-prd-template.md` as the default structure and generate or refresh HTML with:
+
+```bash
+python3 scripts/render_prd_html.py outputs/<run-id>
+```
+
+When a screenshot is missing in a Chinese PRD, insert only this block at the exact requirement position:
+
+```markdown
+> 占位图：文件上传-上传中.png
+> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+```
+
+After the user saves the screenshot under `assets/`, replace the block with `![文件上传-上传中](./assets/文件上传-上传中.png)`. Name screenshots by content and concrete state, such as `文件上传-上传中.png` or `文件上传-上传失败.png`, not `文件上传-状态.png`.
+
 ## Direct Entry
 
 The canonical entry is:

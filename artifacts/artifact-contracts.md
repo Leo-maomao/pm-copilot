@@ -88,6 +88,9 @@ Required formatting:
 - PRD status, engineering handoff status, and launch status are separate and non-contradictory.
 - Existing-product entry points, navigation visibility, permission or eligibility states, and fallback states are explicit when the feature adds or changes a surface.
 - Implemented-feature PRDs include a branch evidence map that links changed files, screenshots/assets, tests, and observed UI behavior to requirement IDs, plus any unverified product intent.
+- Implemented-feature PRDs keep screenshots and missing-image markers inline with the relevant requirement, table row, flow step, state, dialog, or evidence. Do not create a detached image list, figure list, or screenshot appendix by default.
+- Missing screenshots in Chinese PRDs use the exact inline block only, for example `> 占位图：文件上传-上传中.png` followed by a `> 用途：...` line. Do not use the marker words elsewhere.
+- Screenshot file names describe content. State screenshots use object plus concrete state, such as `文件上传-上传中.png`, `文件上传-上传失败.png`, or `目标文件夹弹窗-非法目标.png`; generic names such as `文件上传-状态.png` or `asset-upload-state.png` are not acceptable.
 
 Requirement details must be implementation-grade. For each functional item, include the relevant subset of:
 
@@ -134,6 +137,7 @@ Required elements:
 - Places images and image placeholders inline at the relevant requirement, flow, or evidence position. If the Markdown has images inside table cells, the HTML must keep them inside the corresponding table cells.
 - Real images support click-to-fullscreen or equivalent lightbox/dialog viewing.
 - Does not create a detached screenshot/image list by default.
+- Contains one visible top-level PRD title. The browser title should use page metadata such as `pagetitle`; the body should not duplicate the H1 or reserve a large blank column.
 
 Minimum quality bar:
 

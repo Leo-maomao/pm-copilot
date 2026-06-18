@@ -110,6 +110,9 @@ implemented_feature_prd:
     - target_ref: "" # requirement id, evidence id, flow step, or table row
       type: "" # image | placeholder
       path: ""
+      recommended_file_name: ""
+      inline_marker: ""
+      replacement_status: "" # missing | provided | replaced | not_needed
       replacement_instruction: ""
   validation_evidence:
     - command: ""

@@ -36,6 +36,20 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 - `outputs/<run-id>/prd.md`
 - Optional machine-readable exports only when useful or requested
 
+## Screenshot And Placeholder Rules
+
+- In implemented-feature PRD delivery, use `templates/implemented-feature-prd-template.md` and keep screenshots attached to the requirement, flow step, table row, state, or evidence they explain.
+- Put real screenshots under `<run-folder>/assets/` and reference them inline, for example `![文件上传-上传中](./assets/文件上传-上传中.png)`.
+- If a Chinese PRD is missing a screenshot, use only the exact inline block below and avoid the marker words anywhere else:
+
+```markdown
+> 占位图：文件上传-上传中.png
+> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+```
+
+- Name screenshots by content. If one object has multiple states, use object plus concrete state, for example `文件上传-上传中.png`, `文件上传-上传失败.png`, or `目标文件夹弹窗-非法目标.png`; do not use generic names such as `文件上传-状态.png` or `asset-upload-state.png`.
+- Do not create a standalone image list, figure list, screenshot appendix, or screenshot inventory unless the user explicitly asks for one.
+
 ## Quality Bar
 
 - The PRD is detailed enough for design, engineering, QA, and analytics to proceed without guessing core intent.

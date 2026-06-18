@@ -86,6 +86,15 @@ Include the relevant subset of:
 
 If the implementation includes UI screenshots or image placeholders, place them inline at the related requirement detail, operation step, or evidence row. Do not put them into a separate image appendix unless the user explicitly asks for a screenshot inventory.
 
+For Chinese implemented-feature PRDs, missing screenshots must use only the exact inline block:
+
+```markdown
+> 占位图：文件上传-上传中.png
+> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+```
+
+State screenshots must be named with the screenshot object plus the concrete state, such as `文件上传-上传中.png`, `文件上传-上传失败.png`, or `目标文件夹弹窗-非法目标.png`; do not use generic names such as `文件上传-状态.png` or `asset-upload-state.png`.
+
 The PRD must be complete enough to review without manually inspecting the branch. Any behavior visible in the diff should either be represented in scope, requirement details, acceptance criteria, or risks, or explicitly excluded with rationale.
 
 ## Rules
@@ -112,6 +121,8 @@ The PRD must be complete enough to review without manually inspecting the branch
 - For implemented-feature PRD delivery, inspect current branch evidence before asking clarification questions that the code can answer. Use the evidence map to prove coverage and call out implementation/product-intent gaps.
 - When `prd.html` is generated from `prd.md`, render it as a normal readable document with optional table of contents, full-width content flow, complete tables, rendered Mermaid diagrams, and inline images/placeholders at their relevant positions. Do not use `prototype-<platform>.html` naming for PRD document HTML.
 - Images in PRD Markdown or HTML must appear where the reader needs them. If real screenshots are missing, insert an inline placeholder in that exact position and describe what should replace it. Do not create a detached screenshot list by default.
+- PRD Markdown should contain exactly one top-level title. PRD HTML must not create a second visible document title or leave a large unused content column.
+- For implemented-feature PRD HTML, prefer `scripts/render_prd_html.py`, which sets `pagetitle`, preserves the Markdown H1 as the single body title, keeps wide content readable, and enables an image lightbox.
 - UI delivery details belong in the UI artifact and its annotations. The PRD should only link the source-backed preview/delta or compatibility HTML file, summarize covered screens/states, and state that page-level logic and interaction notes live in the UI delivery annotations.
 - UI delivery references in the PRD should point to local generated files or local host preview surfaces. Do not require reviewers to load external assets, scripts, or remote UI preview URLs unless the user explicitly requests that workflow.
 - Mark assumptions explicitly.

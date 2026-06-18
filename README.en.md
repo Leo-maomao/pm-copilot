@@ -57,8 +57,17 @@ For an already implemented feature, use:
 ```text
 The feature is already implemented on the current branch. Please inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the feature into a complete PRD Markdown file and generate a browser-readable `prd.html` in the same run folder.
 
-If final screenshots are not ready, put inline placeholders at the relevant requirement positions for manual replacement. Do not create a separate image list.
+If final screenshots are not ready, put inline `占位图` placeholders at the relevant requirement positions for manual replacement. Do not create a separate image list.
 ```
+
+For missing screenshots in a Chinese PRD, use this exact block only at the requirement position:
+
+```markdown
+> 占位图：文件上传-上传中.png
+> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+```
+
+Name screenshots by content. When one object has multiple states, use object plus concrete state, for example `文件上传-上传中.png` and `文件上传-上传失败.png`; do not use `文件上传-状态.png`. Use `scripts/render_prd_html.py` to generate or refresh the HTML PRD. In embedded host projects, the output folder should be `pm-copilot/outputs/<run-id>/`.
 
 ## Two Practical Demos
 
@@ -200,6 +209,8 @@ For reference, policy, medical, legal, financial, safety, or operational content
 Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, a UI-deliverable reference, and optionally `run-log.yaml`. The run id uses an English kebab-case requirement name plus day-precision date, for example `membership-renewal-2026-05-18`; same-day collisions append `-2`, `-3`, and so on. In a repo with frontend source, the UI deliverable defaults to source-backed preview/delta files recorded in `run-log.yaml`; when the user asks to implement the UI in the current repository first and then hand off a 1:1 artifact, PM Copilot should run the implemented host UI and extract the target region into source-derived HTML. Compatibility `prototype-<platform>.html` files are generated only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield UI, or concrete source-rendering blockers. Offline folder handoffs may also use `index.html` as the entry file in the same run folder. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the target git repository is unavailable but a same-name source folder exists on the Desktop, the agent may write source changes there and state that no remote push was performed.
 
 When the user asks for an implemented feature to be delivered as a document, the same run folder may contain `prd.html`. It should be a browser-readable version of `prd.md`: normal document styling, optional left table of contents, complete tables, rendered Mermaid diagrams, inline images or screenshot placeholders at the relevant requirement position, and click-to-fullscreen viewing for real images. Do not turn `prd.html` into a UI prototype, card-heavy page, or detached screenshot list.
+
+Implemented-feature PRDs should use `templates/implemented-feature-prd-template.md` and render `prd.html` with `python3 scripts/render_prd_html.py outputs/<run-id>`. In embedded mode, the run folder must be under `pm-copilot/outputs/<run-id>/`, and the render command is `python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>`.
 
 When compatibility HTML UI deliverables are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. For source-backed UI previews, it should run the host dev/preview/Storybook/simulator path; when a browser preview URL or local preview file exists, run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>`, otherwise record equivalent screenshot or simulator evidence. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. Before final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` and store tool evidence under `outputs/<run-id>/tool-results/`. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
 

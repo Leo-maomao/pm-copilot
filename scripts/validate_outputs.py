@@ -192,6 +192,29 @@ PRODUCTION_DECISIONS = {
     "ready_for_release_review",
     "ready_to_launch",
 }
+RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?")
+IMAGE_PLACEHOLDER_RE = re.compile(
+    r"^>\s*占位图[:：]\s*(?P<name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$",
+    re.MULTILINE,
+)
+IMAGE_PLACEHOLDER_PURPOSE_RE = re.compile(r"^>\s*用途[:：]\s*.+$", re.MULTILINE)
+DETACHED_IMAGE_SECTION_RE = re.compile(
+    r"^#{2,4}\s*(?:\d+(?:\.\d+)?\s*[.、]?\s*)?"
+    r"(?:图示清单|图片清单|截图清单|图片列表|截图列表|图示列表|图片汇总|截图汇总|图片汇总表|截图汇总表|"
+    r"image list|screenshot list|figure list)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+FIGURE_NUMBER_ASSET_RE = re.compile(
+    r"^(?:图|图示|截图|图片|fig|figure|image|screenshot)[-_ ]?\d+(?:[-_ ].*)?$",
+    re.IGNORECASE,
+)
+STATE_ASSET_HINT_RE = re.compile(
+    r"(空态|无结果|加载|失败|错误|禁用|禁投|非法|选中|已选|批量选择|"
+    r"上传中|上传失败|检测中|检测失败|处理中|处理失败|保存中|保存失败|生成中|生成失败|"
+    r"empty|loading|error|disabled|selected|invalid|uploading|failed|processing)",
+    re.IGNORECASE,
+)
+GENERIC_STATE_SUFFIX_RE = re.compile(r"(?:^|[-_ ])(?:状态|state)$", re.IGNORECASE)
 
 
 def fail(message: str) -> None:
@@ -459,6 +482,17 @@ def markdown_image_count_in_tables(text: str) -> int:
         if in_table and line.strip():
             in_table = False
     return count
+
+
+def markdown_image_refs(text: str) -> list[str]:
+    refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
+    html_refs = re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", text, re.IGNORECASE)
+    return [*refs, *html_refs]
+
+
+def markdown_heading_count(text: str, level: int = 1) -> int:
+    marker = "#" * level
+    return len(re.findall(rf"^{re.escape(marker)}\s+\S+", text, re.MULTILINE))
 
 
 def strip_yaml_comments(block: str) -> str:
@@ -865,14 +899,17 @@ def is_document_prototype_html(text: str) -> bool:
 def check_folder(path: Path) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
-    if path.parent.name == "outputs" and not re.fullmatch(
-        r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?",
-        path.name,
-    ):
+    if path.parent.name != "outputs":
+        fail("Output folder must be a direct child of outputs/: outputs/<run-id>")
+    if not RUN_ID_RE.fullmatch(path.name):
         fail(
             "Output folder names under outputs/ must use "
             "requirement-slug-YYYY-MM-DD with an optional numeric collision suffix"
         )
+
+    ds_store_files = sorted(item.relative_to(path).as_posix() for item in path.rglob(".DS_Store"))
+    if ds_store_files:
+        fail(f"Output folder must not contain .DS_Store files: {', '.join(ds_store_files)}")
 
     forbidden = sorted(name for name in FORBIDDEN_DEFAULT_FILES if (path / name).exists())
     if forbidden:
@@ -1656,6 +1693,75 @@ def check_content_source(path: Path) -> None:
                 fail(f"Content-backed run log missing marker: {marker}")
 
 
+def check_image_asset_name(name: str, context: str) -> None:
+    clean_name = Path(name.strip()).name
+    suffix = Path(clean_name).suffix.lower()
+    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+        fail(f"{context} must use a screenshot image extension png/jpg/jpeg/webp: {name}")
+    stem = Path(clean_name).stem.strip()
+    if not stem:
+        fail(f"{context} image name must not be empty")
+    if FIGURE_NUMBER_ASSET_RE.fullmatch(stem):
+        fail(f"{context} image name must describe content instead of using a figure number: {clean_name}")
+    if GENERIC_STATE_SUFFIX_RE.search(stem):
+        fail(
+            f"{context} image name uses a generic state suffix; name the concrete state, "
+            f"for example 文件上传-上传中.png or 文件上传-上传失败.png: {clean_name}"
+        )
+    if re.fullmatch(r"\d+(?:[-_ ]\d+)*", stem):
+        fail(f"{context} image name must describe screenshot content: {clean_name}")
+    if "状态" in stem and not STATE_ASSET_HINT_RE.search(stem):
+        fail(f"{context} image name must use the specific state instead of generic 状态: {clean_name}")
+
+
+def check_prd_output_contract(path: Path, language: str | None = None) -> None:
+    prd_path = path / "prd.md"
+    if not prd_path.is_file():
+        return
+
+    text = read(prd_path)
+    h1_count = markdown_heading_count(text, 1)
+    if h1_count != 1:
+        fail(f"prd.md must contain exactly one top-level title, found {h1_count}")
+
+    if DETACHED_IMAGE_SECTION_RE.search(text):
+        fail("prd.md must keep images and missing-image placeholders inline, not in a detached image list")
+
+    matched_placeholder_lines: list[tuple[int, int]] = []
+    for match in IMAGE_PLACEHOLDER_RE.finditer(text):
+        name = match.group("name").strip()
+        check_image_asset_name(name, "PRD missing-image placeholder")
+        next_lines = "\n".join(text[match.end():].splitlines()[:2])
+        if not IMAGE_PLACEHOLDER_PURPOSE_RE.search(next_lines):
+            fail(f"PRD missing-image placeholder must include a following 用途 line: {name}")
+        matched_placeholder_lines.append(match.span())
+
+    placeholder_sanitized = IMAGE_PLACEHOLDER_RE.sub("", text)
+    if "占位图" in placeholder_sanitized:
+        fail("prd.md may use 占位图 only in the exact missing-image placeholder block")
+
+    for image_ref in markdown_image_refs(text):
+        src = image_ref.strip().split("#", 1)[0].split("?", 1)[0]
+        if not src or src.startswith("data:") or re.match(r"^(?:https?:)?//", src, re.IGNORECASE):
+            continue
+        image_name = Path(src).name
+        if image_name:
+            check_image_asset_name(image_name, "PRD image reference")
+        normalized_src = src.replace("\\", "/")
+        if not (
+            normalized_src.startswith("./assets/")
+            or normalized_src.startswith("assets/")
+        ):
+            fail(f"PRD local image references should live under assets/: {image_ref}")
+
+    if language == "zh" and re.search(
+        r"图片占位|截图占位|image placeholder|screenshot placeholder",
+        text,
+        re.IGNORECASE,
+    ):
+        fail("Chinese PRDs should use the exact 占位图 placeholder block for missing screenshots")
+
+
 def check_mini_program_prototype(path: Path, language: str | None = None) -> None:
     prototypes = sorted(path.glob("prototype-mini-program.html"))
     if not prototypes:
@@ -1932,7 +2038,9 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
     markdown_image_count = len(re.findall(r"!\[[^\]]*\]\([^)]+\)|<img\b", markdown_text, re.IGNORECASE))
     markdown_table_image_count = markdown_image_count_in_tables(markdown_text)
     html_table_image_count = sum(1 for item in parser.images if bool(item.get("in_table")))
-    placeholder_count = len(re.findall(r"图片占位|截图占位|image placeholder|screenshot placeholder", markdown_text, re.IGNORECASE))
+    placeholder_count = len(IMAGE_PLACEHOLDER_RE.findall(markdown_text)) + len(
+        re.findall(r"图片占位|截图占位|image placeholder|screenshot placeholder", markdown_text, re.IGNORECASE)
+    )
     if markdown_image_count and not parser.images:
         fail(f"{prd_html_path.name} missing images referenced by prd.md")
     if parser.images:
@@ -1940,9 +2048,17 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
             fail(f"{prd_html_path.name} must keep table images inside the corresponding table cells")
         if not re.search(r"lightbox|fullscreen|requestFullscreen|image-viewer|dialog", text, re.IGNORECASE):
             fail(f"{prd_html_path.name} images must support click-to-fullscreen or equivalent lightbox viewing")
-    if placeholder_count and not re.search(r"图片占位|截图占位|image placeholder|screenshot placeholder", visible_html_text(text), re.IGNORECASE):
+    if placeholder_count and not re.search(
+        r"占位图|图片占位|截图占位|image placeholder|screenshot placeholder",
+        visible_html_text(text),
+        re.IGNORECASE,
+    ):
         fail(f"{prd_html_path.name} missing inline image placeholders from prd.md")
-    if re.search(r"(图片列表|截图列表|image list|screenshot list)", visible_html_text(text), re.IGNORECASE):
+    if DETACHED_IMAGE_SECTION_RE.search(visible_html_text(text)) or re.search(
+        r"(图片列表|截图列表|image list|screenshot list)",
+        visible_html_text(text),
+        re.IGNORECASE,
+    ):
         fail(f"{prd_html_path.name} must not move images into a separate image list")
 
     has_requirement_detail_table = False
@@ -2178,6 +2294,7 @@ def main() -> None:
     check_implemented_feature_prd_trace(folder)
     check_visual_validation_trace(folder)
     check_prototype_agent_and_style_trace(folder, args.language)
+    check_prd_output_contract(folder, args.language)
     if args.language == "zh":
         check_chinese_prd(folder)
     check_tracking_context(folder)
