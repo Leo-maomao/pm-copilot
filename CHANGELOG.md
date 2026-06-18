@@ -6,6 +6,29 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.7.5] - 2026-06-18
+
+### Added
+
+- Added `docs/implemented-feature-prd-workflow.md` to codify the implemented-feature-to-PRD delivery flow, embedded output path, inline screenshot replacement loop, and HTML rendering expectations.
+- Added `templates/implemented-feature-prd-template.md` for implementation-backed PRDs with parameters, rules, states, data/API requirements, real-data integration notes, acceptance criteria, and evidence mapping.
+- Added `scripts/render_prd_html.py` to render `prd.md` into browser-readable `prd.html` with `pagetitle`, full-width document styling, wide-table handling, and image lightbox support.
+
+### Changed
+
+- Updated PM Copilot entry, README files, prompt rules, PRD skill, artifact contracts, direct/embedded use docs, workflow, and validation tooling so implemented-feature PRDs are generated under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`.
+- Tightened screenshot handling rules so real images and missing-image markers stay inline with the related requirement, and missing Chinese screenshots use only the exact `占位图` block.
+- Clarified screenshot naming as content plus concrete state, such as `文件上传-上传中.png` and `文件上传-上传失败.png`, instead of generic figure numbers or `-状态` suffixes.
+- Extended output validation to require direct `outputs/<run-id>` folders, reject `.DS_Store`, enforce one PRD H1, reject detached image lists, validate local image paths, and catch generic screenshot names.
+- Extended repository validation to require the implemented-feature PRD workflow docs, template, renderer, and validation tokens.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/render_prd_html.py scripts/validate_repo.py`.
+- Screenshot naming rule smoke validation passes for concrete-state names and rejects generic `-状态`, `-state`, and figure-number names.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.7.4] - 2026-06-15
 
 ### Added
