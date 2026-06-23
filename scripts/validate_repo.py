@@ -30,6 +30,7 @@ REQUIRED_FILES = [
     "README.md",
     "README.en.md",
     "PM_COPILOT.md",
+    ".gitattributes",
     "LICENSE",
     "VERSION",
     "CHANGELOG.md",
@@ -93,6 +94,9 @@ REQUIRED_FILES = [
     "scripts/validate_prototype_visual.py",
     "scripts/validate_ui_preview.py",
     "docs/implemented-feature-prd-workflow.md",
+    "vendor/mermaid/LICENSE",
+    "vendor/mermaid/README.md",
+    "vendor/mermaid/mermaid.min.js",
     "skills/skill-cleaner/SKILL.md",
     "skills/skill-cleaner/scripts/skill_cleaner.py",
     "adapters/codex/AGENTS.snippet.md",
@@ -143,6 +147,7 @@ IGNORED_TEXT_SCAN_DIR_NAMES = {
     "assets",
     "tool-results",
     "visual-review",
+    "vendor",
 }
 
 REFERENCE_FIXTURE_ALLOWED_PREFIXES = (
@@ -222,6 +227,8 @@ REQUIRED_TEXT_TOKENS = {
         "implemented-feature-prd-template.md",
         "render_prd_html.py",
         "占位图",
+        "Mermaid",
+        "pure text",
     ],
     "README.md": [
         "README.en.md",
@@ -240,6 +247,7 @@ REQUIRED_TEXT_TOKENS = {
         "占位图",
         "dev-tasks.yaml",
         "launch-decision.yaml",
+        "微状态",
     ],
     "README.en.md": [
         "README.md",
@@ -258,6 +266,7 @@ REQUIRED_TEXT_TOKENS = {
         "占位图",
         "dev-tasks.yaml",
         "launch-decision.yaml",
+        "micro-states",
     ],
     "docs/direct-use.md": [
         "validate_outputs.py",
@@ -471,20 +480,28 @@ REQUIRED_TEXT_TOKENS = {
         "Output Folder",
         "render_prd_html.py",
         "占位图",
+        "assets/mermaid.min.js",
+        "pure-text",
     ],
     "templates/implemented-feature-prd-template.md": [
         "<parameters and rules>",
         "<data and API requirements>",
         "占位图",
+        "<functional flow diagram>",
+        "<new copy extraction>",
     ],
     "scripts/render_prd_html.py": [
         "pagetitle",
         "image-lightbox",
+        "IntersectionObserver",
+        "mermaid.min.js",
     ],
     "scripts/validate_outputs.py": [
         "check_prd_output_contract",
         "GENERIC_STATE_SUFFIX_RE",
         "DETACHED_IMAGE_SECTION_RE",
+        "check_prd_flow_sections",
+        "check_prd_copy_i18n_sections",
     ],
     "requirements-dev.txt": [
         "playwright",
@@ -957,6 +974,8 @@ def should_skip_text_file(path: Path) -> bool:
     if path.name in IGNORED_FILE_NAMES:
         return True
     relative_parts = path.relative_to(ROOT).parts
+    if relative_parts and relative_parts[0] == "vendor":
+        return True
     if relative_parts and relative_parts[0] == "outputs":
         return any(part in IGNORED_TEXT_SCAN_DIR_NAMES for part in relative_parts)
     return any(part in IGNORED_DIR_NAMES for part in path.parts)

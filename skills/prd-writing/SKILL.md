@@ -27,9 +27,10 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 14. Place screenshots or image placeholders inline in the related requirement, flow, or evidence position. Do not create a separate image list by default.
 15. Add a repo-backed engineering map when repository or implementation context is available.
 16. Add functional and operation flow diagrams when they improve reviewability.
-17. Add tracking plan event and property tables inside the PRD by default.
-18. Add a UI delivery reference section that links the source-backed preview/delta, compatibility HTML artifact, and `prd.html` document when requested, while avoiding duplicated page-level annotations.
-19. Add structured risks, open confirmations, acceptance criteria, delivery review findings, and validation results.
+17. Add newly added or changed UI copy as a pure-text extraction block in the copy/i18n section, or explicitly state that no new UI copy is involved.
+18. Add tracking plan event and property tables inside the PRD by default.
+19. Add a UI delivery reference section that links the source-backed preview/delta, compatibility HTML artifact, and `prd.html` document when requested, while avoiding duplicated page-level annotations.
+20. Add structured risks, open confirmations, acceptance criteria, delivery review findings, and validation results.
 
 ## Output
 
@@ -39,6 +40,7 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 ## Screenshot And Placeholder Rules
 
 - In implemented-feature PRD delivery, use `templates/implemented-feature-prd-template.md` and keep screenshots attached to the requirement, flow step, table row, state, or evidence they explain.
+- Cover every independent changed page, window, panel, or dialog. Do not create separate screenshots for micro-states when one screenshot captures the complete window or panel.
 - Put real screenshots under `<run-folder>/assets/` and reference them inline, for example `![文件上传-上传中](./assets/文件上传-上传中.png)`.
 - If a Chinese PRD is missing a screenshot, use only the exact inline block below and avoid the marker words anywhere else:
 
@@ -49,6 +51,13 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 
 - Name screenshots by content. If one object has multiple states, use object plus concrete state, for example `文件上传-上传中.png`, `文件上传-上传失败.png`, or `目标文件夹弹窗-非法目标.png`; do not use generic names such as `文件上传-状态.png` or `asset-upload-state.png`.
 - Do not create a standalone image list, figure list, screenshot appendix, or screenshot inventory unless the user explicitly asks for one.
+- Missing screenshots in Chinese PRDs are called `占位图`; do not use labels such as `待补真实图`.
+
+## Flow And Copy Rules
+
+- Functional flow sections must use Mermaid `flowchart` code blocks. Do not represent the primary flow as a table or a PNG.
+- Keep Mermaid node IDs ASCII and labels localized. Prefer simple unquoted labels and avoid custom `classDef` styling unless the renderer has been verified.
+- Copy/i18n sections should include a pure-text block for newly added or changed UI copy so product managers can submit it directly for localization.
 
 ## Quality Bar
 

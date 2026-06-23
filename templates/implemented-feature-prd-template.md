@@ -59,6 +59,7 @@ Remove this note from generated artifacts.
 
 <!--
 Put screenshots or missing-image placeholders directly below the requirement heading or inside the relevant row.
+Cover every independent page, window, panel, or dialog changed by the feature. Do not split micro-states into separate screenshots when one screenshot can show the complete window or panel.
 Missing-image placeholder format must be exactly:
 
 > 占位图：<recommended-image-name>.png
@@ -69,7 +70,7 @@ When the real image exists, replace the whole placeholder block with:
 
 Name missing and real screenshots by content. When one object has multiple states, use object-specific state names such as `文件上传-上传中.png` and `文件上传-上传失败.png`, not `文件上传-状态.png`.
 
-Do not create a separate screenshot/image list.
+Do not create a separate screenshot/image list. Keep the image or placeholder fused with the requirement detail it explains.
 -->
 
 | ID  | <function> | <user scenario> | <entry / trigger> | <content requirements> | <business logic> | <interaction rules> | <data rules> | <permission rules> | <edge states> | <tracking links> | <acceptance links> |
@@ -119,27 +120,52 @@ Do not create a separate screenshot/image list.
 | <key / scene> | <copy> | <usage> | <i18n note> |
 | ------------- | ------ | ------- | ----------- |
 
-## 16. <acceptance criteria>
+### 15.1 <new copy extraction>
+
+<!--
+List newly added or changed UI copy as pure text so PMs can copy it into an i18n request. If there is no new copy, state that explicitly and remove this block.
+-->
+
+```text
+<new or changed UI copy line>
+```
+
+## 16. <functional flow diagram>
+
+<!--
+Use a Mermaid flowchart here. Do not use a table or PNG for the primary flow diagram.
+Keep node IDs ASCII and labels localized.
+-->
+
+```mermaid
+flowchart TD
+  A[<localized start>] --> B[<localized system or feature decision>]
+  B --> C{<localized branch condition>}
+  C -- <localized yes> --> D[<localized target state>]
+  C -- <localized no> --> E[<localized fallback state>]
+```
+
+## 17. <acceptance criteria>
 
 | ID  | <requirement IDs> | <criteria> | <verification method> |
 | --- | ----------------- | ---------- | --------------------- |
 
-## 17. <test suggestions>
+## 18. <test suggestions>
 
 | <test type> | <coverage> | <suggested cases> |
 | ----------- | ---------- | ----------------- |
 
-## 18. <risks and dependencies>
+## 19. <risks and dependencies>
 
 | ID  | <risk / dependency> | <impact> | <owner> | <mitigation / decision> |
 | --- | ------------------- | -------- | ------- | ----------------------- |
 
-## 19. <implementation evidence and coverage map>
+## 20. <implementation evidence and coverage map>
 
 | <evidence ID> | <source> | <observed behavior> | <related requirement IDs> | <coverage status> | <gap / risk> |
 | ------------- | -------- | ------------------- | ------------------------- | ----------------- | ------------ |
 
-## 20. <reference code locations>
+## 21. <reference code locations>
 
 | <module> | <path> | <note> |
 | -------- | ------ | ------ |

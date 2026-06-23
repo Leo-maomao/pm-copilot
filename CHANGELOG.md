@@ -6,6 +6,29 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.8.0] - 2026-06-23
+
+### Added
+
+- Added vendored Mermaid 11.13.0 browser runtime under `vendor/mermaid/` so `scripts/render_prd_html.py` can copy `assets/mermaid.min.js` into each PRD output and render flow diagrams offline.
+- Added implemented-feature PRD template sections for Mermaid functional flow diagrams and pure-text copy/i18n extraction.
+- Added output validation for PRD flow sections, copy/i18n extraction blocks, table-of-contents reading sync, local Mermaid runtime presence, table-cell image retention, and forbidden Chinese missing-image labels such as `待补真实图`.
+
+### Changed
+
+- Improved `prd.html` rendering so the left table of contents starts from numbered `h2`/`h3` sections, excludes the H1 title, tracks the current reading position, and removes the Pandoc manual URL comment.
+- Improved PRD table readability by using auto table layout, narrower two-column field cells, wider content cells, and table-cell image styling.
+- Expanded image lightbox support from standalone figure images to both `figure img` and `td img`, preserving screenshots inside the requirement detail row they explain.
+- Tightened PRD writing, workflow, artifact, README, and PM Copilot entry rules around page/window-level screenshot coverage, inline screenshot placement, Mermaid flowcharts instead of tables/PNGs, and pure-text i18n handoff.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Implemented-feature PRD delivery validation passes against the node model picker PRD with `python3 scripts/run_delivery_checks.py <host-repo>/pm-copilot/outputs/node-model-picker-optimization-2026-06-23 --language zh --skip-repo`.
+- Renderer smoke validation confirms H1-free TOC, reading-position sync, plain Mermaid containers, local Mermaid runtime, table auto layout, table-image lightbox support, and no Pandoc manual URL.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.7.5] - 2026-06-18
 
 ### Added

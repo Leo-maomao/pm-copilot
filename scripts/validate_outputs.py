@@ -198,6 +198,7 @@ IMAGE_PLACEHOLDER_RE = re.compile(
     re.MULTILINE,
 )
 IMAGE_PLACEHOLDER_PURPOSE_RE = re.compile(r"^>\s*用途[:：]\s*.+$", re.MULTILINE)
+FORBIDDEN_PLACEHOLDER_LABEL_RE = re.compile(r"待补真实图|待补图|真实图待补")
 DETACHED_IMAGE_SECTION_RE = re.compile(
     r"^#{2,4}\s*(?:\d+(?:\.\d+)?\s*[.、]?\s*)?"
     r"(?:图示清单|图片清单|截图清单|图片列表|截图列表|图示列表|图片汇总|截图汇总|图片汇总表|截图汇总表|"
@@ -215,6 +216,13 @@ STATE_ASSET_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 GENERIC_STATE_SUFFIX_RE = re.compile(r"(?:^|[-_ ])(?:状态|state)$", re.IGNORECASE)
+FLOW_SECTION_HEADING_RE = re.compile(
+    r"(功能流程图|功能流程|操作流程图|用户流程图|流程图|flow diagrams?|flowchart|user flow|operation flow)",
+    re.IGNORECASE,
+)
+COPY_I18N_SECTION_HEADING_RE = re.compile(r"(文案|多语言|国际化|i18n|copy)", re.IGNORECASE)
+NO_NEW_COPY_RE = re.compile(r"(无新增|不涉及|暂无新增|没有新增|not applicable|no new|none|n/a)", re.IGNORECASE)
+PLAIN_COPY_EXTRACT_RE = re.compile(r"(纯文本|可提取文案|新增文案|plain text|copy extraction)", re.IGNORECASE)
 
 
 def fail(message: str) -> None:
@@ -488,6 +496,59 @@ def markdown_image_refs(text: str) -> list[str]:
     refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
     html_refs = re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", text, re.IGNORECASE)
     return [*refs, *html_refs]
+
+
+def markdown_sections(text: str) -> list[dict[str, object]]:
+    headings: list[dict[str, object]] = []
+    for match in re.finditer(r"^(#{2,6})\s+(.+?)\s*$", text, re.MULTILINE):
+        raw_title = match.group(2).strip()
+        title = re.sub(r"^\d+(?:\.\d+)*\s*[.、]?\s*", "", raw_title).strip()
+        headings.append({
+            "level": len(match.group(1)),
+            "title": title,
+            "raw_title": raw_title,
+            "start": match.start(),
+            "body_start": match.end(),
+        })
+    sections: list[dict[str, object]] = []
+    for index, heading in enumerate(headings):
+        end = len(text)
+        for candidate in headings[index + 1:]:
+            if int(candidate["level"]) <= int(heading["level"]):
+                end = int(candidate["start"])
+                break
+        body = text[int(heading["body_start"]):end]
+        sections.append({**heading, "body": body})
+    return sections
+
+
+def sections_matching(text: str, heading_re: re.Pattern[str]) -> list[dict[str, object]]:
+    return [
+        section
+        for section in markdown_sections(text)
+        if heading_re.search(str(section.get("title", "")))
+    ]
+
+
+def has_markdown_table(body: str) -> bool:
+    lines = body.splitlines()
+    for index, line in enumerate(lines[:-1]):
+        if not line.lstrip().startswith("|"):
+            continue
+        separator = lines[index + 1]
+        if re.match(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$", separator):
+            return True
+    return False
+
+
+def markdown_needs_assets_folder(text: str) -> bool:
+    if IMAGE_PLACEHOLDER_RE.search(text):
+        return True
+    for image_ref in markdown_image_refs(text):
+        normalized = image_ref.strip().split("#", 1)[0].split("?", 1)[0].replace("\\", "/")
+        if normalized.startswith("./assets/") or normalized.startswith("assets/"):
+            return True
+    return False
 
 
 def markdown_heading_count(text: str, level: int = 1) -> int:
@@ -811,6 +872,10 @@ class PRDHTMLInspectionParser(HTMLParser):
         self.scripts: list[str] = []
         self.stylesheets: list[str] = []
         self.tables: list[dict[str, object]] = []
+        self.toc_links: list[dict[str, str]] = []
+        self.headings: list[dict[str, str]] = []
+        self._in_toc = False
+        self._current_heading: dict[str, object] | None = None
         self._current_header_text: list[str] = []
         self._in_th = False
         self.mermaid_nodes = 0
@@ -821,6 +886,19 @@ class PRDHTMLInspectionParser(HTMLParser):
         class_name = attr_map.get("class", "")
         if "mermaid" in class_name.split():
             self.mermaid_nodes += 1
+        if tag == "nav" and attr_map.get("id") == "TOC":
+            self._in_toc = True
+        if tag == "a" and self._in_toc:
+            self.toc_links.append({
+                "href": attr_map.get("href", ""),
+                "id": attr_map.get("id", ""),
+            })
+        if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            self._current_heading = {
+                "level": tag,
+                "id": attr_map.get("id", ""),
+                "text_parts": [],
+            }
         if tag == "script":
             self.scripts.append(attr_map.get("src", ""))
         if tag == "link" and "stylesheet" in attr_map.get("rel", "").lower():
@@ -843,6 +921,16 @@ class PRDHTMLInspectionParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
+        if tag == "nav" and self._in_toc:
+            self._in_toc = False
+        if self._current_heading and tag == self._current_heading.get("level"):
+            text = " ".join(str(part) for part in self._current_heading.get("text_parts", []))
+            self.headings.append({
+                "level": str(self._current_heading.get("level", "")),
+                "id": str(self._current_heading.get("id", "")),
+                "text": normalize_table_cell(text),
+            })
+            self._current_heading = None
         if tag == "th" and self._in_th:
             if self.tables:
                 headers = self.tables[-1].setdefault("headers", [])
@@ -856,6 +944,10 @@ class PRDHTMLInspectionParser(HTMLParser):
                 break
 
     def handle_data(self, data: str) -> None:
+        if self._current_heading is not None:
+            parts = self._current_heading.setdefault("text_parts", [])
+            if isinstance(parts, list):
+                parts.append(data)
         if self._in_th:
             self._current_header_text.append(data)
 
@@ -1727,6 +1819,12 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
     if DETACHED_IMAGE_SECTION_RE.search(text):
         fail("prd.md must keep images and missing-image placeholders inline, not in a detached image list")
 
+    if FORBIDDEN_PLACEHOLDER_LABEL_RE.search(text):
+        fail("prd.md must call missing screenshots 占位图, not 待补真实图 or similar labels")
+
+    if markdown_needs_assets_folder(text) and not (path / "assets").is_dir():
+        fail("prd.md references screenshots/placeholders or local PRD runtimes, but assets/ is missing")
+
     matched_placeholder_lines: list[tuple[int, int]] = []
     for match in IMAGE_PLACEHOLDER_RE.finditer(text):
         name = match.group("name").strip()
@@ -1760,6 +1858,36 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         re.IGNORECASE,
     ):
         fail("Chinese PRDs should use the exact 占位图 placeholder block for missing screenshots")
+
+    check_prd_flow_sections(text)
+    check_prd_copy_i18n_sections(text, language)
+
+
+def check_prd_flow_sections(text: str) -> None:
+    for section in sections_matching(text, FLOW_SECTION_HEADING_RE):
+        body = str(section.get("body", ""))
+        title = str(section.get("raw_title", section.get("title", "")))
+        if "```mermaid" not in body or not re.search(r"```mermaid\s+flowchart\b", body, re.IGNORECASE):
+            fail(f"PRD flow section must use a Mermaid flowchart code block, not a table or image: {title}")
+        if re.search(r"!\[[^\]]*\]\([^)]+\)|<img\b", body, re.IGNORECASE):
+            fail(f"PRD flow section must not use a PNG/image as the primary flowchart: {title}")
+        if has_markdown_table(body):
+            fail(f"PRD flow section must not be represented as a table: {title}")
+
+
+def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None:
+    del language
+    for section in sections_matching(text, COPY_I18N_SECTION_HEADING_RE):
+        body = str(section.get("body", ""))
+        title = str(section.get("raw_title", section.get("title", "")))
+        if not body.strip() or NO_NEW_COPY_RE.search(body):
+            continue
+        if PLAIN_COPY_EXTRACT_RE.search(body) and (
+            re.search(r"```(?:text|plain|txt)?\s*\n.+?\n```", body, re.DOTALL | re.IGNORECASE)
+            or re.search(r"^\s*[-*]\s*[\"“][^\"”]+[\"”]", body, re.MULTILINE)
+        ):
+            continue
+        fail(f"PRD copy/i18n section must include a pure-text extraction block for new UI copy: {title}")
 
 
 def check_mini_program_prototype(path: Path, language: str | None = None) -> None:
@@ -2019,6 +2147,14 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
     for resource in [*parser.scripts, *parser.stylesheets]:
         if resource and re.match(r"^(?:https?:)?//", resource, re.IGNORECASE):
             fail(f"{prd_html_path.name} must avoid remote runtime dependency: {resource}")
+        if resource and not re.match(r"^[a-z]+:", resource, re.IGNORECASE) and not resource.startswith("#"):
+            resource_path = (prd_html_path.parent / resource).resolve()
+            try:
+                resource_path.relative_to(prd_html_path.parent.resolve())
+            except ValueError:
+                fail(f"{prd_html_path.name} local resource path escapes output folder: {resource}")
+            if not resource_path.is_file():
+                fail(f"{prd_html_path.name} local resource path not found: {resource}")
 
     for src in [str(item.get("src") or "") for item in parser.images]:
         if not src:
@@ -2061,6 +2197,30 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
     ):
         fail(f"{prd_html_path.name} must not move images into a separate image list")
 
+    if parser.toc_links:
+        h1_ids = {
+            str(heading.get("id"))
+            for heading in parser.headings
+            if heading.get("level") == "h1" and heading.get("id")
+        }
+        toc_hrefs = {str(link.get("href", "")).lstrip("#") for link in parser.toc_links}
+        if h1_ids & toc_hrefs:
+            fail(f"{prd_html_path.name} table of contents must start from numbered sections, not the H1 title")
+        tracks_h2_h3 = (
+            re.search(r"querySelectorAll\(['\"]h2\[id\]\s*,\s*h3\[id\]['\"]\)", text)
+            or all(marker in text for marker in ("querySelectorAll", "h2[id]", "h3[id]"))
+        )
+        has_toc_sync_runtime = (
+            "IntersectionObserver" in text
+            or (
+                re.search(r"addEventListener\(['\"]scroll['\"]", text)
+                and "getBoundingClientRect" in text
+                and "is-active" in text
+            )
+        )
+        if not has_toc_sync_runtime or not tracks_h2_h3:
+            fail(f"{prd_html_path.name} table of contents must sync with the reading position")
+
     has_requirement_detail_table = False
     for table in parser.tables:
         headers = {
@@ -2078,8 +2238,16 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
         has_mermaid_script = any("mermaid" in script.lower() for script in parser.scripts) or "mermaid.initialize" in text
         if not has_mermaid_script:
             fail(f"{prd_html_path.name} missing Mermaid runtime for PRD flow diagrams")
+        if not re.search(r"<script\b[^>]*\bsrc=[\"']\.\/assets\/mermaid\.min\.js[\"']", text, re.IGNORECASE):
+            fail(f"{prd_html_path.name} must use local ./assets/mermaid.min.js for PRD flow diagrams")
         if parser.mermaid_nodes <= 0:
             fail(f"{prd_html_path.name} missing rendered Mermaid container")
+        if re.search(
+            r"<pre[^>]*class=[\"'][^\"']*\bmermaid\b[^\"']*[\"'][^>]*>\s*<code\b",
+            text,
+            re.IGNORECASE,
+        ):
+            fail(f"{prd_html_path.name} Mermaid blocks must be plain <pre class=\"mermaid\"> containers, not nested code blocks")
         raw_mermaid_pre = re.search(
             r"<pre(?![^>]*class=[\"'][^\"']*\bmermaid\b)[^>]*>\s*(?:<code[^>]*>)?\s*(flowchart|sequenceDiagram|graph)\b",
             text,
@@ -2088,8 +2256,12 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
         if raw_mermaid_pre:
             fail(f"{prd_html_path.name} still exposes raw Mermaid code blocks")
 
-    if "<table" in text.lower() and not re.search(r"overflow-x\s*:\s*auto|table-layout\s*:\s*fixed|min-width|max-width", text, re.IGNORECASE):
+    if "<table" in text.lower() and not re.search(r"overflow-x\s*:\s*auto|table-layout\s*:\s*auto|min-width|max-width", text, re.IGNORECASE):
         fail(f"{prd_html_path.name} missing wide-table readability styling")
+    if markdown_has_requirement_detail_table(markdown_text) and "table-layout: auto" not in text:
+        fail(f"{prd_html_path.name} requirement detail tables must use auto layout so content columns stay readable")
+    if markdown_table_image_count and "td img" not in text:
+        fail(f"{prd_html_path.name} table images must be styled and viewable in-place")
 
 
 def check_handoff_artifacts(path: Path) -> None:

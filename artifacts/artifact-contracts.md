@@ -193,9 +193,20 @@ Useful diagram types:
 Minimum quality bar:
 
 - Diagrams are standard Mermaid flowcharts when Markdown rendering is expected.
+- The primary flow diagram is not a Markdown table or PNG image.
 - Branch labels are meaningful.
 - The flow matches the confirmed PRD scope.
 - Notes explain only assumptions or edge cases that cannot fit cleanly in the diagram.
+
+## Copy And Localization
+
+Copy/i18n content is a PRD section by default when UI copy is added or changed.
+
+Minimum quality bar:
+
+- Newly added or changed UI copy appears as pure text that a product manager can copy into a localization request.
+- The PRD also records usage scene, i18n key when known, and translation note when relevant.
+- If no new copy is involved, the section says so explicitly instead of leaving reviewers to infer it.
 
 ## UI Deliverable
 

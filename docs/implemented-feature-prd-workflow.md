@@ -75,8 +75,10 @@ Rules:
 
 - Put the block exactly where the image belongs in the requirement.
 - Use `占位图` only in missing-image blocks.
+- Do not use labels such as `待补真实图`.
 - Include the exact file name the user should save under `assets/`.
 - Do not add a standalone screenshot list, image list, figure list, appendix, or checklist by default.
+- Cover every independent changed page, window, panel, or dialog. Do not split micro-states into separate screenshots when a single screenshot captures the complete window or panel.
 
 Replacement loop:
 
@@ -105,12 +107,20 @@ The generated `prd.html` must:
 - contain one visible top-level PRD title
 - use `pagetitle` behavior rather than adding an extra body title
 - use a normal document layout with optional left table of contents
+- keep the left table of contents synced to the reader's current `h2` or `h3` section and exclude the H1 title from the TOC
 - use the available content width instead of a narrow fixed body
-- preserve all table columns
+- preserve all table columns while keeping two-column field/value tables readable with a narrow field column and wider content column
 - use local images
 - keep images/placeholders inline
 - support image lightbox/fullscreen viewing
+- render Mermaid flowcharts through the local `assets/mermaid.min.js` runtime, not CDN
 - avoid decorative cards, module blocks, unusual backgrounds, and nested scroll containers
+
+## Flow And Copy Sections
+
+- Functional flow diagrams must be Mermaid `flowchart` blocks inside `prd.md`. Do not use tables or PNGs as the primary flow diagram.
+- Keep Mermaid syntax simple: ASCII node IDs, localized labels, plain branch labels, and no unverified styling extensions.
+- Copy/i18n sections must include newly added or changed UI copy as a pure-text extraction block for PM localization submission, or explicitly state that no new copy is involved.
 
 ## Validation
 
