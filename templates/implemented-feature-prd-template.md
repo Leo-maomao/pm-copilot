@@ -55,6 +55,13 @@ Remove this note from generated artifacts.
 
 ## 8. <functional requirements>
 
+<!--
+The requirement list is only a scan-level overview. Put complete behavior in this section.
+You may use the complete detail table below or split each function into its own subsection, but every functional item should cover entry/trigger, content, business rules, interaction, data/state, permission or edge cases, tracking links, and acceptance links where relevant.
+Requirement screenshots and missing-image placeholders belong inside the relevant requirement row or subsection.
+Markdown tables should use consistent left alignment separators (`---`) by default.
+-->
+
 ### 8.1 <requirement name>
 
 <!--
@@ -123,7 +130,7 @@ Do not create a separate screenshot/image list. Keep the image or placeholder fu
 ### 15.1 <new copy extraction>
 
 <!--
-List newly added or changed UI copy as pure text so PMs can copy it into an i18n request. If there is no new copy, state that explicitly and remove this block.
+List newly added or changed UI copy as pure text so PMs can copy it into an i18n request. Put only the visible copy lines in this block. Do not include `key = copy` lines here; keep keys, usage locations, interpolation notes, and reviewer notes in a separate table. If there is no new copy, state that explicitly and remove this block.
 -->
 
 ```text

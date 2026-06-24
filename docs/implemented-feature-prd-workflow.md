@@ -106,21 +106,23 @@ The generated `prd.html` must:
 
 - contain one visible top-level PRD title
 - use `pagetitle` behavior rather than adding an extra body title
-- use a normal document layout with optional left table of contents
-- keep the left table of contents synced to the reader's current `h2` or `h3` section and exclude the H1 title from the TOC
+- use the fixed PM Copilot document layout with a left table of contents
+- keep the left table of contents synced to the reader's current `h2` or `h3` section, exclude the H1 title from the TOC, and use stable ASCII anchors
 - use the available content width instead of a narrow fixed body
-- preserve all table columns while keeping two-column field/value tables readable with a narrow field column and wider content column
+- preserve all table columns while keeping two-column field/value tables readable without squeezing the content column
+- keep Markdown and HTML table cells consistently left-aligned unless a special data table explicitly needs another alignment
 - use local images
 - keep images/placeholders inline
 - support image lightbox/fullscreen viewing
 - render Mermaid flowcharts through the local `assets/mermaid.min.js` runtime, not CDN
+- allow normal external document links while avoiding remote scripts, stylesheets, images, and CDN runtimes
 - avoid decorative cards, module blocks, unusual backgrounds, and nested scroll containers
 
 ## Flow And Copy Sections
 
 - Functional flow diagrams must be Mermaid `flowchart` blocks inside `prd.md`. Do not use tables or PNGs as the primary flow diagram.
 - Keep Mermaid syntax simple: ASCII node IDs, localized labels, plain branch labels, and no unverified styling extensions.
-- Copy/i18n sections must include newly added or changed UI copy as a pure-text extraction block for PM localization submission, or explicitly state that no new copy is involved.
+- Copy/i18n sections must include newly added or changed UI copy as a pure-text extraction block for PM localization submission, or explicitly state that no new copy is involved. The pure-text block contains only visible copy lines; i18n keys and usage notes belong in a separate mapping table.
 
 ## Validation
 

@@ -206,7 +206,7 @@ scripts/       轻量级本地校验
 
 每次真实需求运行都会在 `outputs/<run-id>/` 下生成一个产物目录，通常包含 `prd.md`、UI 交付物引用和可选 `run-log.yaml`。run id 使用英文 kebab-case 需求名加日期，例如 `membership-renewal-2026-05-18`；同一天同名冲突时追加 `-2`、`-3` 等数字后缀。在有前端源码的仓库中，UI 交付物默认是源码驱动预览/增量补丁并记录在 `run-log.yaml`；当用户要求先在当前仓库实现好再一比一交付研发时，应先运行实现后的宿主 UI，再提取目标区域为源码派生 HTML。仅在无源码、明确便携 HTML 且不要求源码实现、明确重做视觉或源码渲染被阻塞时，才生成兼容文件 `prototype-<platform>.html`，离线文件夹交付也可以使用同目录下的 `index.html` 作为入口。`outputs/` 目录在运行时生成，不随仓库发布示例产物。如果目标 git 仓库不可用但桌面存在同名源码目录，Agent 可以把源文件改动写入该本地目录，并明确说明未执行远端推送。
 
-当用户要求把已实现功能交付成文档时，同一个运行目录可以包含 `prd.html`。它应是 `prd.md` 的浏览器可读版本：普通文档样式、左侧目录从编号章节开始并跟随阅读位置、完整且可读的表格、通过本地资源正确渲染 Mermaid 流程图、图片或截图占位放在对应需求位置，真实图片可点击全屏查看。不要把 `prd.html` 做成 UI 原型、卡片化页面或单独截图清单。
+当用户要求把已实现功能交付成文档时，同一个运行目录可以包含 `prd.html`。它应是 `prd.md` 的浏览器可读版本：固定的 PM Copilot 文档样式、左侧目录从编号章节开始并跟随阅读位置、稳定 ASCII 锚点、完整且左对齐可读的表格、通过本地资源正确渲染 Mermaid 流程图、图片或截图占位放在对应需求位置，真实图片可点击全屏查看。普通文档外链可以保留，但脚本、样式、图片和运行时资源不能依赖远程 CDN。不要把 `prd.html` 做成 UI 原型、卡片化页面或单独截图清单。
 
 已实现功能反向 PRD 推荐使用 `templates/implemented-feature-prd-template.md`，并通过 `python3 scripts/render_prd_html.py outputs/<run-id>` 生成 `prd.html`。在嵌入模式下，运行目录必须位于 `pm-copilot/outputs/<run-id>/`，对应命令是 `python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>`。
 

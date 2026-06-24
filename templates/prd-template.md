@@ -90,8 +90,25 @@
 
 ## <localized requirement details>
 
+<!-- The requirement list is a rough overview only. This section must be the complete functional explanation. Use a full detail table or per-function subsections, but keep requirement screenshots/placeholders inline with the function they explain. Keep Markdown table separators consistently left-aligned (`---`) unless a special data table requires otherwise. -->
+
 | ID | <localized function> | <localized scenario> | <localized entry or trigger> | <localized content requirements> | <localized business logic> | <localized interaction rules> | <localized data rules> | <localized permission rules> | <localized edge states> | <localized tracking links> | <localized acceptance links> |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+
+## <localized copy and i18n>
+
+<!-- Put only user-facing copy in the pure-text block. Keep keys and usage notes in the mapping table below. If there is no new copy, state that explicitly. -->
+
+### <localized new copy pure text>
+
+```text
+<localized new or changed UI copy line>
+```
+
+### <localized key and usage mapping>
+
+| <localized key> | <localized copy> | <localized usage> | <localized note> |
+|---|---|---|---|
 
 ## <localized flow diagrams>
 

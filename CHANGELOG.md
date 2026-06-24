@@ -6,6 +6,28 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.0] - 2026-06-24
+
+### Added
+
+- Added a billing/subscription PRD HTML stability eval covering payment SDK document links, inline requirement figures, i18n pure-text extraction, fixed PRD HTML TOC behavior, table alignment, and requirement-detail structure.
+- Added output validation for copy-only pure-text i18n blocks so `key = copy` lines are rejected inside PM-facing copy extraction blocks.
+- Added output validation for consistent left-aligned Chinese PRD tables, inline requirement image rows, and per-function requirement detail coverage when a PRD uses subsections instead of one large detail table.
+- Added PRD HTML validation for the fixed PM Copilot document shell, stable ASCII heading/TOC anchors, left-aligned table styling, and H1-free table of contents.
+
+### Changed
+
+- Updated `scripts/render_prd_html.py` to replace Pandoc default styling with a fixed PM Copilot document style, normalize heading IDs to stable ASCII anchors, render the TOC from numbered sections only, and use a consistent left-navigation treatment.
+- Updated delivery checks so browser-readable PRD documents may keep normal external documentation hyperlinks while still blocking remote scripts, stylesheets, images, and CDN runtimes.
+- Updated PRD contract, implemented-feature workflow docs, templates, README, and quality rubric to separate requirement list vs requirement details, require inline figures/placeholders, keep pure copy separate from i18n key mapping, and stabilize PRD HTML presentation.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Billing/subscription PRD regression validation passes with `python3 scripts/run_delivery_checks.py <host-repo>/pm-copilot/outputs/mall-billing-2026-06-24 --language zh --skip-repo`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.8.0] - 2026-06-23
 
 ### Added

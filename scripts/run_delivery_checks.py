@@ -33,6 +33,8 @@ class PrototypeHTMLParser(HTMLParser):
         self.start_tags = 0
         self.buttons = 0
         self.links = 0
+        self.external_refs = 0
+        self.external_resource_refs = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.start_tags += 1
@@ -40,6 +42,12 @@ class PrototypeHTMLParser(HTMLParser):
             self.buttons += 1
         if tag == "a":
             self.links += 1
+        for name, value in attrs:
+            if not value or not EXTERNAL_REF_RE.search(value):
+                continue
+            self.external_refs += 1
+            if not (tag == "a" and name.lower() == "href"):
+                self.external_resource_refs += 1
 
 
 def run_command(
@@ -181,7 +189,7 @@ def existing_visual_report_check(
     }
 
 
-def html_parser_check(prototype: Path) -> dict[str, Any]:
+def html_parser_check(prototype: Path, allow_external_document_links: bool = False) -> dict[str, Any]:
     parser = PrototypeHTMLParser()
     text = prototype.read_text(encoding="utf-8")
     try:
@@ -198,7 +206,10 @@ def html_parser_check(prototype: Path) -> dict[str, Any]:
     failures = []
     if "<!doctype html" not in text[:200].lower():
         failures.append("missing doctype")
-    if EXTERNAL_REF_RE.search(text):
+    if allow_external_document_links:
+        if parser.external_resource_refs:
+            failures.append("external network resource reference found")
+    elif EXTERNAL_REF_RE.search(text):
         failures.append("external network reference found")
     if parser.start_tags <= 0:
         failures.append("no html tags parsed")
@@ -211,6 +222,8 @@ def html_parser_check(prototype: Path) -> dict[str, Any]:
         "start_tags": parser.start_tags,
         "buttons": parser.buttons,
         "links": parser.links,
+        "external_refs": parser.external_refs,
+        "external_resource_refs": parser.external_resource_refs,
     }
 
 
@@ -321,7 +334,7 @@ def main() -> None:
 
     if output_folder and not args.pre_clarification:
         for prd_html in find_prd_html_documents(output_folder):
-            results.append(html_parser_check(prd_html))
+            results.append(html_parser_check(prd_html, allow_external_document_links=True))
             results.append(tidy_check(prd_html))
 
     if output_folder and args.source_preview and not args.pre_clarification:

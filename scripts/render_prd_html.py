@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import unquote
 from pathlib import Path
 
 
@@ -18,9 +19,18 @@ VENDORED_MERMAID_RUNTIME = ROOT / "vendor" / "mermaid" / "mermaid.min.js"
 DOCUMENT_CSS = """
     :root {
       color-scheme: light;
+      --pm-doc-bg: #fff;
+      --pm-doc-text: #1f2937;
+      --pm-doc-muted: #6b7280;
+      --pm-doc-border: #e5e7eb;
+      --pm-doc-soft: #f9fafb;
+      --pm-doc-soft-strong: #f3f4f6;
+      --pm-doc-accent: #2563eb;
+      --pm-doc-accent-soft: #e8f0ff;
     }
     html {
-      background: #fff;
+      background: var(--pm-doc-bg);
+      scroll-behavior: smooth;
     }
     body {
       box-sizing: border-box;
@@ -29,8 +39,8 @@ DOCUMENT_CSS = """
       min-height: 100vh;
       margin: 0;
       padding: 40px 56px 80px 308px;
-      background: #fff;
-      color: #1f2937;
+      background: var(--pm-doc-bg);
+      color: var(--pm-doc-text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       font-size: 15px;
       line-height: 1.68;
@@ -44,21 +54,31 @@ DOCUMENT_CSS = """
     h2 {
       margin-top: 40px;
       padding-top: 12px;
-      border-top: 1px solid #e5e7eb;
+      border-top: 1px solid var(--pm-doc-border);
       font-size: 24px;
     }
     h3 {
       margin-top: 28px;
       font-size: 18px;
     }
+    h1[id],
+    h2[id],
+    h3[id],
+    h4[id],
+    h5[id],
+    h6[id] {
+      scroll-margin-top: 16px;
+    }
     a {
-      color: #2563eb;
+      color: var(--pm-doc-accent);
     }
     code {
       padding: 1px 4px;
       border-radius: 4px;
-      background: #f3f4f6;
+      background: var(--pm-doc-soft-strong);
       color: #111827;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     pre code {
       padding: 0;
@@ -73,26 +93,45 @@ DOCUMENT_CSS = """
       box-sizing: border-box;
       padding: 24px 18px 32px;
       overflow: auto;
-      border-right: 1px solid #e5e7eb;
-      background: #f9fafb;
+      border-right: 1px solid var(--pm-doc-border);
+      background: var(--pm-doc-soft);
       font-size: 13px;
       line-height: 1.45;
     }
+    #TOC::before {
+      content: "目录";
+      display: block;
+      margin: 0 0 14px;
+      color: #111827;
+      font-size: 14px;
+      font-weight: 700;
+    }
     #TOC > ul {
       margin: 0;
+      padding-left: 0;
     }
     #TOC li {
       margin: 6px 0;
+      list-style: none;
+    }
+    #TOC ul ul {
+      padding-left: 14px;
     }
     #TOC a {
+      display: block;
+      margin-left: -6px;
+      padding: 3px 6px;
+      border-radius: 6px;
       color: #374151;
       text-decoration: none;
     }
     #TOC a:hover {
-      color: #111827;
+      background: #eef2ff;
+      color: #1d4ed8;
     }
     #TOC a.is-active {
-      color: #111827;
+      background: var(--pm-doc-accent-soft);
+      color: #1d4ed8;
       font-weight: 700;
     }
     table {
@@ -100,14 +139,17 @@ DOCUMENT_CSS = """
       width: 100%;
       table-layout: auto;
       border-collapse: collapse;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--pm-doc-border);
       font-size: 13px;
+    }
+    colgroup col {
+      width: auto !important;
     }
     table:has(th:nth-child(2):last-child) th:first-child,
     table:has(th:nth-child(2):last-child) td:first-child {
-      width: 112px;
-      min-width: 96px;
-      max-width: 160px;
+      width: 24%;
+      min-width: 168px;
+      max-width: 320px;
       white-space: nowrap;
     }
     table:has(th:nth-child(2):last-child) th:nth-child(2),
@@ -115,16 +157,18 @@ DOCUMENT_CSS = """
       width: auto;
     }
     thead {
-      background: #f3f4f6;
+      background: var(--pm-doc-soft-strong);
     }
     tbody {
       border: 0;
     }
     th,
     td {
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--pm-doc-border);
       padding: 8px 10px;
+      text-align: left;
       vertical-align: top;
+      overflow-wrap: anywhere;
       word-break: break-word;
     }
     figure {
@@ -135,9 +179,9 @@ DOCUMENT_CSS = """
       display: block;
       max-width: 100%;
       max-height: calc(100vh - 160px);
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--pm-doc-border);
       border-radius: 8px;
-      background: #fff;
+      background: var(--pm-doc-bg);
       cursor: zoom-in;
       object-fit: contain;
     }
@@ -146,7 +190,7 @@ DOCUMENT_CSS = """
     }
     figcaption {
       margin-top: 8px;
-      color: #6b7280;
+      color: var(--pm-doc-muted);
       font-size: 13px;
       text-align: left;
     }
@@ -188,9 +232,9 @@ DOCUMENT_CSS = """
       margin: 18px 0 24px;
       padding: 16px;
       overflow-x: auto;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--pm-doc-border);
       border-radius: 8px;
-      background: #f9fafb;
+      background: var(--pm-doc-soft);
       text-align: center;
     }
     .mermaid svg {
@@ -207,7 +251,7 @@ DOCUMENT_CSS = """
         width: auto;
         margin: -24px -16px 24px;
         border-right: 0;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--pm-doc-border);
       }
       h1 {
         font-size: 28px;
@@ -341,7 +385,7 @@ def first_image_src(html: str) -> str:
 
 
 def markdown_needs_assets_folder(markdown: str) -> bool:
-    if re.search(r"^>\s*占位图[:：]\s*.+?\.(?:png|jpg|jpeg|webp)\s*$", markdown, re.MULTILINE):
+    if re.search(r"占位图[:：]\s*.+?\.(?:png|jpg|jpeg|webp)", markdown):
         return True
     refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
     refs.extend(re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", markdown, re.IGNORECASE))
@@ -376,32 +420,141 @@ def convert_mermaid_blocks(html: str) -> str:
 
 
 def remove_h1_from_toc(html: str) -> str:
-    nav_match = re.search(r"<nav id=\"TOC\".*?</nav>", html, re.IGNORECASE | re.DOTALL)
-    if not nav_match:
+    toc_match = re.search(
+        r"<(?P<tag>nav|div)\b(?P<attrs>[^>]*)\bid=\"TOC\"(?P<attrs_after>[^>]*)>.*?</(?P=tag)>",
+        html,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not toc_match:
         return html
-    toc = nav_match.group(0)
+    toc = toc_match.group(0)
     compact_match = re.fullmatch(
-        r"(?P<prefix><nav id=\"TOC\"[^>]*>\s*<ul>\s*)"
-        r"<li><a href=\"#[^\"]+\"[^>]*>.*?</a>\s*<ul>\s*"
-        r"(?P<items>.*)"
+        r"(?P<prefix><(?P<tag>nav|div)\b[^>]*\bid=\"TOC\"[^>]*>\s*<ul>\s*)"
+        r"<li>\s*<a href=\"#[^\"]+\"[^>]*>.*?</a>\s*<ul>\s*"
+        r"(?P<items>.*?)"
         r"\s*</ul>\s*</li>\s*"
-        r"(?P<suffix></ul>\s*</nav>)",
+        r"(?P<suffix></ul>\s*</(?P=tag)>)",
         toc,
         re.IGNORECASE | re.DOTALL,
     )
     if not compact_match:
         return html
     cleaned_toc = compact_match.group("prefix") + compact_match.group("items") + compact_match.group("suffix")
-    return html[:nav_match.start()] + cleaned_toc + html[nav_match.end():]
+    return html[:toc_match.start()] + cleaned_toc + html[toc_match.end():]
 
 
 def normalize_html_shell(html: str) -> str:
     html = html.replace('<html xmlns="http://www.w3.org/1999/xhtml">', "<html>", 1)
+    html = html.replace("<body>", '<body data-pm-copilot-prd-doc="true">', 1)
+    html = re.sub(
+        r"<nav\b([^>]*)\bid=\"TOC\"([^>]*)>",
+        r'<div\1id="TOC"\2 data-pm-copilot-toc="fixed">',
+        html,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    html = re.sub(r"</nav>", "</div>", html, count=1, flags=re.IGNORECASE)
     html = re.sub(
         r"\s*\*\* See https://pandoc\.org/MANUAL\.html#variables-for-html for config info\.\n",
         "\n",
         html,
         count=1,
+    )
+    return html
+
+
+def replace_document_styles(html: str) -> str:
+    style = f"<style>\n{DOCUMENT_CSS}\n  </style>"
+    if re.search(r"<style\b[^>]*>.*?</style>", html, re.IGNORECASE | re.DOTALL):
+        return re.sub(
+            r"<style\b[^>]*>.*?</style>",
+            style,
+            html,
+            count=1,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+    return html.replace("</head>", f"{style}\n</head>", 1)
+
+
+def visible_text_from_html(fragment: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", fragment)
+    return re.sub(r"\s+", " ", html_lib.unescape(text)).strip()
+
+
+def stable_heading_id(level: int, text: str, counters: dict[int, int], used_ids: set[str]) -> str:
+    if level == 1:
+        base = "document-title"
+    else:
+        number_match = re.match(r"^(\d+(?:\.\d+)*)\s*[.、]?\s*", text)
+        if number_match:
+            base = "sec-" + number_match.group(1).replace(".", "-")
+        else:
+            counters[level] = counters.get(level, 0) + 1
+            for deeper_level in range(level + 1, 7):
+                counters.pop(deeper_level, None)
+            path = [str(counters.get(current_level, 1)) for current_level in range(2, level + 1)]
+            base = "sec-" + "-".join(path)
+    candidate = base
+    suffix = 2
+    while candidate in used_ids:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    used_ids.add(candidate)
+    return candidate
+
+
+def normalize_heading_anchors(html: str) -> str:
+    heading_re = re.compile(
+        r"<h(?P<level>[1-6])(?P<before>[^>]*)\bid=\"(?P<old_id>[^\"]+)\"(?P<after>[^>]*)>"
+        r"(?P<body>.*?)</h(?P=level)>",
+        re.IGNORECASE | re.DOTALL,
+    )
+    id_map: dict[str, str] = {}
+    counters: dict[int, int] = {}
+    used_ids: set[str] = set()
+
+    def replace_heading(match: re.Match[str]) -> str:
+        level = int(match.group("level"))
+        old_id = html_lib.unescape(match.group("old_id"))
+        text = visible_text_from_html(match.group("body"))
+        new_id = stable_heading_id(level, text, counters, used_ids)
+        id_map[old_id] = new_id
+        return (
+            f'<h{level}{match.group("before")}id="{new_id}"{match.group("after")}>'
+            f'{match.group("body")}</h{level}>'
+        )
+
+    html = heading_re.sub(replace_heading, html)
+    if not id_map:
+        return html
+
+    def replace_href(match: re.Match[str]) -> str:
+        quote = match.group("quote")
+        target = match.group("target")
+        decoded = html_lib.unescape(unquote(target))
+        new_target = id_map.get(decoded)
+        if not new_target:
+            return match.group(0)
+        return f'href={quote}#{new_target}{quote}'
+
+    def replace_toc_id(match: re.Match[str]) -> str:
+        quote = match.group("quote")
+        target = match.group("target")
+        decoded = html_lib.unescape(unquote(target))
+        new_target = id_map.get(decoded)
+        if not new_target:
+            return match.group(0)
+        return f'id={quote}toc-{new_target}{quote}'
+
+    html = re.sub(
+        r"href=(?P<quote>[\"'])#(?P<target>[^\"']+)(?P=quote)",
+        replace_href,
+        html,
+    )
+    html = re.sub(
+        r"id=(?P<quote>[\"'])toc-(?P<target>[^\"']+)(?P=quote)",
+        replace_toc_id,
+        html,
     )
     return html
 
@@ -419,10 +572,8 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     html = normalize_html_shell(html)
     html = convert_mermaid_blocks(html)
     html = remove_h1_from_toc(html)
-    if "</style>" in html:
-        html = html.replace("</style>", DOCUMENT_CSS + "\n  </style>", 1)
-    else:
-        html = html.replace("</head>", f"<style>\n{DOCUMENT_CSS}\n</style>\n</head>", 1)
+    html = normalize_heading_anchors(html)
+    html = replace_document_styles(html)
     if html_contains_images(html) and 'id="image-lightbox"' not in html:
         initial_src = html_lib.escape(first_image_src(html), quote=True)
         close_label = html_lib.escape(infer_close_label(markdown), quote=False)
@@ -463,6 +614,8 @@ def main() -> None:
         pandoc,
         str(prd_path),
         "--standalone",
+        "--to",
+        "html5",
         "--toc",
         "--metadata",
         f"pagetitle={title}",

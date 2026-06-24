@@ -40,7 +40,7 @@ Minimum recommended delivery score for early usage: 23 / 32.
 | Requirement details | Missing details | Some logic or rule detail | Function, scenario, entry, content, logic, interaction, data, permission, edge, tracking, and acceptance links are explicit where relevant |
 | Edge cases | Missing | Some common cases | Error, empty, permission, payment, rollback, and platform cases where relevant |
 | Acceptance criteria | Missing | Some criteria | QA-ready pass/fail criteria |
-| Readability | Wall of bullets | Some tables and structure | Scannable tables, IDs, priorities, owners, and short narrative sections |
+| Readability | Wall of bullets or inconsistent table alignment | Some tables and structure | Scannable tables, consistent left alignment, inline figures, IDs, priorities, owners, and short narrative sections |
 
 Minimum recommended PRD score: 31 / 40.
 
@@ -112,6 +112,8 @@ Minimum recommended review score: 15 / 20.
 - Agent generates all artifacts without first clarifying the task.
 - Document-class work is forced into a PRD or ordinary page prototype.
 - Document annotations are generic filler instead of source, decision, conflict, blocker, risk, or engineering attention points.
+- PRD pure-text copy blocks mix `key = copy` lines instead of providing copy-only text and a separate key mapping table.
+- PRD HTML relies on Pandoc's default TOC/heading IDs instead of the fixed PM Copilot document shell with stable ASCII anchors.
 
 ## Manual Evaluation Template
 
