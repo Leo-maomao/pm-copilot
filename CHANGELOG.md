@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.2] - 2026-06-24
+
+### Changed
+
+- Generalized the commerce PRD stability eval so PM Copilot source documentation keeps reusable quality rules without preserving host-project business wording.
+
+### Validation
+
+- Project-specific leakage scan passes across PM Copilot source files outside generated outputs and vendored assets.
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.1] - 2026-06-24
 
 ### Changed

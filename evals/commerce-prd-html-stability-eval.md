@@ -1,13 +1,13 @@
-# Evaluation Case: Billing Subscription PRD HTML Stability
+# Evaluation Case: Commerce PRD HTML Stability
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | Case ID | eval-034 |
-| Scenario | billing-subscription-prd-html-stability |
+| Scenario | commerce-prd-html-stability |
 | Platform | Web |
-| Product Area | Billing / Subscription |
+| Product Area | Commerce / Monetization |
 | Fixture Scope | None |
 | PM User Type | Monetization PM |
 | Risk Profile | Payment / Subscription / Documentation quality |
@@ -17,7 +17,7 @@
 ## Raw Request
 
 ```text
-Please review and iterate a browser-readable PRD for a credits purchase and membership subscription demo. The PRD should include checkout, subscription management, purchase records, refund demo behavior, screenshots/placeholders, payment SDK documentation links, FAQ, agreement copy, and i18n copy. The HTML style should be stable, especially the table of contents.
+Please review and iterate a browser-readable PRD for a monetization feature. The PRD should cover checkout or order flow, account or entitlement management, transaction records, exception handling, screenshots/placeholders, external payment documentation links, FAQ, agreement copy, and i18n copy. The HTML style should be stable, especially the table of contents.
 ```
 
 ## Expected Workflow
@@ -39,7 +39,7 @@ Please review and iterate a browser-readable PRD for a credits purchase and memb
 
 ## Known Risks
 
-- Payment and subscription PRDs often become over-broad and mix demo-only reset/refund behavior into production scope.
+- Commerce PRDs often become over-broad and mix prototype-only or exception-handling behavior into production scope.
 - Requirement details can collapse into a rough table that repeats the requirement list.
 - Figures can drift into a detached screenshot list, making the PRD hard to review.
 - Copy/i18n sections can mix `key = copy` lines in the pure-text extraction block.
@@ -80,6 +80,6 @@ Please review and iterate a browser-readable PRD for a credits purchase and memb
 
 | Field | Value |
 |---|---|
-| Run ID | billing-subscription-prd-html-stability-2026-06-24 |
+| Run ID | commerce-prd-html-stability-2026-06-24 |
 | Status | Passed |
 | Notes | Regression criteria were codified in renderer, output validator, workflow docs, PRD contract, and template guidance. |
