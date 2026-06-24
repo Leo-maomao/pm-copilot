@@ -90,7 +90,7 @@
 
 ## <localized requirement details>
 
-<!-- The requirement list is a rough overview only. This section must be the complete functional explanation. Use a full detail table or per-function subsections, but keep requirement screenshots/placeholders inline with the function they explain. Keep Markdown table separators consistently left-aligned (`---`) unless a special data table requires otherwise. -->
+<!-- The requirement list is a rough overview only. This section must be the complete functional explanation. Use a full detail table or per-function subsections, but keep requirement screenshots/placeholders inline with the function they explain. Keep Markdown table separators consistently left-aligned (`---`) unless a special data table requires otherwise. When a screenshot/figure row is placed in a multi-column comparison or matrix table, it explains the whole row; rendered HTML should merge the content cells rather than placing the image into one data column with empty trailing cells. -->
 
 | ID | <localized function> | <localized scenario> | <localized entry or trigger> | <localized content requirements> | <localized business logic> | <localized interaction rules> | <localized data rules> | <localized permission rules> | <localized edge states> | <localized tracking links> | <localized acceptance links> |
 |---|---|---|---|---|---|---|---|---|---|---|---|

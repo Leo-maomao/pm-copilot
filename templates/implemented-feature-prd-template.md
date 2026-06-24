@@ -78,6 +78,7 @@ When the real image exists, replace the whole placeholder block with:
 Name missing and real screenshots by content. When one object has multiple states, use object-specific state names such as `文件上传-上传中.png` and `文件上传-上传失败.png`, not `文件上传-状态.png`.
 
 Do not create a separate screenshot/image list. Keep the image or placeholder fused with the requirement detail it explains.
+When a screenshot/figure row is placed in a multi-column comparison or matrix table, it explains the whole row; rendered HTML should merge the content cells rather than placing the image into one data column with empty trailing cells.
 -->
 
 | ID  | <function> | <user scenario> | <entry / trigger> | <content requirements> | <business logic> | <interaction rules> | <data rules> | <permission rules> | <edge states> | <tracking links> | <acceptance links> |

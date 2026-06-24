@@ -481,6 +481,71 @@ def visible_text_from_html(fragment: str) -> str:
     return re.sub(r"\s+", " ", html_lib.unescape(text)).strip()
 
 
+REQUIREMENT_IMAGE_LABEL_RE = re.compile(
+    r"^(?:需求图|截图|图示|图片|requirement image|screenshot|figure|image)$",
+    re.IGNORECASE,
+)
+TABLE_ROW_RE = re.compile(r"<tr\b[^>]*>.*?</tr>", re.IGNORECASE | re.DOTALL)
+TABLE_CELL_RE = re.compile(r"<td(?P<attrs>[^>]*)>(?P<body>.*?)</td>", re.IGNORECASE | re.DOTALL)
+REQUIREMENT_IMAGE_CELL_RE = re.compile(
+    r"<img\b|占位图|图片占位|截图占位|image placeholder|screenshot placeholder",
+    re.IGNORECASE,
+)
+
+
+def html_cell_is_empty(body: str) -> bool:
+    return not visible_text_from_html(body).replace("\xa0", "").strip() and not REQUIREMENT_IMAGE_CELL_RE.search(body)
+
+
+def set_colspan(attrs: str, colspan: int) -> str:
+    if re.search(r"\bcolspan\s*=", attrs, re.IGNORECASE):
+        return re.sub(
+            r"\scolspan\s*=\s*([\"'])[^\"']*\1",
+            f' colspan="{colspan}"',
+            attrs,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+    return f'{attrs} colspan="{colspan}"'
+
+
+def merge_requirement_image_table_cells(html: str) -> str:
+    """Make figure-only table rows span all content columns after the label cell."""
+
+    def replace_row(match: re.Match[str]) -> str:
+        row = match.group(0)
+        cells = list(TABLE_CELL_RE.finditer(row))
+        if len(cells) < 3:
+            return row
+
+        label = visible_text_from_html(cells[0].group("body"))
+        if not REQUIREMENT_IMAGE_LABEL_RE.fullmatch(label):
+            return row
+
+        image_index = next(
+            (
+                index
+                for index, cell in enumerate(cells[1:], start=1)
+                if REQUIREMENT_IMAGE_CELL_RE.search(cell.group("body"))
+            ),
+            None,
+        )
+        if image_index is None or image_index >= len(cells) - 1:
+            return row
+
+        trailing_cells = cells[image_index + 1:]
+        if not trailing_cells or not all(html_cell_is_empty(cell.group("body")) for cell in trailing_cells):
+            return row
+
+        image_cell = cells[image_index]
+        colspan = len(cells) - image_index
+        merged_attrs = set_colspan(image_cell.group("attrs"), colspan)
+        merged_cell = f'<td{merged_attrs}>{image_cell.group("body")}</td>'
+        return row[:image_cell.start()] + merged_cell + row[cells[-1].end():]
+
+    return TABLE_ROW_RE.sub(replace_row, html)
+
+
 def stable_heading_id(level: int, text: str, counters: dict[int, int], used_ids: set[str]) -> str:
     if level == 1:
         base = "document-title"
@@ -573,6 +638,7 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     html = convert_mermaid_blocks(html)
     html = remove_h1_from_toc(html)
     html = normalize_heading_anchors(html)
+    html = merge_requirement_image_table_cells(html)
     html = replace_document_styles(html)
     if html_contains_images(html) and 'id="image-lightbox"' not in html:
         initial_src = html_lib.escape(first_image_src(html), quote=True)

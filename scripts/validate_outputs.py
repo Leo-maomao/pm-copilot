@@ -234,6 +234,16 @@ INLINE_REQUIREMENT_IMAGE_RE = re.compile(
     r"!\[[^\]]+\]\((?:\.\/)?assets\/[^)]+\)|占位图[:：]\s*[^|\n]+?\.(?:png|jpg|jpeg|webp)",
     re.IGNORECASE,
 )
+HTML_TABLE_ROW_RE = re.compile(r"<tr\b[^>]*>.*?</tr>", re.IGNORECASE | re.DOTALL)
+HTML_TABLE_CELL_RE = re.compile(r"<td(?P<attrs>[^>]*)>(?P<body>.*?)</td>", re.IGNORECASE | re.DOTALL)
+HTML_REQUIREMENT_IMAGE_LABEL_RE = re.compile(
+    r"^(?:需求图|截图|图示|图片|requirement image|screenshot|figure|image)$",
+    re.IGNORECASE,
+)
+HTML_REQUIREMENT_IMAGE_CELL_RE = re.compile(
+    r"<img\b|占位图|图片占位|截图占位|image placeholder|screenshot placeholder",
+    re.IGNORECASE,
+)
 REQUIREMENT_DETAIL_HEADING_RE = re.compile(r"(需求详情|functional requirements?|requirement details?)", re.IGNORECASE)
 REQUIREMENT_LIST_HEADING_RE = re.compile(r"(需求列表|requirement list)", re.IGNORECASE)
 REQUIREMENT_DETAIL_SECTION_REQUIRED_GROUPS = (
@@ -1959,6 +1969,30 @@ def check_requirement_images_inline(text: str) -> None:
                 )
 
 
+def html_requirement_image_row_has_unmerged_empty_cells(row: str) -> bool:
+    cells = list(HTML_TABLE_CELL_RE.finditer(row))
+    if len(cells) < 3:
+        return False
+    label = normalize_table_cell(visible_html_text(cells[0].group("body")))
+    if not HTML_REQUIREMENT_IMAGE_LABEL_RE.fullmatch(label):
+        return False
+
+    for index, cell in enumerate(cells[1:], start=1):
+        if not HTML_REQUIREMENT_IMAGE_CELL_RE.search(cell.group("body")):
+            continue
+        trailing_cells = cells[index + 1:]
+        if not trailing_cells:
+            return False
+        has_colspan = re.search(r"\bcolspan\s*=\s*([\"'])\d+\1", cell.group("attrs"), re.IGNORECASE)
+        trailing_empty = all(
+            not normalize_table_cell(visible_html_text(trailing.group("body")))
+            and not HTML_REQUIREMENT_IMAGE_CELL_RE.search(trailing.group("body"))
+            for trailing in trailing_cells
+        )
+        return trailing_empty and not has_colspan
+    return False
+
+
 def section_by_heading(text: str, heading_re: re.Pattern[str]) -> dict[str, object] | None:
     matches = sections_matching(text, heading_re)
     return matches[0] if matches else None
@@ -2340,6 +2374,11 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
     if parser.images:
         if markdown_table_image_count and html_table_image_count < markdown_table_image_count:
             fail(f"{prd_html_path.name} must keep table images inside the corresponding table cells")
+        if any(html_requirement_image_row_has_unmerged_empty_cells(row.group(0)) for row in HTML_TABLE_ROW_RE.finditer(text)):
+            fail(
+                f"{prd_html_path.name} requirement image rows in multi-column tables must merge empty trailing "
+                "cells with colspan so one image does not widen a single data column"
+            )
         if not re.search(r"lightbox|fullscreen|requestFullscreen|image-viewer|dialog", text, re.IGNORECASE):
             fail(f"{prd_html_path.name} images must support click-to-fullscreen or equivalent lightbox viewing")
     if placeholder_count and not re.search(

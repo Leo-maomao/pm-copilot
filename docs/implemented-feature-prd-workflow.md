@@ -111,6 +111,7 @@ The generated `prd.html` must:
 - use the available content width instead of a narrow fixed body
 - preserve all table columns while keeping two-column field/value tables readable without squeezing the content column
 - keep Markdown and HTML table cells consistently left-aligned unless a special data table explicitly needs another alignment
+- merge empty trailing content cells for multi-column requirement image rows so a figure spans the relevant content area instead of widening one data column
 - use local images
 - keep images/placeholders inline
 - support image lightbox/fullscreen viewing

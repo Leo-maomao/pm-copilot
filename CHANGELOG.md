@@ -6,6 +6,20 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.3] - 2026-06-24
+
+### Changed
+
+- Improved PRD HTML rendering for multi-column requirement image rows so empty trailing content cells are merged with `colspan` and figures do not widen a single data column.
+- Updated PRD contracts, templates, and workflow guidance to treat multi-column figure rows as whole-row requirement explanations.
+- Added output validation to reject unmerged multi-column requirement image rows that leave empty trailing cells after a figure.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.2] - 2026-06-24
 
 ### Changed
