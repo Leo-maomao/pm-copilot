@@ -6,11 +6,24 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.1] - 2026-06-24
+
+### Changed
+
+- Sanitized release validation examples so PM Copilot source documentation uses generic output placeholders instead of host-project run identifiers.
+
+### Validation
+
+- Project-specific leakage scan passes across PM Copilot source files outside generated outputs and vendored assets.
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.0] - 2026-06-24
 
 ### Added
 
-- Added a billing/subscription PRD HTML stability eval covering payment SDK document links, inline requirement figures, i18n pure-text extraction, fixed PRD HTML TOC behavior, table alignment, and requirement-detail structure.
+- Added a commerce PRD HTML stability eval covering payment SDK document links, inline requirement figures, i18n pure-text extraction, fixed PRD HTML TOC behavior, table alignment, and requirement-detail structure.
 - Added output validation for copy-only pure-text i18n blocks so `key = copy` lines are rejected inside PM-facing copy extraction blocks.
 - Added output validation for consistent left-aligned Chinese PRD tables, inline requirement image rows, and per-function requirement detail coverage when a PRD uses subsections instead of one large detail table.
 - Added PRD HTML validation for the fixed PM Copilot document shell, stable ASCII heading/TOC anchors, left-aligned table styling, and H1-free table of contents.
@@ -25,7 +38,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 
 - Repository validation passes with `python3 scripts/validate_repo.py`.
 - Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
-- Billing/subscription PRD regression validation passes with `python3 scripts/run_delivery_checks.py <host-repo>/pm-copilot/outputs/mall-billing-2026-06-24 --language zh --skip-repo`.
+- Commerce PRD regression validation passes with `python3 scripts/run_delivery_checks.py <host-repo>/pm-copilot/outputs/<run-id> --language zh --skip-repo`.
 - Git whitespace validation passes with `git diff --check`.
 
 ## [2.8.0] - 2026-06-23
@@ -47,7 +60,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 
 - Repository validation passes with `python3 scripts/validate_repo.py`.
 - Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/validate_outputs.py scripts/validate_repo.py`.
-- Implemented-feature PRD delivery validation passes against the node model picker PRD with `python3 scripts/run_delivery_checks.py <host-repo>/pm-copilot/outputs/node-model-picker-optimization-2026-06-23 --language zh --skip-repo`.
+- Implemented-feature PRD delivery validation passes with `python3 scripts/run_delivery_checks.py <host-repo>/pm-copilot/outputs/<run-id> --language zh --skip-repo`.
 - Renderer smoke validation confirms H1-free TOC, reading-position sync, plain Mermaid containers, local Mermaid runtime, table auto layout, table-image lightbox support, and no Pandoc manual URL.
 - Git whitespace validation passes with `git diff --check`.
 
