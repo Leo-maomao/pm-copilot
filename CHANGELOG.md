@@ -6,6 +6,23 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.4] - 2026-06-29
+
+### Changed
+
+- Standardized PRD templates around a fixed numbered structure: document information, version history, background, goals, research, requirement list, requirement details, tracking, i18n, acceptance criteria, and test suggestions.
+- Required PRD titles to use a one-sentence requirement plus date format instead of loose topic lists ending in `PRD`.
+- Moved flow diagrams into the specific requirement detail they explain, and made them conditional rather than global default sections.
+- Added requirement-detail UI specification guidance for frontend page, component, visual-state, and interactive-control changes.
+- Gated code implementation, code location, and validation sections to implemented-feature PRDs only.
+- Updated contracts, prompts, skill guidance, and validators to hide non-applicable optional blocks instead of emitting empty placeholders.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.3] - 2026-06-24
 
 ### Changed

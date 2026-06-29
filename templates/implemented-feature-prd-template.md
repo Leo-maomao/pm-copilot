@@ -1,72 +1,86 @@
-# <feature-name> PRD
+# <一句话需求> - <YYYY-MM-DD>
 
 <!--
-Use this template only for implemented-feature PRD delivery.
-All human-facing headings and table labels must be localized before delivery.
-Keep requirement IDs, event names, property names, file names, and run ids in ASCII where they are machine identifiers.
+Use this template for implemented-feature PRD delivery.
+All generated PRDs must keep the numbered section order below.
+The H1 must be one concise requirement sentence plus the requirement date, not a topic list plus "PRD".
+Human-facing headings, labels, statuses, and notes must be localized before delivery.
+Keep requirement IDs, event names, property names, file names, paths, and Mermaid node IDs in ASCII where they are machine identifiers.
+Content applicability rules:
+- Keep top-level sections 1-14 in implemented-feature mode because code evidence exists by definition.
+- If a required top-level section has no applicable content, write one explicit localized `Not applicable: <reason>` line or row instead of leaving it empty.
+- Remove optional subsections, diagrams, image blocks, matrices, or evidence rows that do not apply. Do not leave empty tables, placeholder angle-bracket text, or "TBD" content.
+- Flow diagrams are optional and must follow the specific requirement they explain. Put each Mermaid diagram inside that requirement's subsection, not as generic global `User flow` and `Functional flow` sections.
 Remove this note from generated artifacts.
 -->
 
-## 1. <document information>
+## 1. <文档信息>
 
-| <item>                       | <content> |
-| ---------------------------- | --------- |
-| <feature name>               |           |
-| <branch / version>           |           |
-| <document date>              |           |
-| <related modules>            |           |
-| <PRD status>                 |           |
-| <engineering handoff status> |           |
-| <launch status>              |           |
+| <项目> | <内容> |
+| --- | --- |
+| <一句话需求> |  |
+| <需求日期> |  |
+| <需求来源> |  |
+| <分支 / 版本> |  |
+| <相关模块> |  |
+| <PRD 状态> |  |
+| <研发交接状态> |  |
+| <上线状态> |  |
 
-## 2. <version history>
+## 2. <版本记录>
 
-| <version> | <date> | <change summary> | <owner> |
-| --------- | ------ | ---------------- | ------- |
+| <版本> | <日期> | <变更摘要> | <负责人> |
+| --- | --- | --- | --- |
 
-## 3. <background and current problems>
+## 3. <需求背景>
 
-## 4. <product goals and metrics>
+<!-- Explain the current problem, business/user impact, and why this requirement is needed now. For implemented features, separate observed implementation facts from inferred product intent. -->
 
-| ID  | <goal> | <metric> | <target / direction> | <measurement note> |
-| --- | ------ | -------- | -------------------- | ------------------ |
+## 4. <需求目标>
 
-## 5. <users and scenarios>
+| ID | <目标> | <指标> | <目标方向> | <测量说明> |
+| --- | --- | --- | --- | --- |
 
-| ID  | <user / role> | <scenario> | <desired outcome> |
-| --- | ------------- | ---------- | ----------------- |
+## 5. <需求调研>
 
-## 6. <scope>
+<!-- This section must cover users and scenarios, current-product research, implementation evidence, external research when available, and reusable conclusions. Repository facts are current-product context, not competitor research. -->
 
-### 6.1 <in scope>
+### 5.1 <用户与场景>
 
-| ID  | <scope item> | <source evidence> | <priority> |
-| --- | ------------ | ----------------- | ---------- |
+| ID | <用户 / 角色> | <场景> | <期望结果> |
+| --- | --- | --- | --- |
 
-### 6.2 <out of scope>
+### 5.2 <现状调研>
 
-| ID  | <out-of-scope item> | <reason> |
-| --- | ------------------- | -------- |
+| <调研项> | <结论> | <产品影响> |
+| --- | --- | --- |
 
-## 7. <information architecture and entry points>
+### 5.3 <外部调研与限制>
 
-| ID  | <entry / surface> | <visible condition> | <target state> | <permission / fallback> |
-| --- | ----------------- | ------------------- | -------------- | ----------------------- |
+| <调研来源> | <状态> | <结论 / 限制> | <影响> |
+| --- | --- | --- | --- |
 
-## 8. <functional requirements>
+### 5.4 <调研结论>
+
+| ID | <结论> | <对应需求> |
+| --- | --- | --- |
+
+## 6. <需求列表>
+
+<!-- Requirement list is a scan-level summary only. Complete behavior belongs in section 7. -->
+
+| ID | <需求简述> | <用户价值> | <优先级> | <状态> |
+| --- | --- | --- | --- | --- |
+
+## 7. <需求详情>
 
 <!--
-The requirement list is only a scan-level overview. Put complete behavior in this section.
-You may use the complete detail table below or split each function into its own subsection, but every functional item should cover entry/trigger, content, business rules, interaction, data/state, permission or edge cases, tracking links, and acceptance links where relevant.
-Requirement screenshots and missing-image placeholders belong inside the relevant requirement row or subsection.
-Markdown tables should use consistent left alignment separators (`---`) by default.
--->
+Requirement details are the most important part of the PRD.
+Each requirement should cover scenario, entry/trigger, content, business rules, interaction rules, data/state rules, permissions, edge states, tracking links, acceptance links, and screenshots/figures.
+For frontend UI/page/component changes, include the implemented UI specification in the requirement detail: affected page/component, layout/alignment, dimensions, spacing, typography, color/token, icon/image requirements, component states, responsive behavior, accessibility/focus behavior, and visual acceptance notes.
+Flow diagrams are optional. Add them only when a specific requirement has a complex user path, cross-system process, or many states; place the Mermaid block inside that requirement's subsection.
+Screenshots and placeholders must appear inside the relevant requirement detail, not in a detached image list.
 
-### 8.1 <requirement name>
-
-<!--
-Put screenshots or missing-image placeholders directly below the requirement heading or inside the relevant row.
-Cover every independent page, window, panel, or dialog changed by the feature. Do not split micro-states into separate screenshots when one screenshot can show the complete window or panel.
 Missing-image placeholder format must be exactly:
 
 > 占位图：<recommended-image-name>.png
@@ -74,106 +88,104 @@ Missing-image placeholder format must be exactly:
 
 When the real image exists, replace the whole placeholder block with:
 ![<recommended-image-name>](./assets/<recommended-image-name>.png)
-
-Name missing and real screenshots by content. When one object has multiple states, use object-specific state names such as `文件上传-上传中.png` and `文件上传-上传失败.png`, not `文件上传-状态.png`.
-
-Do not create a separate screenshot/image list. Keep the image or placeholder fused with the requirement detail it explains.
-When a screenshot/figure row is placed in a multi-column comparison or matrix table, it explains the whole row; rendered HTML should merge the content cells rather than placing the image into one data column with empty trailing cells.
 -->
 
-| ID  | <function> | <user scenario> | <entry / trigger> | <content requirements> | <business logic> | <interaction rules> | <data rules> | <permission rules> | <edge states> | <tracking links> | <acceptance links> |
-| --- | ---------- | --------------- | ----------------- | ---------------------- | ---------------- | ------------------- | ------------ | ------------------ | ------------- | ---------------- | ------------------ |
+### 7.1 <R1 需求名称>
 
-## 9. <parameters and rules>
+<!-- Optional, include only when this requirement needs a flow diagram:
+#### <操作 / 功能流程图>
 
-### 9.1 <parameter group>
-
-| <parameter> | <type> | <source> | <usage> | <rule / limit> |
-| ----------- | ------ | -------- | ------- | -------------- |
-
-## 10. <states and exceptions>
-
-| ID  | <state / exception> | <trigger> | <display / behavior> | <recovery / next action> | <related requirement IDs> |
-| --- | ------------------- | --------- | -------------------- | ------------------------ | ------------------------- |
-
-## 11. <permissions and operation boundaries>
-
-| <role / asset / object> | <view> | <create> | <edit> | <delete> | <batch action> | <notes> |
-| ----------------------- | ------ | -------- | ------ | -------- | -------------- | ------- |
-
-## 12. <data and API requirements>
-
-### 12.1 <existing calls or implemented data source>
-
-| <capability> | <current source / endpoint> | <frontend usage> | <limitation> |
-| ------------ | --------------------------- | ---------------- | ------------ |
-
-### 12.2 <backend requirements>
-
-| ID  | <capability> | <method / endpoint proposal> | <request fields> | <response fields> | <error codes / states> | <frontend integration note> |
-| --- | ------------ | ---------------------------- | ---------------- | ----------------- | ---------------------- | --------------------------- |
-
-## 13. <frontend real-data integration notes>
-
-| ID  | <current implementation state> | <real-data integration requirement> | <affected files / modules> |
-| --- | ------------------------------ | ----------------------------------- | -------------------------- |
-
-## 14. <tracking and monitoring>
-
-| <event_name> | <description> | <trigger> | <required_properties> | <success criteria> | <privacy note> |
-| ------------ | ------------- | --------- | --------------------- | ------------------ | -------------- |
-
-## 15. <copy and i18n>
-
-| <key / scene> | <copy> | <usage> | <i18n note> |
-| ------------- | ------ | ------- | ----------- |
-
-### 15.1 <new copy extraction>
-
-<!--
-List newly added or changed UI copy as pure text so PMs can copy it into an i18n request. Put only the visible copy lines in this block. Do not include `key = copy` lines here; keep keys, usage locations, interpolation notes, and reviewer notes in a separate table. If there is no new copy, state that explicitly and remove this block.
+```mermaid
+flowchart TD
+  A[<用户或系统进入场景>] --> B[<触发动作>]
+  B --> C{<判断条件>}
+  C -- <通过> --> D[<目标状态>]
+  C -- <不通过> --> E[<兜底状态>]
+```
 -->
+
+| <维度> | <需求说明> |
+| --- | --- |
+| <用户场景> |  |
+| <入口 / 触发> |  |
+| <内容要求> |  |
+| <前端界面规格> | <Only keep for UI/page/component changes. Include affected component, layout/alignment, size, spacing, typography, color/token, icon/image, states, responsive/accessibility notes, and visual acceptance notes.> |
+| <业务逻辑> |  |
+| <交互规则> |  |
+| <数据规则> |  |
+| <权限和边界> |  |
+| <加载 / 空 / 错误状态> |  |
+| <埋点> |  |
+| <验收> |  |
+| <图示> |  |
+
+## 8. <埋点需求>
+
+<!-- If no approved taxonomy is found, explicitly mark the table as proposed and name the source gap. -->
+
+| <事件名> (`event_name`) | <事件说明> (`description`) | <触发时机> (`trigger`) | <平台> (`platform`) | <主体> (`actor`) | <必填属性> (`required_properties`) | <可选属性> (`optional_properties`) | <成功标准> (`success_criteria`) | <验证说明> (`validation_notes`) | <隐私说明> (`privacy_notes`) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+### 8.1 <属性字典>
+
+| <属性名> (`property_name`) | <类型> (`type`) | <是否必填> (`required`) | <示例> (`example`) | <说明> (`description`) | <可选值> (`allowed_values`) | <隐私级别> (`privacy_level`) | <来源> (`source`) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+
+## 9. <多语言需求>
+
+<!-- Put only user-facing copy in the pure-text block. Keep keys and usage notes in the table below. If there is no new copy, state that explicitly. -->
+
+### 9.1 <纯文本提取>
 
 ```text
 <new or changed UI copy line>
 ```
 
-## 16. <functional flow diagram>
+### 9.2 <使用位置映射>
 
-<!--
-Use a Mermaid flowchart here. Do not use a table or PNG for the primary flow diagram.
-Keep node IDs ASCII and labels localized.
--->
+| <文案> | <使用位置> | <多语言说明> |
+| --- | --- | --- |
 
-```mermaid
-flowchart TD
-  A[<localized start>] --> B[<localized system or feature decision>]
-  B --> C{<localized branch condition>}
-  C -- <localized yes> --> D[<localized target state>]
-  C -- <localized no> --> E[<localized fallback state>]
-```
+## 10. <验收标准>
 
-## 17. <acceptance criteria>
+| ID | <关联需求> | <验收标准> | <验证方法> |
+| --- | --- | --- | --- |
 
-| ID  | <requirement IDs> | <criteria> | <verification method> |
-| --- | ----------------- | ---------- | --------------------- |
+## 11. <测试建议>
 
-## 18. <test suggestions>
+| <测试类型> | <覆盖范围> | <建议用例> |
+| --- | --- | --- |
 
-| <test type> | <coverage> | <suggested cases> |
-| ----------- | ---------- | ----------------- |
+## 12. <代码实现说明>
 
-## 19. <risks and dependencies>
+<!-- Required for implemented-feature PRDs. Include implementation scope, data/API notes, parameters/rules, states/exceptions, risks/dependencies, and implementation evidence. -->
 
-| ID  | <risk / dependency> | <impact> | <owner> | <mitigation / decision> |
-| --- | ------------------- | -------- | ------- | ----------------------- |
+### 12.1 <实现范围>
 
-## 20. <implementation evidence and coverage map>
+| <模块> | <实现说明> | <关联需求> |
+| --- | --- | --- |
 
-| <evidence ID> | <source> | <observed behavior> | <related requirement IDs> | <coverage status> | <gap / risk> |
-| ------------- | -------- | ------------------- | ------------------------- | ----------------- | ------------ |
+### 12.2 <参数、状态与接口规则>
 
-## 21. <reference code locations>
+| <规则类型> | <规则说明> | <关联需求> |
+| --- | --- | --- |
 
-| <module> | <path> | <note> |
-| -------- | ------ | ------ |
+### 12.3 <风险与依赖>
+
+| ID | <风险 / 依赖> | <影响> | <负责人> | <缓解 / 决策> |
+| --- | --- | --- | --- | --- |
+
+### 12.4 <实现证据和覆盖映射>
+
+| <证据 ID> | <来源> | <观察到的行为> | <关联需求> | <覆盖状态> | <缺口 / 风险> |
+| --- | --- | --- | --- | --- | --- |
+
+## 13. <代码位置>
+
+| <模块> | <路径> | <说明> |
+| --- | --- | --- |
+
+## 14. <验证结果>
+
+| <验证项> | <命令> | <结果> | <说明> |
+| --- | --- | --- | --- |

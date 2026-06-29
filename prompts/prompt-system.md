@@ -92,17 +92,23 @@ In embedded host repositories, the same files must live under `pm-copilot/output
 For implemented-feature PRD delivery:
 
 - Use `templates/implemented-feature-prd-template.md`.
+- Use the fixed numbered PRD structure from `artifacts/prd-contract.md`.
+- Make the H1 a one-sentence requirement plus date, for example `# 优化团队权限设置体验 - 2026-06-29`, not a topic list plus `PRD`.
+- Keep the top-level sequence as `文档信息`, `版本记录`, `需求背景`, `需求目标`, `需求调研`, `需求列表`, `需求详情`, `埋点需求`, `多语言需求`, `验收标准`, `测试建议`, then `代码实现说明`, `代码位置`, and `验证结果` when the feature is already implemented. Omit those code-related sections when no implementation has been inspected.
+- If a required top-level section has no applicable content, keep it with a clear localized `Not applicable: <reason>` statement. Hide optional diagrams, API/risk matrices, image blocks, evidence tables, and other conditional blocks when they do not apply.
+- For frontend page, UI component, visual-state, or interactive-control changes, include UI specifications inside the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
+- Flow diagrams are optional and must appear inside the specific requirement detail they explain, not as fixed global `用户流程图` and `功能流程图` sections.
 - Generate `prd.html` with `scripts/render_prd_html.py` when HTML is requested.
 - Put real screenshots under `<run-folder>/assets/` and place Markdown image references inline where the requirement needs them.
 - If an image is missing in a Chinese PRD, use only this inline block and avoid the marker words elsewhere:
 
 ```markdown
-> 占位图：文件上传-上传中.png
-> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+> 占位图：资料卡片-加载中.png
+> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
 ```
 
 - Do not create a detached image, figure, or screenshot list.
-- Name screenshots by content. For multiple states of one object, use object plus concrete state, for example `文件上传-上传中.png` or `文件上传-上传失败.png`, not `文件上传-状态.png`.
+- Name screenshots by content. For multiple states of one object, use object plus concrete state, for example `资料卡片-加载中.png` or `资料卡片-加载失败.png`, not `资料卡片-状态.png`.
 
 Do not create split Markdown files by default. Put metrics, tracking, flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md` when PRD is in scope. For document-class artifacts, keep source facts, product decisions, attention points, change log, completeness check, and validation evidence in the structured reference and run log.
 

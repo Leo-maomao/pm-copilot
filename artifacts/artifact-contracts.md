@@ -1,6 +1,6 @@
 # Artifact Contracts
 
-Every generated artifact must follow the relevant contract. If a section cannot be completed, keep the section and mark it as `Unknown`, `Assumed`, or `Not applicable`.
+Every generated artifact must follow the relevant contract. For required top-level sections, if a section cannot be completed or does not apply, keep the section and mark it as `Unknown`, `Assumed`, or `Not applicable` with a reason. For conditional sections or optional blocks, hide the section/block when it has no real content instead of leaving empty placeholders.
 
 Use the user's language for all human-facing artifact content, including headings, table column labels, status labels, notes, UI delivery annotations, and review labels. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
 
@@ -38,7 +38,7 @@ When the user asks for engineering handoff, issue planning, unattended task plan
 
 These are controlled handoff artifacts. They must follow `artifacts/dev-task-contract.md` and `artifacts/launch-decision-contract.md`.
 
-The original request, clarified answers, low-risk assumptions, scope decisions, metrics, tracking plan, flow diagrams, risks, and validation results belong in `prd.md` when a PRD is in scope. Document-class requests keep source facts, product decisions, field dictionary, source status, review status, attention points, object-level changes, completeness checks, and engineering handoff notes in the structured reference artifact instead. If the user explicitly says no PRD is needed, do not create `prd.md`.
+The original request, clarified answers, low-risk assumptions, scope decisions, metrics, tracking plan, flow diagrams, risks, and validation results belong in the fixed numbered PRD structure when a PRD is in scope. Document-class requests keep source facts, product decisions, field dictionary, source status, review status, attention points, object-level changes, completeness checks, and engineering handoff notes in the structured reference artifact instead. If the user explicitly says no PRD is needed, do not create `prd.md`.
 
 ## Clarification Gate
 
@@ -56,26 +56,23 @@ Default readiness is `Ready for engineering` for the confirmed engineering scope
 
 Required sections:
 
-- Title
-- Version history
-- Requirement input and confirmation record
-- Readiness summary
-- Background
-- Research and reference findings
-- Project goals and metrics
-- Requirement scope
-- Surface and permission states, when relevant
-- Content source and review status, when relevant
-- Implementation evidence and coverage map, when reconstructed from a current branch or implementation
-- Requirement list
-- Requirement details
-- Flow diagrams, when useful
-- Tracking plan
-- UI delivery reference
-- Risks and open confirmations
-- Acceptance criteria
-- Delivery review findings
-- Validation results
+- H1 as one concise requirement sentence plus date, such as `# 优化团队权限设置体验 - 2026-06-29`
+- `## 1. 文档信息`
+- `## 2. 版本记录`
+- `## 3. 需求背景`
+- `## 4. 需求目标`
+- `## 5. 需求调研`
+- `## 6. 需求列表`
+- `## 7. 需求详情`
+- `## 8. 埋点需求`
+- `## 9. 多语言需求`
+- `## 10. 验收标准`
+- `## 11. 测试建议`
+- `## 12. 代码实现说明`, when reconstructed from a current branch or implementation
+- `## 13. 代码位置`, when reconstructed from a current branch or implementation
+- `## 14. 验证结果`, when reconstructed from a current branch or implementation
+
+Code-related top-level sections must not appear in planned/non-implemented PRDs. If no implementation exists, keep likely technical notes inside `需求详情` or `测试建议`.
 
 Required formatting:
 
@@ -83,14 +80,17 @@ Required formatting:
 - Use stable IDs such as `R1`, `F1`, `AC1`, and `E1`.
 - Use short paragraphs for background, research conclusions, and rationale.
 - Avoid long undifferentiated unordered lists.
-- Keep confirmed MVP scope separate from optional, conditional, future, and non-goal scope.
+- Keep confirmed MVP scope separate from optional, conditional, future, and non-goal scope inside the numbered structure, usually in `需求列表` or `需求详情`.
+- Flow diagrams are optional and must sit inside the specific requirement detail they explain. Do not add fixed global `用户流程图` and `功能流程图` subsections to every PRD.
+- Remove optional diagrams, image blocks, API matrices, code evidence, or risk tables when they do not apply. Do not ship empty tables, angle-bracket placeholders, `TBD`, or `待补充`.
 - Acceptance criteria cover confirmed MVP requirements only.
 - PRD status, engineering handoff status, and launch status are separate and non-contradictory.
 - Existing-product entry points, navigation visibility, permission or eligibility states, and fallback states are explicit when the feature adds or changes a surface.
-- Implemented-feature PRDs include a branch evidence map that links changed files, screenshots/assets, tests, and observed UI behavior to requirement IDs, plus any unverified product intent.
+- Frontend page, UI component, visual-state, or interactive-control requirements include the relevant interface specification inside the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
+- Implemented-feature PRDs include a branch evidence map under `代码实现说明` that links changed files, screenshots/assets, tests, and observed UI behavior to requirement IDs, plus any unverified product intent.
 - Implemented-feature PRDs keep screenshots and missing-image markers inline with the relevant requirement, table row, flow step, state, dialog, or evidence. Do not create a detached image list, figure list, or screenshot appendix by default.
-- Missing screenshots in Chinese PRDs use the exact inline block only, for example `> 占位图：文件上传-上传中.png` followed by a `> 用途：...` line. Do not use the marker words elsewhere.
-- Screenshot file names describe content. State screenshots use object plus concrete state, such as `文件上传-上传中.png`, `文件上传-上传失败.png`, or `目标文件夹弹窗-非法目标.png`; generic names such as `文件上传-状态.png` or `asset-upload-state.png` are not acceptable.
+- Missing screenshots in Chinese PRDs use the exact inline block only, for example `> 占位图：资料卡片-加载中.png` followed by a `> 用途：...` line. Do not use the marker words elsewhere.
+- Screenshot file names describe content. State screenshots use object plus concrete state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; generic names such as `资料卡片-状态.png` or `profile-card-state.png` are not acceptable.
 
 Requirement details must be implementation-grade. For each functional item, include the relevant subset of:
 
@@ -120,7 +120,7 @@ Minimum quality bar:
 - Validation results must be finalized after tools run. Do not leave placeholder statuses such as `pending`, `待执行`, `should run`, or `to be verified` in delivered artifacts once the corresponding command has already been executed or intentionally skipped.
 - UI visual validation should include browser screenshot and visual diff checks. If tooling is unavailable, PM Copilot should attempt or guide setup first. A skipped visual check must include the setup failure, environment restriction, or user-declined reason in `run-log.yaml` and the PRD validation section.
 - Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
-- Delivery review findings include artifact, evidence, owner, required-before phase, and status, or explicitly state that no Critical or High findings were found after review.
+- Delivery review findings and risks should be folded into `代码实现说明`, `验收标准`, or `测试建议` unless the user explicitly asks for a separate launch-review artifact.
 
 ## PRD HTML Document
 

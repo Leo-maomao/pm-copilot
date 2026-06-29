@@ -33,27 +33,34 @@ Before drafting:
 
 Use `templates/implemented-feature-prd-template.md` as the default structure.
 
-The PRD should be complete enough for engineering review except for intentionally missing screenshots. It should include:
+The PRD should be complete enough for engineering review except for intentionally missing screenshots.
 
-- document information and version history
-- background and current problems
-- goals and metrics
-- user scenarios
-- scope and non-goals
-- information architecture and entry points
-- functional requirements
-- parameters and rules
-- states and exceptions
-- permission and operation boundaries
-- data/API requirements and backend dependency notes
-- frontend real-data integration notes
-- tracking and monitoring
-- copy/i18n
-- acceptance criteria
-- test suggestions
-- risks/dependencies
-- implementation evidence and coverage map
-- reference code locations
+The H1 must be one concise requirement sentence plus the requirement date, for example `# 优化团队权限设置体验 - 2026-06-29`. Do not use a loose topic-list title plus `PRD`.
+
+Use numbered top-level sections in this order:
+
+1. 文档信息
+2. 版本记录
+3. 需求背景
+4. 需求目标
+5. 需求调研
+6. 需求列表
+7. 需求详情
+8. 埋点需求
+9. 多语言需求
+10. 验收标准
+11. 测试建议
+12. 代码实现说明
+13. 代码位置
+14. 验证结果
+
+Put scope, non-goals, information architecture, parameters/rules, states/exceptions, permission boundaries, data/API dependencies, frontend integration notes, risks/dependencies, and implementation evidence inside the relevant numbered sections rather than adding old unnumbered top-level appendices.
+
+Because this workflow is only for already implemented features, the code-related sections 12-14 are required here. Planned/non-implemented PRDs must use the default PRD template and omit those sections.
+
+If a required top-level section has no applicable content, keep the section and state `不涉及：原因` or the localized equivalent. Optional subsections, diagrams, image blocks, API/risk matrices, and evidence rows with no real content should be removed, not left empty.
+
+Flow diagrams are optional. Add them only for requirements with complex user paths, cross-system behavior, state transitions, or branching logic, and place each Mermaid `flowchart` inside the specific requirement detail it explains. Do not create fixed global `用户流程图` and `功能流程图` subsections for every PRD.
 
 ## Screenshot Rules
 
@@ -62,7 +69,7 @@ Real screenshots:
 - Save under `<run-folder>/assets/`.
 - Reference inline from `prd.md`: `![<name>](./assets/<name>.png)`.
 - Name by screenshot content, not figure number.
-- If one screenshot object has multiple UI states, include both the screenshot object and the specific state, such as `文件上传-上传中.png`, `文件上传-上传失败.png`, `asset-upload-uploading.png`, or `asset-upload-upload-failed.png`. Do not use generic names such as `文件上传-状态.png` or `asset-upload-state.png`.
+- If one screenshot object has multiple UI states, include both the screenshot object and the specific state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, `profile-card-loading.png`, or `profile-card-load-failed.png`. Do not use generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
 
 Missing screenshots in Chinese PRDs:
 

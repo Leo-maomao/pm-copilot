@@ -70,11 +70,11 @@ python3 scripts/render_prd_html.py outputs/<run-id>
 When a screenshot is missing in a Chinese PRD, insert only this block at the exact requirement position:
 
 ```markdown
-> 占位图：文件上传-上传中.png
-> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+> 占位图：资料卡片-加载中.png
+> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
 ```
 
-After the user saves the screenshot under `assets/`, replace the block with `![文件上传-上传中](./assets/文件上传-上传中.png)`. Name screenshots by content and concrete state, such as `文件上传-上传中.png` or `文件上传-上传失败.png`, not `文件上传-状态.png`.
+After the user saves the screenshot under `assets/`, replace the block with `![资料卡片-加载中](./assets/资料卡片-加载中.png)`. Name screenshots by content and concrete state, such as `资料卡片-加载中.png` or `资料卡片-加载失败.png`, not `资料卡片-状态.png`.
 
 ## Direct Entry
 

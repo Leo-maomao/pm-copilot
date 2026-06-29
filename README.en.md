@@ -63,11 +63,11 @@ If final screenshots are not ready, put inline `占位图` placeholders at the r
 For missing screenshots in a Chinese PRD, use this exact block only at the requirement position:
 
 ```markdown
-> 占位图：文件上传-上传中.png
-> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+> 占位图：资料卡片-加载中.png
+> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
 ```
 
-Name screenshots by content. When one object has multiple states, use object plus concrete state, for example `文件上传-上传中.png` and `文件上传-上传失败.png`; do not use `文件上传-状态.png`. Cover every independent changed page, window, panel, or dialog, but do not split micro-states when one screenshot captures the complete window or panel. Use `scripts/render_prd_html.py` to generate or refresh the HTML PRD. In embedded host projects, the output folder should be `pm-copilot/outputs/<run-id>/`.
+Name screenshots by content. When one object has multiple states, use object plus concrete state, for example `资料卡片-加载中.png` and `资料卡片-加载失败.png`; do not use `资料卡片-状态.png`. Cover every independent changed page, window, panel, or dialog, but do not split micro-states when one screenshot captures the complete window or panel. Use `scripts/render_prd_html.py` to generate or refresh the HTML PRD. In embedded host projects, the output folder should be `pm-copilot/outputs/<run-id>/`.
 
 ## Two Practical Demos
 

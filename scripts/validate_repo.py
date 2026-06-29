@@ -289,7 +289,7 @@ REQUIRED_TEXT_TOKENS = {
         "Memory Use",
         "Clarification Prompt Rules",
         "Memory Update Prompt Rules",
-        "文件上传-上传中.png",
+        "资料卡片-加载中.png",
     ],
     "agents/agent-interface.md": [
         "Runtime Protocol",
@@ -333,7 +333,7 @@ REQUIRED_TEXT_TOKENS = {
         "tool-result-contract.md",
         "tool-results",
         "Optional Exports",
-        "文件上传-上传中.png",
+        "资料卡片-加载中.png",
     ],
     "artifacts/tool-result-contract.md": [
         "tool_id:",
@@ -428,12 +428,13 @@ REQUIRED_TEXT_TOKENS = {
         "rollback_plan:",
     ],
     "templates/prd-template.md": [
-        "<localized version history>",
-        "<localized requirement input and confirmation record>",
-        "<localized research and reference findings>",
-        "<localized requirement details>",
-        "<localized UI delivery reference>",
-        "<localized validation results>",
+        "# <一句话需求> - <YYYY-MM-DD>",
+        "## 1. <文档信息>",
+        "## 5. <需求调研>",
+        "## 7. <需求详情>",
+        "<前端界面规格>",
+        "## 8. <埋点需求>",
+        "## 11. <测试建议>",
     ],
     "templates/evaluation-case-template.md": [
         "Fixture Scope",
@@ -471,10 +472,10 @@ REQUIRED_TEXT_TOKENS = {
         "render_prd_html.py",
     ],
     "skills/prd-writing/SKILL.md": [
-        "文件上传-上传中.png",
+        "资料卡片-加载中.png",
     ],
     "artifacts/prd-contract.md": [
-        "文件上传-上传中.png",
+        "资料卡片-加载中.png",
     ],
     "docs/implemented-feature-prd-workflow.md": [
         "Output Folder",
@@ -484,11 +485,14 @@ REQUIRED_TEXT_TOKENS = {
         "pure-text",
     ],
     "templates/implemented-feature-prd-template.md": [
-        "<parameters and rules>",
-        "<data and API requirements>",
+        "# <一句话需求> - <YYYY-MM-DD>",
+        "## 1. <文档信息>",
+        "## 7. <需求详情>",
+        "<前端界面规格>",
+        "## 12. <代码实现说明>",
+        "## 13. <代码位置>",
+        "## 14. <验证结果>",
         "占位图",
-        "<functional flow diagram>",
-        "<new copy extraction>",
     ],
     "scripts/render_prd_html.py": [
         "pagetitle",

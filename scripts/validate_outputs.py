@@ -36,22 +36,43 @@ CHINESE_STATUS_LEAK_RE = re.compile(
 )
 
 REQUIRED_PRD_SECTIONS_ZH = [
+    "文档信息",
     "版本记录",
-    "需求输入",
-    "就绪摘要",
-    "背景",
-    "调研",
-    "目标",
-    "需求范围",
+    "需求背景",
+    "需求目标",
+    "需求调研",
     "需求列表",
     "需求详情",
-    "埋点",
-    "UI 交付",
-    "风险",
+    "埋点需求",
+    "多语言需求",
     "验收标准",
-    "交付评审",
+    "测试建议",
+]
+
+IMPLEMENTED_PRD_SECTIONS_ZH = [
+    "代码实现说明",
+    "代码位置",
     "验证结果",
 ]
+
+FORBIDDEN_LEGACY_PRD_TOP_LEVEL_SECTIONS_ZH = {
+    "需求输入",
+    "就绪摘要",
+    "需求范围",
+    "信息架构和入口",
+    "参数和规则",
+    "状态和异常",
+    "权限和操作边界",
+    "数据和 API 要求",
+    "前端真实数据接入说明",
+    "功能流程图",
+    "UI 交付",
+    "工程实施路径",
+    "风险",
+    "交付评审",
+    "实现证据和覆盖映射",
+    "参考代码位置",
+}
 
 PROTOTYPE_FILE_NAMES = (
     "index.html",
@@ -1774,9 +1795,63 @@ def check_chinese_prd(path: Path) -> None:
         return
 
     text = read(prd_path)
-    for section in REQUIRED_PRD_SECTIONS_ZH:
-        if section not in text:
-            fail(f"Chinese PRD missing expected section keyword: {section}")
+    title_match = re.search(r"^#\s+(.+?)\s*$", text, re.MULTILINE)
+    if not title_match:
+        fail("Chinese PRD missing top-level title")
+    title = title_match.group(1).strip()
+    if not re.search(r"\s-\s\d{4}-\d{2}-\d{2}$", title):
+        fail("Chinese PRD H1 must be one requirement sentence plus date, for example `# 优化团队权限设置体验 - 2026-06-29`")
+    if re.search(r"\bPRD\b\s*(?:-|$)|\sPRD\s*$", title, re.IGNORECASE):
+        fail("Chinese PRD H1 should not end with or center on `PRD`; use one requirement sentence plus date")
+
+    h2_sections = [
+        str(section.get("raw_title", ""))
+        for section in markdown_sections(text)
+        if int(section.get("level", 0)) == 2
+    ]
+    h2_titles = [
+        re.sub(r"^\d+(?:\.\d+)*\s*[.、]?\s*", "", title).strip()
+        for title in h2_sections
+    ]
+    missing_sections = [
+        section
+        for section in REQUIRED_PRD_SECTIONS_ZH
+        if section not in h2_titles
+    ]
+    if missing_sections:
+        fail("Chinese PRD missing expected numbered section(s): " + ", ".join(missing_sections))
+    for index, expected in enumerate(REQUIRED_PRD_SECTIONS_ZH, start=1):
+        expected_heading = f"{index}. {expected}"
+        if index - 1 >= len(h2_sections) or h2_sections[index - 1] != expected_heading:
+            fail(f"Chinese PRD section {index} must be numbered as `## {expected_heading}`")
+    run_log = read(path / "run-log.yaml")
+    is_implemented_prd = (
+        "implemented_feature_prd:" in run_log
+        and re.search(r"implemented_feature_prd:\s*\n(?:.*\n)*?\s+active:\s*true", run_log)
+    )
+    if is_implemented_prd:
+        for offset, expected in enumerate(IMPLEMENTED_PRD_SECTIONS_ZH, start=len(REQUIRED_PRD_SECTIONS_ZH) + 1):
+            expected_heading = f"{offset}. {expected}"
+            if offset - 1 >= len(h2_sections) or h2_sections[offset - 1] != expected_heading:
+                fail(f"Implemented Chinese PRD section {offset} must be numbered as `## {expected_heading}`")
+    else:
+        unexpected_code_sections = [
+            section
+            for section in IMPLEMENTED_PRD_SECTIONS_ZH
+            if section in h2_titles
+        ]
+        if unexpected_code_sections:
+            fail(
+                "Non-implemented Chinese PRD must hide code-related top-level section(s): "
+                + ", ".join(unexpected_code_sections)
+            )
+    legacy_top_level = sorted(
+        title
+        for title in h2_titles
+        if title in FORBIDDEN_LEGACY_PRD_TOP_LEVEL_SECTIONS_ZH
+    )
+    if legacy_top_level:
+        fail("Chinese PRD uses legacy top-level section(s); fold them into the new numbered structure: " + ", ".join(legacy_top_level))
     if CHINESE_STATUS_LEAK_RE.search(text):
         fail("Chinese PRD contains raw English readiness/review status labels")
     if "Mini Program" in text:
@@ -1794,9 +1869,9 @@ def check_chinese_prd(path: Path) -> None:
             "Chinese PRD missing access/setup state marker: "
             + " or ".join(state_markers)
         )
-    if "source_mode: repo-backed" in read(path / "run-log.yaml"):
-        if "工程实施" not in text and "实施路径" not in text:
-            fail("Repo-backed Chinese PRD missing engineering implementation map")
+    if "source_mode: repo-backed" in run_log and not is_implemented_prd:
+        if not any(marker in text for marker in ("工程", "研发", "技术", "实现", "代码")):
+            fail("Repo-backed planned Chinese PRD missing engineering notes inside requirement details or test suggestions")
     ac_count = len(re.findall(r"\|\s*AC\d+\s*\|", text))
     if ac_count < 4:
         fail("PRD must include at least four acceptance criteria for this scenario")
@@ -1870,7 +1945,7 @@ def check_image_asset_name(name: str, context: str) -> None:
     if GENERIC_STATE_SUFFIX_RE.search(stem):
         fail(
             f"{context} image name uses a generic state suffix; name the concrete state, "
-            f"for example 文件上传-上传中.png or 文件上传-上传失败.png: {clean_name}"
+            f"for example 资料卡片-加载中.png or 资料卡片-加载失败.png: {clean_name}"
         )
     if re.fullmatch(r"\d+(?:[-_ ]\d+)*", stem):
         fail(f"{context} image name must describe screenshot content: {clean_name}")

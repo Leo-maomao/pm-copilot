@@ -82,7 +82,7 @@ For implemented-feature-to-PRD delivery in embedded mode, generated files must l
 python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>
 ```
 
-Missing screenshots must stay inline with the relevant requirement, using only the exact `占位图` block and a recommended content-based file name such as `文件上传-上传中.png` or `文件上传-上传失败.png`. Do not create a standalone screenshot list, and do not write generated PRD files to the host root `outputs/` folder.
+Missing screenshots must stay inline with the relevant requirement, using only the exact `占位图` block and a recommended content-based file name such as `资料卡片-加载中.png` or `资料卡片-加载失败.png`. Do not create a standalone screenshot list, and do not write generated PRD files to the host root `outputs/` folder.
 
 For source-backed previews with a browser URL, include the preview target:
 

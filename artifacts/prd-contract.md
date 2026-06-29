@@ -2,66 +2,114 @@
 
 Use this contract when generating or reviewing `outputs/<run-id>/prd.md`.
 
-The PRD is the primary product-manager handoff artifact. It contains the requirement, external product research, goals, requirement details, tracking plan, flow diagrams when useful, UI delivery reference, risks, open confirmations, acceptance criteria, and validation results.
+The PRD is the primary product-manager handoff artifact. It must be template-driven, easy to scan, and detailed enough for product, design, engineering, QA, analytics, and release reviewers to work from without searching the branch manually.
 
 ## Required Output
 
-The following outline defines semantic sections, not literal English headings. Localize human-facing headings and table labels into the user's language.
+The top-level title must be one concise requirement sentence plus the requirement date:
 
 ```markdown
-# <localized feature name> PRD
-
-## <localized version history>
-## <localized requirement input and confirmation record>
-## <localized readiness summary>
-## <localized background>
-## <localized research and reference findings>
-## <localized project goals and metrics>
-## <localized requirement scope>
-## <localized surface and permission states>
-## <localized content source and review status>
-## <localized implementation evidence and coverage map>
-## <localized requirement list>
-## <localized requirement details>
-## <localized flow diagrams>
-## <localized tracking plan>
-## <localized UI delivery reference>
-## <localized risks and open confirmations>
-## <localized acceptance criteria>
-## <localized delivery review findings>
-## <localized validation results>
+# <一句话需求> - <YYYY-MM-DD>
 ```
+
+Do not use a loose topic-list title such as `<topic A>、<topic B> 与 <topic C> PRD`. The title should read like a single requirement statement.
+
+The default PRD must use these numbered sections in this order. Headings and labels must be localized into the user's language.
+
+```markdown
+## 1. 文档信息
+## 2. 版本记录
+## 3. 需求背景
+## 4. 需求目标
+## 5. 需求调研
+## 6. 需求列表
+## 7. 需求详情
+## 8. 埋点需求
+## 9. 多语言需求
+## 10. 验收标准
+## 11. 测试建议
+```
+
+For implemented-feature PRDs reconstructed from a branch/current diff, add these code-related sections after the default structure:
+
+```markdown
+## 12. 代码实现说明
+## 13. 代码位置
+## 14. 验证结果
+```
+
+Optional risk, API, parameter, state, or dependency content should live inside the relevant required section instead of creating an unnumbered appendix. For implemented-feature PRDs, place these under `12. 代码实现说明` unless the user asks for a separate artifact.
+
+Do not show the code-related top-level sections in planned/non-implemented PRDs. If no code has been implemented or inspected, keep engineering notes inside `7. 需求详情` or `11. 测试建议` and omit `12. 代码实现说明`, `13. 代码位置`, and `14. 验证结果`.
+
+## Applicability Rules
+
+The default top-level sections 1-11 are the PRD skeleton. If one of these sections is genuinely not applicable, keep the section and state `不涉及：<原因>` or the localized equivalent in a short line or row so reviewers know it was intentionally considered.
+
+Conditional or optional content must be hidden when it does not apply. This includes code-related sections for non-implemented PRDs, flow diagrams, API matrices, risk/dependency tables, screenshot/image blocks, launch notes, and any specialist subsection that has no real content.
+
+Do not leave empty tables, unfilled angle-bracket placeholders, `待补充`, `TBD`, or similar filler in delivered PRDs. Use a concrete decision, a stated assumption, a visible blocker, or omit the optional block.
+
+## Section Requirements
+
+`1. 文档信息` should include one-sentence requirement name, date, source, related modules, PRD status, engineering handoff status, and launch status.
+
+`2. 版本记录` records every meaningful artifact revision.
+
+`3. 需求背景` explains current problems, user/business impact, and why the requirement exists now.
+
+`4. 需求目标` defines goals, metrics, target direction, and measurement notes.
+
+`5. 需求调研` must cover users and scenarios. It should also include current-product research, implementation findings, external research when available, research limitations, rejected options when relevant, and reusable conclusions. Repository facts are current-product context, not competitor research.
+
+`6. 需求列表` is a short scan-level summary only. It must not replace requirement details.
+
+`7. 需求详情` is the most important section. It must contain complete behavior for every requirement. Flow diagrams are optional and must follow the requirement they explain. Add them only for requirements with complex user paths, cross-role/cross-system movement, state transitions, or branching logic. Place each diagram inside the relevant requirement subsection, using Mermaid `flowchart` blocks for primary flow diagrams. Do not add generic `用户流程图` and `功能流程图` subsections to every PRD.
+
+For frontend page, UI component, visual-state, or interactive-control changes, `7. 需求详情` must include the relevant interface specification in the affected requirement. Do not stop at saying "optimize UI." Include the affected page/component, layout and alignment, dimensions, spacing, typography, color/token usage, icon/image rules, component states, responsive behavior, keyboard/focus/accessibility behavior when relevant, and visual acceptance notes. Hide this row/block for requirements that do not touch UI.
+
+`8. 埋点需求` includes event tables and property definitions by default. If no approved taxonomy was found, label the event list as proposed and disclose the source gap.
+
+`9. 多语言需求` includes newly added or changed UI copy as pure text plus a separate usage/key mapping. If there is no new copy, say so explicitly.
+
+`10. 验收标准` links acceptance criteria to requirement IDs and gives verification methods.
+
+`11. 测试建议` gives focused test coverage by test type.
+
+`12. 代码实现说明` is required for implemented-feature PRDs. It should include implementation scope, parameters/rules, state/exception behavior, data/API dependencies, risks, and implementation evidence.
+
+`13. 代码位置` lists concrete files/modules and why they matter.
+
+`14. 验证结果` lists concrete commands, pass/fail/skipped status, and limitations. Delivered PRDs must not leave stale placeholders such as `待执行`, `should run`, or `to be verified`.
 
 ## Requirement Details
 
-`Requirement details` must be detailed enough for design, engineering, QA, and analytics to work from. For each functional item, include the relevant subset of:
+`需求详情` must be detailed enough for design, engineering, QA, and analytics to proceed. For each functional item, include the relevant subset of:
 
 | Field | Purpose |
-|---|---|
-| Function ID | Stable ID such as `F1` |
+| --- | --- |
+| Requirement ID | Stable ID such as `R1` |
 | Function name | Concrete capability being delivered |
 | User scenario | Who uses it and in what situation |
 | Entry point / trigger | Where the user starts or what system event starts it |
-| Page / content requirements | Copy, fields, states, and content source requirements |
+| Content requirements | Copy, fields, states, and content source requirements |
+| Frontend UI specification | For UI changes: affected component, layout, dimensions, spacing, typography, color/token, icon/image, states, responsive/accessibility behavior, and visual acceptance notes |
 | Business logic | Conditions, branches, limits, priority, and decision rules |
-| Interaction rules | Tap, hover, long-press, disabled, loading, success, and failure behavior |
+| Interaction rules | Click, hover, double-click, disabled, loading, success, and failure behavior |
 | Data rules | Source, save, refresh, sorting, dedupe, and retention behavior |
 | Permission rules | Who can view, operate, or be blocked |
-| Edge states | Empty, error, no permission, offline, rollback, and fallback behavior |
+| Edge states | Loading, empty, error, no permission, offline, rollback, and fallback behavior |
 | Tracking links | Related event IDs |
 | Acceptance links | Related acceptance criteria IDs |
+| Figures | Inline screenshot or placeholder at the exact point it explains |
 
-`Requirement list` is only a rough overview for scanning. Do not use it as the complete feature specification. The `Requirement details` section may use one complete detail table or split into per-function subsections, but each function must remain reviewable without hunting through later chapters. If screenshots, figures, or missing-image placeholders are needed for a requirement, put them in the relevant detail row or subsection, not in a detached image list. When a figure row appears inside a multi-column comparison or matrix table, treat it as an explanation of the whole requirement row and merge the content cells in HTML instead of letting one figure widen a single data column.
+The `需求列表` section is only a rough overview. Each item in `需求详情` must remain reviewable without hunting through later chapters.
 
-For cross-module, search, feed, dashboard, or aggregation features, add source-by-source rows or a companion matrix covering source module, source permission rule, result redaction rule, ranking/sorting assumption, partial-failure behavior, and performance boundary. A single generic data rule is not enough when different sources have different permissions, privacy levels, or failure modes.
+For cross-module, search, feed, dashboard, upload, or aggregation features, add source-by-source rows or a companion matrix covering source module, source permission rule, redaction rule, sorting assumption, partial-failure behavior, and performance boundary.
 
-For algorithmic labels, scores, rankings, risk bands, recommendations, or simulation outputs, include source data, calculation window, refresh cadence, missing-data behavior, explanation copy, reviewer/approval owner, and user-facing limitations. Do not allow an unexplained score or label to imply a recommendation, rating, or guaranteed outcome.
-
-For simulations, forecasts, stress tests, or scenario analysis, include assumptions, historical data window, scenario inputs, confidence/limitation language, extreme-case handling, and an explicit statement that the result is not a prediction or investment instruction.
+For algorithmic labels, scores, rankings, risk bands, recommendations, AI outputs, simulations, or forecasts, include source data, calculation window, refresh cadence, missing-data behavior, confidence/limitation language, reviewer owner, and user-facing limitations.
 
 For public Web or SEO surfaces, include indexability, canonical URL, sitemap/robots behavior, metadata/structured-data requirements, cache behavior, public-data boundary, and proof that signed-in or private user data cannot appear in indexable HTML.
-
-For data freshness, source-status, health, or reliability indicators, include source owner, refresh cadence, cache/staleness rule, partial-failure behavior, stale-data display, user-facing trust copy, and what actions remain enabled or disabled while data is degraded.
 
 For AI assistants, automations, admin exports, workflow agents, or tool-enabled features, include trusted trigger, untrusted input boundary, tool allowlist/denylist, data scope, mutation permissions, redaction, audit logging, abuse tests, and human approval gates.
 
@@ -69,71 +117,69 @@ For accessibility-critical surfaces such as checkout, payment, account recovery,
 
 ## Repo-Backed Engineering Map
 
-For repo-backed product changes, include a localized engineering implementation map in the PRD. It should name likely routes, pages, services, components, data/config files, analytics integration points, permission boundaries, and validation entry points. This is not production code, but it must be specific enough for engineering to estimate and plan the change.
+For repo-backed product changes, include a localized engineering implementation map. In the new numbered structure:
+
+- For planned PRDs, place likely routes, services, components, data/config files, analytics integration points, permission boundaries, and validation entry points inside `7. 需求详情` or `11. 测试建议`.
+- For implemented-feature PRDs, place this information inside `12. 代码实现说明` and `13. 代码位置`.
+
+This is not production code, but it must be specific enough for engineering to estimate and plan the change.
 
 ## Implemented Feature Evidence
 
-When the PRD is reconstructed from an implemented branch or current diff, include a localized implementation evidence and coverage map. This section must separate observed implementation behavior from inferred product intent.
+When the PRD is reconstructed from an implemented branch or current diff, include an implementation evidence and coverage map under `12. 代码实现说明`. This section must separate observed implementation behavior from inferred product intent.
 
 Include the relevant subset of:
 
 | Field | Purpose |
-|---|---|
+| --- | --- |
 | Evidence ID | Stable ID such as `EV1` |
 | Source | Branch, diff, file path, screenshot, asset, test, or user-provided note |
 | Observed behavior | What the implementation proves |
-| Related requirement IDs | Requirement or function IDs supported by this evidence |
+| Related requirement IDs | Requirement IDs supported by this evidence |
 | Coverage status | Covered, partial, unverified, or conflict |
 | Gap or risk | Product intent, rollout, metric, permission, copy, or launch gap still requiring confirmation |
 
-If the implementation includes UI screenshots or image placeholders, place them inline at the related requirement detail, operation step, or evidence row. Do not put them into a separate image appendix unless the user explicitly asks for a screenshot inventory.
+The PRD must be complete enough to review without manually inspecting the branch. Any behavior visible in the diff should either be represented in scope, requirement details, acceptance criteria, risks, evidence, or explicitly excluded with rationale.
 
-Screenshot coverage should be page-level rather than micro-state inflated: every independent changed page, window, panel, or dialog must be represented, but states that are visible together in one window should stay in one screenshot or placeholder.
+## Image Rules
+
+Images in PRD Markdown or HTML must appear where the reader needs them. Do not create a detached image, figure, screenshot list, image appendix, or screenshot inventory by default.
 
 For Chinese implemented-feature PRDs, missing screenshots must use only the exact inline block:
 
 ```markdown
-> 占位图：文件上传-上传中.png
-> 用途：展示文件上传过程中的进度、按钮状态和不可重复提交规则。
+> 占位图：资料卡片-加载中.png
+> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
 ```
 
-State screenshots must be named with the screenshot object plus the concrete state, such as `文件上传-上传中.png`, `文件上传-上传失败.png`, or `目标文件夹弹窗-非法目标.png`; do not use generic names such as `文件上传-状态.png` or `asset-upload-state.png`.
+When the real image exists, replace the whole placeholder block at the same position with:
 
-In Chinese PRDs, missing screenshots are called `占位图`; do not use labels such as `待补真实图`.
+```markdown
+![资料卡片-加载中](./assets/资料卡片-加载中.png)
+```
 
-The PRD must be complete enough to review without manually inspecting the branch. Any behavior visible in the diff should either be represented in scope, requirement details, acceptance criteria, or risks, or explicitly excluded with rationale.
+State screenshots must be named with the screenshot object plus the concrete state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; do not use generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
+
+Screenshot coverage should be page-level rather than micro-state inflated: every independent changed page, window, panel, or dialog must be represented, but states that are visible together in one window should stay in one screenshot or placeholder.
 
 ## Rules
 
-- Use tables for version history, confirmations, goals, scope, requirement list, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
-- Put source-backed competitor, benchmark, comparable feature, user research, public product docs, screenshots, and technical solution references under `Research and reference findings`.
-- For common product flows, include a competitor/comparable flow table that names the product, entry point, required input, primary path, fallback path, platform difference, observed fact, and implication. Generic policy, security, or implementation references are supporting evidence, not a substitute.
-- Do not use repository file reading as the only content in `Research and reference findings`. Repo facts are current-product context and should appear in background, current-state notes, product-fit decisions, or the repo-backed engineering map.
-- If external research is skipped or degraded, the research section must say why, identify the confidence impact, and avoid claiming a market-informed recommendation.
-- Keep project goals and metrics near the top so the rest of the PRD can be judged against them.
-- Include PRD status, engineering handoff status, and launch status as separate readiness fields.
-- Keep confirmed MVP scope separate from optional, conditional, future scope, and non-goals.
+- Use tables for version history, goals, research matrices, requirement list, requirement details, tracking, copy mapping, acceptance criteria, test suggestions, code positions, and validation when there are multiple items.
+- Use stable IDs such as `R1`, `AC1`, and `EV1`.
+- Mark MVP, optional, future, and non-goal scope explicitly inside `6. 需求列表` or `7. 需求详情` when scope needs partitioning.
+- Keep project goals near the top so the rest of the PRD can be judged against them.
+- Keep PRD status, engineering handoff status, and launch status separate.
 - Do not put unconfirmed optional capabilities into MVP requirements or acceptance criteria.
 - Specify entry point, navigation visibility, permission or eligibility states, and fallback behavior for existing-product surfaces.
-- For aggregation features, specify per-source permissions, redaction, empty-result behavior, partial failure behavior, and performance limits.
-- For algorithmic labels or scores, specify explainability, missing-data handling, and the boundary between calculation output and product recommendation.
-- For simulations or forecasts, specify assumptions and limitations prominently enough for reviewers to see them in both PRD and UI deliverable.
-- For SEO or public Web pages, specify index/noindex rules, metadata ownership, structured data, and private-data exclusion.
-- For data reliability surfaces, specify freshness, staleness, partial failure, and degradation behavior in user-visible terms.
-- For reference, policy, medical, legal, financial, tax, public-benefit, safety, or operational content, record source status, source currentness, review owner, review status, disclaimer status, and launch impact. If current authoritative sources are missing, keep launch blocked and do not present definitive guidance.
-- For AI/tool-enabled features, do not treat untrusted content as user instruction or tool permission. Permission-sensitive actions must have owner-approved boundaries and abuse tests.
 - Put tracking events and property definitions in the PRD by default; create a CSV export only when useful.
-- Put functional or operation flow diagrams in the PRD when they help review; use Mermaid `flowchart` blocks as the primary diagram format and create Mermaid source exports only when useful. Do not replace the primary flow with a Markdown table or PNG.
-- Put newly added or changed UI copy in the copy/i18n section as pure text that a product manager can copy for localization submission. If there is no new copy, state that explicitly. Pure-text copy blocks must contain only the user-facing copy lines; keep i18n keys, usage locations, interpolation notes, and reviewer notes in a separate mapping table below the pure-text block.
-- For implemented-feature PRD delivery, inspect current branch evidence before asking clarification questions that the code can answer. Use the evidence map to prove coverage and call out implementation/product-intent gaps.
-- Markdown tables should use consistent left alignment separators (`---`) unless a user explicitly requests another alignment for a special data table. Mixed centered/right-aligned tables reduce readability in long PRDs.
-- When `prd.html` is generated from `prd.md`, render it as a normal readable document with the fixed PM Copilot document shell: left table of contents, H1 excluded from the TOC, stable ASCII anchors, reading-position TOC sync, full-width content flow, complete readable left-aligned tables, rendered Mermaid diagrams through local assets, and inline images/placeholders at their relevant positions. Multi-column requirement image rows should merge empty trailing content cells with `colspan` so a figure does not distort one data column. Do not use `prototype-<platform>.html` naming for PRD document HTML.
-- Images in PRD Markdown or HTML must appear where the reader needs them. If real screenshots are missing, insert an inline placeholder in that exact position and describe what should replace it. Do not create a detached screenshot list by default.
-- PRD Markdown should contain exactly one top-level title. PRD HTML must not create a second visible document title or leave a large unused content column.
-- For implemented-feature PRD HTML, prefer `scripts/render_prd_html.py`, which sets `pagetitle`, preserves the Markdown H1 as the single body title, keeps wide content readable, and enables an image lightbox.
-- UI delivery details belong in the UI artifact and its annotations. The PRD should only link the source-backed preview/delta or compatibility HTML file, summarize covered screens/states, and state that page-level logic and interaction notes live in the UI delivery annotations.
-- UI delivery references in the PRD should point to local generated files or local host preview surfaces. Do not require reviewers to load external assets, scripts, or remote UI preview URLs unless the user explicitly requests that workflow.
+- Put newly added or changed UI copy in the multi-language section as pure text that a product manager can copy for localization submission. Keep i18n keys, usage locations, interpolation notes, and reviewer notes in a separate table below the pure-text block.
+- For implemented-feature PRD delivery, inspect current branch evidence before asking clarification questions that the code can answer.
+- Markdown tables should use consistent left alignment separators (`---`) unless a user explicitly requests another alignment for a special data table.
+- PRD Markdown should contain exactly one top-level title.
+- PRD HTML must not create a second visible document title or leave a large unused content column.
+- When `prd.html` is generated from `prd.md`, render it as a normal readable document with the fixed PM Copilot document shell: left table of contents, H1 excluded from the TOC, stable ASCII anchors, reading-position TOC sync, full-width content flow, complete readable left-aligned tables, rendered Mermaid diagrams through local assets, and inline images/placeholders at their relevant positions.
+- For implemented-feature PRD HTML, prefer `scripts/render_prd_html.py`.
+- UI delivery details belong in UI artifacts and annotations. In the new PRD structure, summarize UI delivery implications inside requirement details or code implementation notes instead of forcing a separate `UI 交付` top-level section.
 - Mark assumptions explicitly.
-- Do not bury unresolved decisions in the requirements.
-- Include structured delivery review findings with artifact, evidence, owner, required-before phase, and status.
+- Do not bury unresolved decisions in prose.
 - Localize headings and table labels into the user's language. Keep requirement IDs, event names, property names, and other machine-readable identifiers ASCII.

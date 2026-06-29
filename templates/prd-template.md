@@ -1,176 +1,147 @@
-# <localized feature name> PRD
+# <一句话需求> - <YYYY-MM-DD>
 
-<!-- Template note: this file defines semantic sections, not literal English headings. Replace every <localized ...> placeholder with the user's language before generating a real artifact. Keep requirement IDs, event names, property names, and Mermaid node IDs in ASCII. Remove this note from generated artifacts. -->
+<!--
+This template defines PM Copilot's default PRD structure.
+Generated PRDs must keep the numbered section order below.
+The H1 must be one concise requirement sentence plus the requirement date, not a topic list plus "PRD".
+Localize all human-facing headings and labels to the user's language. Keep IDs, event names, property names, file names, and Mermaid node IDs ASCII.
+Content applicability rules:
+- Keep top-level sections 1-11. If a required top-level section has no applicable content, write one explicit localized `Not applicable: <reason>` line or row instead of leaving it empty.
+- Remove optional subsections, example tables, diagrams, image blocks, risk/API/detail matrices, or other blocks that do not apply. Do not leave empty tables, placeholder angle-bracket text, or "TBD" content.
+- Do not add code-related top-level sections unless the PRD is reconstructed from implemented code. Use `implemented-feature-prd-template.md` for that mode.
+- Flow diagrams are optional and follow the relevant requirement. Put each diagram inside the specific requirement subsection it explains; do not create generic `User flow` and `Functional flow` subsections for every PRD.
+Remove this note from generated artifacts.
+-->
 
-## <localized version history>
+## 1. <文档信息>
 
-| <localized version> | <localized date> | <localized change summary> | <localized owner> |
-|---|---|---|---|
+| <项目> | <内容> |
+| --- | --- |
+| <一句话需求> |  |
+| <需求日期> |  |
+| <需求来源> |  |
+| <相关模块 / 平台> |  |
+| <PRD 状态> |  |
+| <研发交接状态> |  |
+| <上线状态> |  |
 
-## <localized requirement input and confirmation record>
+## 2. <版本记录>
 
-| <localized item> | <localized source or answer> | <localized status> | <localized blocks phase> | <localized impact> |
-|---|---|---|---|---|
+| <版本> | <日期> | <变更摘要> | <负责人> |
+| --- | --- | --- | --- |
 
-## <localized readiness summary>
+## 3. <需求背景>
 
-| <localized phase> | <localized status> | <localized blockers> | <localized owner> |
-|---|---|---|---|
-| PRD |  |  |  |
-| <localized engineering handoff> |  |  |  |
-| <localized launch> |  |  |  |
+<!-- Explain user pain, business context, current-product problem, and why the requirement is needed now. -->
 
-## <localized background>
+## 4. <需求目标>
 
-## <localized research and reference findings>
+| ID | <目标> | <指标> | <目标方向> | <测量说明> |
+| --- | --- | --- | --- | --- |
 
-### <localized user or business research>
+## 5. <需求调研>
 
-### <localized competitor research>
+<!-- Cover users, scenarios, current-product research, external research when available, assumptions, rejected options, and reusable conclusions. -->
 
-### <localized technical solution reference>
+### 5.1 <用户与场景>
 
-### <localized reusable conclusions>
+| ID | <用户 / 角色> | <场景> | <期望结果> |
+| --- | --- | --- | --- |
 
-### <localized rejected options and reasons>
+### 5.2 <现状调研>
 
-## <localized project goals and metrics>
+| <调研项> | <结论> | <产品影响> |
+| --- | --- | --- |
 
-| <localized goal> | <localized metric> | <localized target> | <localized measurement note> |
-|---|---|---|---|
+### 5.3 <外部调研与限制>
 
-## <localized requirement scope>
+| <调研来源> | <状态> | <结论 / 限制> | <影响> |
+| --- | --- | --- | --- |
 
-### <localized surface and permission states>
+### 5.4 <调研结论>
 
-| <localized item> | <localized decision> | <localized verification> |
-|---|---|---|
-| <localized entry point> |  |  |
-| <localized navigation visibility> |  |  |
-| <localized eligible user state> |  |  |
-| <localized ineligible user state> |  |  |
-| <localized fallback states> |  |  |
+| ID | <结论> | <对应需求> |
+| --- | --- | --- |
 
-### <localized confirmed MVP scope>
+## 6. <需求列表>
 
-| <localized area> | <localized included requirement> | <localized owner> | <localized verification> |
-|---|---|---|---|
+<!-- Requirement list is a scan-level summary only. Complete behavior belongs in section 7. -->
 
-### <localized optional or conditional scope>
+| ID | <需求简述> | <用户价值> | <优先级> | <状态> |
+| --- | --- | --- | --- | --- |
 
-| <localized capability> | <localized decision needed> | <localized owner> |
-|---|---|---|
+## 7. <需求详情>
 
-### <localized future scope>
+<!--
+This is the most important PRD section.
+Each functional item should cover scenario, entry/trigger, content, business logic, interaction rules, data/state rules, permissions, edge cases, tracking links, and acceptance links.
+For frontend UI/page/component changes, include the relevant UI specification in the requirement detail: affected page/component, layout/alignment, dimensions, spacing, typography, color/token, icon/image requirements, component states, responsive behavior, accessibility/focus behavior, and visual acceptance notes.
+Flow diagrams are optional. Add them only when a specific requirement has a complex user path, cross-system process, or many states; place the Mermaid block inside that requirement's subsection.
+Screenshots and missing-image placeholders belong inline with the requirement they explain, never in a detached image list.
+-->
 
-| <localized capability> | <localized trigger or reason> |
-|---|---|
+### 7.1 <R1 需求名称>
 
-### <localized non-goals>
+<!-- Optional, include only when this requirement needs a flow diagram:
+#### <操作 / 功能流程图>
 
-| <localized non-goal> | <localized reason> |
-|---|---|
+```mermaid
+flowchart TD
+  A[<用户或系统进入场景>] --> B[<触发动作>]
+  B --> C{<判断条件>}
+  C -- <通过> --> D[<目标状态>]
+  C -- <不通过> --> E[<兜底状态>]
+```
+-->
 
-### <localized content source and review status>
+| <维度> | <需求说明> |
+| --- | --- |
+| <用户场景> |  |
+| <入口 / 触发> |  |
+| <内容要求> |  |
+| <前端界面规格> | <Only keep for UI/page/component changes. Include affected component, layout/alignment, size, spacing, typography, color/token, icon/image, states, responsive/accessibility notes, and visual acceptance notes.> |
+| <业务逻辑> |  |
+| <交互规则> |  |
+| <数据规则> |  |
+| <权限和边界> |  |
+| <加载 / 空 / 错误状态> |  |
+| <埋点> |  |
+| <验收> |  |
+| <图示> |  |
 
-| <localized content area> | <localized source status> | <localized review owner> | <localized review status> | <localized disclaimer status> | <localized launch impact> |
-|---|---|---|---|---|---|
+## 8. <埋点需求>
 
-## <localized implementation evidence and coverage map>
+<!-- If no approved taxonomy is found, explicitly mark this as a proposed taxonomy and name the source gap. -->
 
-<!-- Use this section when the PRD is reconstructed from an implemented branch/current diff. Remove it only when no implementation evidence exists. Screenshots or placeholders should appear inline in the related evidence/requirement row, not in a separate image list. -->
+| <事件名> (`event_name`) | <事件说明> (`description`) | <触发时机> (`trigger`) | <平台> (`platform`) | <主体> (`actor`) | <必填属性> (`required_properties`) | <可选属性> (`optional_properties`) | <成功标准> (`success_criteria`) | <验证说明> (`validation_notes`) | <隐私说明> (`privacy_notes`) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
-| <localized evidence id> | <localized source> | <localized observed behavior> | <localized related requirement ids> | <localized coverage status> | <localized gap or risk> |
-|---|---|---|---|---|---|
+### 8.1 <属性字典>
 
-## <localized requirement list>
+| <属性名> (`property_name`) | <类型> (`type`) | <是否必填> (`required`) | <示例> (`example`) | <说明> (`description`) | <可选值> (`allowed_values`) | <隐私级别> (`privacy_level`) | <来源> (`source`) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
-| ID | <localized requirement item> | <localized priority> | <localized status> | <localized notes> |
-|---|---|---|---|---|
+## 9. <多语言需求>
 
-## <localized requirement details>
+<!-- Put only user-facing copy in the pure-text block. Keep keys and usage notes in the table below. If there is no new copy, state that explicitly. -->
 
-<!-- The requirement list is a rough overview only. This section must be the complete functional explanation. Use a full detail table or per-function subsections, but keep requirement screenshots/placeholders inline with the function they explain. Keep Markdown table separators consistently left-aligned (`---`) unless a special data table requires otherwise. When a screenshot/figure row is placed in a multi-column comparison or matrix table, it explains the whole row; rendered HTML should merge the content cells rather than placing the image into one data column with empty trailing cells. -->
-
-| ID | <localized function> | <localized scenario> | <localized entry or trigger> | <localized content requirements> | <localized business logic> | <localized interaction rules> | <localized data rules> | <localized permission rules> | <localized edge states> | <localized tracking links> | <localized acceptance links> |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-
-## <localized copy and i18n>
-
-<!-- Put only user-facing copy in the pure-text block. Keep keys and usage notes in the mapping table below. If there is no new copy, state that explicitly. -->
-
-### <localized new copy pure text>
+### 9.1 <纯文本提取>
 
 ```text
-<localized new or changed UI copy line>
+<new or changed UI copy line>
 ```
 
-### <localized key and usage mapping>
+### 9.2 <使用位置映射>
 
-| <localized key> | <localized copy> | <localized usage> | <localized note> |
-|---|---|---|---|
+| <文案> | <使用位置> | <多语言说明> |
+| --- | --- | --- |
 
-## <localized flow diagrams>
+## 10. <验收标准>
 
-### <localized functional flow>
+| ID | <关联需求> | <验收标准> | <验证方法> |
+| --- | --- | --- | --- |
 
-```mermaid
-flowchart TD
-  A[<localized start>] --> B[<localized system or feature decision>]
-  B --> C{<localized branch condition>}
-  C -- <localized yes> --> D[<localized target state>]
-  C -- <localized no> --> E[<localized fallback state>]
-```
+## 11. <测试建议>
 
-### <localized operation flow>
-
-```mermaid
-flowchart TD
-  A[<localized user entry>] --> B[<localized user action>]
-  B --> C[<localized page or feedback>]
-```
-
-## <localized tracking plan>
-
-| <localized tracking taxonomy source> | <localized value> |
-|---|---|
-| <localized source status> | <localized existing taxonomy followed / proposed taxonomy because no source was found / tracking omitted> |
-
-### <localized event table>
-
-| <localized event name> (`event_name`) | <localized event description> (`description`) | <localized trigger> (`trigger`) | <localized platform> (`platform`) | <localized actor> (`actor`) | <localized required properties> (`required_properties`) | <localized optional properties> (`optional_properties`) | <localized success criteria> (`success_criteria`) | <localized validation notes> (`validation_notes`) | <localized privacy notes> (`privacy_notes`) |
-|---|---|---|---|---|---|---|---|---|---|
-
-### <localized property dictionary>
-
-| <localized property name> (`property_name`) | <localized type> (`type`) | <localized required> (`required`) | <localized example> (`example`) | <localized description> (`description`) | <localized allowed values> (`allowed_values`) | <localized privacy level> (`privacy_level`) | <localized source> (`source`) |
-|---|---|---|---|---|---|---|---|
-
-## <localized UI delivery reference>
-
-| <localized item> | <localized value> |
-|---|---|
-| <localized UI delivery artifact> | <localized source-backed preview/delta path, or `prototype-<platform>.html` only for compatibility HTML mode> |
-| <localized PRD HTML document> | <localized `prd.html` when browser-readable PRD delivery is requested; not applicable otherwise> |
-| <localized covered screens and states> |  |
-| <localized note> | <localized detailed product design, logic rules, and interaction notes live in the numbered annotations inside the UI deliverable> |
-
-## <localized risks and open confirmations>
-
-| ID | <localized item> | <localized impact> | <localized owner> | <localized required before> | <localized status> |
-|---|---|---|---|---|---|
-
-## <localized acceptance criteria>
-
-| ID | <localized requirement id> | <localized criteria> | <localized verification> |
-|---|---|---|---|
-
-## <localized delivery review findings>
-
-| <localized severity> | <localized artifact> | <localized finding> | <localized evidence> | <localized owner> | <localized required before> | <localized status> |
-|---|---|---|---|---|---|---|
-
-## <localized validation results>
-
-| <localized command> | <localized status> | <localized result or limitation> |
-|---|---|---|
+| <测试类型> | <覆盖范围> | <建议用例> |
+| --- | --- | --- |
