@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.8] - 2026-06-30
+
+### Changed
+
+- Fixed PRD HTML table-of-contents styling so inline code in TOC links inherits the active, hover, and default link color instead of using the global code text color.
+- Added output validation to prevent TOC inline code from visually breaking link color consistency.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/install_adapter.py scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.7] - 2026-06-30
 
 ### Changed

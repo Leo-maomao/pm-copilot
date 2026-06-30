@@ -141,6 +141,12 @@ DOCUMENT_CSS = """
       color: #1d4ed8;
       font-weight: 700;
     }
+    #TOC a code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+    }
     table {
       display: table;
       width: 100%;

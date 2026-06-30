@@ -2563,6 +2563,12 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
         toc_hrefs = {str(link.get("href", "")).lstrip("#") for link in parser.toc_links}
         if h1_ids & toc_hrefs:
             fail(f"{prd_html_path.name} table of contents must start from numbered sections, not the H1 title")
+        if "<code>" in text and 'id="TOC"' in text and not re.search(
+            r"#TOC\s+a\s+code\s*\{[^}]*color\s*:\s*inherit",
+            text,
+            re.IGNORECASE | re.DOTALL,
+        ):
+            fail(f"{prd_html_path.name} table of contents inline code must inherit link color")
         numbered_heading_ids = {
             str(heading.get("id", ""))
             for heading in parser.headings
