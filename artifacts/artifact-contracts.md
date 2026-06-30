@@ -19,7 +19,7 @@ The default product-manager delivery contains only:
   - `outputs/<run-id>/prototype-<platform>.html` for source-extracted HTML handoff or compatibility standalone/no-source/fallback mode
   - `outputs/<run-id>/index.html` only as an offline folder entry when the user explicitly asks for portable/offline HTML handoff
 
-When the user asks to turn an already implemented branch or current diff into a requirement delivery, PM Copilot may generate `outputs/<run-id>/prd.html` beside `prd.md`. This file is a browser-readable PRD document rendering, not a UI prototype and not a document-class structured catalog.
+When the user asks to turn an already implemented branch or current diff into a requirement delivery, PM Copilot must generate `outputs/<run-id>/prd.html` beside `prd.md`. This file is a browser-readable PRD document rendering, not a UI prototype and not a document-class structured catalog.
 
 When the user asks primarily for a document-class handoff instead of a product requirement, such as a structured reference, parameter table, model matrix, API capability catalog, vendor table, data dictionary, payment or risk rule reference, SOP/runbook, or migration inventory, PM Copilot may generate `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary delivery artifact. Generate `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` HTML only when the user asks for HTML, browser-readable review, or richer document presentation. These files must follow `artifacts/structured-catalog-contract.md`.
 
@@ -124,7 +124,7 @@ Minimum quality bar:
 
 ## PRD HTML Document
 
-Use `prd.html` when a PRD must be opened directly in a browser or delivered as a polished document package.
+Use `prd.html` when a PRD must be opened directly in a browser, delivered as a polished document package, or produced by the implemented-feature PRD workflow.
 
 Required elements:
 

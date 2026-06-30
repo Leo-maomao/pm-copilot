@@ -4,6 +4,12 @@ This is the canonical cross-platform entry for PM Copilot.
 
 Use this file when an agent needs to run product manager work such as PRD, tracking plan, product requirements, UI delivery, prototype review, structured reference documents, document prototypes, competitor research, metrics, review, or PRD/UI-delivery generation.
 
+## Local Reference Rule
+
+When a user writes `@pm-copilot`, "按 pm-copilot 规范", "按仓库内 pm-copilot/PM_COPILOT.md 工作流", or an equivalent local-project reference, interpret it as a request to read this repository file and follow the local PM Copilot workflow. Do not treat `@pm-copilot` as an external agent, MCP server, plugin, hosted Copilot product, or tool-discovery target.
+
+In an embedded host repository, the canonical instruction is: read `pm-copilot/PM_COPILOT.md` from the current repository and follow that workflow. Use local scripts under `pm-copilot/scripts/` only when the workflow calls for validation, rendering, packaging, or adapter installation.
+
 ## Context Source Rule
 
 Do not assume the product context comes from a code repository. Classify every run as `repo-backed`, `document-backed`, or `brief-only`, then load context and apply the clarification gate according to that mode.
@@ -16,8 +22,8 @@ In this mode the implementation is the primary evidence source. Inspect the curr
 
 The default deliverables are:
 
-- Direct PM Copilot root: `outputs/<run-id>/prd.md`, optional `outputs/<run-id>/prd.html`, and `outputs/<run-id>/run-log.yaml`
-- Embedded host repository: `pm-copilot/outputs/<run-id>/prd.md`, optional `pm-copilot/outputs/<run-id>/prd.html`, and `pm-copilot/outputs/<run-id>/run-log.yaml`
+- Direct PM Copilot root: `outputs/<run-id>/prd.md`, required `outputs/<run-id>/prd.html`, and `outputs/<run-id>/run-log.yaml`
+- Embedded host repository: `pm-copilot/outputs/<run-id>/prd.md`, required `pm-copilot/outputs/<run-id>/prd.html`, and `pm-copilot/outputs/<run-id>/run-log.yaml`
 
 `prd.html` is a document rendering of the PRD, not a UI prototype. It should use a fixed PM Copilot document shell with a left table of contents that starts from numbered sections, excludes the H1 title, uses stable ASCII anchors, syncs with reading position, and keeps a single content area. Avoid decorative cards, module blocks, unusual background colors, gradients, or nested scroll containers. Tables must preserve all columns, wrap content readably, and use consistent left alignment in Markdown and HTML; field/value tables should keep the field column readable without squeezing the value column. Mermaid diagrams must render as diagrams through local assets, not CDN. Images or image placeholders must appear inline exactly where reviewers need them, including inside requirement/detail tables when that is the relevant position; do not move them into a separate image list. Real images should use local relative paths and support click-to-fullscreen or equivalent lightbox viewing. If the user will replace images manually, insert explicit inline placeholders at the intended location.
 
@@ -226,7 +232,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - Keep confirmed MVP scope, optional scope, and future scope separate. Do not place an unconfirmed optional capability in MVP requirements or acceptance criteria.
    - For existing-product changes, explicitly define entry point behavior, navigation visibility, permission or eligibility states, and fallback states so the UI deliverable, PRD, and engineering handoff agree.
    - For `implemented-feature-prd` mode, include a branch evidence map in `prd.md`: changed files or modules inspected, user-facing surfaces found, behavior inferred from code, screenshots/assets used, tests or validation found, unverified product intent, and implementation-to-requirement coverage. The PRD must be complete enough to review without manually searching the branch for missing behavior.
-   - For `implemented-feature-prd` mode, use `templates/implemented-feature-prd-template.md`, keep generated artifacts under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, and generate `prd.html` with `scripts/render_prd_html.py` when HTML is requested.
+   - For `implemented-feature-prd` mode, use `templates/implemented-feature-prd-template.md`, keep generated artifacts under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, and always generate or refresh `prd.html` with `scripts/render_prd_html.py`. This mode is an exception to the general "HTML when requested" rule because implemented-feature deliveries are browser-readable review packages by default.
    - For `implemented-feature-prd` mode, put real screenshots under `<run-folder>/assets/` and reference them inline. If a screenshot is missing, insert only the exact `占位图` block at that requirement position, including the recommended image file name and purpose; do not use the words outside that block.
    - For `implemented-feature-prd` mode, do not create a standalone image, figure, or screenshot list by default. Images and missing-image markers must travel with the requirement, flow step, table row, dialog, or state they explain.
    - For `implemented-feature-prd` mode, name state screenshots as `<screenshot-object>-<specific-state>`, for example `资料卡片-加载中.png`; never recommend generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
@@ -234,7 +240,7 @@ The user should not need to manually copy templates or create folders. Do that f
    - For `implemented-feature-prd` mode, functional flow diagrams must be Mermaid `flowchart` blocks in `prd.md`, not tables or PNGs. Flow diagrams are optional and must sit inside the relevant requirement subsection, not as fixed global sections. Copy/i18n sections must provide newly added or changed UI copy as pure text, or state that no new copy exists.
    - For copy/i18n sections, separate pure copy extraction from key mapping: the pure-text block contains only user-facing copy lines, while i18n keys, usage positions, and notes belong in a table below it. Do not write `key = copy` lines inside the pure-text block.
    - Keep `需求列表` as a rough summary and `需求详情` as the complete functional explanation. Requirement details may be a complete detail table or per-function subsections, but each functional item should cover entry/trigger, content, business rules, interaction, data/state, permission or edge cases, tracking links, and acceptance links where relevant. For frontend UI changes, include the relevant interface specifications in the affected requirement detail instead of leaving them to design inference. For ordinary PRDs use the fixed numbered top-level structure from `artifacts/prd-contract.md`; for implemented-feature PRDs append `代码实现说明`, `代码位置`, and `验证结果` as code-related sections. Do not show code-related sections when no implementation has been inspected.
-   - Validate implemented-feature PRD output with `python3 scripts/render_prd_html.py outputs/<run-id>` when HTML is needed and `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>`. In embedded mode, use `python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>` and `python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language <zh|en>`.
+   - Validate implemented-feature PRD output with `python3 scripts/render_prd_html.py outputs/<run-id>` and `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>`. In embedded mode, use `python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>` and `python3 pm-copilot/scripts/run_delivery_checks.py pm-copilot/outputs/<run-id> --language <zh|en>`.
    - Each specialist step must follow `agents/agent-interface.md`: record status, confidence, artifact delta, validation delta, risks, and next expected output. PM Orchestrator owns final readiness labels and resolves contradictions before delivery.
 
 9. Continue with assumptions only when:

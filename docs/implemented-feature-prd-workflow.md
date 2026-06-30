@@ -14,9 +14,11 @@ Do not write PRD outputs to the host root, `docs/`, `zdocs/`, temporary folders,
 ## Required Files
 
 - `prd.md`
-- `prd.html` when the user asks for HTML, browser-readable review, external delivery, or shareable documentation
+- `prd.html`
 - `assets/` when local screenshots or scripts are needed
 - `run-log.yaml` when a persistent trace is useful
+
+Implemented-feature PRD delivery is the exception to the general PRD rule where HTML is generated only when requested. Always render `prd.html` for this workflow.
 
 Avoid split Markdown files by default. The PRD should contain assumptions, questions, risks, metrics, tracking, flows, acceptance criteria, validation, and engineering/data/API notes.
 

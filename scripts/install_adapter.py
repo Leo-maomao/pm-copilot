@@ -15,6 +15,13 @@ END = "<!-- PM_COPILOT_ADAPTER_END -->"
 
 def build_block(pm_path: str, tool: str) -> str:
     target = f"{pm_path.rstrip('/')}/PM_COPILOT.md"
+    local_reference_rule = (
+        f"When the user writes `@pm-copilot`, \"按 pm-copilot 规范\", "
+        f"\"按仓库内 {target} 工作流产出 PRD\", or equivalent local-project wording, "
+        f"treat it as a reference to the local `{target}` file. Do not search for or invoke "
+        "an external agent, MCP server, plugin, hosted Copilot product, or tool-discovery "
+        "target because of `@pm-copilot`.\n\n"
+    )
     if tool == "codex":
         title = "PM Copilot"
         body = (
@@ -22,6 +29,7 @@ def build_block(pm_path: str, tool: str) -> str:
             "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
             "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
+            + local_reference_rule +
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
             "Before generating PM artifacts, inspect relevant current product context. "
@@ -45,6 +53,7 @@ def build_block(pm_path: str, tool: str) -> str:
             "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
             "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
+            + local_reference_rule +
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
             "Before generating PM artifacts, inspect relevant current product context. "
@@ -66,6 +75,7 @@ def build_block(pm_path: str, tool: str) -> str:
             "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
             "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
             f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
+            + local_reference_rule +
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
             "Before generating PM artifacts, inspect relevant current product context. "
@@ -120,6 +130,8 @@ alwaysApply: true
 ---
 
 When the user asks for product-manager work such as PRD, requirements, user stories, acceptance criteria, metrics, tracking plans, analytics events, user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent Chinese-language PM tasks, read `{target}` and follow that workflow.
+
+When the user writes `@pm-copilot`, "按 pm-copilot 规范", "按仓库内 {target} 工作流产出 PRD", or equivalent local-project wording, treat it as a reference to the local `{target}` file. Do not search for or invoke an external agent, MCP server, plugin, hosted Copilot product, or tool-discovery target because of `@pm-copilot`.
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
 

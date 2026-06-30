@@ -14,6 +14,8 @@ PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `
 
 PM Copilot also supports an implemented-feature-to-PRD workflow. When a feature is already built on the current branch, the agent should inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the real implementation into a complete `prd.md` and, when needed for delivery, a browser-readable `prd.html`.
 
+When PM Copilot is embedded in another repository, the recommended phrasing is: `Follow the local pm-copilot/PM_COPILOT.md workflow to produce the PRD.` If a user writes `@pm-copilot`, "follow PM Copilot", or similar wording, the agent should resolve it to the local `pm-copilot/PM_COPILOT.md` file, not to an external agent, MCP server, plugin, or hosted Copilot tool.
+
 ## Language Support
 
 PM Copilot treats English and Chinese as first-class user-facing languages. Generated PM artifacts, UI delivery labels, annotations, review findings, readiness statuses, and validation notes should follow the user's language with the same workflow, artifact set, and quality bar. File names, event names, property names, requirement IDs, and other machine-readable identifiers stay ASCII for portability.
@@ -39,7 +41,7 @@ PM Copilot treats English and Chinese as first-class user-facing languages. Gene
 For direct agent usage, see `docs/direct-use.md`. For embedded project usage, see `docs/embedded-use.md`.
 
 1. Open this repository in your agent-enabled workspace.
-2. Ask the agent to read `PM_COPILOT.md`, then say your product-manager request naturally, for example: `I need a PRD, tracking plan, and H5 UI deliverable for membership auto-renewal optimization.`
+2. Ask the agent to read `PM_COPILOT.md`, then say your product-manager request naturally, for example: `I need a PRD, tracking plan, and H5 UI deliverable for membership auto-renewal optimization.` In an embedded host repository, prefer: `Follow the local pm-copilot/PM_COPILOT.md workflow to produce the PRD.`
 3. The agent should inspect relevant context, ask must-answer clarification questions before generation, then create `prd.md` and the matching UI deliverable automatically.
 4. Optional: create local memory files later for better product-specific results and personal working preferences.
 
@@ -145,6 +147,8 @@ python3 scripts/install_adapter.py --host .. --tool all
 ```
 
 The adapter is required for reliable embedded use. Simply placing the `pm-copilot/` folder inside another project does not guarantee that Codex, Claude Code, Cursor, or another agent will automatically discover nested instructions.
+
+If a user writes `@pm-copilot` in the host repository, the adapter should resolve it to the local `pm-copilot/PM_COPILOT.md` workflow, not to an external tool call.
 
 In embedded mode, PM Copilot should inspect the current host project before drafting. Existing routes, data models, UI patterns, permissions, analytics conventions, and docs should shape the new requirement; the agent should not assume a greenfield product unless you ask for one.
 

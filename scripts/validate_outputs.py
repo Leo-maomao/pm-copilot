@@ -387,6 +387,19 @@ def yaml_bool_field_value(block: str, key: str) -> bool | None:
     return None
 
 
+def implemented_feature_prd_is_active(run_log: str) -> bool:
+    section = extract_yaml_block(run_log, "implemented_feature_prd")
+    if not section:
+        return False
+    active = yaml_bool_field_value(section, "active")
+    mode = yaml_scalar_field_value(section, "mode")
+    return active is True or mode in {
+        "implemented_feature_prd",
+        "implemented_feature_prd_html",
+        "implemented_feature_prd_review",
+    }
+
+
 def yaml_list_item_blocks(block: str) -> list[str]:
     items: list[list[str]] = []
     current: list[str] = []
@@ -585,6 +598,17 @@ def markdown_image_refs(text: str) -> list[str]:
     refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
     html_refs = re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", text, re.IGNORECASE)
     return [*refs, *html_refs]
+
+
+def markdown_image_or_placeholder_spans(text: str) -> list[tuple[int, int, str]]:
+    spans: list[tuple[int, int, str]] = []
+    for match in IMAGE_PLACEHOLDER_RE.finditer(text):
+        spans.append((match.start(), match.end(), "placeholder"))
+    for match in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", text):
+        spans.append((match.start(), match.end(), "image"))
+    for match in re.finditer(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", text, re.IGNORECASE):
+        spans.append((match.start(), match.end(), "image"))
+    return sorted(spans, key=lambda item: item[0])
 
 
 def markdown_sections(text: str) -> list[dict[str, object]]:
@@ -1378,13 +1402,7 @@ def check_implemented_feature_prd_trace(path: Path) -> None:
     section = extract_yaml_block(run_log, "implemented_feature_prd")
     if not section:
         return
-    active = yaml_bool_field_value(section, "active")
-    mode = yaml_scalar_field_value(section, "mode")
-    if active is not True and mode not in {
-        "implemented_feature_prd",
-        "implemented_feature_prd_html",
-        "implemented_feature_prd_review",
-    }:
+    if not implemented_feature_prd_is_active(run_log):
         return
     for marker in (
         "diff_commands:",
@@ -1407,8 +1425,8 @@ def check_implemented_feature_prd_trace(path: Path) -> None:
     for field in ("implementation_behaviors_checked", "represented_in_prd", "unresolved_product_intent"):
         if not yaml_list_field_has_values(completeness, field):
             fail(f"implemented_feature_prd.completeness_check.{field} must be populated")
-    if mode == "implemented_feature_prd_html" and not (path / "prd.html").is_file():
-        fail("implemented_feature_prd_html mode requires prd.html")
+    if not (path / "prd.html").is_file():
+        fail("implemented-feature PRD delivery requires prd.html; run scripts/render_prd_html.py")
 
 
 def check_visual_validation_trace(path: Path) -> None:
@@ -1959,6 +1977,8 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         return
 
     text = read(prd_path)
+    run_log = read(path / "run-log.yaml") if (path / "run-log.yaml").is_file() else ""
+    implemented_feature_active = implemented_feature_prd_is_active(run_log)
     h1_count = markdown_heading_count(text, 1)
     if h1_count != 1:
         fail(f"prd.md must contain exactly one top-level title, found {h1_count}")
@@ -2001,6 +2021,13 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
             or normalized_src.startswith("assets/")
         ):
             fail(f"PRD local image references should live under assets/: {image_ref}")
+        asset_path = (path / normalized_src.lstrip("./")).resolve()
+        try:
+            asset_path.relative_to(path.resolve())
+        except ValueError:
+            fail(f"PRD local image reference escapes output folder: {image_ref}")
+        if not asset_path.is_file():
+            fail(f"PRD local image reference not found: {image_ref}")
 
     if language == "zh" and re.search(
         r"图片占位|截图占位|image placeholder|screenshot placeholder",
@@ -2011,6 +2038,8 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
 
     check_markdown_table_alignment(text, language)
     check_requirement_images_inline(text)
+    if implemented_feature_active:
+        check_implemented_feature_images_in_requirement_details(text)
     check_requirement_detail_structure(text)
     check_prd_flow_sections(text)
     check_prd_copy_i18n_sections(text, language)
@@ -2042,6 +2071,24 @@ def check_requirement_images_inline(text: str) -> None:
                     "Requirement image rows must contain the real local image reference or exact 占位图 "
                     f"inline in the same row near line {table.get('start_line')}"
                 )
+
+
+def check_implemented_feature_images_in_requirement_details(text: str) -> None:
+    spans = markdown_image_or_placeholder_spans(text)
+    if not spans:
+        return
+    detail_section = section_by_heading(text, REQUIREMENT_DETAIL_HEADING_RE)
+    if not detail_section:
+        fail("Implemented-feature PRD has images/placeholders but no requirement detail section")
+    start = int(detail_section.get("body_start", 0))
+    end = start + len(str(detail_section.get("body", "")))
+    for span_start, _, kind in spans:
+        if not (start <= span_start < end):
+            line = text[:span_start].count("\n") + 1
+            fail(
+                "Implemented-feature PRD images/placeholders must appear inside the relevant "
+                f"requirement detail section, not later as a detached {kind}; line {line}"
+            )
 
 
 def html_requirement_image_row_has_unmerged_empty_cells(row: str) -> bool:

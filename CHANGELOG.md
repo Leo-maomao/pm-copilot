@@ -6,6 +6,22 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.5] - 2026-06-30
+
+### Changed
+
+- Clarified that `@pm-copilot` and equivalent wording in embedded repositories must resolve to the local `pm-copilot/PM_COPILOT.md` workflow, not external agents, MCP servers, plugins, or hosted Copilot tools.
+- Updated Codex, Claude Code, Cursor, and installer-generated adapters to include the local PM Copilot reference rule.
+- Required implemented-feature PRD delivery to always generate `prd.html`, while keeping ordinary PRD and structured-reference HTML generation request-driven.
+- Strengthened implemented-feature PRD guidance so screenshots and placeholders stay inside the related requirement detail instead of detached screenshot lists.
+- Added output validation that active implemented-feature PRDs require `prd.html`, local PRD image references must exist under `assets/`, and implemented-feature images/placeholders must stay inside the requirement detail section.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/install_adapter.py scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.4] - 2026-06-29
 
 ### Changed

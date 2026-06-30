@@ -90,7 +90,7 @@ workflow:
 
 implemented_feature_prd:
   active: false
-  mode: "" # implemented_feature_prd | implemented_feature_prd_html | implemented_feature_prd_review | not_applicable
+  mode: "" # implemented_feature_prd | implemented_feature_prd_html legacy alias | implemented_feature_prd_review | not_applicable; active implemented-feature modes require prd.html
   branch_name: ""
   diff_commands: []
   changed_files: []

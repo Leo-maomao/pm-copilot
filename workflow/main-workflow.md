@@ -153,8 +153,8 @@ Use this mode when the feature has already been implemented or changed in the cu
 
 Classification:
 
-- `implemented_feature_prd`: PRD is reconstructed from current branch evidence.
-- `implemented_feature_prd_html`: PRD plus browser-readable `prd.html` are requested.
+- `implemented_feature_prd`: PRD is reconstructed from current branch evidence; `prd.html` is still required.
+- `implemented_feature_prd_html`: legacy alias for implemented-feature PRD runs that explicitly mentioned HTML; keep accepting it in old run logs, but do not treat it as the only mode that requires `prd.html`.
 - `implemented_feature_prd_review`: existing PRD/HTML is being corrected against the implementation.
 
 Before S3 clarification, run S2b:
@@ -175,7 +175,7 @@ Drafting rules:
 
 HTML rendering rules:
 
-- Generate `outputs/<run-id>/prd.html` when the user asks for HTML, browser-readable output, or externally deliverable documents.
+- Generate `outputs/<run-id>/prd.html` when the user asks for HTML, browser-readable output, or externally deliverable documents. Exception: in `implemented-feature-prd` mode, `prd.html` is required even if the user only asks for a PRD, because the reconstructed implementation package must be browser-readable by default.
 - `prd.html` is a document rendering of `prd.md`, not a product UI prototype. It may have a left table of contents, but the right side is the normal document content area; do not wrap content in decorative cards, nested scrolling containers, or mixed module/text blocks.
 - Use neutral document styling. Avoid unusual background colors, gradients, shadows, card-heavy sections, or a marketing/prototype visual style.
 - Preserve full table readability. Wide requirement tables must keep all semantic columns present and use wrapping or horizontal overflow without hiding the acceptance column or other rightmost fields.
@@ -306,7 +306,7 @@ Default delivery should optimize for reviewability, not file count.
 
 - Create `outputs/<run-id>/prd.md` as the primary product-manager handoff artifact when PRD is in scope.
 - For document-class reference handoffs, create `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary artifact instead of forcing the request into a PRD. Generate `catalog.html`, `reference.html`, or a `document_prototype` HTML only when the user asks for HTML or a browser-readable document.
-- For implemented-feature PRD delivery, create `outputs/<run-id>/prd.md` and, when requested, `outputs/<run-id>/prd.html`. This HTML is a document rendering and should not be named `prototype-<platform>.html`.
+- For implemented-feature PRD delivery, create both `outputs/<run-id>/prd.md` and `outputs/<run-id>/prd.html`. This HTML is a required document rendering and should not be named `prototype-<platform>.html`.
 - For implemented-feature PRD delivery, use `templates/implemented-feature-prd-template.md`, and in embedded mode write to `pm-copilot/outputs/<run-id>/` rather than the host root. Generate or refresh the HTML document with `scripts/render_prd_html.py`.
 - For implemented-feature PRD delivery, keep screenshots and missing-image markers inline with the related requirement, table row, flow step, state, dialog, or evidence. Missing screenshots in Chinese PRDs use the exact `占位图` block only, with a recommended file name such as `文件上传-上传中.png`; real screenshots live under `<run-folder>/assets/`.
 - For implemented-feature PRD delivery, screenshot names describe content and concrete state. Use object plus specific state, such as `文件上传-上传中.png` or `文件上传-上传失败.png`; do not use generic names such as `文件上传-状态.png`.

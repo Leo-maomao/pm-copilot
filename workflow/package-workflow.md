@@ -5,7 +5,7 @@ This workflow verifies that the PM-facing deliverables are complete and consiste
 ## Inputs
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prd.html` when browser-readable PRD delivery is requested
+- `outputs/<run-id>/prd.html` when browser-readable PRD delivery is requested, and always for implemented-feature PRD delivery
 - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary delivery
 - Document prototype HTML when the requested prototype is a browser-readable reference document
 - UI deliverable reference, when user-facing UI is relevant: source-backed preview/delta files by default, or `outputs/<run-id>/prototype-<platform>.html` for compatibility standalone/fallback mode
@@ -16,8 +16,8 @@ This workflow verifies that the PM-facing deliverables are complete and consiste
 
 1. Verify `prd.md` exists and follows the PRD contract when PRD is in scope. If the user explicitly requested no PRD, verify the structured reference or document prototype is the primary delivery.
 2. For implemented-feature PRD delivery, verify implementation evidence exists in the run log and PRD, and that visible branch behavior is represented as requirements, acceptance criteria, or explicit gaps.
-3. For implemented-feature PRD delivery, verify output files are under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, follow `templates/implemented-feature-prd-template.md`, and use `scripts/render_prd_html.py` when `prd.html` is present.
-4. Verify `prd.html` exists when requested and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
+3. For implemented-feature PRD delivery, verify output files are under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, follow `templates/implemented-feature-prd-template.md`, include `prd.html`, and use `scripts/render_prd_html.py`.
+4. Verify `prd.html` exists when requested or when the run is implemented-feature PRD delivery, and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
 5. Verify `prd.html` preserves complete tables, renders Mermaid diagrams, uses local image paths, supports click-to-fullscreen for real images, and keeps images/placeholders inline at the relevant PRD position.
 6. Verify missing screenshots use only the inline `占位图` block, real images live under `assets/`, and state screenshot names use object plus concrete state such as `文件上传-上传中.png` instead of `文件上传-状态.png`.
 7. Verify the UI deliverable exists or is recorded when the requirement has user-facing UI.
@@ -37,7 +37,7 @@ This workflow verifies that the PM-facing deliverables are complete and consiste
 ## Default Delivery Files
 
 - `prd.md`
-- `prd.html` when browser-readable PRD delivery is requested
+- `prd.html` when browser-readable PRD delivery is requested, and always for implemented-feature PRD delivery
 - Structured reference or document prototype when PRD is not in scope
 - UI deliverable reference; `prototype-<platform>.html` only for compatibility standalone/fallback mode
 - `run-log.yaml` as internal trace only

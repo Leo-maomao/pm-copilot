@@ -24,7 +24,7 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Ask must-answer clarification questions before downstream generation.
 - Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
 - Generate `prd.md`, a UI deliverable when relevant, optional exports when useful, and an internal run log.
-- Generate `prd.html` when you ask for a browser-readable or externally deliverable PRD document.
+- Generate `prd.html` when you ask for a browser-readable or externally deliverable PRD document, and always when turning an already implemented branch/current diff into a PRD.
 - Keep requirement input, clarified answers, assumptions, source-backed research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
 - For document-class handoffs such as parameter references, API capability catalogs, vendor tables, payment/risk rules, data dictionaries, SOPs/runbooks, or migration inventories, generate `catalog.md` or `reference.md` and optional browser-readable HTML instead of forcing the request into a PRD. Include source facts, product decisions, source/review status, owner, access date, attention points, change log, completeness check, and engineering notes.
 - Treat repository files as current-product context, not as competitor or benchmark research. When external research is unavailable, mark recommendations as assumption-based.
@@ -85,6 +85,8 @@ PM_COPILOT.md
 ```
 
 If your agent does not automatically inspect repository instructions, tell it to read `PM_COPILOT.md` before handling the request.
+
+When using PM Copilot from inside another repository, prefer the explicit prompt `按仓库内 pm-copilot/PM_COPILOT.md 工作流产出 PRD`. If you write `@pm-copilot`, it means the local PM Copilot folder and should not trigger external tool or agent discovery.
 
 If PM Copilot is nested inside another development repository, use `docs/embedded-use.md` and the adapter templates in `adapters/`.
 

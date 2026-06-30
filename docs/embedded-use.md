@@ -50,6 +50,8 @@ I need a PRD, tracking plan, and H5 UI deliverable for membership auto-renewal o
 
 The adapter should detect product-manager tasks and delegate to `pm-copilot/PM_COPILOT.md`.
 
+The adapter should also define `@pm-copilot` as a local repository reference. When the user writes `@pm-copilot`, `按 pm-copilot 规范`, or `按仓库内 pm-copilot/PM_COPILOT.md 工作流产出 PRD`, the agent should read the local `pm-copilot/PM_COPILOT.md` file and must not search for an external agent, MCP server, plugin, or hosted Copilot tool.
+
 Before generating PRD, metrics, tracking, flow, or UI-delivery artifacts, the agent should run or record tool preflight, inspect relevant host project files, and ask must-answer questions when the current product fit is unclear.
 
 For solution shaping, repository files are current-product context and engineering constraints. They do not replace external competitor, benchmark, comparable-feature, policy, or public-solution research when that research materially affects the product decision.
