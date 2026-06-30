@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.6] - 2026-06-30
+
+### Changed
+
+- Aligned installer-generated Codex, Claude Code, and Cursor adapters with the bundled adapter templates so structured references, document handoffs, parameter tables, rule references, data dictionaries, and SOP/runbook requests also trigger the local PM Copilot workflow.
+- Preserved the document-class no-PRD exception in installer-generated adapter snippets, preventing adapter installs from narrowing the workflow behavior compared with the source templates.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/install_adapter.py scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.5] - 2026-06-30
 
 ### Changed

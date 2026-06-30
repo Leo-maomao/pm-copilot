@@ -11,6 +11,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 START = "<!-- PM_COPILOT_ADAPTER_START -->"
 END = "<!-- PM_COPILOT_ADAPTER_END -->"
+TRIGGER_TEXT = (
+    "When the user asks for product-manager work such as PRD, requirements, "
+    "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
+    "user flows, UI deliverables, prototypes, structured references, document handoffs, "
+    "parameter tables, rule references, data dictionaries, SOPs/runbooks, competitor "
+    "research, review checklists, or equivalent Chinese-language PM tasks"
+)
+CONTEXT_RULE = (
+    "Before generating PM artifacts, inspect relevant current product context. "
+    "Use host project files when available, and use PRDs, specs, docs, screenshots, "
+    "analytics exports, support tickets, or meeting notes when no code context exists. "
+    "Ask must-answer questions and identify development or launch confirmation blockers "
+    "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
+    "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
+    "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed "
+    "preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
+    "explicit redesign/greenfield, no-source, or concretely blocked source rendering. For document-class requests "
+    "where the user says no PRD is needed, use the structured reference or document prototype as the primary "
+    "delivery and do not force a PRD."
+)
 
 
 def build_block(pm_path: str, tool: str) -> str:
@@ -25,22 +45,11 @@ def build_block(pm_path: str, tool: str) -> str:
     if tool == "codex":
         title = "PM Copilot"
         body = (
-            "When the user asks for product-manager work such as PRD, requirements, "
-            "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
-            "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
-            f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
+            f"{TRIGGER_TEXT}, read `{target}` and follow that workflow.\n\n"
             + local_reference_rule +
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
-            "Before generating PM artifacts, inspect relevant current product context. "
-            "Use host project files when available, and use PRDs, specs, docs, screenshots, "
-            "analytics exports, support tickets, or meeting notes when no code context exists. "
-            "Ask must-answer questions and identify development or launch confirmation blockers "
-            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
-            "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
-            "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed "
-            "preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
-            "explicit redesign/greenfield, no-source, or concretely blocked source rendering.\n\n"
+            f"{CONTEXT_RULE}\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location.\n\n"
             "Keep normal software-engineering tasks governed by this host repository's "
@@ -49,44 +58,22 @@ def build_block(pm_path: str, tool: str) -> str:
     elif tool == "claude-code":
         title = "PM Copilot"
         body = (
-            "When the user asks for product-manager work such as PRD, requirements, "
-            "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
-            "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
-            f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
+            f"{TRIGGER_TEXT}, read `{target}` and follow that workflow.\n\n"
             + local_reference_rule +
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
-            "Before generating PM artifacts, inspect relevant current product context. "
-            "Use host project files when available, and use PRDs, specs, docs, screenshots, "
-            "analytics exports, support tickets, or meeting notes when no code context exists. "
-            "Ask must-answer questions and identify development or launch confirmation blockers "
-            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
-            "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
-            "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed "
-            "preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
-            "explicit redesign/greenfield, no-source, or concretely blocked source rendering.\n\n"
+            f"{CONTEXT_RULE}\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location."
         )
     elif tool == "cursor":
         title = "PM Copilot"
         body = (
-            "When the user asks for product-manager work such as PRD, requirements, "
-            "user stories, acceptance criteria, metrics, tracking plans, analytics events, "
-            "user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent "
-            f"Chinese-language PM tasks, read `{target}` and follow that workflow.\n\n"
+            f"{TRIGGER_TEXT}, read `{target}` and follow that workflow.\n\n"
             + local_reference_rule +
             "Do not require the user to say \"Use PM Copilot\". Natural product-manager "
             "requests should trigger it.\n\n"
-            "Before generating PM artifacts, inspect relevant current product context. "
-            "Use host project files when available, and use PRDs, specs, docs, screenshots, "
-            "analytics exports, support tickets, or meeting notes when no code context exists. "
-            "Ask must-answer questions and identify development or launch confirmation blockers "
-            "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
-            "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
-            "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed "
-            "preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
-            "explicit redesign/greenfield, no-source, or concretely blocked source rendering.\n\n"
+            f"{CONTEXT_RULE}\n\n"
             "Keep normal software-engineering tasks governed by the host repository's regular rules.\n\n"
             f"Write generated PM Copilot artifacts under `{pm_path.rstrip('/')}/outputs/<run-id>/` "
             "unless the user asks for another location."
@@ -129,13 +116,13 @@ globs:
 alwaysApply: true
 ---
 
-When the user asks for product-manager work such as PRD, requirements, user stories, acceptance criteria, metrics, tracking plans, analytics events, user flows, UI deliverables, prototypes, competitor research, review checklists, or equivalent Chinese-language PM tasks, read `{target}` and follow that workflow.
+{TRIGGER_TEXT}, read `{target}` and follow that workflow.
 
 When the user writes `@pm-copilot`, "按 pm-copilot 规范", "按仓库内 {target} 工作流产出 PRD", or equivalent local-project wording, treat it as a reference to the local `{target}` file. Do not search for or invoke an external agent, MCP server, plugin, hosted Copilot product, or tool-discovery target because of `@pm-copilot`.
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
 
-Before generating PM artifacts, inspect relevant current product context. Use host project files when available, and use PRDs, specs, docs, screenshots, analytics exports, support tickets, or meeting notes when no code context exists. Ask must-answer questions and identify development or launch confirmation blockers if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, user wording like "prototype" or "only generate a prototype" means review scope only; use source-backed preview/delta files when frontend source exists, and use standalone HTML only for explicit portable HTML, explicit redesign/greenfield, no-source, or concretely blocked source rendering.
+{CONTEXT_RULE}
 
 Keep normal software-engineering tasks governed by the host repository's regular rules.
 
