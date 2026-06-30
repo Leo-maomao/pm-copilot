@@ -117,6 +117,13 @@ DOCUMENT_CSS = """
     #TOC ul ul {
       padding-left: 14px;
     }
+    #TOC ul ul ul {
+      padding-left: 12px;
+      font-size: 12px;
+    }
+    #TOC ul ul ul li {
+      margin: 4px 0;
+    }
     #TOC a {
       display: block;
       margin-left: -6px;
@@ -312,7 +319,7 @@ TOC_TRACKING_SCRIPT = """
   const toc = document.getElementById('TOC');
   if (!toc) return;
   const links = Array.from(toc.querySelectorAll('a[href^="#"]'));
-  const sections = Array.from(document.querySelectorAll('h2[id], h3[id]'));
+  const sections = Array.from(document.querySelectorAll('h2[id], h3[id], h4[id]'));
   if (!links.length || !sections.length) return;
   const linkById = new Map(
     links.map((link) => [decodeURIComponent(link.getAttribute('href').slice(1)), link])
@@ -683,6 +690,7 @@ def main() -> None:
         "--to",
         "html5",
         "--toc",
+        "--toc-depth=4",
         "--metadata",
         f"pagetitle={title}",
         "-o",

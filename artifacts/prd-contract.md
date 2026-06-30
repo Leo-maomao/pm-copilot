@@ -70,7 +70,7 @@ For frontend page, UI component, visual-state, or interactive-control changes, `
 
 `8. 埋点需求` includes event tables and property definitions by default. If no approved taxonomy was found, label the event list as proposed and disclose the source gap.
 
-`9. 多语言需求` includes newly added or changed UI copy as pure text plus a separate usage/key mapping. If there is no new copy, say so explicitly.
+`9. 多语言需求` includes newly added or changed UI copy as pure text plus a separate usage/key mapping. If there is no new copy, say so explicitly. The pure-text block must use the current delivery language only by default; for Chinese PRDs, do not list English/Chinese copy pairs unless the user explicitly asks for bilingual output.
 
 `10. 验收标准` links acceptance criteria to requirement IDs and gives verification methods.
 
@@ -172,12 +172,12 @@ Screenshot coverage should be page-level rather than micro-state inflated: every
 - Do not put unconfirmed optional capabilities into MVP requirements or acceptance criteria.
 - Specify entry point, navigation visibility, permission or eligibility states, and fallback behavior for existing-product surfaces.
 - Put tracking events and property definitions in the PRD by default; create a CSV export only when useful.
-- Put newly added or changed UI copy in the multi-language section as pure text that a product manager can copy for localization submission. Keep i18n keys, usage locations, interpolation notes, and reviewer notes in a separate table below the pure-text block.
+- Put newly added or changed UI copy in the multi-language section as pure text that a product manager can copy for localization submission. Keep i18n keys, source-language notes, usage locations, interpolation notes, and reviewer notes in a separate table below the pure-text block. The pure-text block itself uses the current delivery language only unless bilingual output was requested.
 - For implemented-feature PRD delivery, inspect current branch evidence before asking clarification questions that the code can answer.
 - Markdown tables should use consistent left alignment separators (`---`) unless a user explicitly requests another alignment for a special data table.
 - PRD Markdown should contain exactly one top-level title.
 - PRD HTML must not create a second visible document title or leave a large unused content column.
-- When `prd.html` is generated from `prd.md`, render it as a normal readable document with the fixed PM Copilot document shell: left table of contents, H1 excluded from the TOC, stable ASCII anchors, reading-position TOC sync, full-width content flow, complete readable left-aligned tables, rendered Mermaid diagrams through local assets, and inline images/placeholders at their relevant positions.
+- When `prd.html` is generated from `prd.md`, render it as a normal readable document with the fixed PM Copilot document shell: left table of contents that includes numbered `h2`/`h3`/`h4` sections, H1 excluded from the TOC, stable ASCII anchors, reading-position TOC sync, full-width content flow, complete readable left-aligned tables, rendered Mermaid diagrams through local assets, and inline images/placeholders at their relevant positions.
 - For implemented-feature PRD HTML, prefer `scripts/render_prd_html.py`.
 - UI delivery details belong in UI artifacts and annotations. In the new PRD structure, summarize UI delivery implications inside requirement details or code implementation notes instead of forcing a separate `UI 交付` top-level section.
 - Mark assumptions explicitly.

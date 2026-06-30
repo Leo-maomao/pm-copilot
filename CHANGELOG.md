@@ -6,6 +6,20 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.9.7] - 2026-06-30
+
+### Changed
+
+- Expanded PRD HTML rendering so the left table of contents includes numbered fourth-level sections, covering requirement-detail subsections such as per-model capability entries.
+- Strengthened Chinese PRD copy/i18n guidance so pure-text extraction defaults to Chinese-only user-facing copy unless bilingual output is explicitly requested.
+- Added output validation that numbered `h2`/`h3`/`h4` headings appear in `prd.html` TOC and that Chinese pure-text copy extraction does not silently mix English UI copy.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/install_adapter.py scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.6] - 2026-06-30
 
 ### Changed

@@ -29,7 +29,7 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 16. For frontend page, UI component, visual-state, or interactive-control changes, include UI specifications in the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
 17. Add flow diagrams only when they improve reviewability for a specific requirement. Place each Mermaid diagram inside that requirement's detail subsection, not as fixed global `用户流程图` and `功能流程图` sections.
 18. Add tracking plan event and property tables inside `埋点需求` by default.
-19. Add newly added or changed UI copy as a pure-text extraction block in `多语言需求`, or explicitly state that no new UI copy is involved.
+19. Add newly added or changed UI copy as a pure-text extraction block in `多语言需求`, or explicitly state that no new UI copy is involved. Use only the current delivery language in that pure-text block unless the user explicitly asks for bilingual output.
 20. For implemented-feature PRDs, add a code implementation section with risks/dependencies and implementation evidence that links branch evidence to requirement IDs and exposes partial/unverified/conflicting behavior.
 21. Add code locations and concrete validation results when implementation evidence exists.
 22. For required top-level sections with no applicable content, write one explicit localized `Not applicable: <reason>` line or row. Remove optional subsections, diagrams, tables, and image blocks that have no real content; never ship empty placeholders or `待补充`.
@@ -60,7 +60,7 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 - Functional flow sections, when present, must use Mermaid `flowchart` code blocks. Do not represent the primary flow as a table or a PNG.
 - Flow diagrams are not mandatory for every PRD or every requirement; include them only for complex user paths, cross-system processes, or state-heavy interactions.
 - Keep Mermaid node IDs ASCII and labels localized. Prefer simple unquoted labels and avoid custom `classDef` styling unless the renderer has been verified.
-- Copy/i18n sections should include a pure-text block for newly added or changed UI copy so product managers can submit it directly for localization.
+- Copy/i18n sections should include a pure-text block for newly added or changed UI copy so product managers can submit it directly for localization. Chinese PRDs should not list English/Chinese copy pairs in the pure-text block unless bilingual output was requested; put source-language notes, keys, and usage mapping in the table below instead.
 
 ## Quality Bar
 

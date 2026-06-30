@@ -250,6 +250,9 @@ KEY_VALUE_COPY_LINE_RE = re.compile(
     r"^\s*[A-Za-z][A-Za-z0-9_.-]{2,}\s*=\s*\S+",
     re.MULTILINE,
 )
+CJK_RE = re.compile(r"[\u3400-\u9fff]")
+LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
+BILINGUAL_COPY_REQUEST_RE = re.compile(r"双语|中英|bilingual|English\s+and\s+Chinese", re.IGNORECASE)
 IMAGE_REQUIREMENT_ROW_RE = re.compile(r"\|\s*(?:需求图|截图|图示|图片)\s*\|", re.IGNORECASE)
 INLINE_REQUIREMENT_IMAGE_RE = re.compile(
     r"!\[[^\]]+\]\((?:\.\/)?assets\/[^)]+\)|占位图[:：]\s*[^|\n]+?\.(?:png|jpg|jpeg|webp)",
@@ -2179,7 +2182,6 @@ def check_prd_flow_sections(text: str) -> None:
 
 
 def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None:
-    del language
     for section in sections_matching(text, COPY_I18N_SECTION_HEADING_RE):
         body = str(section.get("body", ""))
         title = str(section.get("raw_title", section.get("title", "")))
@@ -2196,12 +2198,36 @@ def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None
                         "PRD pure-text copy extraction must contain copy only, not `key = copy` lines: "
                         f"{title}"
                     )
+                if language == "zh" and not BILINGUAL_COPY_REQUEST_RE.search(body):
+                    english_only_lines = probable_english_copy_lines(block)
+                    if len(english_only_lines) >= 3:
+                        fail(
+                            "Chinese PRD pure-text copy extraction must default to Chinese-only UI copy; "
+                            "do not include bilingual English/Chinese copy unless the user explicitly asks for it: "
+                            f"{title}"
+                        )
         if PLAIN_COPY_EXTRACT_RE.search(body) and (
             pure_text_blocks
             or re.search(r"^\s*[-*]\s*[\"“][^\"”]+[\"”]", body, re.MULTILINE)
         ):
             continue
         fail(f"PRD copy/i18n section must include a pure-text extraction block for new UI copy: {title}")
+
+
+def probable_english_copy_lines(block: str) -> list[str]:
+    lines: list[str] = []
+    for raw_line in block.splitlines():
+        line = raw_line.strip()
+        if not line or CJK_RE.search(line) or not LATIN_LETTER_RE.search(line):
+            continue
+        if re.search(r"://|/|\\|[{}<>]|^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$", line):
+            continue
+        if re.fullmatch(r"[A-Z0-9_.-]{1,12}", line):
+            continue
+        if len(re.findall(r"[A-Za-z]", line)) < 4:
+            continue
+        lines.append(line)
+    return lines
 
 
 def check_mini_program_prototype(path: Path, language: str | None = None) -> None:
@@ -2537,9 +2563,22 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
         toc_hrefs = {str(link.get("href", "")).lstrip("#") for link in parser.toc_links}
         if h1_ids & toc_hrefs:
             fail(f"{prd_html_path.name} table of contents must start from numbered sections, not the H1 title")
-        tracks_h2_h3 = (
-            re.search(r"querySelectorAll\(['\"]h2\[id\]\s*,\s*h3\[id\]['\"]\)", text)
-            or all(marker in text for marker in ("querySelectorAll", "h2[id]", "h3[id]"))
+        numbered_heading_ids = {
+            str(heading.get("id", ""))
+            for heading in parser.headings
+            if heading.get("level") in {"h2", "h3", "h4"}
+            and str(heading.get("id", ""))
+            and re.match(r"^\d+(?:\.\d+)*", str(heading.get("text", "")))
+        }
+        missing_numbered_headings = sorted(numbered_heading_ids - toc_hrefs)
+        if missing_numbered_headings:
+            fail(
+                f"{prd_html_path.name} table of contents must include numbered h2/h3/h4 headings: "
+                + ", ".join(missing_numbered_headings[:8])
+            )
+        tracks_numbered_headings = (
+            re.search(r"querySelectorAll\(['\"]h2\[id\]\s*,\s*h3\[id\]\s*,\s*h4\[id\]['\"]\)", text)
+            or all(marker in text for marker in ("querySelectorAll", "h2[id]", "h3[id]", "h4[id]"))
         )
         has_toc_sync_runtime = (
             "IntersectionObserver" in text
@@ -2549,7 +2588,7 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
                 and "is-active" in text
             )
         )
-        if not has_toc_sync_runtime or not tracks_h2_h3:
+        if not has_toc_sync_runtime or not tracks_numbered_headings:
             fail(f"{prd_html_path.name} table of contents must sync with the reading position")
 
     has_requirement_detail_table = False
