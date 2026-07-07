@@ -68,6 +68,7 @@ REQUIRED_FILES = [
     "docs/direct-use.md",
     "docs/embedded-use.md",
     "docs/optimization-playbook.md",
+    "docs/practice-self-iteration.md",
     "docs/self-improvement-system.md",
     "docs/failure-taxonomy.md",
     "docs/quality-rubric.md",

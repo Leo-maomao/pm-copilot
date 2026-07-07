@@ -25,7 +25,7 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 12. Separate confirmed MVP scope, optional or conditional scope, future scope, and non-goals inside `需求列表` or `需求详情` rather than creating an unnumbered scope appendix.
 13. Create a requirement list with stable IDs, but keep it scan-level only.
 14. Write requirement details for each functional item, including function, scenario, entry/trigger, content requirements, business logic, interaction rules, data rules, permission rules, edge states, tracking links, and acceptance links where relevant.
-15. Place screenshots or image placeholders inline in the related requirement, flow, or evidence position. Do not create a separate image list by default.
+15. Place screenshots or image placeholders inline in the related requirement, flow, table row, or evidence position. Do not create a separate image list by default. If a requirement detail is a two-column field/value table, put the screenshot or placeholder in the same `Figures`/`图示` row value cell instead of placing it below the table.
 16. For frontend page, UI component, visual-state, or interactive-control changes, include UI specifications in the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
 17. Add flow diagrams only when they improve reviewability for a specific requirement. Place each Mermaid diagram inside that requirement's detail subsection, not as fixed global `用户流程图` and `功能流程图` sections.
 18. Add tracking plan event and property tables inside `埋点需求` by default.
@@ -51,6 +51,13 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 > 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
 ```
 
+- If the missing screenshot belongs in a Markdown table cell, do not use the blockquote form. Use the same-cell inline form instead:
+
+```markdown
+| 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
+```
+
+- When the real image exists for a table row, replace the same cell with `![资料卡片-加载中](./assets/资料卡片-加载中.png)`. Do not move the image above or below the table during replacement.
 - Name screenshots by content. If one object has multiple states, use object plus concrete state, for example `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; do not use generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
 - Do not create a standalone image list, figure list, screenshot appendix, or screenshot inventory unless the user explicitly asks for one.
 - Missing screenshots in Chinese PRDs are called `占位图`; do not use labels such as `待补真实图`.

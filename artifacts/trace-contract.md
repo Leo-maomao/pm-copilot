@@ -85,6 +85,7 @@ review_scores:
 quality_thresholds:
 quality_decision:
 validation_results:
+self_iteration:
 failures:
 final_status:
 next_actions:
@@ -118,6 +119,7 @@ next_actions:
 - When external MCP/API/SaaS tools are requested or recommended, record `external_integrations` with candidate status, source type, source URL, cost risk, credentials, permission boundary, data risk, fallback, approval owner, and limitation.
 - Record tool results using `artifacts/tool-result-contract.md` and tool IDs from `tools/tool-registry.yaml` where possible.
 - When the delivery orchestrator runs, record `outputs/<run-id>/tool-results/delivery-check-report.json` or the reason it could not be created.
+- When a real run triggers PM Copilot self-iteration, record `self_iteration` with source run, user correction, generalized failure, selected fix surface, regression update, version change, validation commands, and embedded-copy sync targets.
 - Record validation commands actually run, their result, and skipped validations with reasons.
 - For UI deliveries, record browser screenshot and visual diff validation under `visual_validation`. For compatibility HTML, `validate_prototype_visual.py` may be used; for source-backed preview/delta, run the host dev/preview/Storybook/simulator path and use `validate_ui_preview.py` when a browser URL or file target exists, or record equivalent simulator evidence. If Playwright or browser tooling is unavailable, attempt or guide setup first; record `status: skipped` only with the exact setup failure, environment restriction, or user-declined reason.
 - Record generated engineering and launch handoff files under `handoff_artifacts` when `dev-tasks.yaml` or `launch-decision.yaml` is created.

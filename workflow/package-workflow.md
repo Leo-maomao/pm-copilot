@@ -20,19 +20,20 @@ This workflow verifies that the PM-facing deliverables are complete and consiste
 4. Verify `prd.html` exists when requested or when the run is implemented-feature PRD delivery, and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
 5. Verify `prd.html` preserves complete tables, renders Mermaid diagrams, uses local image paths, supports click-to-fullscreen for real images, and keeps images/placeholders inline at the relevant PRD position.
 6. Verify missing screenshots use only the inline `占位图` block, real images live under `assets/`, and state screenshot names use object plus concrete state such as `文件上传-上传中.png` instead of `文件上传-状态.png`.
-7. Verify the UI deliverable exists or is recorded when the requirement has user-facing UI.
-8. Verify PRD and UI deliverable agree on scope, states, logic, interaction rules, tracking, and blockers.
-9. Verify the PRD links the UI deliverable and says that detailed page-level design and interaction annotations live inside it.
-10. For document-class delivery, verify the structured reference or document prototype includes source facts, product decisions, source/review status, typed attention points, change log, and completeness check.
-11. Verify optional exports are genuinely useful or explicitly requested.
-12. Verify readiness fields are separate: PRD status, engineering handoff status, and launch status.
-13. Verify content source, review status, disclaimer status, and launch impact are recorded when relevant.
-14. Verify structured review findings are reflected in the PRD with artifact, evidence, owner, required-before phase, and status.
-15. Verify validation commands and limitations are recorded consistently in PRD and run log.
-16. Verify tool preflight was run for final/full-loop delivery, or that an explicit reason is recorded.
-17. Run or verify `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` and inspect `tool-results/delivery-check-report.json`.
-18. For UI deliverables, verify browser screenshot/visual validation ran, or that setup was attempted/guided before a skipped status was recorded with the exact tooling limitation.
-19. When requested, verify `dev-tasks.yaml` follows the development task contract and `launch-decision.yaml` follows the launch decision contract.
+7. When a requirement detail uses a field/value table, verify every real image or missing-image marker for that requirement is inside the same table row/cell, usually the `图示`/`截图` row. A blank table row plus a blockquote or image below the table is invalid.
+8. Verify the UI deliverable exists or is recorded when the requirement has user-facing UI.
+9. Verify PRD and UI deliverable agree on scope, states, logic, interaction rules, tracking, and blockers.
+10. Verify the PRD links the UI deliverable and says that detailed page-level design and interaction annotations live inside it.
+11. For document-class delivery, verify the structured reference or document prototype includes source facts, product decisions, source/review status, typed attention points, change log, and completeness check.
+12. Verify optional exports are genuinely useful or explicitly requested.
+13. Verify readiness fields are separate: PRD status, engineering handoff status, and launch status.
+14. Verify content source, review status, disclaimer status, and launch impact are recorded when relevant.
+15. Verify structured review findings are reflected in the PRD with artifact, evidence, owner, required-before phase, and status.
+16. Verify validation commands and limitations are recorded consistently in PRD and run log.
+17. Verify tool preflight was run for final/full-loop delivery, or that an explicit reason is recorded.
+18. Run or verify `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` and inspect `tool-results/delivery-check-report.json`.
+19. For UI deliverables, verify browser screenshot/visual validation ran, or that setup was attempted/guided before a skipped status was recorded with the exact tooling limitation.
+20. When requested, verify `dev-tasks.yaml` follows the development task contract and `launch-decision.yaml` follows the launch decision contract.
 
 ## Default Delivery Files
 

@@ -443,7 +443,7 @@ def remove_h1_from_toc(html: str) -> str:
     toc = toc_match.group(0)
     compact_match = re.fullmatch(
         r"(?P<prefix><(?P<tag>nav|div)\b[^>]*\bid=\"TOC\"[^>]*>\s*<ul>\s*)"
-        r"<li>\s*<a href=\"#[^\"]+\"[^>]*>.*?</a>\s*<ul>\s*"
+        r"<li>\s*<a\b(?=[^>]*\bhref\s*=\s*[\"']#document-title[\"'])[^>]*>.*?</a>\s*<ul>\s*"
         r"(?P<items>.*?)"
         r"\s*</ul>\s*</li>\s*"
         r"(?P<suffix></ul>\s*</(?P=tag)>)",
@@ -649,8 +649,8 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
         ensure_assets_dir(run_folder)
     html = normalize_html_shell(html)
     html = convert_mermaid_blocks(html)
-    html = remove_h1_from_toc(html)
     html = normalize_heading_anchors(html)
+    html = remove_h1_from_toc(html)
     html = merge_requirement_image_table_cells(html)
     html = replace_document_styles(html)
     if html_contains_images(html) and 'id="image-lightbox"' not in html:

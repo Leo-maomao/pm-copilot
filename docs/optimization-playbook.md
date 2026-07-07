@@ -50,6 +50,8 @@ For full self-iteration or embedded-project benchmarking, every cycle must gener
 
 Do not optimize from a partial clarification-only run when the user asked for full-loop iteration. If clarification would normally block the workflow, use explicitly recorded conservative default options for the evaluation round, keep residual risks visible, and still produce the full artifact set.
 
+When the trigger is a real user correction after a completed delivery, use `docs/practice-self-iteration.md` as the operational checklist. Preserve the source run evidence, generalize the defect, prefer validator/renderer fixes for mechanically detectable issues, update version and changelog, and sync embedded copies when requested.
+
 When an external repository is used only as a validation host, remove generated requirement folders from that host after the evaluation evidence has been scored and the PM Copilot fixes have been captured. Keep regression knowledge in private local evaluation notes, validators, docs, or logs rather than leaving stale generated demand files inside the host product repository.
 
 After a fixed iteration block, for example 20 rounds, decide whether the improvement is significant from evidence rather than intuition. Use these checks:
@@ -193,6 +195,7 @@ Use `templates/evaluation-case-template.md`.
 | Ready status hides launch blockers | Improve readiness model, PRD contract, and delivery review rules |
 | Content-heavy feature lacks source or review owner | Improve guardrails, PRD contract, and content-source trace fields |
 | Good case regresses after a change | Add regression eval and avoid global prompt rewrites |
+| A real run needed manual PRD/HTML repair | Add a validator or renderer fix first, then reinforce the contract/template/skill text |
 
 ## Maturity Levels
 

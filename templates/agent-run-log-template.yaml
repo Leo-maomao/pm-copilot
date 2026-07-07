@@ -543,6 +543,16 @@ validation_results:
     limitation: ""
     fallback: ""
 
+self_iteration:
+  triggered: false
+  source_run_id: ""
+  user_corrections: []
+  generalized_failures: []
+  selected_fix_surfaces: []
+  regression_updates: []
+  version_change: ""
+  embedded_copy_sync: []
+
 failures:
   - id: ""
     severity: ""

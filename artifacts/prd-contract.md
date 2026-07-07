@@ -101,7 +101,7 @@ For frontend page, UI component, visual-state, or interactive-control changes, `
 | Edge states | Loading, empty, error, no permission, offline, rollback, and fallback behavior |
 | Tracking links | Related event IDs |
 | Acceptance links | Related acceptance criteria IDs |
-| Figures | Inline screenshot or placeholder at the exact point it explains |
+| Figures | Inline screenshot or placeholder at the exact point it explains. In a field/value requirement table, this must be in the same `图示`/`Figures` row value cell. |
 
 The `需求列表` section is only a rough overview. Each item in `需求详情` must remain reviewable without hunting through later chapters.
 
@@ -157,6 +157,20 @@ When the real image exists, replace the whole placeholder block at the same posi
 ```markdown
 ![资料卡片-加载中](./assets/资料卡片-加载中.png)
 ```
+
+If the relevant requirement detail uses a Markdown table, the placeholder or image must stay inside the table cell. Use the single-cell placeholder form:
+
+```markdown
+| 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
+```
+
+When the real image exists for that row, replace the same value cell with:
+
+```markdown
+| 图示 | ![资料卡片-加载中](./assets/资料卡片-加载中.png)<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
+```
+
+Do not move the table image into a paragraph, blockquote, figure list, or appendix immediately after the table. If the requirement is expressed as a field/value table, the row-level association is part of the requirement.
 
 State screenshots must be named with the screenshot object plus the concrete state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; do not use generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
 

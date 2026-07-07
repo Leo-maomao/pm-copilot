@@ -6,6 +6,27 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.10.0] - 2026-07-07
+
+### Changed
+
+- Strengthened implemented-feature PRD image guidance so field/value requirement-detail tables must keep real images and missing-image markers inside the same `图示`/`截图` table cell.
+- Clarified the table-cell placeholder format: `占位图：<file>.png<br>用途：<purpose>`, while preserving the two-line blockquote form for prose positions.
+- Added practice-driven self-iteration workflow documentation and trace/template fields so real user corrections become generalized PM Copilot improvements with versioning, validation, regression, and embedded-copy sync steps.
+- Added a regression eval for implemented-feature PRDs whose images or placeholders drift outside requirement-detail tables.
+
+### Fixed
+
+- Made `render_prd_html.py` remove the H1 title from the PRD HTML table of contents after stable heading IDs are assigned, including Pandoc output where TOC link attributes are line-wrapped.
+- Added output validation that fails implemented-feature PRDs when images or missing-image placeholders appear outside a field/value requirement-detail table that represents the same requirement.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/install_adapter.py scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py`.
+- Renderer and validator smoke checks pass for H1-free TOC output and table-contained missing-image placeholders.
+- Git whitespace validation passes with `git diff --check`.
+
 ## [2.9.8] - 2026-06-30
 
 ### Changed

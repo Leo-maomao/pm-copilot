@@ -1,6 +1,24 @@
 cycle_id: ""
 date: ""
 goal: ""
+practice_source:
+  source_type: "" # real_user_run | eval_run | benchmark_run | support_feedback | manual_review
+  source_run_id: ""
+  source_output_folder: ""
+  user_corrections: []
+  delivery_check_report: ""
+  artifacts_reviewed:
+    - ""
+observed_corrections:
+  - correction: ""
+    affected_artifact: ""
+    evidence: ""
+    severity: "" # Critical | High | Medium | Low
+generalized_failures:
+  - failure_code: ""
+    generalized_symptom: ""
+    host_specific_details_removed: true
+    reusable_rule: ""
 input_cases:
   - eval_case: ""
     run_id: ""
@@ -63,9 +81,20 @@ fixes:
   - path: ""
     change: ""
     rationale: ""
+    fix_surface: "" # validator | renderer | contract | template | skill | workflow | guardrail | agent | docs | eval
 regression_updates:
   evals_added_or_updated: []
   validators_added_or_updated: []
+versioning:
+  previous_version: ""
+  new_version: ""
+  changelog_updated: false
+sync:
+  embedded_copies_checked: []
+  embedded_copies_updated: []
+  skipped_targets:
+    - path: ""
+      reason: ""
 after:
   scorecard_report: ""
   validation_pass_rate: null

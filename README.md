@@ -57,7 +57,7 @@ PM Copilot 将中文和英文都视为一等用户语言。生成的 PM 产物�
 ```text
 当前分支已经把功能写好了。请先读取当前分支 diff、相关代码、截图/资源和验证结果，把实现完整还原成 PRD Markdown，并生成可对外交付的 `prd.html`。
 
-涉及图片的位置如果没有最终截图，就在对应需求位置放内联 `占位图`，不要单独做图片列表。
+涉及图片的位置如果没有最终截图，就在对应需求位置放内联 `占位图`，不要单独做图片列表；如果需求详情是表格，就把图片或占位图填在同一行同一个单元格里，不要放到表格外。
 ```
 
 缺失截图只在对应需求位置使用下面格式，其他地方不要使用这几个字：
@@ -65,6 +65,12 @@ PM Copilot 将中文和英文都视为一等用户语言。生成的 PM 产物�
 ```markdown
 > 占位图：资料卡片-加载中.png
 > 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
+```
+
+如果缺失截图属于需求详情表格中的“图示/截图”行，使用同一单元格写法：
+
+```markdown
+| 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
 ```
 
 截图按内容命名；同一个对象有多个状态时使用“对象-具体状态”，例如 `资料卡片-加载中.png`、`资料卡片-加载失败.png`，不要使用 `资料卡片-状态.png`。截图覆盖粒度按独立页面、窗口、面板或弹窗判断，不要把一个窗口里能同时看见的微状态拆成多张。生成或更新 HTML 需求文档时使用 `scripts/render_prd_html.py`，嵌入宿主项目时输出路径应是 `pm-copilot/outputs/<run-id>/`。
@@ -276,6 +282,7 @@ PM Copilot 可以接入 Figma、浏览器验证、文档系统、项目管理、
 - `docs/configuration.md` - 产品上下文配置
 - `docs/quality-rubric.md` - 生成 PRD 和 UI 交付的人工评分标准
 - `docs/optimization-playbook.md` - 真实任务优化循环
+- `docs/practice-self-iteration.md` - 真实交付后的自迭代闭环
 - `docs/failure-taxonomy.md` - 失败分类和修复映射
 - `docs/versioning.md` - 版本和兼容性策略
 - `docs/release-checklist.md` - 发版就绪清单
@@ -332,6 +339,7 @@ PM Copilot 应通过真实任务运行、追踪记录、质量评分、失败分
 从这些文件开始：
 
 - `docs/optimization-playbook.md`
+- `docs/practice-self-iteration.md`
 - `docs/self-improvement-system.md`
 - `docs/failure-taxonomy.md`
 - `docs/quality-rubric.md`

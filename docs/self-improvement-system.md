@@ -26,6 +26,8 @@ python3 scripts/agent_improvement_scorecard.py --json --report outputs/improveme
 
 The scorecard is expected to surface portfolio gaps. A passing run from a borrowed host project proves source-backed execution for that fixture; it does not prove broad PM-agent quality until non-fixture, document-backed, brief-only, and screenshot-backed cases also pass.
 
+For real user corrections after a delivery, use `docs/practice-self-iteration.md`. That workflow turns a concrete run failure into a generalized PM Copilot fix, updates validators or contracts when possible, records the regression surface, bumps the version, and syncs embedded copies when requested.
+
 ## Capability Areas
 
 The scorecard tracks eval and runtime evidence across these areas:
@@ -64,6 +66,7 @@ Choose the next improvement by the highest product-agent leverage:
 4. A scenario class missing from the portfolio.
 5. A workflow step that requires human discipline but can become a tool or contract.
 6. A host-project defect that generalizes to many repo-backed products.
+7. A real-run manual repair that should have been prevented by template, renderer, or validator behavior.
 
 ## What Counts As Progress
 

@@ -457,6 +457,11 @@ def markdown_table_headers(text: str) -> list[list[str]]:
 
 def markdown_table_blocks(text: str) -> list[dict[str, object]]:
     lines = text.splitlines()
+    line_offsets: list[int] = []
+    offset = 0
+    for line in lines:
+        line_offsets.append(offset)
+        offset += len(line) + 1
     tables: list[dict[str, object]] = []
     index = 0
     while index < len(lines) - 1:
@@ -474,6 +479,7 @@ def markdown_table_blocks(text: str) -> list[dict[str, object]]:
         while index < len(lines) and lines[index].lstrip().startswith("|"):
             body_lines.append(lines[index])
             index += 1
+        end_line = index - 1
         headers = [
             normalize_table_cell(cell)
             for cell in header.strip().strip("|").split("|")
@@ -484,6 +490,12 @@ def markdown_table_blocks(text: str) -> list[dict[str, object]]:
         ]
         tables.append({
             "start_line": start + 1,
+            "start_offset": line_offsets[start] if start < len(line_offsets) else 0,
+            "end_offset": (
+                line_offsets[end_line] + len(lines[end_line])
+                if 0 <= end_line < len(line_offsets)
+                else 0
+            ),
             "headers": [header for header in headers if header],
             "alignments": alignments,
             "text": "\n".join(body_lines),
@@ -2043,6 +2055,7 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
     check_requirement_images_inline(text)
     if implemented_feature_active:
         check_implemented_feature_images_in_requirement_details(text)
+        check_field_value_requirement_images_stay_in_table(text)
     check_requirement_detail_structure(text)
     check_prd_flow_sections(text)
     check_prd_copy_i18n_sections(text, language)
@@ -2091,6 +2104,80 @@ def check_implemented_feature_images_in_requirement_details(text: str) -> None:
             fail(
                 "Implemented-feature PRD images/placeholders must appear inside the relevant "
                 f"requirement detail section, not later as a detached {kind}; line {line}"
+            )
+
+
+def table_is_field_value_requirement_detail(table: dict[str, object]) -> bool:
+    headers = [normalize_table_cell(str(header)) for header in table.get("headers", [])]
+    if len(headers) != 2:
+        return False
+    first, second = headers
+    first_matches = any(alias in first for alias in ("维度", "项目", "field", "dimension", "item"))
+    second_matches = any(alias in second for alias in ("需求", "说明", "内容", "description", "detail", "value"))
+    if not (first_matches and second_matches):
+        return False
+    table_text = str(table.get("text", ""))
+    return bool(
+        re.search(
+            r"\|\s*(?:用户场景|入口|触发|内容要求|前端界面规格|业务逻辑|交互规则|数据规则|权限|"
+            r"加载|空|错误|埋点|验收|图示|scenario|entry|trigger|content|business|interaction|data|"
+            r"permission|edge|tracking|acceptance|figure|screenshot)",
+            table_text,
+            re.IGNORECASE,
+        )
+    )
+
+
+def span_inside_table(span_start: int, table: dict[str, object]) -> bool:
+    return int(table.get("start_offset", -1)) <= span_start <= int(table.get("end_offset", -1))
+
+
+def check_field_value_requirement_images_stay_in_table(text: str) -> None:
+    detail_section = section_by_heading(text, REQUIREMENT_DETAIL_HEADING_RE)
+    if not detail_section:
+        return
+    detail_start = int(detail_section.get("body_start", 0))
+    detail_end = detail_start + len(str(detail_section.get("body", "")))
+    spans = [
+        (start, kind)
+        for start, _, kind in markdown_image_or_placeholder_spans(text)
+        if detail_start <= start < detail_end
+    ]
+    if not spans:
+        return
+    sections = [
+        section
+        for section in markdown_sections(text)
+        if detail_start <= int(section.get("start", 0)) < detail_end
+        and int(section.get("level", 0)) >= 3
+    ]
+    tables = markdown_table_blocks(text)
+    for section in sections:
+        section_start = int(section.get("body_start", 0))
+        section_end = section_start + len(str(section.get("body", "")))
+        section_spans = [
+            (span_start, kind)
+            for span_start, kind in spans
+            if section_start <= span_start < section_end
+        ]
+        if not section_spans:
+            continue
+        field_value_tables = [
+            table
+            for table in tables
+            if section_start <= int(table.get("start_offset", 0)) < section_end
+            and table_is_field_value_requirement_detail(table)
+        ]
+        if not field_value_tables:
+            continue
+        for span_start, kind in section_spans:
+            if any(span_inside_table(span_start, table) for table in field_value_tables):
+                continue
+            line = text[:span_start].count("\n") + 1
+            title = str(section.get("raw_title", section.get("title", "")))
+            fail(
+                "Requirement detail field/value tables must keep images/placeholders inside the same "
+                f"table cell, not outside the table; {kind} near line {line} in {title}"
             )
 
 

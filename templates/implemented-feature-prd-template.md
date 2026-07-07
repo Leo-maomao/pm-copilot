@@ -80,6 +80,7 @@ Each requirement should cover scenario, entry/trigger, content, business rules, 
 For frontend UI/page/component changes, include the implemented UI specification in the requirement detail: affected page/component, layout/alignment, dimensions, spacing, typography, color/token, icon/image requirements, component states, responsive behavior, accessibility/focus behavior, and visual acceptance notes.
 Flow diagrams are optional. Add them only when a specific requirement has a complex user path, cross-system process, or many states; place the Mermaid block inside that requirement's subsection.
 Screenshots and placeholders must appear inside the relevant requirement detail, not in a detached image list.
+When a requirement detail uses the two-column table below, the `图示` row must contain the real image or placeholder in the same value cell. Do not leave `图示` blank and put a blockquote or image paragraph after the table.
 
 Missing-image placeholder format must be exactly:
 
@@ -88,6 +89,9 @@ Missing-image placeholder format must be exactly:
 
 When the real image exists, replace the whole placeholder block with:
 ![<recommended-image-name>](./assets/<recommended-image-name>.png)
+
+Inside a Markdown table cell, use this one-line form instead of a blockquote:
+占位图：<recommended-image-name>.png<br>用途：<one sentence describing the UI state, dialog, or requirement position>
 -->
 
 ### 7.1 <R1 需求名称>
@@ -117,7 +121,7 @@ flowchart TD
 | <加载 / 空 / 错误状态> |  |
 | <埋点> |  |
 | <验收> |  |
-| <图示> |  |
+| <图示> | <Use `![推荐图片名](./assets/推荐图片名.png)` when the image exists. If missing, use `占位图：推荐图片名.png<br>用途：说明该图对应的界面、状态或需求位置。` in this same table cell. Do not place the image or placeholder outside this table.> |
 
 ## 8. <埋点需求>
 

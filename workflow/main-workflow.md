@@ -161,7 +161,7 @@ Before S3 clarification, run S2b:
 
 - Inspect branch status and diff using the host environment's normal source-control tools.
 - Read changed files and nearby product context, including UI entry points, menus, dialogs, feature flags, permissions, data operations, analytics, copy, i18n, and tests when present.
-- Inspect existing screenshots/assets supplied by the user. If images are not ready, define inline placeholder positions in the PRD instead of creating a detached image list.
+- Inspect existing screenshots/assets supplied by the user. If images are not ready, define inline placeholder positions in the PRD instead of creating a detached image list. When the relevant requirement is represented as a field/value detail table, the image or placeholder position is the same `图示`/`截图` row value cell, not a paragraph below the table.
 - Record evidence in `run-log.yaml` under `implemented_feature_prd`: branch name when available, diff summary, files inspected, behavior evidence, UI surfaces, screenshots or placeholders, validation evidence, and unverified product intent.
 - Ask only for facts that cannot be recovered from implementation evidence and that affect product intent, rollout, launch approval, metrics, legal/privacy/compliance, or screenshot replacement.
 
@@ -180,7 +180,7 @@ HTML rendering rules:
 - Use neutral document styling. Avoid unusual background colors, gradients, shadows, card-heavy sections, or a marketing/prototype visual style.
 - Preserve full table readability. Wide requirement tables must keep all semantic columns present and use wrapping or horizontal overflow without hiding the acceptance column or other rightmost fields.
 - Render Mermaid diagrams as diagrams in HTML. Do not leave raw Mermaid code blocks visible in final HTML.
-- Put images and image placeholders inline at the exact relevant PRD position, including table cells when the image explains that row. Do not add a separate screenshot/image list.
+- Put images and image placeholders inline at the exact relevant PRD position, including table cells when the image explains that row. In field/value requirement-detail tables, keep the real image or `占位图：...<br>用途：...` marker inside the `图示`/`截图` row value cell. Do not add a separate screenshot/image list.
 - Local image paths must resolve inside the run folder or its `assets/` subfolder. Real images should support click-to-fullscreen or equivalent lightbox viewing.
 
 ## Evaluation And Default-Option Mode
@@ -194,6 +194,22 @@ When the user explicitly asks PM Copilot to run iterative evaluation, self-itera
 - Keep unresolved launch or engineering confirmations visible in readiness and risks.
 - Downgrade readiness when a default option creates assumption or confirmation risk.
 - Never use default-option mode to approve payment, privacy, legal, compliance, security, financial, or regulated-content launch decisions.
+
+## Practice-Driven Self-Iteration
+
+Use this mode when a real PM Copilot delivery reveals a workflow defect and the user asks to improve PM Copilot itself after the run.
+
+Self-iteration flow:
+
+1. Load the completed run's `prd.md`, `prd.html`, `run-log.yaml`, delivery-check report, user corrections, and relevant source files before changing PM Copilot.
+2. Classify each issue with `docs/failure-taxonomy.md` and rewrite host-specific symptoms as reusable product-agent failures.
+3. Choose the smallest durable fix surface in this order: validator/tool, artifact contract, template, skill, workflow, guardrail, agent interface, docs.
+4. If the issue can be detected mechanically, update `scripts/validate_outputs.py`, `scripts/run_delivery_checks.py`, or another validator. Prompt-only fixes are not enough for repeatable failures.
+5. Add or update an eval case for high-severity, repeated, or cross-surface failures. Keep borrowed host project facts fixture-scoped.
+6. Update `templates/optimization-cycle-template.yaml` fields or an optimization note with source run, observed correction, generalized failure, fix surface, validation, regression update, version, and sync targets.
+7. Bump `VERSION`, update `CHANGELOG.md`, run release validation, and sync local embedded PM Copilot copies when requested.
+
+Self-iteration is complete only when the generic PM Copilot repository validates and the user-facing failure would either be prevented by rules or caught by tooling in a future run.
 
 ## Generalization Boundary
 
@@ -308,7 +324,7 @@ Default delivery should optimize for reviewability, not file count.
 - For document-class reference handoffs, create `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary artifact instead of forcing the request into a PRD. Generate `catalog.html`, `reference.html`, or a `document_prototype` HTML only when the user asks for HTML or a browser-readable document.
 - For implemented-feature PRD delivery, create both `outputs/<run-id>/prd.md` and `outputs/<run-id>/prd.html`. This HTML is a required document rendering and should not be named `prototype-<platform>.html`.
 - For implemented-feature PRD delivery, use `templates/implemented-feature-prd-template.md`, and in embedded mode write to `pm-copilot/outputs/<run-id>/` rather than the host root. Generate or refresh the HTML document with `scripts/render_prd_html.py`.
-- For implemented-feature PRD delivery, keep screenshots and missing-image markers inline with the related requirement, table row, flow step, state, dialog, or evidence. Missing screenshots in Chinese PRDs use the exact `占位图` block only, with a recommended file name such as `文件上传-上传中.png`; real screenshots live under `<run-folder>/assets/`.
+- For implemented-feature PRD delivery, keep screenshots and missing-image markers inline with the related requirement, table row, flow step, state, dialog, or evidence. Missing screenshots in Chinese PRDs use the exact `占位图` block only, with a recommended file name such as `文件上传-上传中.png`; real screenshots live under `<run-folder>/assets/`. If the requirement detail is a field/value table, the marker must be the single-cell form `占位图：文件上传-上传中.png<br>用途：...` in the `图示`/`截图` row.
 - For implemented-feature PRD delivery, screenshot names describe content and concrete state. Use object plus specific state, such as `文件上传-上传中.png` or `文件上传-上传失败.png`; do not use generic names such as `文件上传-状态.png`.
 - For implemented-feature PRD delivery, screenshot coverage is by independent changed page, window, panel, or dialog. Do not split micro-states when a single screenshot captures the full window or panel.
 - For implemented-feature PRD delivery, functional flow diagrams must be Mermaid `flowchart` blocks, not tables or PNGs. Copy/i18n sections must include newly added or changed UI copy as pure text, or explicitly state no new copy exists.

@@ -59,7 +59,7 @@ For an already implemented feature, use:
 ```text
 The feature is already implemented on the current branch. Please inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the feature into a complete PRD Markdown file and generate a browser-readable `prd.html` in the same run folder.
 
-If final screenshots are not ready, put inline `占位图` placeholders at the relevant requirement positions for manual replacement. Do not create a separate image list.
+If final screenshots are not ready, put inline `占位图` placeholders at the relevant requirement positions for manual replacement. Do not create a separate image list. If the requirement detail is a table, keep the image or placeholder inside the same row and cell instead of placing it below the table.
 ```
 
 For missing screenshots in a Chinese PRD, use this exact block only at the requirement position:
@@ -67,6 +67,12 @@ For missing screenshots in a Chinese PRD, use this exact block only at the requi
 ```markdown
 > 占位图：资料卡片-加载中.png
 > 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
+```
+
+If the missing screenshot belongs in a requirement-detail table row, use the single-cell form:
+
+```markdown
+| 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
 ```
 
 Name screenshots by content. When one object has multiple states, use object plus concrete state, for example `资料卡片-加载中.png` and `资料卡片-加载失败.png`; do not use `资料卡片-状态.png`. Cover every independent changed page, window, panel, or dialog, but do not split micro-states when one screenshot captures the complete window or panel. Use `scripts/render_prd_html.py` to generate or refresh the HTML PRD. In embedded host projects, the output folder should be `pm-copilot/outputs/<run-id>/`.
@@ -212,7 +218,7 @@ For reference, policy, medical, legal, financial, safety, or operational content
 
 Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, a UI-deliverable reference, and optionally `run-log.yaml`. The run id uses an English kebab-case requirement name plus day-precision date, for example `membership-renewal-2026-05-18`; same-day collisions append `-2`, `-3`, and so on. In a repo with frontend source, the UI deliverable defaults to source-backed preview/delta files recorded in `run-log.yaml`; when the user asks to implement the UI in the current repository first and then hand off a 1:1 artifact, PM Copilot should run the implemented host UI and extract the target region into source-derived HTML. Compatibility `prototype-<platform>.html` files are generated only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield UI, or concrete source-rendering blockers. Offline folder handoffs may also use `index.html` as the entry file in the same run folder. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the target git repository is unavailable but a same-name source folder exists on the Desktop, the agent may write source changes there and state that no remote push was performed.
 
-When the user asks for an implemented feature to be delivered as a document, the same run folder may contain `prd.html`. It should be a browser-readable version of `prd.md`: normal document styling, a left table of contents that starts from numbered sections and syncs with reading position, complete readable tables, Mermaid diagrams rendered through local assets, inline images or screenshot placeholders at the relevant requirement position, and click-to-fullscreen viewing for real images. Do not turn `prd.html` into a UI prototype, card-heavy page, or detached screenshot list.
+When the user asks for an implemented feature to be delivered as a document, the same run folder may contain `prd.html`. It should be a browser-readable version of `prd.md`: normal document styling, a left table of contents that starts from numbered sections and syncs with reading position, complete readable tables, Mermaid diagrams rendered through local assets, inline images or screenshot placeholders at the relevant requirement position, table-contained images when Markdown table cells are the relevant position, and click-to-fullscreen viewing for real images. Do not turn `prd.html` into a UI prototype, card-heavy page, or detached screenshot list.
 
 Implemented-feature PRDs should use `templates/implemented-feature-prd-template.md` and render `prd.html` with `python3 scripts/render_prd_html.py outputs/<run-id>`. In embedded mode, the run folder must be under `pm-copilot/outputs/<run-id>/`, and the render command is `python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>`.
 
@@ -278,6 +284,7 @@ PM Copilot can connect to tools such as Figma, browser validation, document syst
 - `docs/configuration.md` - product context configuration
 - `docs/quality-rubric.md` - manual scoring rubric for generated PRD/UI deliveries
 - `docs/optimization-playbook.md` - real-task optimization loop
+- `docs/practice-self-iteration.md` - post-delivery self-iteration loop for real user corrections
 - `docs/failure-taxonomy.md` - failure classification and fix mapping
 - `docs/versioning.md` - versioning and compatibility policy
 - `docs/release-checklist.md` - release readiness checklist
@@ -334,6 +341,7 @@ PM Copilot should be improved through real task runs, traces, quality scoring, f
 Start with:
 
 - `docs/optimization-playbook.md`
+- `docs/practice-self-iteration.md`
 - `docs/self-improvement-system.md`
 - `docs/failure-taxonomy.md`
 - `docs/quality-rubric.md`
