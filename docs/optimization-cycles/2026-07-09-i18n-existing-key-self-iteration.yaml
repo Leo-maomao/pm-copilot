@@ -88,6 +88,8 @@ sync:
       status: updated
     - path: "host copy: my-fund-site/pm-copilot"
       status: updated
+    - path: "host copy: sea-craft-next-main/pm-copilot"
+      status: updated
   embedded_copies_updated:
     - path: "host copy: seaart-video-editor/pm-copilot"
       status: updated
@@ -101,9 +103,9 @@ sync:
       status: updated
     - path: "host copy: my-fund-site/pm-copilot"
       status: updated
-  skipped_targets:
-    - path: "host copy candidate: sea-craft-next-main/pm-copilot"
-      reason: "Skipped because the directory does not contain a PM Copilot VERSION file and does not validate as a PM Copilot copy."
+    - path: "host copy: sea-craft-next-main/pm-copilot"
+      status: updated
+  skipped_targets: []
 validation:
   commands:
     - command: "python3 scripts/validate_repo.py"
