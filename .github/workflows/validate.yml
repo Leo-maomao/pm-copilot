@@ -20,6 +20,8 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python scripts
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
         run: |
           python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
 

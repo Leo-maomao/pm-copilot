@@ -6,6 +6,18 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.10.3] - 2026-07-09
+
+### Fixed
+
+- Prevented CI Python bytecode cache artifacts from being misclassified as PM Copilot core source changes by the self-iteration release guard.
+- Disabled bytecode writes during the GitHub Actions compilation step to keep validation worktrees clean.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py`.
+
 ## [2.10.2] - 2026-07-09
 
 ### Fixed

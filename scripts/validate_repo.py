@@ -859,6 +859,9 @@ def git_changed_paths() -> set[str]:
 
 
 def is_self_iteration_core_path(path: str) -> bool:
+    parts = path.split("/")
+    if "__pycache__" in parts or path.endswith((".pyc", ".pyo")):
+        return False
     if path in SELF_ITERATION_RELEASE_METADATA:
         return False
     if path.startswith(SELF_ITERATION_RECORD_PREFIXES):
