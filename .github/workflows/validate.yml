@@ -17,10 +17,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
+
+      - name: Compile Python scripts
+        run: |
+          python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
+
+      - name: Check tool preflight
+        run: |
+          python3 scripts/preflight_tools.py --json
 
       - name: Validate repository
         run: |
-          python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
-          python3 scripts/preflight_tools.py --json
           python3 scripts/validate_repo.py

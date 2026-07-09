@@ -1,0 +1,66 @@
+cycle_id: ci-validation-diagnostics-2026-07-09
+date: "2026-07-09"
+goal: "Make remote PM Copilot validation failures easier to diagnose and avoid runner-version drift."
+practice_source:
+  source_type: real_user_run
+  source_run_id: remote-github-actions-run-67
+  source_output_folder: ""
+  user_corrections:
+    - "Remote validation failed after pushing the PM Copilot self-iteration release."
+  delivery_check_report: "GitHub Actions run 67"
+  artifacts_reviewed:
+    - ".github/workflows/validate.yml"
+    - "scripts/validate_repo.py"
+observed_corrections:
+  - correction: "Remote validation workflow should expose which validation command failed."
+    affected_artifact: ".github/workflows/validate.yml"
+    evidence: "GitHub Actions summary showed only process exit code 1 for the combined validation step."
+    severity: Medium
+generalized_failures:
+  - failure_code: ci_validation_step_too_coarse
+    generalized_symptom: "A CI validation workflow combines multiple checks into one step, making remote failures hard to diagnose from the summary page."
+    host_specific_details_removed: true
+    reusable_rule: "Split CI validation into separate compile, preflight, and repository-validation steps."
+  - failure_code: ci_runtime_version_drift
+    generalized_symptom: "A CI workflow uses a floating Python version and can diverge from locally validated runtime behavior."
+    host_specific_details_removed: true
+    reusable_rule: "Pin CI Python to a supported minor version for release validation."
+fixes:
+  - path: ".github/workflows/validate.yml"
+    change: "Pinned Python to 3.12 and split validation into separate workflow steps."
+    rationale: "Improve remote failure diagnosis and reduce runtime drift."
+    fix_surface: workflow
+  - path: "scripts/validate_repo.py"
+    change: "Included GitHub workflow files in the self-iteration release guard."
+    rationale: "CI workflow changes should also require release metadata and optimization-cycle evidence."
+    fix_surface: validator
+regression_updates:
+  evals_added_or_updated: []
+  validators_added_or_updated:
+    - "scripts/validate_repo.py"
+  rationale: "The change hardens CI and release validation directly; no output fixture is needed."
+versioning:
+  previous_version: "2.10.1"
+  new_version: "2.10.2"
+  changelog_updated: true
+release:
+  remote_push: required
+  remote_push_reason: "This cycle fixes a pushed CI failure and must be pushed to verify the remote workflow."
+  commit_created: true
+sync:
+  embedded_copies_checked: []
+  embedded_copies_updated: []
+  skipped_targets:
+    - path: "local embedded copies"
+      reason: "Workflow-only and validator metadata changes are released from the PM Copilot source first; embedded copies can be synced after CI passes."
+validation:
+  commands:
+    - command: "python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py"
+      status: passed
+    - command: "python3 scripts/preflight_tools.py --json"
+      status: passed
+    - command: "python3 scripts/validate_repo.py"
+      status: passed
+decision:
+  status: improved
+  next_action: "Push and confirm the GitHub Actions run passes."

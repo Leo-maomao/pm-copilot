@@ -171,6 +171,7 @@ PROPERTY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 SELF_ITERATION_CORE_PREFIXES = (
     "PM_COPILOT.md",
+    ".github/workflows/",
     "adapters/",
     "agents/",
     "artifacts/",

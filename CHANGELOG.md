@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.10.2] - 2026-07-09
+
+### Fixed
+
+- Hardened the GitHub Actions validation workflow by pinning Python to 3.12 and splitting Python compilation, tool preflight, and repository validation into separate steps for clearer failure diagnostics.
+- Added GitHub workflow files to the self-iteration release guard so CI workflow changes also require version, changelog, and optimization-cycle evidence.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py`.
+- Clean-clone validation passes for the pushed source state.
+
 ## [2.10.1] - 2026-07-09
 
 ### Fixed
