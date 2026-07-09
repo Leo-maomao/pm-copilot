@@ -6,6 +6,7 @@ Use this checklist before tagging or publishing a release.
 
 - `VERSION` is updated.
 - `CHANGELOG.md` includes the new version.
+- PM Copilot self-iterations that touch core workflow, contract, template, skill, guardrail, agent, or validator files include a `docs/optimization-cycles/` note with version change, validation, remote-push status, and embedded-copy sync targets.
 - README links still work.
 - License is present.
 - Security and contribution docs are present.

@@ -32,8 +32,8 @@ Start this workflow after a completed or partially completed real run when there
    - Guardrail or agent contract when the issue is unsafe, overconfident, or cross-agent.
    - Docs when the behavior is already enforced but hard to operate.
 5. Add or update a regression eval for high-severity, repeated, or cross-surface failures.
-6. Update `templates/optimization-cycle-template.yaml` fields or create an equivalent local optimization note.
-7. Bump `VERSION`, update `CHANGELOG.md`, and run release validation.
+6. Update `templates/optimization-cycle-template.yaml` fields or create an equivalent local optimization note under `docs/optimization-cycles/`.
+7. Bump `VERSION`, update `CHANGELOG.md`, and run release validation. In a git checkout, repository validation fails if core PM Copilot source changes without the version bump, changelog entry, and optimization-cycle note.
 8. Sync embedded PM Copilot copies in local host repositories when requested.
 
 ## Completion Criteria
@@ -44,6 +44,7 @@ Start this workflow after a completed or partially completed real run when there
 - Script bytecode validation passes for changed Python files.
 - `git diff --check` passes.
 - `CHANGELOG.md` describes the change under the new version.
+- The optimization-cycle note records version change, remote-push status, and embedded-copy sync targets. If no PM Copilot remote is available, the note records the skipped push reason instead of implying a push happened.
 
 ## Recommended Validation
 
@@ -52,4 +53,3 @@ python3 scripts/validate_repo.py
 python3 -m py_compile scripts/install_adapter.py scripts/render_prd_html.py scripts/run_delivery_checks.py scripts/validate_outputs.py scripts/validate_repo.py
 git diff --check
 ```
-

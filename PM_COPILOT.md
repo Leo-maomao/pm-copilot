@@ -312,7 +312,8 @@ The user should not need to manually copy templates or create folders. Do that f
    - Fix the smallest durable surface in this order: validator/tool, artifact contract, template, skill, workflow, guardrail, agent interface, docs. If a defect can be detected mechanically, add or strengthen a validator instead of relying only on wording.
    - Add or update an eval/regression case for any high-severity or repeated failure; for a single narrow copy issue, record the rationale if no eval is added.
    - Update `VERSION` and `CHANGELOG.md`, run repository validation plus script bytecode checks, and sync embedded PM Copilot copies in local host projects when requested.
-   - Record the self-iteration in an optimization-cycle note or `templates/optimization-cycle-template.yaml` fields: source run, observed correction, generalized failure, fix surface, validation, regression update, version, and sync targets.
+   - Record the self-iteration in an optimization-cycle note or `templates/optimization-cycle-template.yaml` fields: source run, observed correction, generalized failure, fix surface, validation, regression update, version, remote-push status, and sync targets. In a real PM Copilot git checkout, `python3 scripts/validate_repo.py` must fail when core PM Copilot files change without `VERSION`, `CHANGELOG.md`, and a `docs/optimization-cycles/` note in the same working tree.
+   - If the current `pm-copilot/` folder is only an embedded copy or lacks its own remote, do not claim a commit or push. Record the missing remote as a skipped remote-push reason and list embedded-copy sync targets as updated, checked, or skipped.
 
 12. Create execution handoff artifacts when requested:
    - For development tasks, issue planning, or engineering handoff, follow `workflow/execution-handoff-workflow.md` and create `outputs/<run-id>/dev-tasks.yaml`.

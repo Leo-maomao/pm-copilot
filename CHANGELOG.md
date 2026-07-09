@@ -6,6 +6,20 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [2.10.1] - 2026-07-09
+
+### Fixed
+
+- Strengthened PRD copy/i18n guidance so pure-text extraction only includes brand-new UI copy with no existing i18n key, while existing-key copy stays in the usage/key mapping.
+- Added output validation that fails PRDs when copy declared as existing-key reuse is also present in the pure-text extraction block, with a guard for explicit "no existing key found" wording.
+- Added a self-iteration release guard in repository validation: when PM Copilot core source files change in a git checkout, `VERSION`, `CHANGELOG.md`, and an optimization-cycle note must be changed in the same working tree.
+
+### Validation
+
+- Repository validation passes with `python3 scripts/validate_repo.py`.
+- Script bytecode validation passes with `python3 -m py_compile scripts/validate_outputs.py scripts/validate_repo.py`.
+- Delivery validation passes for the source run that exposed the i18n extraction issue.
+
 ## [2.10.0] - 2026-07-07
 
 ### Changed

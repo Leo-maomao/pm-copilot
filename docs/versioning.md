@@ -79,9 +79,12 @@ Every release should update:
 
 - `VERSION`
 - `CHANGELOG.md`
+- `docs/optimization-cycles/` note when the release comes from a practice-driven PM Copilot self-iteration
 - `docs/release-checklist.md` if release rules changed
 - README links if new major docs are added
 - Evals or templates if artifact contracts changed
+
+When a self-iteration changes PM Copilot core source files in a git checkout, repository validation requires `VERSION`, `CHANGELOG.md`, and a `docs/optimization-cycles/` note to be changed together. If the current folder is only an embedded copy without its own remote, record the skipped push reason and embedded-copy sync target status instead of claiming a release push.
 
 ## Deprecation Policy
 

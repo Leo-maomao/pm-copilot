@@ -70,7 +70,7 @@ For frontend page, UI component, visual-state, or interactive-control changes, `
 
 `8. 埋点需求` includes event tables and property definitions by default. If no approved taxonomy was found, label the event list as proposed and disclose the source gap.
 
-`9. 多语言需求` includes newly added or changed UI copy as pure text plus a separate usage/key mapping. If there is no new copy, say so explicitly. The pure-text block must use the current delivery language only by default; for Chinese PRDs, do not list English/Chinese copy pairs unless the user explicitly asks for bilingual output.
+`9. 多语言需求` includes newly added or changed UI copy as pure text plus a separate usage/key mapping. If there is no new copy, say so explicitly. The pure-text block must use the current delivery language only by default; for Chinese PRDs, do not list English/Chinese copy pairs unless the user explicitly asks for bilingual output. Pure-text extraction is only for brand-new UI copy with no existing i18n key; copy with an existing key must stay out of the pure-text block and be documented only in the usage/key mapping.
 
 `10. 验收标准` links acceptance criteria to requirement IDs and gives verification methods.
 
@@ -186,7 +186,7 @@ Screenshot coverage should be page-level rather than micro-state inflated: every
 - Do not put unconfirmed optional capabilities into MVP requirements or acceptance criteria.
 - Specify entry point, navigation visibility, permission or eligibility states, and fallback behavior for existing-product surfaces.
 - Put tracking events and property definitions in the PRD by default; create a CSV export only when useful.
-- Put newly added or changed UI copy in the multi-language section as pure text that a product manager can copy for localization submission. Keep i18n keys, source-language notes, usage locations, interpolation notes, and reviewer notes in a separate table below the pure-text block. The pure-text block itself uses the current delivery language only unless bilingual output was requested.
+- Put newly added or changed UI copy in the multi-language section as pure text that a product manager can copy for localization submission. Include only copy that has no existing i18n key. Before adding a line in repo-backed PRDs, search available translation sources such as `i18n-data/`, locale JSON files, and local i18n helpers; if the copy already has a key, omit it from pure-text extraction and record the key reuse in the mapping table. Keep i18n keys, source-language notes, usage locations, interpolation notes, and reviewer notes in a separate table below the pure-text block. The pure-text block itself uses the current delivery language only unless bilingual output was requested.
 - For implemented-feature PRD delivery, inspect current branch evidence before asking clarification questions that the code can answer.
 - Markdown tables should use consistent left alignment separators (`---`) unless a user explicitly requests another alignment for a special data table.
 - PRD Markdown should contain exactly one top-level title.

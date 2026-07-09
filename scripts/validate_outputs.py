@@ -250,6 +250,17 @@ KEY_VALUE_COPY_LINE_RE = re.compile(
     r"^\s*[A-Za-z][A-Za-z0-9_.-]{2,}\s*=\s*\S+",
     re.MULTILINE,
 )
+EXISTING_I18N_KEY_ROW_RE = re.compile(
+    r"(?:已有|既有|已存在)\s*(?:i18n\s*)?key|"
+    r"(?:复用|reuse|existing)\s+[^|\n`]*key",
+    re.IGNORECASE,
+)
+NO_EXISTING_I18N_KEY_ROW_RE = re.compile(
+    r"(?:未命中|未发现|没有|无)\s*[^|\n`]{0,16}(?:已有|既有|已存在)\s*(?:i18n\s*)?key|"
+    r"no\s+existing\s+(?:i18n\s*)?key",
+    re.IGNORECASE,
+)
+MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^:?-{3,}:?$")
 CJK_RE = re.compile(r"[\u3400-\u9fff]")
 LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
 BILINGUAL_COPY_REQUEST_RE = re.compile(r"双语|中英|bilingual|English\s+and\s+Chinese", re.IGNORECASE)
@@ -2274,12 +2285,22 @@ def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None
         title = str(section.get("raw_title", section.get("title", "")))
         if not body.strip() or NO_NEW_COPY_RE.search(body):
             continue
+        existing_key_copies = existing_key_copy_lines(body)
         pure_text_blocks = [
             match.group(1)
             for match in re.finditer(r"```(?:text|plain|txt)?\s*\n(.+?)\n```", body, re.DOTALL | re.IGNORECASE)
         ]
         if PLAIN_COPY_EXTRACT_RE.search(body):
             for block in pure_text_blocks:
+                duplicated_existing_key_copy = [
+                    line for line in pure_text_copy_lines(block) if line in existing_key_copies
+                ]
+                if duplicated_existing_key_copy:
+                    fail(
+                        "PRD pure-text copy extraction must exclude copy that already has an i18n key; "
+                        "keep existing-key copy only in the usage/key mapping: "
+                        f"{title}: {', '.join(duplicated_existing_key_copy[:5])}"
+                    )
                 if KEY_VALUE_COPY_LINE_RE.search(block):
                     fail(
                         "PRD pure-text copy extraction must contain copy only, not `key = copy` lines: "
@@ -2299,6 +2320,45 @@ def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None
         ):
             continue
         fail(f"PRD copy/i18n section must include a pure-text extraction block for new UI copy: {title}")
+
+
+def pure_text_copy_lines(block: str) -> list[str]:
+    lines: list[str] = []
+    for raw_line in block.splitlines():
+        line = normalize_copy_text(raw_line)
+        if line:
+            lines.append(line)
+    return lines
+
+
+def existing_key_copy_lines(body: str) -> set[str]:
+    copies: set[str] = set()
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|") or not line.endswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        if all(MARKDOWN_TABLE_SEPARATOR_RE.fullmatch(cell) for cell in cells if cell):
+            continue
+        first_cell = normalize_copy_text(cells[0])
+        if first_cell in {"文案", "copy", "<文案>"}:
+            continue
+        if (
+            first_cell
+            and EXISTING_I18N_KEY_ROW_RE.search(line)
+            and not NO_EXISTING_I18N_KEY_ROW_RE.search(line)
+        ):
+            copies.add(first_cell)
+    return copies
+
+
+def normalize_copy_text(value: str) -> str:
+    value = re.sub(r"<br\s*/?>", " ", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"^[-*]\s+", "", value)
+    value = value.strip("`\"'“”‘’ ")
+    return value
 
 
 def probable_english_copy_lines(block: str) -> list[str]:

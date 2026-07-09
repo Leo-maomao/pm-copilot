@@ -137,7 +137,7 @@ flowchart TD
 
 ## 9. <多语言需求>
 
-<!-- Put only user-facing copy in the pure-text block. Keep keys and usage notes in the table below. If there is no new copy, state that explicitly. -->
+<!-- Put only brand-new user-facing copy with no existing i18n key in the pure-text block. Keep existing-key reuse, keys, and usage notes in the table below. If there is no new copy, state that explicitly. -->
 
 ### 9.1 <纯文本提取>
 

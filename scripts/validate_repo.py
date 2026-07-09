@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -167,6 +168,27 @@ LOCAL_MACHINE_PATH_RE = re.compile(
 
 MACHINE_PATH_RE = re.compile(r"^[A-Za-z0-9._@+/-]+$")
 PROPERTY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+SELF_ITERATION_CORE_PREFIXES = (
+    "PM_COPILOT.md",
+    "adapters/",
+    "agents/",
+    "artifacts/",
+    "docs/practice-self-iteration.md",
+    "docs/optimization-playbook.md",
+    "docs/release-checklist.md",
+    "docs/self-improvement-system.md",
+    "docs/versioning.md",
+    "guardrails/",
+    "prompts/",
+    "scripts/",
+    "skills/",
+    "templates/",
+    "tools/",
+    "workflow/",
+)
+SELF_ITERATION_RELEASE_METADATA = ("VERSION", "CHANGELOG.md")
+SELF_ITERATION_RECORD_PREFIXES = ("docs/optimization-cycles/",)
 
 REQUIRED_AGENT_SECTIONS = [
     "Purpose",
@@ -772,6 +794,80 @@ def check_version() -> None:
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     if version not in changelog:
         fail(f"CHANGELOG.md does not mention VERSION {version}")
+    latest_match = re.search(r"^##\s+\[(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
+    if not latest_match:
+        fail("CHANGELOG.md missing top-level version entry")
+    if latest_match.group(1) != version:
+        fail(
+            "CHANGELOG.md latest version entry must match VERSION: "
+            f"{latest_match.group(1)} != {version}"
+        )
+
+
+def check_self_iteration_release_guard() -> None:
+    changed_paths = git_changed_paths()
+    if not changed_paths:
+        return
+
+    core_changes = sorted(path for path in changed_paths if is_self_iteration_core_path(path))
+    if not core_changes:
+        return
+
+    missing_metadata = [
+        path for path in SELF_ITERATION_RELEASE_METADATA if path not in changed_paths
+    ]
+    if missing_metadata:
+        fail(
+            "PM Copilot core source changed without release metadata updates: "
+            f"{', '.join(missing_metadata)}. Core changes: {', '.join(core_changes[:8])}"
+        )
+
+    if not any(path.startswith(SELF_ITERATION_RECORD_PREFIXES) for path in changed_paths):
+        fail(
+            "PM Copilot core source changed without an optimization-cycle note under "
+            "docs/optimization-cycles/. Record source run, generalized failure, fix surface, "
+            "validation, version change, remote-push status, and embedded-copy sync targets."
+        )
+
+
+def git_changed_paths() -> set[str]:
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all", "--", "."],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    if result.returncode != 0:
+        return set()
+
+    paths: set[str] = set()
+    for raw_line in result.stdout.splitlines():
+        if len(raw_line) < 4:
+            continue
+        path = raw_line[3:].strip()
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1].strip()
+        path = path.strip('"')
+        if path:
+            paths.add(path)
+    return paths
+
+
+def is_self_iteration_core_path(path: str) -> bool:
+    if path in SELF_ITERATION_RELEASE_METADATA:
+        return False
+    if path.startswith(SELF_ITERATION_RECORD_PREFIXES):
+        return False
+    if path.startswith("outputs/"):
+        return False
+    return any(
+        path == prefix.rstrip("/") or path.startswith(prefix)
+        for prefix in SELF_ITERATION_CORE_PREFIXES
+    )
 
 
 def check_skills() -> None:
@@ -1008,6 +1104,7 @@ def main() -> None:
     check_quality_threshold_alignment()
     check_reference_fixture_boundary()
     check_version()
+    check_self_iteration_release_guard()
     check_skills()
     check_tracking_plans()
     check_user_flows()
