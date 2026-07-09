@@ -1,6 +1,6 @@
 ---
 name: requirement-intake
-description: Use when turning an ambiguous product request into clarified goals, users, scenarios, constraints, assumptions, and open questions before PRD generation.
+description: Use when turning ambiguous product requests into goals, users, scenarios, constraints, assumptions, and questions before PRD.
 ---
 
 # Requirement Intake

@@ -1,6 +1,6 @@
 ---
 name: process-mapping
-description: Use when documenting business or product operations workflows, handoffs, cycle time, bottlenecks, approvals, rework loops, or internal service processes.
+description: Use when documenting operations workflows, handoffs, cycle time, bottlenecks, approvals, rework loops, or service processes.
 ---
 
 # Process Mapping

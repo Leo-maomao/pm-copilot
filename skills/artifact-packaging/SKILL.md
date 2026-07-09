@@ -1,6 +1,6 @@
 ---
 name: artifact-packaging
-description: Use when checking final PM delivery consistency across PRD, UI deliverable, optional exports, readiness status, assumptions, risks, and validation results.
+description: Use when checking final PM delivery consistency across PRD, UI delivery, readiness, risks, and validation.
 ---
 
 # Delivery Check

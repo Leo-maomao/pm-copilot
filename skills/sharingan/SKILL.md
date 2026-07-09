@@ -1,6 +1,6 @@
 ---
 name: sharingan
-description: Use when the user asks to use 写轮眼, sharingan, absorb, assimilate, learn from, copy, copy from, port, ingest, internalize, or convert a third-party resource such as a repo, documentation, article, prompt, workflow, script, tool, template, or example into durable PM Copilot capability.
+description: Use when asked to use 写轮眼/sharingan, absorb, copy, port, ingest, or convert third-party resources into PM Copilot capability.
 ---
 
 # Sharingan

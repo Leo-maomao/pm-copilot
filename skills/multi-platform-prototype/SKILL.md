@@ -1,6 +1,6 @@
 ---
 name: multi-platform-prototype
-description: Use when generating annotated UI deliverables for Web, H5, App, or Mini Program product scenarios, including repo-backed source-rendered preview/delta artifacts, source-extracted HTML handoffs, and standalone HTML compatibility artifacts.
+description: Use when generating annotated UI deliverables for Web, H5, App, Mini Program, source previews, extracted HTML, or fallback HTML.
 ---
 
 # Multi-Platform UI Delivery

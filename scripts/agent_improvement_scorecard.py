@@ -270,6 +270,30 @@ ARTIFACT_EXPECTATION_TERMS = {
     "run_log": ("run-log.yaml",),
 }
 
+AGENTIC_TRACE_FIELDS = (
+    "agent_strategy",
+    "task_mode",
+    "autonomy_level",
+    "effort_budget",
+    "delegation_plan",
+    "resume_checkpoint",
+    "termination_condition",
+    "tool_plan",
+    "decision_record",
+    "replan_triggers",
+    "review_loop",
+    "memory_candidates",
+    "next_actions",
+)
+
+PRD_AGENTIC_TERMS = {
+    "product_judgment": ("product judgment", "产品判断"),
+    "confidence": ("confidence", "置信"),
+    "alternatives": ("alternative", "替代方案", "取舍"),
+    "next_actions": ("next action", "下一步"),
+    "memory_candidates": ("memory candidate", "memory candidates", "记忆候选"),
+}
+
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -500,6 +524,15 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
         source_preview_report = load_json(folder / "visual-review" / "source-preview-report.json")
         run_log = folder / "run-log.yaml"
         run_log_text = read_text(run_log) if run_log.is_file() else ""
+        prd_path = folder / "prd.md"
+        prd_text = read_text(prd_path).lower() if prd_path.is_file() else ""
+        missing_agentic_fields = [
+            field for field in AGENTIC_TRACE_FIELDS if f"{field}:" not in run_log_text
+        ]
+        prd_agentic_markers = {
+            marker: any(term.lower() in prd_text for term in terms)
+            for marker, terms in PRD_AGENTIC_TERMS.items()
+        }
         visual_status_match = re.search(r"^visual_validation:\n(?P<body>.*?)(?:\n[A-Za-z_][A-Za-z0-9_]*:|\Z)", run_log_text, re.MULTILINE | re.DOTALL)
         visual_section = visual_status_match.group("body") if visual_status_match else ""
         visual_required = bool(re.search(r"^\s+required:\s+true\b", visual_section, re.MULTILINE))
@@ -531,7 +564,7 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
         runs.append({
             "run_id": folder.name,
             "path": slug(folder),
-            "has_prd": (folder / "prd.md").is_file(),
+            "has_prd": prd_path.is_file(),
             "has_run_log": run_log.is_file(),
             "has_dev_tasks": (folder / "dev-tasks.yaml").is_file(),
             "has_launch_decision": (folder / "launch-decision.yaml").is_file(),
@@ -547,6 +580,9 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
             "explicit_ui_gap": explicit_ui_gap,
             "score_count": len(score_values),
             "score_sum": sum(score_values),
+            "missing_agentic_fields": missing_agentic_fields,
+            "agentic_trace_complete": bool(run_log.is_file() and not missing_agentic_fields),
+            "prd_agentic_markers": prd_agentic_markers,
         })
     return runs
 
@@ -620,6 +656,21 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
             if item["visual_required"] and not item["visual_status"] and not item["source_preview_status"]
         ),
         "passed_delivery": sum(1 for item in runs if item["delivery_status"] == "passed"),
+        "with_agentic_trace_complete": sum(1 for item in runs if item["agentic_trace_complete"]),
+        "with_agent_strategy": sum(1 for item in runs if "agent_strategy" not in item["missing_agentic_fields"]),
+        "with_decision_record": sum(1 for item in runs if "decision_record" not in item["missing_agentic_fields"]),
+        "with_review_loop": sum(1 for item in runs if "review_loop" not in item["missing_agentic_fields"]),
+        "with_memory_candidates": sum(1 for item in runs if "memory_candidates" not in item["missing_agentic_fields"]),
+        "with_next_actions_trace": sum(1 for item in runs if "next_actions" not in item["missing_agentic_fields"]),
+        "prd_with_product_judgment": sum(
+            1 for item in runs if item["prd_agentic_markers"].get("product_judgment")
+        ),
+        "prd_with_next_actions": sum(
+            1 for item in runs if item["prd_agentic_markers"].get("next_actions")
+        ),
+        "prd_with_memory_candidates": sum(
+            1 for item in runs if item["prd_agentic_markers"].get("memory_candidates")
+        ),
     }
 
     risks: list[dict[str, str]] = []
@@ -672,6 +723,27 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
             "severity": "Medium",
             "area": "delivery_validation",
             "issue": "Some generated runs do not have delivery-check-report.json evidence.",
+        })
+    if runs and run_quality["with_agentic_trace_complete"] < len(runs):
+        risks.append({
+            "severity": "High",
+            "area": "agentic_trace",
+            "issue": (
+                f"{len(runs) - run_quality['with_agentic_trace_complete']} runtime run(s) lack "
+                "complete PM Copilot 3.0 agentic trace fields."
+            ),
+        })
+    if runs and run_quality["prd_with_next_actions"] < run_quality["with_prd"]:
+        risks.append({
+            "severity": "Medium",
+            "area": "pm_usefulness",
+            "issue": "Some PRD runs lack explicit next actions, so PM follow-through is not reliably supported.",
+        })
+    if runs and run_quality["prd_with_product_judgment"] < run_quality["with_prd"]:
+        risks.append({
+            "severity": "Medium",
+            "area": "pm_usefulness",
+            "issue": "Some PRD runs lack explicit product judgment, so the output can still feel like a workflow artifact.",
         })
     if eval_quality["expecting_dev_tasks"] and run_quality["passed_with_dev_tasks"] == 0:
         risks.append({
@@ -810,6 +882,14 @@ def prioritize_actions(
         actions.append(
             "Create one source-backed preview/delta for the latest UI scenario and validate it with validate_ui_preview.py."
         )
+    if "agentic_trace" in risk_areas:
+        actions.append(
+            "Backfill PM Copilot 3.0 trace coverage in new runs: agent_strategy, task_mode, autonomy_level, decisions, review_loop, next_actions, and memory_candidates."
+        )
+    if "pm_usefulness" in risk_areas:
+        actions.append(
+            "Add PM usefulness review to generated PRDs so product judgment, confidence, alternatives, and next actions are visible before delivery."
+        )
     uncovered = [
         risk["area"]
         for risk in risks
@@ -914,6 +994,13 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- passed runs with dev tasks: {report['run_quality']['passed_with_dev_tasks']}",
         f"- passed runs with launch decision: {report['run_quality']['passed_with_launch_decision']}",
         f"- passed delivery reports: {report['run_quality']['passed_delivery']}",
+        f"- runs with complete agentic trace: {report['run_quality']['with_agentic_trace_complete']}",
+        f"- runs with agent strategy: {report['run_quality']['with_agent_strategy']}",
+        f"- runs with decision record: {report['run_quality']['with_decision_record']}",
+        f"- runs with review loop: {report['run_quality']['with_review_loop']}",
+        f"- runs with memory candidates: {report['run_quality']['with_memory_candidates']}",
+        f"- PRDs with product judgment: {report['run_quality']['prd_with_product_judgment']}",
+        f"- PRDs with next actions: {report['run_quality']['prd_with_next_actions']}",
         "",
         "## Capability Coverage",
         "",

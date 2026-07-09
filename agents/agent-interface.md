@@ -16,6 +16,7 @@ Every agent definition in this repository follows the same interface.
 
 - Always distinguish facts, assumptions, and open questions.
 - Never hide uncertainty.
+- Return product judgment, not only files. Each agent should explain what it decided, why, what alternatives were rejected, and what should happen next.
 - When an agent cannot complete a task, return the closest lower-fidelity artifact plus a limitation note.
 - Preserve upstream decisions unless there is a clear contradiction.
 - Use a stable output status on every handoff:
@@ -39,9 +40,11 @@ facts:
 assumptions:
 open_questions:
 decisions:
+alternatives:
 artifact_delta:
 validation_delta:
 risks:
+next_actions:
 handoff:
 ```
 
@@ -52,11 +55,15 @@ Rules:
 - `open_questions` must use exactly one clarification classification from the workflow.
 - `artifact_delta` must list files created, files changed, or explicitly state `none`.
 - `validation_delta` must list commands run, skipped, or required later. Do not use vague placeholders.
+- `decisions` must include evidence and tradeoffs for product-relevant choices.
+- `alternatives` must note rejected paths when the choice affects scope, artifact mode, readiness, user experience, analytics, or launch.
+- `next_actions` must identify the smallest useful follow-up for product, design, engineering, QA, analytics, launch, or memory.
 - Specialist agents may recommend readiness, but PM Orchestrator owns the final PRD, engineering handoff, and launch readiness fields.
 - When two agents disagree, keep both positions visible and route the conflict to PM Orchestrator or Review Agent before final delivery.
 
 ## Mutation Boundaries
 
+- PM Orchestrator owns final product judgment: task mode, autonomy level, selected path, rejected alternatives, final readiness labels, and final next actions.
 - PM Orchestrator owns run id selection, workflow state, final readiness labels, and the final delivery check.
 - Discovery owns clarification classification and current-state summary.
 - Requirements owns PRD requirement content and acceptance criteria.
@@ -76,6 +83,7 @@ Before handoff, each agent checks:
 - Output status matches the actual blocker state.
 - Relevant artifact contract sections are either satisfied or explicitly limited.
 - Readiness-impacting blockers name owner, required confirmation, and blocked phase.
+- Product usefulness is explicit: the next reviewer can tell what decision the artifact supports and what work remains.
 - Validation claims match commands actually run or skipped.
 - No stale placeholders such as `pending`, `待执行`, `should run`, or `to be verified` remain in final delivery text.
 
@@ -95,5 +103,8 @@ human_confirmation_required:
 risks:
 artifact_delta:
 validation_delta:
+decisions:
+alternatives:
+next_actions:
 next_expected_output:
 ```

@@ -6,6 +6,37 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [3.0.0] - 2026-07-09
+
+### Added
+
+- Repositioned PM Copilot as an AI Product Manager Agent System with a goal-driven operating model instead of a workflow-first kit.
+- Added `agents/agent-operating-model.md` with Observe, Frame, Decide, Act, Verify, Learn, task modes, autonomy levels, replan triggers, and final delivery contract.
+- Added user-facing docs for practical use cases, output gallery, agent modes, and 3.0 migration.
+- Added `workflow/delivery-check-workflow.md` and kept `workflow/package-workflow.md` as a compatibility redirect.
+- Added agentic run-log fields for strategy, task mode, autonomy level, success criteria, tool plan, decisions, replan triggers, review loop, memory candidates, and next actions.
+- Added an eval for Agent System behavior that checks mode selection, product judgment, PM usefulness review, next actions, and memory candidates.
+
+### Changed
+
+- Rewrote `README.md` and `README.en.md` so the first screen explains practical AI PM outcomes instead of internal workflow assets.
+- Simplified `PM_COPILOT.md` into an Agent front door that routes to operating model, workflow, artifact contracts, tool contracts, and task skills.
+- Reworked `workflow/main-workflow.md` into an execution graph where S0-S12 remains the default path but can be skipped, merged, or revisited by task mode.
+- Updated PM Orchestrator, Agent Interface, Review Agent, Prompt System, and Trace Contract so agents output judgment, confidence, alternatives, next actions, and PM usefulness review evidence.
+- Expanded repository validation for the 3.0 operating model, README positioning, stale changelog markers, stale scorecards, adapter snippet drift, and orphan one-off plan docs.
+
+### Fixed
+
+- Replaced the historical `2.3.0` changelog placeholder commit marker with the real commit reference.
+- Regenerated ignored scorecard evidence for the current eval portfolio.
+- Shortened overlong skill descriptions while preserving trigger words and capability boundaries.
+- Added explicit legacy run-id compatibility in delivery checks for retained local 2.x runtime evidence while preserving strict 3.0 naming for new outputs.
+
+### Validation
+
+- Repository validation covers the new Agent operating model and 3.0 docs.
+- Required release validation was run for tool preflight, repository validation, Python compilation, scorecard, skill cleaner, delivery checks, visual validation, and git whitespace.
+
 ## [2.10.3] - 2026-07-09
 
 ### Fixed
@@ -435,7 +466,7 @@ Backfills pushed commit: `123e787` feat: harden pm copilot self-improvement.
 
 ## [2.3.0] - 2026-05-22
 
-Commit: pending
+Commit: `124b519` feat: add image reference reconstruction mode.
 
 ### Added
 

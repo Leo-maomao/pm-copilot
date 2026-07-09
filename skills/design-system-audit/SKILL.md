@@ -1,6 +1,6 @@
 ---
 name: design-system-audit
-description: Use when reviewing or deriving UI tokens, component patterns, layout density, accessibility rules, visual consistency, or design-to-development handoff constraints.
+description: Use when reviewing UI tokens, components, layout density, accessibility, visual consistency, or design handoff constraints.
 ---
 
 # Design System Audit

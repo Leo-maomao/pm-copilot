@@ -1,6 +1,6 @@
 ---
 name: opportunity-discovery
-description: Use when validating product opportunities, mapping assumptions, planning discovery work, or deciding whether a problem is worth PRD/UI-delivery investment.
+description: Use when validating opportunities, mapping assumptions, planning discovery, or deciding if a problem is worth PRD/UI work.
 ---
 
 # Opportunity Discovery

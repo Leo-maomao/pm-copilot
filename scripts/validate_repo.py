@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import re
 import subprocess
 import sys
@@ -42,6 +43,7 @@ REQUIRED_FILES = [
     "workflow/main-workflow.md",
     "workflow/context-loading.md",
     "workflow/execution-handoff-workflow.md",
+    "workflow/delivery-check-workflow.md",
     "artifacts/artifact-contracts.md",
     "artifacts/dev-task-contract.md",
     "artifacts/launch-decision-contract.md",
@@ -68,6 +70,11 @@ REQUIRED_FILES = [
     "prompts/prompt-system.md",
     "docs/direct-use.md",
     "docs/embedded-use.md",
+    "docs/use-cases.md",
+    "docs/output-gallery.md",
+    "docs/agent-modes.md",
+    "docs/migration-3.0.md",
+    "docs/agent-system-references.md",
     "docs/optimization-playbook.md",
     "docs/practice-self-iteration.md",
     "docs/self-improvement-system.md",
@@ -89,10 +96,12 @@ REQUIRED_FILES = [
     "scripts/inspect_host_frontend.py",
     "scripts/preflight_tools.py",
     "scripts/agent_improvement_scorecard.py",
+    "scripts/analyze_agent_run_evidence.py",
     "scripts/run_delivery_checks.py",
     "scripts/setup_visual_validation.py",
     "scripts/render_prd_html.py",
     "scripts/validate_outputs.py",
+    "scripts/validate_agent_trace.py",
     "scripts/validate_prototype_visual.py",
     "scripts/validate_ui_preview.py",
     "docs/implemented-feature-prd-workflow.md",
@@ -105,6 +114,7 @@ REQUIRED_FILES = [
     "adapters/claude-code/CLAUDE.snippet.md",
     "adapters/cursor/.cursor/rules/pm-copilot.mdc",
     "adapters/cursor/CURSOR_RULE.snippet.md",
+    "agents/agent-operating-model.md",
 ]
 
 TRACKING_COLUMNS = [
@@ -219,6 +229,8 @@ EXPECTED_TOOL_IDS = [
     "ui_delivery.source_extract",
     "validation.html",
     "validation.delivery_orchestrator",
+    "validation.agent_trace",
+    "analysis.agent_runs",
     "optimization.scorecard",
     "handoff.dev_tasks",
     "launch.decision_support",
@@ -226,6 +238,10 @@ EXPECTED_TOOL_IDS = [
 
 REQUIRED_TEXT_TOKENS = {
     "PM_COPILOT.md": [
+        "AI Product Manager Agent System",
+        "agents/agent-operating-model.md",
+        "task_mode",
+        "autonomy_level",
         "Generalization Boundary",
         "reference projects are fixtures",
         "engineering handoff",
@@ -238,6 +254,8 @@ REQUIRED_TEXT_TOKENS = {
         "preflight_tools.py",
         "run_delivery_checks.py",
         "agent_improvement_scorecard.py",
+        "validate_agent_trace.py",
+        "analyze_agent_run_evidence.py",
         "tool-registry.yaml",
         "tool-result-contract.md",
         "setup_visual_validation.py",
@@ -256,11 +274,19 @@ REQUIRED_TEXT_TOKENS = {
     ],
     "README.md": [
         "README.en.md",
+        "AI 产品经理 Agent 系统",
+        "agents/agent-operating-model.md",
+        "docs/use-cases.md",
+        "docs/output-gallery.md",
+        "docs/agent-modes.md",
+        "docs/migration-3.0.md",
         "语言支持",
         "validate_outputs.py",
         "preflight_tools.py",
         "run_delivery_checks.py",
         "agent_improvement_scorecard.py",
+        "validate_agent_trace.py",
+        "analyze_agent_run_evidence.py",
         "tool-registry.yaml",
         "tool-result-contract.md",
         "setup_visual_validation.py",
@@ -275,11 +301,19 @@ REQUIRED_TEXT_TOKENS = {
     ],
     "README.en.md": [
         "README.md",
+        "AI Product Manager Agent System",
+        "agents/agent-operating-model.md",
+        "docs/use-cases.md",
+        "docs/output-gallery.md",
+        "docs/agent-modes.md",
+        "docs/migration-3.0.md",
         "Language Support",
         "validate_outputs.py",
         "preflight_tools.py",
         "run_delivery_checks.py",
         "agent_improvement_scorecard.py",
+        "validate_agent_trace.py",
+        "analyze_agent_run_evidence.py",
         "tool-registry.yaml",
         "tool-result-contract.md",
         "setup_visual_validation.py",
@@ -309,6 +343,12 @@ REQUIRED_TEXT_TOKENS = {
     "prompts/prompt-system.md": [
         "Prompt Stack",
         "Request Classification",
+        "task_mode",
+        "autonomy_level",
+        "effort_budget",
+        "delegation_plan",
+        "termination_condition",
+        "Agent operating model",
         "Agent interface contract",
         "Memory Use",
         "Clarification Prompt Rules",
@@ -319,6 +359,8 @@ REQUIRED_TEXT_TOKENS = {
         "Runtime Protocol",
         "Mutation Boundaries",
         "Exit Checklist",
+        "alternatives",
+        "next_actions",
         "status: complete",
         "artifact_delta",
         "validation_delta",
@@ -331,6 +373,13 @@ REQUIRED_TEXT_TOKENS = {
         "Write Rules",
     ],
     "workflow/main-workflow.md": [
+        "Agentic Execution Graph",
+        "task_mode",
+        "autonomy_level",
+        "effort_budget",
+        "delegation_plan",
+        "termination_condition",
+        "Delivery Orchestrator",
         "Generalization Boundary",
         "Readiness Model",
         "engineering handoff status",
@@ -344,6 +393,19 @@ REQUIRED_TEXT_TOKENS = {
         "Tool Preflight",
         "Delivery Orchestrator",
         "Execution Handoff",
+    ],
+    "workflow/delivery-check-workflow.md": [
+        "PM Usefulness Review",
+        "task_mode",
+        "autonomy_level",
+        "run_delivery_checks.py",
+        "dev-tasks.yaml",
+        "launch-decision.yaml",
+    ],
+    "workflow/package-workflow.md": [
+        "compatibility",
+        "workflow/delivery-check-workflow.md",
+        "run_delivery_checks.py",
     ],
     "artifacts/artifact-contracts.md": [
         "Default Delivery",
@@ -389,6 +451,18 @@ REQUIRED_TEXT_TOKENS = {
         "ready_to_launch",
     ],
     "artifacts/trace-contract.md": [
+        "agent_strategy:",
+        "task_mode:",
+        "autonomy_level:",
+        "effort_budget:",
+        "delegation_plan:",
+        "resume_checkpoint:",
+        "termination_condition:",
+        "tool_plan:",
+        "decision_record:",
+        "replan_triggers:",
+        "review_loop:",
+        "memory_candidates:",
         "request_source:",
         "readiness:",
         "external_research:",
@@ -409,6 +483,20 @@ REQUIRED_TEXT_TOKENS = {
         "validation_results:",
     ],
     "templates/agent-run-log-template.yaml": [
+        "agent_strategy:",
+        "task_mode:",
+        "autonomy_level:",
+        "effort_budget:",
+        "delegation_plan:",
+        "resume_checkpoint:",
+        "termination_condition:",
+        "success_criteria:",
+        "tool_plan:",
+        "decision_record:",
+        "replan_triggers:",
+        "review_loop:",
+        "memory_candidates:",
+        "next_actions:",
         "request_source:",
         "readiness:",
         "external_research:",
@@ -461,6 +549,7 @@ REQUIRED_TEXT_TOKENS = {
         "## 11. <测试建议>",
     ],
     "templates/evaluation-case-template.md": [
+        "Agentic Expectation Matrix",
         "Fixture Scope",
         "PM User Type",
         "Risk Profile",
@@ -471,6 +560,68 @@ REQUIRED_TEXT_TOKENS = {
         "Reference or regulated content records source status",
         "Review findings include artifact, evidence, owner",
         "Validation results are concrete and consistent",
+    ],
+    "agents/agent-operating-model.md": [
+        "Observe -> Frame -> Decide -> Act -> Verify -> Learn",
+        "Task Modes",
+        "Autonomy Levels",
+        "Replanning Triggers",
+        "Final Delivery Contract",
+        "Effort Budgets",
+        "Delegation Model",
+        "Resume Checkpoints",
+        "Termination Conditions",
+        "prd_delivery",
+        "implemented_feature_prd",
+        "self_improvement",
+    ],
+    "docs/use-cases.md": [
+        "Implemented Feature To PRD",
+        "Launch Readiness",
+        "Structured Reference",
+        "python3 scripts/run_delivery_checks.py",
+    ],
+    "docs/output-gallery.md": [
+        "PRD Markdown",
+        "UI Delivery",
+        "Development Tasks",
+        "Launch Decision",
+        "Structured Reference",
+        "Run Log",
+    ],
+    "docs/agent-modes.md": [
+        "Task Modes",
+        "Autonomy Levels",
+        "clarify-first",
+        "draft-with-risk",
+        "full-loop",
+        "self-iteration",
+    ],
+    "docs/migration-3.0.md": [
+        "Agent-first",
+        "workflow/package-workflow.md",
+        "workflow/delivery-check-workflow.md",
+        "run-log",
+        "additive",
+    ],
+    "docs/agent-system-references.md": [
+        "OpenAI Agents SDK",
+        "Anthropic",
+        "LangGraph",
+        "AutoGen",
+        "validation.agent_trace",
+        "analysis.agent_runs",
+    ],
+    "scripts/validate_agent_trace.py": [
+        "TASK_MODES",
+        "AUTONOMY_LEVELS",
+        "EFFORT_BUDGETS",
+        "termination_condition",
+    ],
+    "scripts/analyze_agent_run_evidence.py": [
+        "AGENTIC_FIELDS",
+        "PRD_AGENTIC_MARKERS",
+        "agentic_trace_completion_rate",
     ],
     "tools/tool-registry.yaml": [
         "validation.delivery_orchestrator",
@@ -785,6 +936,113 @@ def check_reference_fixture_boundary() -> None:
                     "Reference fixture leakage found outside evals/outputs: "
                     f"{term!r} in {relative_path}"
                 )
+
+
+def check_agent_operating_model() -> None:
+    model_path = ROOT / "agents/agent-operating-model.md"
+    if not model_path.is_file():
+        fail("Missing agents/agent-operating-model.md")
+
+    required_references = {
+        "PM_COPILOT.md": ("agents/agent-operating-model.md", "Observe -> Frame -> Decide -> Act -> Verify -> Learn"),
+        "README.md": ("agents/agent-operating-model.md",),
+        "README.en.md": ("agents/agent-operating-model.md",),
+        "workflow/main-workflow.md": ("agents/agent-operating-model.md", "execution graph"),
+        "prompts/prompt-system.md": ("agents/agent-operating-model.md",),
+    }
+    for relative_path, tokens in required_references.items():
+        text = (ROOT / relative_path).read_text(encoding="utf-8")
+        lowered_text = text.lower()
+        for token in tokens:
+            if token.lower() not in lowered_text:
+                fail(f"{relative_path} does not reference Agent operating model token: {token}")
+
+
+def check_readme_agent_positioning() -> None:
+    forbidden = ("agent workflow kit", "workflow kit")
+    required = {
+        "README.md": "AI 产品经理 Agent 系统",
+        "README.en.md": "AI Product Manager Agent System",
+    }
+    for relative_path, required_token in required.items():
+        text = (ROOT / relative_path).read_text(encoding="utf-8")
+        first_screen = "\n".join(text.splitlines()[:32]).lower()
+        if required_token.lower() not in first_screen:
+            fail(f"{relative_path} first screen does not position PM Copilot as an Agent system")
+        for token in forbidden:
+            if token in first_screen:
+                fail(f"{relative_path} still leads with old workflow-kit positioning: {token}")
+        if "what it does" not in first_screen and "它能做什么" not in first_screen:
+            fail(f"{relative_path} first screen does not foreground practical PM outcomes")
+
+
+def check_changelog_no_pending_markers() -> None:
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    if "Commit: pending" in changelog:
+        fail("CHANGELOG.md contains stale 'Commit: pending' marker")
+
+
+def check_scorecard_not_stale() -> None:
+    scorecard_path = ROOT / "outputs/improvement-scorecard.json"
+    if not scorecard_path.exists():
+        return
+    try:
+        scorecard = json.loads(scorecard_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        fail(f"outputs/improvement-scorecard.json is not valid JSON: {exc}")
+
+    recorded_total = scorecard.get("eval_quality", {}).get("total")
+    actual_total = len(list((ROOT / "evals").glob("*.md")))
+    if recorded_total != actual_total:
+        fail(
+            "outputs/improvement-scorecard.json is stale: "
+            f"eval_quality.total={recorded_total}, actual eval files={actual_total}"
+        )
+
+    latest_eval_mtime = max((path.stat().st_mtime for path in (ROOT / "evals").glob("*.md")), default=0)
+    if scorecard_path.stat().st_mtime < latest_eval_mtime:
+        fail("outputs/improvement-scorecard.json is older than the latest eval case")
+
+
+def check_adapter_snippets_alignment() -> None:
+    essential_tokens = (
+        "product-manager work such as PRD",
+        "@pm-copilot",
+        "source-backed preview/delta",
+        "standalone HTML only",
+        "structured reference or document prototype",
+    )
+    snippet_paths = [
+        "adapters/codex/AGENTS.snippet.md",
+        "adapters/claude-code/CLAUDE.snippet.md",
+        "adapters/cursor/CURSOR_RULE.snippet.md",
+        "adapters/cursor/.cursor/rules/pm-copilot.mdc",
+    ]
+    for relative_path in snippet_paths:
+        text = (ROOT / relative_path).read_text(encoding="utf-8")
+        for token in essential_tokens:
+            if token not in text:
+                fail(f"Adapter snippet drift in {relative_path}: missing {token!r}")
+
+    install_text = (ROOT / "scripts/install_adapter.py").read_text(encoding="utf-8")
+    for token in essential_tokens:
+        if token not in install_text:
+            fail(f"scripts/install_adapter.py missing adapter alignment token: {token!r}")
+
+
+def check_no_orphan_one_off_plan_docs() -> None:
+    one_off_docs = [
+        ROOT / "docs/real-run-ui-delivery-improvement-plan.md",
+    ]
+    for path in one_off_docs:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "Status: Archived" not in text:
+            fail(
+                f"{path.relative_to(ROOT)} is a one-off plan doc and must be archived "
+                "or generalized into current docs"
+            )
 
 
 def check_version() -> None:
@@ -1107,6 +1365,12 @@ def main() -> None:
     check_yaml_template_duplicate_keys()
     check_quality_threshold_alignment()
     check_reference_fixture_boundary()
+    check_agent_operating_model()
+    check_readme_agent_positioning()
+    check_changelog_no_pending_markers()
+    check_scorecard_not_stale()
+    check_adapter_snippets_alignment()
+    check_no_orphan_one_off_plan_docs()
     check_version()
     check_self_iteration_release_guard()
     check_skills()

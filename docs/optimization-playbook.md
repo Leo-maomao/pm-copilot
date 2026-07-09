@@ -1,6 +1,6 @@
 # Agent Optimization Playbook
 
-This playbook explains how to improve PM Copilot from a good workflow kit into a reliable agent workflow for real product work.
+This playbook explains how to improve PM Copilot from a useful PM workflow foundation into a reliable AI product-manager agent system for real product work.
 
 Evaluation must cover all supported context modes: `repo-backed`, `document-backed`, and `brief-only`. A workflow change is incomplete if it only works for code repositories.
 

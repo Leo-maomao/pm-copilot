@@ -125,11 +125,34 @@ capabilities:
     category: validation
     required_when: "Before final delivery or before scoring an iteration round."
     command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>"
+    strict_agent_trace_command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --strict-agent-trace"
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - outputs/<run-id>/tool-results/delivery-check-report.json
       - run-log.yaml:validation_results
     fallback: "Run individual validation commands and record why the orchestrator could not run."
+
+  - id: validation.agent_trace
+    category: validation
+    required_when: "PM Copilot 3.0 full-loop, self-iteration, eval, or final delivery claims Agent strategy, decisions, review loop, next actions, or memory candidates."
+    command: "python3 scripts/validate_agent_trace.py outputs/<run-id> --strict"
+    compatibility_command: "python3 scripts/validate_agent_trace.py outputs/<run-id>"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:validation_results
+      - outputs/<run-id>/tool-results/delivery-check-report.json
+    fallback: "For legacy runs, record skipped compatibility status. For 3.0 runs, do not claim full-loop Agent delivery until trace fields are fixed."
+
+  - id: analysis.agent_runs
+    category: optimization
+    required_when: "Self-iteration needs local historical PM Copilot run evidence from this repository or embedded copies."
+    command: "python3 scripts/analyze_agent_run_evidence.py --json"
+    json_command: "python3 scripts/analyze_agent_run_evidence.py --json --report outputs/agent-run-evidence-report.json"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - optimization cycle notes
+      - outputs/agent-run-evidence-report.json
+    fallback: "Manually inspect local outputs and record the sample limitations."
 
   - id: optimization.scorecard
     category: optimization
@@ -175,4 +198,5 @@ default_preflight:
 
 default_delivery_check:
   command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>"
+  strict_agent_trace_command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --strict-agent-trace"
   report_path: "outputs/<run-id>/tool-results/delivery-check-report.json"

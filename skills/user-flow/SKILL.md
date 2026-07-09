@@ -1,6 +1,6 @@
 ---
 name: user-flow
-description: Use when creating Mermaid user flows for product requirements, including entry points, main paths, decisions, errors, and completion states.
+description: Use when creating Mermaid user flows for requirements, including entry points, main paths, decisions, errors, and completion states.
 ---
 
 # User Flow

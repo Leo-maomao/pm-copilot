@@ -293,6 +293,20 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>",
         ),
         capability(
+            "validation.agent_trace",
+            "available" if script_available("scripts/validate_agent_trace.py") else "unavailable",
+            "scripts/validate_agent_trace.py",
+            True,
+            "python3 scripts/validate_agent_trace.py outputs/<run-id> --strict",
+        ),
+        capability(
+            "analysis.agent_runs",
+            "available" if script_available("scripts/analyze_agent_run_evidence.py") else "unavailable",
+            "scripts/analyze_agent_run_evidence.py",
+            False,
+            "python3 scripts/analyze_agent_run_evidence.py --json",
+        ),
+        capability(
             "optimization.scorecard",
             "available" if script_available("scripts/agent_improvement_scorecard.py") else "unavailable",
             "scripts/agent_improvement_scorecard.py",
@@ -330,7 +344,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if visual_status == "available":
         recommended.append("python3 scripts/validate_prototype_visual.py outputs/<run-id>")
         recommended.append("python3 scripts/validate_ui_preview.py <preview-url> --run-folder outputs/<run-id>")
+    recommended.append("python3 scripts/validate_agent_trace.py outputs/<run-id> --strict")
     recommended.append("python3 scripts/agent_improvement_scorecard.py")
+    recommended.append("python3 scripts/analyze_agent_run_evidence.py --json")
 
     return {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),

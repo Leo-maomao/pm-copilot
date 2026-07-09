@@ -1,6 +1,6 @@
 ---
 name: feedback-synthesis
-description: Use when synthesizing user interviews, support tickets, sales calls, app reviews, survey exports, Slack feedback, NPS comments, or research notes into product insights.
+description: Use when synthesizing interviews, support tickets, sales calls, reviews, surveys, Slack feedback, or NPS into insights.
 ---
 
 # Feedback Synthesis

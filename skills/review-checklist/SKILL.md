@@ -1,6 +1,6 @@
 ---
 name: review-checklist
-description: Use when reviewing generated PM artifacts for completeness, ambiguity, missing metrics, edge cases, dependencies, risks, and stakeholder readiness.
+description: Use when reviewing PM artifacts for completeness, ambiguity, missing metrics, edge cases, dependencies, risks, and readiness.
 ---
 
 # Delivery Review

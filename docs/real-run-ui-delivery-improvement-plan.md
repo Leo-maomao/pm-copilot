@@ -1,5 +1,7 @@
 # Real-Run UI Delivery Improvement Plan
 
+Status: Archived one-off plan. Durable rules from this plan have been generalized into the 3.0 Agent operating model, workflow, artifact contracts, tools, and validators.
+
 This plan captures reusable PM Copilot improvements found during an actual multi-turn UI delivery run. The source product and local output are host-run evidence only; the improvements below are generic PM Copilot capability changes.
 
 ## 1. Product Workflow

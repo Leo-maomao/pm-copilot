@@ -1,6 +1,6 @@
 ---
 name: knowledge-ops
-description: Use when auditing, improving, or creating product docs, structured catalogs, parameter tables, model/API matrices, SOPs, runbooks, decision records, onboarding docs, wiki spaces, or PM knowledge bases.
+description: Use when creating product docs, structured catalogs, parameter tables, model/API matrices, SOPs, runbooks, or PM knowledge bases.
 ---
 
 # Knowledge Ops

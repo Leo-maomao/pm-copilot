@@ -9,16 +9,17 @@ Use this order when building the active task prompt:
 1. System and platform instructions from the active agent runtime.
 2. Host project instructions, when PM Copilot is embedded.
 3. PM Copilot entry: `PM_COPILOT.md`.
-4. Workflow rules from `workflow/`.
-5. Guardrails from `guardrails/`.
-6. Artifact contracts from `artifacts/`.
-7. Agent interface contract from `agents/agent-interface.md`.
-8. Relevant agent role files from `agents/`.
-9. Relevant skills from `skills/`.
-10. Memory from `context/*.local.yaml`, when present.
-11. Current user request and current user answers.
-12. Current host repository or user-provided product documents.
-13. Tool observations from the current run.
+4. Agent operating model from `agents/agent-operating-model.md`.
+5. Workflow rules from `workflow/`.
+6. Guardrails from `guardrails/`.
+7. Artifact contracts from `artifacts/`.
+8. Agent interface contract from `agents/agent-interface.md`.
+9. Relevant agent role files from `agents/`.
+10. Relevant skills from `skills/`.
+11. Memory from `context/*.local.yaml`, when present.
+12. Current user request and current user answers.
+13. Current host repository or user-provided product documents.
+14. Tool observations from the current run.
 
 Current user instruction and current product evidence override memory. Memory is context, not authority.
 
@@ -26,20 +27,45 @@ Current user instruction and current product evidence override memory. Memory is
 
 Classify the request before drafting:
 
-| Class | Examples | Required Behavior |
+| Class | Task Mode | Examples | Required Behavior |
 |---|---|---|
-| PM delivery | PRD, UI deliverable, prototype review, tracking, requirement, product review | Run PM Copilot workflow |
-| Document-class delivery | Structured reference, document handoff, parameter table, rule reference, data dictionary, SOP/runbook, document prototype | Use Knowledge Ops and structured reference/document prototype contracts; do not force PRD when user says no PRD |
-| Clarification only | "Help me ask questions first" | Stop after questions and optional run log |
-| Review only | "Review this PRD/UI deliverable" or legacy "Review this PRD/prototype" wording | Use review agent and write findings |
-| Memory update | "Remember this preference" | Update or propose updates to local memory |
-| Non-PM task | Coding, infra, unrelated writing | Do not force PM Copilot |
+| PRD delivery | `prd_delivery` | PRD, product requirement, feature scope, review-ready requirement | Run PM Copilot execution graph and produce useful PM artifacts |
+| Implemented feature PRD | `implemented_feature_prd` | Branch-to-PRD, current diff to PRD/HTML, "把实现还原成需求文档" | Inspect implementation evidence first; generate required `prd.html` |
+| UI delivery | `ui_delivery` | UI deliverable, prototype, visual state, source-backed preview | Prefer source-backed preview/delta when frontend source exists |
+| Tracking | `tracking_plan` | Metrics, analytics events, KPI tree, experiment tracking | Produce measurable plan and privacy notes |
+| Launch readiness | `launch_readiness` | Go/no-go, rollout, launch blockers, approval gaps | Separate engineering handoff status from launch status |
+| Dev handoff | `dev_handoff` | Issue planning, development tasks, handoff | Preserve blockers in `dev-tasks.yaml` |
+| Document-class delivery | `structured_reference` | Structured reference, parameter table, rule reference, data dictionary, SOP/runbook, document prototype | Use Knowledge Ops and structured reference/document prototype contracts; do not force PRD when user says no PRD |
+| Review only | `product_review` | "Review this PRD/UI deliverable" or legacy "Review this PRD/prototype" wording | Use Review Agent and write findings with PM usefulness |
+| Self-improvement | `self_improvement` | Improve PM Copilot, absorb learning, add regression, upgrade version | Update durable repo surfaces, release metadata, and validation |
+| Mixed PM delivery | `mixed_delivery` | PRD + UI + tracking + handoff + launch | Use the smallest graph that covers all outcomes |
+| Clarification only | `prd_delivery` or relevant task mode | "Help me ask questions first" | Stop after questions and optional run log |
+| Memory update | N/A | "Remember this preference" | Update or propose updates to local memory |
+| Non-PM task | N/A | Coding, infra, unrelated writing | Do not force PM Copilot |
+
+Also classify autonomy level before drafting:
+
+- `clarify-first`: ask and stop when must-answer context is missing.
+- `draft-with-risk`: draft only when the user explicitly accepts visible assumption or confirmation risk.
+- `full-loop`: inspect, create, review, validate, and recommend next actions.
+- `self-iteration`: improve PM Copilot itself with version, changelog, optimization note, and validation.
+
+Also choose `effort_budget`:
+
+- `fast-pass`: narrow and low-risk.
+- `standard-loop`: normal PM delivery.
+- `deep-agentic`: broad, ambiguous, or multi-artifact work.
+- `research-intensive`: external evidence materially affects product judgment.
+- `release/self-iteration`: PM Copilot itself changes.
 
 ## Prompt Assembly Rules
 
 - Keep prompts task-specific. Do not load every file by default.
 - Load only the agent and skill files needed for the current workflow step.
 - Always apply `agents/agent-interface.md` when handing work between agents, even if only one specialist role is active.
+- Record or be ready to state `task_mode`, `autonomy_level`, success criteria, selected path, skipped path, rejected alternatives, and replan triggers.
+- For complex work, record `effort_budget`, `delegation_plan`, `resume_checkpoint`, and `termination_condition`.
+- Treat S0-S12 as an execution graph. Skip, merge, or backtrack states when the selected task mode warrants it, and record the reason.
 - Use memory summaries, not full memory dumps, when only a few facts are relevant.
 - Keep the user's language for all human-facing generated content.
 - Keep file names, event names, property names, Mermaid node IDs, and other machine identifiers in ASCII.
@@ -88,6 +114,8 @@ When the clarification gate passes, generate:
 - `outputs/<run-id>/run-log.yaml` when a trace is useful
 
 In embedded host repositories, the same files must live under `pm-copilot/outputs/<run-id>/`, not the host root.
+
+Every full delivery should include product judgment, confidence, blockers, validation results, next actions, and memory candidates when durable learning exists.
 
 For implemented-feature PRD delivery:
 

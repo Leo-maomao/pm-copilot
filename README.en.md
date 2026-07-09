@@ -4,62 +4,59 @@
 
 <a id="english"></a>
 
-PM Copilot is an open-source, platform-neutral Agent Workflow Kit for product managers. It helps a PM turn an ambiguous product request into practical handoff artifacts: a complete PRD, a source-first annotated UI deliverable, source-extracted standalone HTML handoffs, and structured reference documents or document prototypes when the work is knowledge-heavy.
+PM Copilot is an out-of-the-box AI Product Manager Agent System.
+It turns ambiguous goals, existing code, product documents, screenshots, research signals, or already implemented features into deliverables a PM can use to drive review, design alignment, engineering handoff, tracking, launch decisions, and learning.
 
-中文简介：PM Copilot 是面向产品经理的开源 AI Agent 工作流套件，支持生成 PRD、需求文档、埋点方案、源码优先的带标注 UI 交付物、研发交接和上线决策材料。
+It is not a template library, and it is not a rigid S0-S12 pipeline.
+The workflow is the agent's safety rail; the user-facing experience is an AI PM that understands the goal, gathers evidence, makes product judgments, creates artifacts, verifies the result, and proposes memory candidates for future runs.
 
-The project is intentionally not a web app, CLI, or Figma plugin. It is a reusable repository of agent definitions, skills, prompt rules, memory rules, artifact contracts, workflow rules, guardrails, and templates that can be adapted to agent environments such as Codex, Claude Code, Cursor, or internal agent platforms.
+中文简介：PM Copilot 是面向产品经理的开源 AI Product Manager Agent System，支持 PRD、UI 交付、埋点方案、研发交接、上线判断、已实现功能反向 PRD、结构化参考和自我迭代。
 
-PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `brief-only`. The agent should choose the mode from available inputs before drafting, so it does not require a code repository when product documents or a short brief are the actual starting point.
+## What It Does
 
-PM Copilot also supports an implemented-feature-to-PRD workflow. When a feature is already built on the current branch, the agent should inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the real implementation into a complete `prd.md` and, when needed for delivery, a browser-readable `prd.html`.
+- Clarifies requirements: goal, user, scope, platform, risk, and must-answer questions.
+- Delivers PRDs: `prd.md` with background, goals, research, requirements, tracking, acceptance, risks, and readiness.
+- Renders PRD HTML: `scripts/render_prd_html.py` creates browser-readable `prd.html` for external review.
+- Delivers UI: source-backed preview/delta by default when source exists; source-extracted HTML through `extract_ui_region.py` when an independent handoff is needed; compatibility `prototype-<platform>.html` for no-source or explicit portable HTML work.
+- Designs metrics and tracking: events, properties, triggers, privacy notes, and validation.
+- Supports engineering handoff: optional `dev-tasks.yaml` with dependencies, acceptance, blockers, and issue-ready slices.
+- Supports launch decisions: optional `launch-decision.yaml` with readiness, blockers, owners, rollback, and approval gaps.
+- Reconstructs implemented features: inspects branch diff, code, screenshots/assets, and validation evidence, then creates `prd.md` plus required `prd.html`.
+- Creates structured references: parameter tables, capability matrices, rule references, data dictionaries, SOPs/runbooks, and document prototypes with source/review status and attention points.
+- Improves itself: converts real project failures into reusable updates to agents, workflow, skills, artifacts, tools, validators, and evals.
 
-When PM Copilot is embedded in another repository, the recommended phrasing is: `Follow the local pm-copilot/PM_COPILOT.md workflow to produce the PRD.` If a user writes `@pm-copilot`, "follow PM Copilot", or similar wording, the agent should resolve it to the local `pm-copilot/PM_COPILOT.md` file, not to an external agent, MCP server, plugin, or hosted Copilot tool.
+PM Copilot supports three context modes: `repo-backed`, `document-backed`, and `brief-only`.
+The agent chooses the context mode, task mode, and autonomy level before drafting.
 
 ## Language Support
 
-PM Copilot treats English and Chinese as first-class user-facing languages. Generated PM artifacts, UI delivery labels, annotations, review findings, readiness statuses, and validation notes should follow the user's language with the same workflow, artifact set, and quality bar. File names, event names, property names, requirement IDs, and other machine-readable identifiers stay ASCII for portability.
-
-## What It Produces
-
-- `prd.md` suitable for product, design, engineering, QA, and analytics review
-- `prd.html` for browser-readable or external PRD delivery, as a document rendering rather than a UI prototype
-- Version history, requirement input, clarified answers, assumptions, and open confirmations inside the PRD
-- Research and reference findings, prioritizing external competitor, comparable feature, user-research, or public solution sources; current implementation is treated as product context and engineering constraint
-- Requirement list and detailed requirement tables with logic, content, rules, interactions, data, permissions, edge states, tracking links, and acceptance links
-- Implementation evidence and coverage mapping for implemented-feature PRDs, showing which requirements came from current-branch evidence and which product intent still needs confirmation
-- Goals, metrics, tracking plan, and flow diagrams inside the PRD
-- Annotated UI deliverable for Web, H5, App, or Mini Program scenarios. When frontend source exists, the default is a source-backed preview or delta patch. If the PM needs an independent HTML handoff, the agent should first render the target region in the original project or user-approved current-repo implementation and then use `extract_ui_region.py` to produce an annotated `prototype-<platform>.html` or offline `index.html` with editable annotation configuration. Local compatibility HTML is only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield requests, or concrete source-rendering blockers.
-- Structured reference delivery for document-class requests such as parameter tables, capability matrices, rule references, data dictionaries, SOPs/runbooks, or migration inventories. When the user explicitly says no PRD is needed, PM Copilot should not force one.
-- Document prototype HTML that presents reference content with navigation, tables, hierarchical fields, source/review status, and typed `attention_points` instead of ordinary product-page annotations.
-- `run-log.yaml` as an internal trace when useful, not as the PM-facing deliverable
-- Tool preflight, delivery orchestration, HTML parsing, browser screenshots, and optional visual diff validation for compatibility HTML UI deliverables; missing Playwright/browser tooling should trigger setup before any skipped status is recorded
-- Optional `dev-tasks.yaml` and `launch-decision.yaml` for controlled engineering handoff and release decision support
+PM Copilot treats English and Chinese as first-class user-facing languages.
+Generated PM artifacts, UI delivery labels, annotations, review findings, readiness statuses, and validation notes should follow the user's language with the same delivery scope and quality bar.
+File names, event names, property names, requirement IDs, Mermaid node IDs, anchors, and other machine-readable identifiers stay ASCII for portability.
 
 ## Quick Start
 
-For direct agent usage, see `docs/direct-use.md`. For embedded project usage, see `docs/embedded-use.md`.
+For direct agent usage, see `docs/direct-use.md`.
+For embedded project usage, see `docs/embedded-use.md`.
+For practical PM scenarios, see `docs/use-cases.md`.
+For autonomy choices, see `docs/agent-modes.md`.
+For artifact value examples, see `docs/output-gallery.md`.
+For 2.x to 3.0 compatibility, see `docs/migration-3.0.md`.
 
-1. Open this repository in your agent-enabled workspace.
-2. Ask the agent to read `PM_COPILOT.md`, then say your product-manager request naturally, for example: `I need a PRD, tracking plan, and H5 UI deliverable for membership auto-renewal optimization.` In an embedded host repository, prefer: `Follow the local pm-copilot/PM_COPILOT.md workflow to produce the PRD.`
-3. The agent should inspect relevant context, ask must-answer clarification questions before generation, then create `prd.md` and the matching UI deliverable automatically.
-4. Optional: create local memory files later for better product-specific results and personal working preferences.
-
-Suggested prompt:
+Use natural product goals instead of internal state names:
 
 ```text
 We want to improve the H5 membership auto-renewal experience. Users say renewal reminders are unclear, the cancellation entry is hard to find, and support tickets are increasing.
 
-If important information is missing, ask me first.
-If enough information is available, create `prd.md` and the matching UI deliverable.
+Please identify missing critical information first. If enough context is available, create the PRD, H5 UI deliverable, tracking plan, and launch decision recommendation.
 ```
 
-For an already implemented feature, use:
+For an already implemented feature:
 
 ```text
-The feature is already implemented on the current branch. Please inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the feature into a complete PRD Markdown file and generate a browser-readable `prd.html` in the same run folder.
+The feature is already implemented on the current branch. Please inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the implementation into a complete PRD Markdown file and generate a deliverable prd.html.
 
-If final screenshots are not ready, put inline `占位图` placeholders at the relevant requirement positions for manual replacement. Do not create a separate image list. If the requirement detail is a table, keep the image or placeholder inside the same row and cell instead of placing it below the table.
+If final screenshots are missing, put inline 占位图 placeholders at the relevant requirement positions. Do not create a separate image list. If the requirement detail is a table, keep the image or placeholder inside the same row and cell instead of placing it below the table.
 ```
 
 For missing screenshots in a Chinese PRD, use this exact block only at the requirement position:
@@ -75,15 +72,18 @@ If the missing screenshot belongs in a requirement-detail table row, use the sin
 | 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
 ```
 
-Name screenshots by content. When one object has multiple states, use object plus concrete state, for example `资料卡片-加载中.png` and `资料卡片-加载失败.png`; do not use `资料卡片-状态.png`. Cover every independent changed page, window, panel, or dialog, but do not split micro-states when one screenshot captures the complete window or panel. Use `scripts/render_prd_html.py` to generate or refresh the HTML PRD. In embedded host projects, the output folder should be `pm-copilot/outputs/<run-id>/`.
+Name screenshots by content.
+When one object has multiple states, use object plus concrete state, such as `资料卡片-加载中.png` and `资料卡片-加载失败.png`; do not use `资料卡片-状态.png`.
+Cover every independent changed page, window, panel, or dialog, but do not split micro-states when one screenshot captures the complete window or panel.
 
 ## Two Practical Demos
 
-Paste either request into an agent-enabled workspace. PM Copilot should classify the context mode first, load the required agents, skills, contracts, and tooling rules, ask blocking questions when required, and generate the PRD, UI deliverable, run trace, and optional handoff artifacts only after the clarification gate passes.
+Paste either request into an agent-enabled workspace.
+PM Copilot should classify context mode, task mode, and autonomy level first; ask blocking questions when required; then generate artifacts and validation evidence when enough information is available.
 
-### Demo 1: Team Permission Management in an Existing Project
+### Demo 1: Team Permission Management In An Existing Project
 
-Use this to show that PM Copilot does more than write generic docs: it should inspect the current repository and fit the requirement into existing routes, role models, permission logic, UI components, and analytics conventions while separating external references from current-product context and engineering handoff work.
+This shows that PM Copilot does more than write generic documents: it inspects the current repository and fits the requirement into existing routes, role models, permission logic, UI components, and analytics conventions.
 
 ![Team permission management demo screenshot](docs/assets/readme-demo-team-permissions.png)
 
@@ -100,16 +100,14 @@ A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `outputs/team-permissions/prd.md` | Target users, current-product constraints, external reference findings, MVP/optional/future scope, member invites, role changes, permission blocking, audit logs, loading/empty/error/no-permission states |
-| Web UI deliverable | When frontend source exists, a source-backed preview route, Storybook/demo, or `source_delta_patch` that reuses the existing admin shell, component library, and table density; when an independent HTML handoff is required, a `source_extract_html` file derived from the source preview or user-approved current-repo implementation; compatibility HTML fallback is only for explicit portable HTML without source implementation or blocked source rendering |
-| `outputs/team-permissions/dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
-| `outputs/team-permissions/run-log.yaml` | Context mode, host project files loaded, external research sources, style evidence, existing UI baseline, tool validation, and unresolved risks |
+| `prd.md` | Target users, current-product constraints, external reference findings, MVP/optional/future scope, member invites, role changes, permission blocking, audit logs, loading/empty/error/no-permission states |
+| Web UI deliverable | Source-backed preview route, Storybook/demo, or `source_delta_patch` when source exists; source-extracted HTML when independent handoff is required |
+| `dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
+| `run-log.yaml` | `task_mode`, `autonomy_level`, context mode, loaded files, research sources, style evidence, tool validation, product judgment, next actions, and memory candidates |
 
-This demo highlights `repo-backed` context loading, separation of external research from repository context, Chinese or English PRDs, existing-UI source-backed deltas, red component annotations, engineering handoff, and permission/edge-state coverage.
+### Demo 2: Membership Auto-Renewal Optimization Without A Code Repository
 
-### Demo 2: Membership Auto-Renewal Optimization Without a Code Repository
-
-Use this to show that PM Copilot can start from a brief or product documents, without requiring a code repository, and still handle higher-risk product requirements involving payment, cancellation, reminders, tracking, privacy, and launch gates.
+This shows that PM Copilot can start from a brief or product documents and still handle higher-risk product requirements involving payment, cancellation, reminders, tracking, privacy, and launch gates.
 
 ![Membership auto-renewal demo screenshot](docs/assets/readme-demo-membership-renewal.png)
 
@@ -125,17 +123,48 @@ A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `outputs/membership-renewal/prd.md` | User problem, business goals, external references, current assumptions, reminder strategy, cancellation flow, payment/support/legal risks, acceptance criteria, and launch status |
-| `outputs/membership-renewal/prototype-h5.html` | Compatibility HTML UI deliverable for no-code/document-backed starts, covering membership center entry, renewal reminder, auto-renewal management, cancellation confirmation, result receipt, logged-out/no-membership/API-failure states |
+| `prd.md` | User problem, business goals, external references, current assumptions, reminder strategy, cancellation flow, payment/support/legal risks, acceptance criteria, and launch status |
+| `prototype-h5.html` | Compatibility HTML UI deliverable for no-code/document-backed starts, covering membership center entry, renewal reminder, auto-renewal management, cancellation confirmation, result receipt, logged-out/no-membership/API-failure states |
 | Tracking table inside the PRD | Events such as `renewal_notice_view`, `renewal_manage_open`, `renewal_cancel_submit`, `renewal_cancel_result`, plus privacy notes |
-| `outputs/membership-renewal/launch-decision.yaml` | Engineering-ready scope, launch blockers, legal/payment/support owners, rollback recommendation, and missing human approvals |
-| `outputs/membership-renewal/run-log.yaml` | Clarifying questions, default assumptions, external research status, access-state visual validation, tool results, and unresolved gates |
+| `launch-decision.yaml` | Engineering-ready scope, launch blockers, legal/payment/support owners, rollback recommendation, and missing human approvals |
+| `run-log.yaml` | Clarifying questions, default assumptions, external research status, access-state visual validation, tool results, and unresolved gates |
 
-This demo highlights `document-backed` or `brief-only` mode, localized delivery, mobile UI deliverables, access-state coherence, metrics and tracking, explicit payment/privacy/legal risk handling, and separated engineering handoff versus launch decision status.
+## Agent Operating Model
 
-## Use Inside an Existing Project
+PM Copilot 3.0 is defined in `agents/agent-operating-model.md`:
 
-This is the expected setup when you want to import PM Copilot into a real software project:
+```text
+Observe -> Frame -> Decide -> Act -> Verify -> Learn
+```
+
+Task modes:
+
+| Mode | Use |
+|---|---|
+| `prd_delivery` | Create a complete PRD from goals and context |
+| `implemented_feature_prd` | Reconstruct PRD and HTML from an implemented branch |
+| `ui_delivery` | Deliver source-first UI, source-extracted HTML, or compatibility HTML |
+| `tracking_plan` | Create metrics and analytics tracking |
+| `launch_readiness` | Judge launch blockers, owners, rollback, and approvals |
+| `dev_handoff` | Create development tasks and handoff information |
+| `structured_reference` | Create a structured reference, rule table, SOP, or document prototype |
+| `product_review` | Review an existing PRD, UI, implementation, or launch plan |
+| `self_improvement` | Improve PM Copilot from real failures |
+| `mixed_delivery` | Combine multiple product-manager outcomes |
+
+Autonomy levels:
+
+- `clarify-first`: default; ask before generation when critical context is missing.
+- `draft-with-risk`: create a visible-risk draft when the user explicitly asks to proceed.
+- `full-loop`: inspect context, create, review, validate, and recommend next actions.
+- `self-iteration`: update PM Copilot itself with version, changelog, eval, and validation.
+
+For complex work, PM Copilot also chooses an effort budget and records delegation plan, resume checkpoint, and termination condition.
+That makes long runs explain why they continue, why they stop, and which specialist outputs were accepted or rejected instead of only showing workflow state.
+
+## Use Inside An Existing Project
+
+Expected setup:
 
 ```text
 host-repo/
@@ -145,221 +174,81 @@ host-repo/
     `-- PM_COPILOT.md
 ```
 
-Copy or clone this repository into the host project as `pm-copilot/`, then install a small adapter in the host repository root:
+Copy or clone this repository into the host project as `pm-copilot/`, then install an adapter in the host repository root:
 
 ```bash
 cd host-repo/pm-copilot
 python3 scripts/install_adapter.py --host .. --tool all
 ```
 
-The adapter is required for reliable embedded use. Simply placing the `pm-copilot/` folder inside another project does not guarantee that Codex, Claude Code, Cursor, or another agent will automatically discover nested instructions.
-
-If a user writes `@pm-copilot` in the host repository, the adapter should resolve it to the local `pm-copilot/PM_COPILOT.md` workflow, not to an external tool call.
-
-In embedded mode, PM Copilot should inspect the current host project before drafting. Existing routes, data models, UI patterns, permissions, analytics conventions, and docs should shape the new requirement; the agent should not assume a greenfield product unless you ask for one.
-
-After the adapter is installed, users can ask natural PM requests from the host project without naming PM Copilot:
-
-```text
-Help me write the PRD and UI deliverable for team permission management.
-```
-
-For details and manual adapter snippets, see `docs/embedded-use.md`.
-
-## Use Without a Code Repository
-
-PMs do not need a software repository to use PM Copilot. If the product context lives in documents, place or attach the relevant files in the workspace and ask naturally.
-
-Useful context can include:
-
-- Historical PRDs, specs, and release notes
-- Product docs, screenshots, wireframes, and UI delivery notes
-- Research summaries, user feedback, support tickets, and meeting notes
-- Analytics exports, KPI definitions, and existing tracking plans
-- Business rules, compliance constraints, pricing notes, and rollout plans
-
-PM Copilot should read those documents as the current product context, ask must-answer questions when the documents are insufficient, and then generate `prd.md` and the UI deliverable after the clarification gate passes.
+The adapter is required for reliable embedded use.
+Simply placing the `pm-copilot/` folder inside another project does not guarantee that Codex, Claude Code, Cursor, or another agent will automatically discover nested instructions.
+If a user writes `@pm-copilot` in the host repository, the adapter should resolve it to the local `pm-copilot/PM_COPILOT.md`, not to an external tool call.
 
 ## Repository Structure
 
 ```text
-PM_COPILOT.md  Canonical cross-platform PM Copilot entry
-adapters/      Host-project adapters for Codex, Claude Code, Cursor
-agents/        Agent roles, responsibilities, inputs, outputs, handoffs
-skills/        Reusable PM methods and task skills
-prompts/       Prompt assembly, memory use, clarification, and generation rules
-context/       Product memory, user preferences, decisions, business rules, metrics
-workflow/      State machine, human checkpoints, execution order
-artifacts/     Output contracts and quality bars
-tools/         Tool registry, tool-use protocol, and capability-specific tooling notes
+PM_COPILOT.md  Cross-platform Agent front door
+agents/        Agent responsibilities, interface, and operating model
+workflow/      Execution graph, context loading, delivery checks, and handoff flow
+artifacts/     PRD, UI, trace, structured reference, tool result, and handoff contracts
+skills/        Reusable product-management capabilities
+tools/         Tool registry, tool-use protocol, and validation notes
+prompts/       Prompt assembly, memory, clarification, and generation rules
+context/       Product memory, user preferences, decisions, and example context
 guardrails/    Safety, privacy, source, assumption, and failover rules
-templates/     Reusable artifact templates
-docs/          User, maintainer, and release documentation
-scripts/       Lightweight local validation
+templates/     Artifact and run-log templates
+docs/          User, maintainer, use-case, mode, and migration docs
+scripts/       Local validation, rendering, extraction, adapter, and scorecard scripts
+adapters/      Host-project adapters for Codex, Claude Code, Cursor
 ```
 
-## Core Workflow
+## Validation And Tools
 
-```text
-Request intake
--> Tool preflight
--> Current product context scan
--> Implemented feature evidence scan (when the current branch already contains the feature)
--> Requirement clarification
--> User answer or explicit assumption approval
--> PRD with goals, research, requirements, metrics, tracking, and flows
--> Multi-platform UI deliverable, or structured reference / document prototype
--> Delivery check
+Common commands:
+
+```bash
+python3 scripts/preflight_tools.py
+python3 scripts/validate_outputs.py outputs/<run-id>
+python3 scripts/run_delivery_checks.py outputs/<run-id> --language en
+python3 scripts/validate_agent_trace.py outputs/<run-id> --strict
+python3 scripts/analyze_agent_run_evidence.py --json
+python3 scripts/setup_visual_validation.py
+python3 scripts/validate_prototype_visual.py outputs/<run-id>
+python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>
+python3 scripts/render_prd_html.py outputs/<run-id>
+python3 scripts/agent_improvement_scorecard.py
+python3 scripts/validate_repo.py
 ```
 
-The default interaction mode is "clarify before generation." If must-answer information is missing, the agent should ask and stop before creating PRD or UI deliverables. It should continue only after the user answers or explicitly accepts assumption risk. PRD status, engineering handoff status, and launch status are separate: engineering-blocking confirmations prevent `Ready for engineering`, while launch-only blockers must remain visible with owner and required confirmation.
-
-For reference, policy, medical, legal, financial, safety, or operational content, PM Copilot records source status, review owner, review status, disclaimer status, and launch impact. Unreviewed content must be labeled as placeholder or draft even when the surrounding product framework is ready for engineering.
-
-Each real requirement run gets one generated-artifact folder under `outputs/<run-id>/`, normally containing `prd.md`, a UI-deliverable reference, and optionally `run-log.yaml`. The run id uses an English kebab-case requirement name plus day-precision date, for example `membership-renewal-2026-05-18`; same-day collisions append `-2`, `-3`, and so on. In a repo with frontend source, the UI deliverable defaults to source-backed preview/delta files recorded in `run-log.yaml`; when the user asks to implement the UI in the current repository first and then hand off a 1:1 artifact, PM Copilot should run the implemented host UI and extract the target region into source-derived HTML. Compatibility `prototype-<platform>.html` files are generated only for no-source work, explicit portable HTML without source implementation, explicit redesign/greenfield UI, or concrete source-rendering blockers. Offline folder handoffs may also use `index.html` as the entry file in the same run folder. The `outputs/` folder is generated at runtime and is not shipped with example artifacts. If the target git repository is unavailable but a same-name source folder exists on the Desktop, the agent may write source changes there and state that no remote push was performed.
-
-When the user asks for an implemented feature to be delivered as a document, the same run folder may contain `prd.html`. It should be a browser-readable version of `prd.md`: normal document styling, a left table of contents that starts from numbered sections and syncs with reading position, complete readable tables, Mermaid diagrams rendered through local assets, inline images or screenshot placeholders at the relevant requirement position, table-contained images when Markdown table cells are the relevant position, and click-to-fullscreen viewing for real images. Do not turn `prd.html` into a UI prototype, card-heavy page, or detached screenshot list.
-
-Implemented-feature PRDs should use `templates/implemented-feature-prd-template.md` and render `prd.html` with `python3 scripts/render_prd_html.py outputs/<run-id>`. In embedded mode, the run folder must be under `pm-copilot/outputs/<run-id>/`, and the render command is `python3 pm-copilot/scripts/render_prd_html.py pm-copilot/outputs/<run-id>`.
-
-When compatibility HTML UI deliverables are generated, PM Copilot should run `python3 scripts/validate_prototype_visual.py outputs/<run-id>`. For source-backed UI previews, it should run the host dev/preview/Storybook/simulator path; when a browser preview URL or local preview file exists, run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>`, otherwise record equivalent screenshot or simulator evidence. If Playwright or browser tooling is missing, it should first run or guide `python3 scripts/setup_visual_validation.py`; a skipped status is allowed only after setup fails, the environment forbids browser launch, or the user declines installation. Before final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language en` and store tool evidence under `outputs/<run-id>/tool-results/`. When the user asks for engineering handoff or release readiness, the same run folder may also contain `dev-tasks.yaml` and `launch-decision.yaml`.
-
-PM Copilot follows the user's language for generated artifacts: Chinese requests should produce Chinese headings, labels, statuses, notes, and PM content; English requests should produce English equivalents. File names and machine-readable identifiers stay ASCII.
+`tools/tool-registry.yaml` is the source of tool capability truth.
+Tool results should follow `artifacts/tool-result-contract.md` where possible.
+Use `validate_prototype_visual.py` for compatibility HTML UI deliverables.
+Use the host project's preview route for source-backed UI, and run `validate_ui_preview.py` when a URL or file target is available.
 
 ## Memory
 
-PM Copilot uses local file-based memory so repeated use can become smoother without a hosted service:
+PM Copilot uses local file memory to make repeated work more useful:
 
 - `context/product-memory.local.yaml` for stable product facts
 - `context/user-preferences.local.yaml` for the user's working style
 - `context/decision-log.local.yaml` for durable product decisions
-- `outputs/<run-id>/run-log.yaml` for single-run traces
-- `outputs/<run-id>/tool-results/delivery-check-report.json` for delivery-orchestrator tool evidence
-- `outputs/<run-id>/visual-review/visual-report.json` for UI screenshot and visual diff evidence after setup succeeds
-- `outputs/<run-id>/dev-tasks.yaml` for issue-ready engineering handoff when requested
-- `outputs/<run-id>/launch-decision.yaml` for launch decision support when requested
+- `outputs/<run-id>/run-log.yaml` for one-run traces
 
-The repository ships `.example.yaml` schemas only. `.local.yaml` memory files are ignored by Git and should stay private. Current user instructions and current product context always override memory.
+The repository ships `.example.yaml` schemas only.
+`.local.yaml` memory files are ignored by Git and should stay private.
+Current user instructions and current product context always override memory.
 
-## Platform-Neutral Design
+## Platform Neutrality
 
-PM Copilot avoids dependency on a specific agent framework. Each agent and skill is written as a portable Markdown contract:
+PM Copilot is not tied to a specific agent framework.
+It is composed of portable Markdown contracts, scripts, and templates that can work in Codex, Claude Code, Cursor, or internal agent platforms.
+Agents define responsibilities, skills provide methods, workflow provides the execution graph, artifacts define acceptance, tools provide validation, and guardrails constrain high-risk behavior.
 
-- Agents define ownership, inputs, outputs, decision points, handoffs, and failover behavior.
-- Skills define reusable procedures, standards, and artifact rules.
-- Prompt rules define request classification, memory use, clarification behavior, and generation boundaries.
-- Artifact contracts define required output shape and minimum quality.
-- Guardrails define what the agent must not fabricate or silently assume.
+## Maintainer Entry Points
 
-## Skill Layer
-
-`skills/` stores reusable product-work methods. `PM_COPILOT.md` and the agents load only the skills that match the current request, so the full skill set does not enter context by default.
-
-| Group | Skills |
-|---|---|
-| Intake and scope | `requirement-intake`, `opportunity-discovery`, `feedback-synthesis`, `process-mapping`, `knowledge-ops`, `scope-edge-cases` |
-| PRD and delivery | `prd-writing`, `user-stories`, `user-flow`, `acceptance-criteria`, `review-checklist`, `artifact-packaging`, `development-handoff` |
-| Metrics and data | `metrics-tree`, `tracking-plan`, `experiment-design`, `product-ops-analysis` |
-| Research and communication | `competitor-research`, `roadmap-communication` |
-| UI delivery and UI evidence | `multi-platform-prototype` (including screenshot/image-to-UI reconstruction), `design-system-audit` |
-| Tool and capability governance | `tool-vetting`, `sharingan`, `skill-cleaner` |
-
-Each capability type has one canonical skill. External resources absorbed with `skills/sharingan/SKILL.md` go through risk review and merge into the canonical skill instead of creating duplicates.
-
-## External Tool Governance
-
-PM Copilot can connect to tools such as Figma, browser validation, document systems, project management, analytics, CRM, and automation platforms, but a tool is not considered usable just because it appears in a recommendation list.
-
-- `tools/external-tool-catalog.json` records candidate tools, source type, cost risk, credential requirements, data risk, permission boundary, and fallback.
-- `agents/integration-governance-agent.md` and `skills/tool-vetting/SKILL.md` vet tools before use.
-- `python3 scripts/preflight_integrations.py --tier recommended` checks recommended tools for local runtime conditions, missing credentials, and candidate status.
-- Tools that require API keys, OAuth, commercial accounts, workspace permissions, or write actions are optional and cannot be silently enabled.
-- Database, analytics, CRM, support, advertising, and collaboration tools default to read-only or least privilege. Sending messages, publishing, changing spend, editing tickets, or writing records requires explicit user approval.
-
-## Documentation
-
-- `README.md` - Chinese README
-- `docs/direct-use.md` - direct one-shot agent usage
-- `docs/embedded-use.md` - using PM Copilot inside another development repository
-- `docs/configuration.md` - product context configuration
-- `docs/quality-rubric.md` - manual scoring rubric for generated PRD/UI deliveries
-- `docs/optimization-playbook.md` - real-task optimization loop
-- `docs/practice-self-iteration.md` - post-delivery self-iteration loop for real user corrections
-- `docs/failure-taxonomy.md` - failure classification and fix mapping
-- `docs/versioning.md` - versioning and compatibility policy
-- `docs/release-checklist.md` - release readiness checklist
-- `tools/tool-registry.yaml` - tool capability registry
-- `artifacts/tool-result-contract.md` - tool result contract
-- `docs/en/contributing-guide.md` - contribution rules
-- `docs/en/security-policy.md` - security and privacy policy
-- `CHANGELOG.md` - detailed version history
-
-## Feedback and Contributions
-
-Use GitHub issues to share real usage feedback:
-
-- Bug reports: `.github/ISSUE_TEMPLATE/bug_report.md`
-- Feature requests: `.github/ISSUE_TEMPLATE/feature_request.md`
-- Scenario requests: `.github/ISSUE_TEMPLATE/scenario_request.md`
-
-Synthetic or anonymized product context is preferred. Do not post private product data, credentials, unreleased financials, or real user data in public issues.
-
-## Embedded Install
-
-When PM Copilot is nested inside another development repository, install a small adapter into the host project:
-
-```bash
-python3 scripts/install_adapter.py --host /path/to/host-repo --tool all
-```
-
-After that, users can ask natural PM requests without saying the project name.
-
-## Validation
-
-Run:
-
-```bash
-python3 scripts/preflight_tools.py --strict
-python3 scripts/validate_repo.py
-```
-
-The GitHub workflow in `.github/workflows/validate.yml` runs the same validator on pushes and pull requests.
-
-To validate a generated output folder during a PM Copilot run:
-
-```bash
-python3 scripts/run_delivery_checks.py outputs/<run-id> --language en
-python3 scripts/validate_outputs.py outputs/<run-id> --language en
-```
-
-If delivery depends on external research or source checks, run `python3 scripts/preflight_tools.py --check-network <url> --require-network --strict`. When `--prototype` is omitted, `validate_prototype_visual.py` validates every supported compatibility HTML file in the run folder; source-backed previews use `validate_ui_preview.py` for browser evidence.
-
-## Optimization
-
-PM Copilot should be improved through real task runs, traces, quality scoring, failure classification, and regression cases.
-
-Start with:
-
-- `docs/optimization-playbook.md`
-- `docs/practice-self-iteration.md`
-- `docs/self-improvement-system.md`
-- `docs/failure-taxonomy.md`
-- `docs/quality-rubric.md`
-- `templates/agent-run-log-template.yaml`
-- `templates/dev-tasks-template.yaml`
-- `templates/launch-decision-template.yaml`
-- `templates/evaluation-case-template.md`
-
-For continuous improvement, run:
-
-```bash
-python3 scripts/agent_improvement_scorecard.py
-```
-
-## Privacy Default
-
-Use local files by default. Do not paste sensitive production data, user personal data, private credentials, unreleased financials, or confidential partner details unless your environment is approved for that data. When real business context is needed, prefer anonymized examples and sampled metrics.
-
-## License
-
-MIT License. See `LICENSE`.
+- `docs/release-checklist.md`: release checks
+- `docs/optimization-playbook.md`: system improvement method
+- `docs/self-improvement-system.md`: self-improvement system
+- `docs/practice-self-iteration.md`: converting real feedback into generic capability
+- `docs/versioning.md`: versioning policy

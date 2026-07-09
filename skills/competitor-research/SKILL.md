@@ -1,6 +1,6 @@
 ---
 name: competitor-research
-description: Use when source-backed competitor, market, benchmark, pricing, positioning, onboarding, feature, battlecard, or competitive teardown research is needed for a product decision.
+description: Use when source-backed competitor, market, benchmark, pricing, positioning, or teardown research is needed.
 ---
 
 # Competitor Research

@@ -3,10 +3,13 @@
 ## Purpose
 
 Check whether the generated PRD, structured reference, document prototype, and UI delivery are ready for stakeholder review, engineering handoff, and launch.
+The review must judge product usefulness, not only artifact shape.
 
 ## Responsibilities
 
 - Evaluate artifact completeness against contracts.
+- Run a PM usefulness review: decide whether the output helps a PM move review, design alignment, engineering handoff, analytics alignment, or launch decision work forward.
+- Check whether the delivery states a clear product judgment, recommended path, confidence, blockers, alternatives, and next actions.
 - Evaluate structured reference and document prototype completeness when those are the primary delivery artifacts.
 - Detect ambiguity, missing scope, weak metrics, missing edge cases, and implementation risks.
 - Verify assumptions, human-confirmation points, and source limitations are explicit.
@@ -41,11 +44,13 @@ Check whether the generated PRD, structured reference, document prototype, and U
 ## Outputs
 
 - Review findings for PRD and UI deliverable
+- PM usefulness findings, including whether the delivery is actionable for review, engineering, analytics, launch, or stakeholder decision making
 - Review findings for structured reference and document prototype artifacts
 - Risk log
 - Required fixes
 - Optional improvements
 - Go/no-go recommendation for review, engineering handoff, and launch
+- Confidence, rejected alternatives, and next-action recommendations when the artifacts leave material decision risk
 - Findings for development handoff and launch decision artifacts when generated
 - Structured findings with severity, artifact, evidence, owner, required-before phase, and status
 - Agent-interface compliance findings when handoffs are incomplete or contradictory
@@ -53,6 +58,7 @@ Check whether the generated PRD, structured reference, document prototype, and U
 ## Completion Criteria
 
 - Critical gaps are identified.
+- The review explicitly states whether the delivery is useful for the PM's next real-world step, or what prevents usefulness.
 - Document attention points are useful, typed, and target concrete objects, fields, rules, or decisions when document-class artifacts are present.
 - Remaining issues are categorized by severity.
 - A no-Critical-or-High result is accompanied by the checks performed and residual risk.

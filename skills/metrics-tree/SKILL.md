@@ -1,6 +1,6 @@
 ---
 name: metrics-tree
-description: Use when translating product goals into KPI trees, primary metrics, secondary metrics, guardrails, diagnostics, and measurement assumptions.
+description: Use when translating product goals into KPI trees, primary/secondary metrics, guardrails, diagnostics, and measurement assumptions.
 ---
 
 # Metrics Tree

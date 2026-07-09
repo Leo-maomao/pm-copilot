@@ -32,12 +32,15 @@ Paste the original realistic product request here.
 
 ## Expected Workflow
 
+- Classify task mode and autonomy level before drafting.
 - Discovery and clarification
 - Preserve the generalization boundary: fixture-specific host facts may shape this eval, but must not become generic PM Copilot defaults.
+- Record selected path, skipped path, rejected alternatives, and replan triggers when applicable.
 - PRD
 - Metrics and tracking sections inside PRD
 - Flow diagrams inside PRD, when useful
 - UI delivery
+- PM usefulness review
 - Delivery check
 
 ## Required Artifacts
@@ -57,6 +60,17 @@ Paste the original realistic product request here.
 | `dev-tasks.yaml` | Engineering handoff, implementation planning, issue creation, or make-ready-for-engineering is requested. | `python3 scripts/run_delivery_checks.py outputs/<run-id>` |
 | `launch-decision.yaml` | Release readiness, go/no-go support, rollout, rollback, or launch approval risk is in scope. | `python3 scripts/run_delivery_checks.py outputs/<run-id>` |
 | `tracking-plan.csv` or PRD tracking table | Metrics, analytics, experiment, conversion, audit, or behavioral event review is in scope. | `python3 scripts/validate_outputs.py outputs/<run-id>` |
+
+## Agentic Expectation Matrix
+
+| Field | Expected Behavior |
+|---|---|
+| `task_mode` | Matches the PM job rather than defaulting to a generic workflow. |
+| `autonomy_level` | Explains when the agent asks, drafts with risk, runs full loop, or self-iterates. |
+| Product judgment | States recommended path, confidence, blockers, and alternatives. |
+| Review loop | Checks PM usefulness, not only document format. |
+| Next actions | Gives the PM concrete follow-up steps. |
+| Memory candidates | Lists durable facts or preferences when the run learned something reusable. |
 
 ## Known Risks
 

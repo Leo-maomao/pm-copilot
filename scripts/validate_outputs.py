@@ -214,6 +214,7 @@ PRODUCTION_DECISIONS = {
     "ready_to_launch",
 }
 RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?")
+LEGACY_EVIDENCE_RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{8}-\d{4}")
 IMAGE_PLACEHOLDER_RE = re.compile(
     r"(?P<block>^>\s*占位图[:：]\s*(?P<block_name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$)"
     r"|(?P<inline>占位图[:：]\s*(?P<inline_name>[^`<>\n|]+?\.(?:png|jpg|jpeg|webp))"
@@ -1131,12 +1132,14 @@ def is_document_prototype_html(text: str) -> bool:
     )
 
 
-def check_folder(path: Path) -> None:
+def check_folder(path: Path, *, allow_legacy_run_id: bool = False) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
     if path.parent.name != "outputs":
         fail("Output folder must be a direct child of outputs/: outputs/<run-id>")
-    if not RUN_ID_RE.fullmatch(path.name):
+    is_current_run_id = bool(RUN_ID_RE.fullmatch(path.name))
+    is_legacy_evidence_run_id = bool(LEGACY_EVIDENCE_RUN_ID_RE.fullmatch(path.name))
+    if not is_current_run_id and not (allow_legacy_run_id and is_legacy_evidence_run_id):
         fail(
             "Output folder names under outputs/ must use "
             "requirement-slug-YYYY-MM-DD with an optional numeric collision suffix"
@@ -2973,10 +2976,18 @@ def main() -> None:
     parser.add_argument("output_folder", type=Path)
     parser.add_argument("--language", choices=["zh", "en"], default=None)
     parser.add_argument("--pre-clarification", action="store_true")
+    parser.add_argument(
+        "--allow-legacy-run-id",
+        action="store_true",
+        help=(
+            "Allow compact timestamp run IDs used only by retained local runtime evidence "
+            "folders, for example requirement-slug-YYYYMMDD-HHMM."
+        ),
+    )
     args = parser.parse_args()
 
     folder = args.output_folder
-    check_folder(folder)
+    check_folder(folder, allow_legacy_run_id=args.allow_legacy_run_id)
     if args.pre_clarification:
         check_pre_clarification(folder)
         print(f"PM Copilot pre-clarification output validation passed: {folder}")

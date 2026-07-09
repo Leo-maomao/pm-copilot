@@ -13,6 +13,127 @@ task:
   raw_request: ""
   requested_artifacts: []
 
+agent_strategy:
+  task_mode: "" # prd_delivery | implemented_feature_prd | ui_delivery | tracking_plan | launch_readiness | dev_handoff | structured_reference | product_review | self_improvement | mixed_delivery
+  secondary_modes: []
+  autonomy_level: "" # clarify-first | draft-with-risk | full-loop | self-iteration
+  goal: ""
+  success_criteria: []
+  effort_budget: "" # fast-pass | standard-loop | deep-agentic | research-intensive | release/self-iteration
+  user_value: "" # how this run helps the PM move work forward
+  selected_path: []
+  skipped_path:
+    - state: ""
+      reason: ""
+      readiness_impact: "" # prd | engineering | launch | none
+  rejected_alternatives:
+    - option: ""
+      reason: ""
+      risk_avoided: ""
+  final_delivery_contract:
+    artifacts_required: []
+    judgment_required: true
+    blockers_required: true
+    validation_required: true
+    next_actions_required: true
+    memory_candidates_required: false
+
+delegation_plan:
+  active: false
+  pattern: "" # direct | orchestrator_worker | parallel_specialists | evaluator_optimizer | supervisor_handoff
+  workers:
+    - role: ""
+      owned_question: ""
+      input_evidence: []
+      expected_output: ""
+      validation_expectation: ""
+      merge_rule: ""
+      status: "" # planned | running | complete | needs_input | blocked | degraded | failed
+      confidence: ""
+
+resume_checkpoint:
+  last_reliable_state: ""
+  task_mode: ""
+  autonomy_level: ""
+  artifacts_ready: []
+  artifacts_omitted:
+    - artifact: ""
+      reason: ""
+  blocking_questions: []
+  decisions_made: []
+  rejected_alternatives: []
+  validation_completed: []
+  validation_required: []
+  next_safe_action: ""
+
+termination_condition:
+  status: "" # complete | needs_input | blocked | degraded | failed
+  evidence: ""
+  pm_usefulness: ""
+  remaining_limitation: ""
+
+tool_plan:
+  required_tools:
+    - tool_id: ""
+      purpose: ""
+      trigger: ""
+      fallback: ""
+  optional_tools:
+    - tool_id: ""
+      purpose: ""
+      use_when: ""
+  unavailable_or_skipped:
+    - tool_id: ""
+      reason: ""
+      fallback_used: ""
+
+decision_record:
+  - id: ""
+    decision: ""
+    owner: "" # user | PM Orchestrator | Discovery Agent | Requirements Agent | Analytics Agent | UI Delivery Agent | Review Agent | other
+    evidence: []
+    alternatives_considered: []
+    tradeoff: ""
+    readiness_impact: "" # prd | engineering | launch | none
+
+replan_triggers:
+  - trigger: "" # evidence_conflict | tool_failure | user_goal_change | validation_failure | review_high_or_critical | artifact_conflict | implementation_conflict | other
+    observed_at_state: ""
+    action_taken: ""
+    affected_artifacts: []
+    readiness_impact: ""
+
+review_loop:
+  iterations: 0
+  critical_or_high_findings: []
+  fixes_applied: []
+  accepted_risks: []
+
+memory_candidates:
+  product_memory:
+    - fact: ""
+      source: ""
+      confidence: ""
+      sensitivity: "" # normal | sensitive | private
+      write_recommendation: "" # suggest | ask_before_writing | do_not_store
+  user_preferences:
+    - preference: ""
+      source: ""
+      write_recommendation: ""
+  decision_log:
+    - decision: ""
+      rationale: ""
+      source: ""
+      write_recommendation: ""
+
+next_actions:
+  product: []
+  design: []
+  engineering: []
+  qa: []
+  analytics: []
+  launch: []
+
 context:
   source_mode: ""
   files_loaded: []
@@ -565,4 +686,3 @@ failures:
     likely_root_cause: ""
 
 final_status: ""
-next_actions: []

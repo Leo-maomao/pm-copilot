@@ -1,6 +1,6 @@
 ---
 name: development-handoff
-description: Use when turning a PRD and UI delivery package into development tasks, issue-ready implementation slices, QA checks, and a controlled launch decision recommendation.
+description: Use when turning a PRD and UI delivery into dev tasks, issue-ready slices, QA checks, or launch recommendations.
 ---
 
 # Development Handoff

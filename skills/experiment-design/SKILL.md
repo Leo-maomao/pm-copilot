@@ -1,6 +1,6 @@
 ---
 name: experiment-design
-description: Use when planning A/B tests, fake-door tests, beta rollouts, product experiments, metric decision rules, or interpreting experiment outcomes.
+description: Use when planning A/B tests, fake-door tests, beta rollouts, experiments, metric rules, or interpreting outcomes.
 ---
 
 # Experiment Design

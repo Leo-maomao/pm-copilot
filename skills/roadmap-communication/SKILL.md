@@ -1,6 +1,6 @@
 ---
 name: roadmap-communication
-description: Use when creating roadmap narratives, stakeholder updates, release notes, customer announcements, internal changelogs, or launch communication drafts.
+description: Use when creating roadmap narratives, stakeholder updates, release notes, customer announcements, changelogs, or launch drafts.
 ---
 
 # Roadmap Communication

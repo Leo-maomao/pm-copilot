@@ -1,6 +1,6 @@
 ---
 name: prd-writing
-description: Use when generating or improving the primary PRD handoff artifact, including document information, version history, background, goals, research, requirement list, requirement details, tracking, i18n, acceptance criteria, test suggestions, and code evidence for implemented features.
+description: Use when generating or improving PRDs with background, goals, research, requirements, tracking, i18n, acceptance, and code evidence.
 ---
 
 # PRD Writing

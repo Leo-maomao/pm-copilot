@@ -17,10 +17,25 @@ python3 scripts/validate_outputs.py outputs/<run-id> --language zh
 python3 scripts/validate_outputs.py outputs/<run-id> --language en
 ```
 
+New run folders must use `requirement-slug-YYYY-MM-DD`. The `--allow-legacy-run-id` validator option exists only for retained local 2.x evidence folders that use compact timestamp names such as `requirement-slug-YYYYMMDD-HHMM`; `run_delivery_checks.py` applies that compatibility automatically for those historical evidence folders.
+
 Run the delivery orchestrator before final delivery or iteration scoring:
 
 ```bash
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
+```
+
+Run strict Agent trace validation for PM Copilot 3.0 full-loop, self-iteration, or eval runs:
+
+```bash
+python3 scripts/validate_agent_trace.py outputs/<run-id> --strict
+python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh --strict-agent-trace
+```
+
+Analyze local historical PM Copilot outputs before self-iteration:
+
+```bash
+python3 scripts/analyze_agent_run_evidence.py --json --report outputs/agent-run-evidence-report.json
 ```
 
 Render implemented-feature PRD HTML before final validation when `prd.html` is requested:
@@ -34,6 +49,8 @@ python3 scripts/render_prd_html.py outputs/<run-id>
 - Run `python3 scripts/preflight_tools.py` before full-loop iteration, embedded host evaluation, or release checks.
 - Use `python3 scripts/preflight_tools.py --strict` before release validation so required `setup_required`, `unavailable`, or `skipped` capabilities block the release check.
 - Run `python3 scripts/run_delivery_checks.py` for final run-folder validation whenever a run folder exists.
+- Run `python3 scripts/validate_agent_trace.py --strict` when a 3.0 run claims full-loop Agent delivery, self-iteration, or eval success.
+- Use `python3 scripts/analyze_agent_run_evidence.py` when self-iteration should learn from local embedded PM Copilot outputs.
 - For implemented-feature PRD folders, validate that outputs live directly under `outputs/<run-id>`, PRD Markdown has one top-level title, `prd.html` is a document rendering, images or `占位图` blocks remain inline, no detached screenshot list exists, and screenshot names use content plus concrete state such as `文件上传-上传中.png`.
 - Do not leave validation placeholders after commands run.
 - Record every command and result using `artifacts/tool-result-contract.md`.

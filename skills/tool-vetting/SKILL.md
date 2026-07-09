@@ -1,6 +1,6 @@
 ---
 name: tool-vetting
-description: Use when evaluating external MCP servers, APIs, SaaS tools, automation connectors, or paid services before PM Copilot recommends or depends on them.
+description: Use when evaluating external MCP servers, APIs, SaaS tools, connectors, or paid services before PM Copilot depends on them.
 ---
 
 # Tool Vetting

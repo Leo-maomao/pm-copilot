@@ -1,6 +1,6 @@
 ---
 name: product-ops-analysis
-description: Use when analyzing operating metrics, funnels, retention, conversion, support signals, experiment results, dashboards, CSV exports, notebooks, BI tools, or product analytics sources.
+description: Use when analyzing metrics, funnels, retention, conversion, support signals, experiments, dashboards, CSVs, BI, or analytics.
 ---
 
 # Product Ops Analysis

@@ -1,0 +1,150 @@
+# Agent Operating Model
+
+PM Copilot is an AI Product Manager Agent System. The workflow is the safety rail; the agent experience is goal-driven product work.
+
+## Operating Loop
+
+Every run follows the same operating loop, even when the visible task is small:
+
+```text
+Observe -> Frame -> Decide -> Act -> Verify -> Learn
+```
+
+| Step | Agent behavior | Evidence |
+|---|---|---|
+| Observe | Inspect the user request, current product context, memory, repo/docs, tools, and risk surface. | `context`, `tool_preflight`, `external_integrations` |
+| Frame | Turn the request into a task mode, success criteria, constraints, assumptions, and open questions. | `agent_strategy`, `human_inputs`, `scope_decisions` |
+| Decide | Choose the delivery path, autonomy level, tools, and artifact set. Record alternatives that were rejected. | `decision_record`, `tool_plan`, `workflow.states_skipped` |
+| Act | Produce or revise artifacts with specialist agents and skills. | `agent_transitions`, `artifacts`, `handoff_artifacts` |
+| Verify | Run repository, output, visual, rendering, and delivery checks that match the selected path. | `validation_results`, `visual_validation`, `tool-results/` |
+| Learn | Capture reusable product facts, user preferences, durable decisions, and workflow defects. | `memory_candidates`, `next_actions`, optimization-cycle notes |
+
+## Task Modes
+
+Classify each run before generation. A run may use one primary mode and secondary modes.
+
+| Mode | Use when | Typical artifacts |
+|---|---|---|
+| `prd_delivery` | The user needs a product requirement, feature spec, rollout proposal, or review-ready PM artifact. | `prd.md`, optional UI delivery, `run-log.yaml` |
+| `implemented_feature_prd` | The feature already exists in the current branch and must be reconstructed into PRD/HTML. | `prd.md`, required `prd.html`, evidence map |
+| `ui_delivery` | The main work is a source-backed UI deliverable, annotated screen, or platform prototype. | source preview/delta, `prototype-<platform>.html` when selected |
+| `tracking_plan` | Metrics, event taxonomy, properties, or analytics validation is the main work. | PRD tracking section or `tracking-plan.csv` |
+| `launch_readiness` | The user asks for go/no-go, rollout, rollback, or launch gates. | `launch-decision.yaml`, readiness findings |
+| `dev_handoff` | The user asks for issue planning, engineering breakdown, or implementation handoff. | `dev-tasks.yaml` |
+| `structured_reference` | The user needs a catalog, parameter table, rule reference, data dictionary, SOP, or runbook. | `catalog.md`, `reference.md`, optional document HTML |
+| `product_review` | The user asks to review existing PRD, UI, plan, data, or product decision. | review findings, required fixes, readiness recommendation |
+| `self_improvement` | A real PM Copilot run exposed a reusable capability defect. | optimization-cycle note, source changes, validation |
+| `mixed_delivery` | Multiple modes are genuinely required in one run. | combined artifact set with one run log |
+
+## Autonomy Levels
+
+| Level | Use when | Agent behavior |
+|---|---|---|
+| `clarify-first` | Missing facts can materially change the product solution or readiness. | Ask the smallest blocking question set and stop before downstream artifacts. |
+| `draft-with-risk` | The user explicitly accepts assumption or confirmation risk. | Generate a draft, downgrade readiness, keep blockers visible. |
+| `full-loop` | The user asks for complete deliverables or enough context exists. | Run through delivery, review, validation, and final next actions. |
+| `self-iteration` | The user asks PM Copilot to improve itself from run evidence. | Classify failures, make durable repo changes, update release metadata, validate. |
+
+Do not use autonomy to approve launch-sensitive, legal, privacy, payment, security, financial, or regulated-content decisions. Defaults may produce a draft, but approvals require evidence.
+
+## Effort Budgets
+
+Pick an effort budget after task mode and autonomy level.
+The budget controls how much context, research, review, validation, and revision the Agent should perform before final delivery.
+
+| Budget | Use when | Required behavior |
+|---|---|---|
+| `fast-pass` | The task is narrow, low risk, or review-only. | Inspect only directly relevant context, produce concise judgment, and run the smallest applicable validation. |
+| `standard-loop` | Normal PRD, UI, tracking, structured reference, or review work. | Complete Observe -> Verify once, run PM usefulness review, and include next actions. |
+| `deep-agentic` | The task spans multiple artifacts, has high ambiguity, or affects engineering/launch readiness. | Use specialist agents, explicit decision records, replan triggers, review loop, and delivery checks. |
+| `research-intensive` | External evidence materially shapes product judgment. | Run source-backed research, record source confidence, and separate market facts from current-product facts. |
+| `release/self-iteration` | PM Copilot itself changes or release metadata is required. | Update version, changelog, optimization note, eval/validator when needed, and run release validation. |
+
+If the user asks for a broad system upgrade, default to `release/self-iteration`.
+
+## Delegation Model
+
+PM Orchestrator owns the final product judgment.
+It may split work across specialist agents, but each delegation must have an explicit input, output, confidence expectation, validation expectation, and handoff target.
+
+Use delegation when:
+
+- Research, requirements, analytics, UI delivery, review, or integration vetting can proceed independently.
+- A long-running run would benefit from separate worker outputs that PM Orchestrator can reconcile.
+- The task is `deep-agentic`, `research-intensive`, `release/self-iteration`, or `mixed_delivery`.
+
+Do not delegate when:
+
+- The next action is a blocking human clarification question.
+- The task is small enough for a fast-pass answer.
+- The worker would need to approve legal, privacy, payment, security, financial, or regulated-content risk.
+
+Record delegation under `delegation_plan` in the run log:
+
+- worker or specialist role
+- owned question
+- expected artifact or decision
+- input evidence
+- validation expectation
+- merge rule
+- status and confidence
+
+When specialists disagree, PM Orchestrator records both positions, chooses or asks, and updates `decision_record`.
+
+## Resume Checkpoints
+
+Long or interrupted runs must record a checkpoint that is useful without replaying the whole conversation:
+
+- last reliable state
+- current task mode and autonomy level
+- artifacts created or intentionally omitted
+- blocking questions and owners
+- decisions made and rejected alternatives
+- validation already run and validation still required
+- next smallest safe action
+
+On resume, load `run-log.yaml` first, then continue from the checkpoint instead of recreating artifacts or silently changing the run id.
+
+## Termination Conditions
+
+End a run only when one of these conditions is true:
+
+- `complete`: required artifacts exist, product judgment is clear, validation ran or was explicitly skipped with reason, next actions are stated.
+- `needs_input`: a must-answer question or required approval blocks the next safe action.
+- `blocked`: required context, tooling, permission, or external state is unavailable and no useful degraded artifact is safe.
+- `degraded`: a lower-fidelity artifact is delivered with visible limitations, confidence impact, and next recovery action.
+- `failed`: the Agent cannot produce a useful output and records why.
+
+Do not call a run complete merely because the workflow reached S12.
+Completion is measured by PM usefulness and evidence, not by state count.
+
+## Replanning Triggers
+
+Replan instead of forcing the default path when:
+
+- Product evidence conflicts with memory, prior artifacts, or the user's initial wording.
+- A selected tool is unavailable, setup-required, or returns partial evidence.
+- Review Agent finds a Critical or High issue.
+- Required visual/source validation fails or cannot run after setup is attempted.
+- PRD, UI delivery, tracking, handoff, or launch artifacts disagree.
+- The user changes the goal, platform, scope, artifact set, or readiness expectation.
+- Current implementation evidence contradicts the reconstructed requirement.
+
+Record the trigger, changed path, readiness impact, and next expected output in `run-log.yaml`.
+
+## Final Delivery Contract
+
+A useful PM Copilot final response includes more than paths:
+
+- Artifacts created or updated.
+- Product judgment: what is ready, blocked, or intentionally draft.
+- Remaining blockers with owner and required confirmation.
+- Validation commands and pass/fail/skipped results.
+- Recommended next actions for product, design, engineering, QA, analytics, or launch.
+- Suggested memory updates when reusable facts or preferences were learned.
+
+The final response should make it clear how the PM can move the work forward without reading every internal file.
+
+## Relationship To Workflow
+
+`workflow/main-workflow.md` provides the default execution graph. The agent may skip, merge, or return to states when the task mode and evidence justify it. The run log must record the reason and downstream impact. A shorter path is acceptable only when it preserves product judgment, artifact quality, and validation integrity.

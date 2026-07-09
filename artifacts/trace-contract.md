@@ -18,6 +18,21 @@ task:
   brief_path:
   raw_request:
   requested_artifacts:
+agent_strategy:
+  task_mode:
+  secondary_modes:
+  autonomy_level:
+  effort_budget:
+  goal:
+  success_criteria:
+  user_value:
+  selected_path:
+  skipped_path:
+  rejected_alternatives:
+  final_delivery_contract:
+delegation_plan:
+resume_checkpoint:
+termination_condition:
 context:
   source_mode:
   files_loaded:
@@ -52,6 +67,10 @@ workflow:
     confirmation_risk_accepted:
     evidence:
   revision_loops:
+tool_plan:
+decision_record:
+replan_triggers:
+review_loop:
 agent_transitions:
 agents_used:
 skills_used:
@@ -88,6 +107,7 @@ validation_results:
 self_iteration:
 failures:
 final_status:
+memory_candidates:
 next_actions:
 ```
 
@@ -97,6 +117,18 @@ next_actions:
 - Record tool limitations instead of hiding them.
 - Record assumptions separately from confirmed facts.
 - Record whether the raw request came from conversation, a file, a pasted brief, or another source.
+- Record `agent_strategy.task_mode`, `agent_strategy.autonomy_level`, success criteria, selected path, skipped path, and rejected alternatives before or during artifact generation.
+- Record `agent_strategy.effort_budget` as `fast-pass`, `standard-loop`, `deep-agentic`, `research-intensive`, or `release/self-iteration`.
+- Record `delegation_plan` when PM Orchestrator splits work across specialist agents or external worker loops.
+- Record `resume_checkpoint` for long, resumed, interrupted, or self-iteration runs.
+- Record `termination_condition` before final response; do not treat reaching the last workflow state as completion by itself.
+- Record task mode values as one of `prd_delivery`, `implemented_feature_prd`, `ui_delivery`, `tracking_plan`, `launch_readiness`, `dev_handoff`, `structured_reference`, `product_review`, `self_improvement`, or `mixed_delivery`.
+- Record autonomy level as `clarify-first`, `draft-with-risk`, `full-loop`, or `self-iteration`.
+- Record `tool_plan` before high-impact tool use when the run needs validation, research, repo inspection, UI rendering, or release checks.
+- Record `decision_record` for product judgments, selected paths, rejected alternatives, confidence, and the evidence that shaped the choice.
+- Record `replan_triggers` when evidence is insufficient, the user changes the goal, a tool fails, artifacts conflict, or review finds High/Critical issues.
+- Record `review_loop` with PM usefulness review findings, required fixes, accepted risks, and final recommendation.
+- Record `memory_candidates` for durable product facts, user preferences, or decisions learned during the run. Do not silently store sensitive memory.
 - Record whether must-answer questions or `must confirm before development or launch` blockers stopped generation, or were explicitly accepted as draft risk.
 - When default-option or evaluation mode is used, record every default option selected, why it was the recommended conservative choice, and which risks remain unapproved.
 - Record PRD, engineering handoff, and launch readiness separately. Do not use a single ready/not-ready label for all phases.
