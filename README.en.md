@@ -103,7 +103,7 @@ A useful run should produce:
 | `prd.md` | Target users, current-product constraints, external reference findings, MVP/optional/future scope, member invites, role changes, permission blocking, audit logs, loading/empty/error/no-permission states |
 | Web UI deliverable | Source-backed preview route, Storybook/demo, or `source_delta_patch` when source exists; source-extracted HTML when independent handoff is required |
 | `dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
-| `run-log.yaml` | `task_mode`, `autonomy_level`, context mode, loaded files, research sources, style evidence, tool validation, product judgment, next actions, and memory candidates |
+| `run-log.yaml` | `task_mode`, `autonomy_level`, context mode, loaded files, research sources, style evidence, tool validation, product judgment, next actions, accountable critical path, and memory candidates |
 
 ### Demo 2: Membership Auto-Renewal Optimization Without A Code Repository
 
@@ -161,6 +161,7 @@ Autonomy levels:
 
 For complex work, PM Copilot also chooses an effort budget and records delegation plan, resume checkpoint, and termination condition.
 That makes long runs explain why they continue, why they stop, and which specialist outputs were accepted or rejected instead of only showing workflow state.
+From 3.0.1, a full delivery also converts the recommendation into `action_closure`: every critical action needs an owner, due phase, source decision or blocker, completion evidence, and status instead of a generic "align later" follow-up.
 
 ## Use Inside An Existing Project
 

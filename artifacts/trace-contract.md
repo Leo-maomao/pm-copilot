@@ -109,6 +109,7 @@ failures:
 final_status:
 memory_candidates:
 next_actions:
+action_closure:
 ```
 
 ## Rules
@@ -125,10 +126,13 @@ next_actions:
 - Record task mode values as one of `prd_delivery`, `implemented_feature_prd`, `ui_delivery`, `tracking_plan`, `launch_readiness`, `dev_handoff`, `structured_reference`, `product_review`, `self_improvement`, or `mixed_delivery`.
 - Record autonomy level as `clarify-first`, `draft-with-risk`, `full-loop`, or `self-iteration`.
 - Record `tool_plan` before high-impact tool use when the run needs validation, research, repo inspection, UI rendering, or release checks.
-- Record `decision_record` for product judgments, selected paths, rejected alternatives, confidence, and the evidence that shaped the choice.
+- Record `decision_record` for product judgments, selected paths, rejected alternatives, `high|medium|low` confidence, and the evidence that shaped the choice.
 - Record `replan_triggers` when evidence is insufficient, the user changes the goal, a tool fails, artifacts conflict, or review finds High/Critical issues.
 - Record `review_loop` with PM usefulness review findings, required fixes, accepted risks, and final recommendation.
 - Record `memory_candidates` for durable product facts, user preferences, or decisions learned during the run. Do not silently store sensitive memory.
+- Record `action_closure.critical_path` for the smallest actions that move the product decision forward. Every item must name an action id, owner, due phase, source decision or blocker id, completion evidence, and status.
+- Keep `next_actions` as the functional-area summary. Use `action_closure` as the accountable execution path; generic suggestions such as "align later" or "follow up" are not closure evidence.
+- When termination is `needs_input` or `blocked`, at least one critical-path item must use the matching status and identify what evidence or answer unblocks the run.
 - Record whether must-answer questions or `must confirm before development or launch` blockers stopped generation, or were explicitly accepted as draft risk.
 - When default-option or evaluation mode is used, record every default option selected, why it was the recommended conservative choice, and which risks remain unapproved.
 - Record PRD, engineering handoff, and launch readiness separately. Do not use a single ready/not-ready label for all phases.

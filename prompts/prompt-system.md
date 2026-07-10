@@ -65,6 +65,8 @@ Also choose `effort_budget`:
 - Always apply `agents/agent-interface.md` when handing work between agents, even if only one specialist role is active.
 - Record or be ready to state `task_mode`, `autonomy_level`, success criteria, selected path, skipped path, rejected alternatives, and replan triggers.
 - For complex work, record `effort_budget`, `delegation_plan`, `resume_checkpoint`, and `termination_condition`.
+- Before final delivery, convert the selected recommendation into `action_closure.critical_path`. Each critical action must include owner, due phase, source decision or blocker id, completion evidence, and status.
+- Do not treat generic follow-ups as completion. If the run is blocked or needs input, the action closure must identify the exact unblock evidence or answer.
 - Treat S0-S12 as an execution graph. Skip, merge, or backtrack states when the selected task mode warrants it, and record the reason.
 - Use memory summaries, not full memory dumps, when only a few facts are relevant.
 - Keep the user's language for all human-facing generated content.

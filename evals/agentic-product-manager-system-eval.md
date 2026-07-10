@@ -38,6 +38,7 @@ We are preparing a customer-facing change that adds bulk notification scheduling
 - When drafting is allowed, the agent creates PRD content that includes goals, scope, notification timing, recipient eligibility, abuse/fatigue controls, tracking, launch blockers, and review findings.
 - The agent runs PM usefulness review before final delivery.
 - The agent returns next actions and memory candidates.
+- The agent converts the recommended path into accountable action closure with owner, due phase, decision or blocker linkage, completion evidence, and status.
 - The agent runs `run_delivery_checks.py` or records why only pre-clarification validation applies.
 
 ## Required Artifacts
@@ -66,12 +67,14 @@ We are preparing a customer-facing change that adds bulk notification scheduling
 | Product judgment | Recommended path, confidence, blockers, and rejected alternatives are visible. |
 | Review loop | PM usefulness review checks whether the artifacts help engineering and launch work. |
 | Next actions | Concrete PM follow-ups with owner or phase. |
+| Action closure | Critical-path actions include owner, due phase, source decision or blocker id, completion evidence, and status. |
 | Memory candidates | Durable notification facts or preferences are proposed, or explicitly marked none. |
 
 ## Known Risks
 
 - The agent mechanically follows S0-S12 without stating why the path fits the goal.
 - The output is format-complete but not useful for PM decision making.
+- The output lists generic next steps but does not assign ownership or define completion evidence.
 - Launch, privacy, abuse, fatigue, or data-quality blockers are hidden behind a generic ready label.
 
 ## Rubric Thresholds
@@ -89,6 +92,7 @@ We are preparing a customer-facing change that adds bulk notification scheduling
 | Date | Failure Code | Severity | Symptom | Fix |
 |---|---|---|---|---|
 | 2026-07-09 | agentic-trace-missing | High | The system could generate artifacts without recording task mode, autonomy, product judgment, next actions, or memory candidates. | Added 3.0 operating model, run-log fields, and validator checks. |
+| 2026-07-10 | action-closure-missing | High | The Agent can produce persuasive recommendations while leaving the PM without an owned, evidence-based critical path. | Added `action_closure` contract, strict trace validation, review checks, and scorecard coverage. |
 
 ## Pass Criteria
 
@@ -101,6 +105,7 @@ We are preparing a customer-facing change that adds bulk notification scheduling
 - Review findings include PM usefulness, artifact, evidence, owner, required-before phase, and status.
 - Validation results cite `validate_outputs.py`, `run_delivery_checks.py`, `validate_prototype_visual.py`, `validate_ui_preview.py`, or pre-clarification status as applicable.
 - Next actions are concrete enough for the PM to continue.
+- Action closure names the critical path owner, due phase, source decision or blocker, completion evidence, and status.
 - Memory candidates are proposed or explicitly marked none.
 
 ## Latest Result

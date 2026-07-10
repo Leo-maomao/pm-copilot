@@ -6,6 +6,22 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [3.0.1] - 2026-07-10
+
+### Added
+
+- Added `action_closure.critical_path` to the Agent run log so final recommendations identify accountable owners, due phases, source decisions or blockers, completion evidence, and execution status.
+- Added strict action-closure validation to `scripts/validate_agent_trace.py`, including decision/blocker reference checks and termination-condition alignment.
+- Added dedicated action-closure regression coverage and scorecard metrics for runs that provide next steps without an executable critical path.
+
+### Changed
+
+- Updated PM Orchestrator, Review Agent, Agent Interface, operating model, prompt system, and final delivery contract so product recommendations remain externally auditable and actionable.
+
+### Validation
+
+- Repository, Python compilation, Agent trace fixtures, scorecard, historical evidence analysis, and whitespace validation are required for this iteration.
+
 ## [3.0.0] - 2026-07-09
 
 ### Added

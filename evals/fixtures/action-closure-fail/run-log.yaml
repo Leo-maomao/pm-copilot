@@ -1,0 +1,72 @@
+agent_strategy:
+  task_mode: product_review
+  autonomy_level: full-loop
+  goal: Turn a product recommendation into an accountable critical path.
+  success_criteria:
+    - The selected decision has an owned and evidence-based next action.
+  effort_budget: standard-loop
+  selected_path:
+    - Review the decision and validate action closure.
+  final_delivery_contract:
+    judgment_required: true
+
+delegation_plan:
+  active: false
+
+resume_checkpoint:
+  last_reliable_state: review_complete
+
+termination_condition:
+  status: blocked
+  evidence: The recommendation is written.
+  pm_usefulness: The recommendation sounds clear.
+  remaining_limitation: none
+
+tool_plan:
+  required_tools:
+    - tool_id: validation.agent_trace
+      purpose: Validate accountable action closure.
+
+decision_record:
+  - id: D1
+    decision: Proceed with the reviewed option.
+    confidence: high
+    evidence:
+      - Review evidence supports the option.
+
+replan_triggers:
+  - trigger: other
+    observed_at_state: review
+    action_taken: No replan required.
+
+review_loop:
+  iterations: 1
+
+memory_candidates:
+  none: true
+
+next_actions:
+  product:
+    - Align with engineering later.
+
+action_closure:
+  critical_path:
+    - action_id: A1
+      action: Align later.
+      owner: ""
+      due_phase: someday
+      source_decision_ids: [UNKNOWN]
+      source_blocker_ids: [B1]
+      completion_evidence: ""
+      status: ready
+
+readiness:
+  prd_status: ready for review
+  engineering_handoff_status: ready
+  launch_status: not applicable
+  engineering_blockers:
+    - id: B1
+      blocker: Engineering feasibility is not confirmed.
+      owner: Engineering lead
+      required_confirmation: Feasibility note
+  launch_blockers: []

@@ -70,6 +70,7 @@ Paste the original realistic product request here.
 | Product judgment | States recommended path, confidence, blockers, and alternatives. |
 | Review loop | Checks PM usefulness, not only document format. |
 | Next actions | Gives the PM concrete follow-up steps. |
+| Action closure | Links the critical path to an owner, due phase, source decision or blocker, completion evidence, and status. |
 | Memory candidates | Lists durable facts or preferences when the run learned something reusable. |
 
 ## Known Risks
@@ -99,6 +100,7 @@ Paste the original realistic product request here.
 - The agent stops before `Ready for engineering` when engineering-blocking confirmations remain open, unless the user explicitly asks for a draft with confirmation risk.
 - PRD status, engineering handoff status, and launch status are recorded separately.
 - Launch-only blockers do not get hidden behind `Ready for engineering`; they remain visible with owner and required confirmation.
+- Critical-path actions are owned, phase-bound, evidence-based, and linked to the decision or blocker they resolve.
 - `prd.md` and the UI deliverable are generated after the clarification gate passes.
 - Assumptions are explicit.
 - Confirmed MVP scope is separated from optional, conditional, and future scope.

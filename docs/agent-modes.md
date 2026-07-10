@@ -80,4 +80,5 @@ Every full delivery should include:
 - Blockers and unresolved confirmations
 - Validation commands and results
 - Next actions
+- Accountable critical-path actions with owner, due phase, completion evidence, and decision or blocker linkage
 - Memory candidates when durable learning was found

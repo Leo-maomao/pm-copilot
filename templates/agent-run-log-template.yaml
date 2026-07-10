@@ -91,6 +91,7 @@ decision_record:
   - id: ""
     decision: ""
     owner: "" # user | PM Orchestrator | Discovery Agent | Requirements Agent | Analytics Agent | UI Delivery Agent | Review Agent | other
+    confidence: "" # high | medium | low
     evidence: []
     alternatives_considered: []
     tradeoff: ""
@@ -133,6 +134,17 @@ next_actions:
   qa: []
   analytics: []
   launch: []
+
+action_closure:
+  critical_path:
+    - action_id: ""
+      action: ""
+      owner: ""
+      due_phase: "" # now | before_review | before_engineering | before_launch | post_launch
+      source_decision_ids: []
+      source_blocker_ids: []
+      completion_evidence: ""
+      status: "" # ready | needs_input | blocked | complete | not_applicable
 
 context:
   source_mode: ""

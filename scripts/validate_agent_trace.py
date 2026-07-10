@@ -58,6 +58,7 @@ REQUIRED_3_0_SECTIONS = (
     "review_loop",
     "memory_candidates",
     "next_actions",
+    "action_closure",
 )
 
 STRICT_REQUIRED_FIELDS = (
@@ -78,9 +79,29 @@ NEXT_ACTION_CATEGORIES = (
     "launch",
 )
 
+ACTION_DUE_PHASES = {
+    "now",
+    "before_review",
+    "before_engineering",
+    "before_launch",
+    "post_launch",
+}
+
+ACTION_STATUSES = {
+    "ready",
+    "needs_input",
+    "blocked",
+    "complete",
+    "not_applicable",
+}
+
 
 def scalar_value(text: str, field: str) -> str:
-    match = re.search(rf"^\s*{re.escape(field)}:\s*(.*?)\s*(?:#.*)?$", text, re.MULTILINE)
+    match = re.search(
+        rf"^\s*(?:-\s+)?{re.escape(field)}:\s*(.*?)\s*(?:#.*)?$",
+        text,
+        re.MULTILINE,
+    )
     if not match:
         return ""
     return match.group(1).strip().strip("\"'")
@@ -96,9 +117,26 @@ def section_text(text: str, section: str) -> str:
     return text[start:end]
 
 
-def section_has_list_item(text: str, section: str) -> bool:
-    body = section_text(text, section)
-    return bool(re.search(r"^\s*-\s+\S", body, re.MULTILINE))
+def field_has_list_item(text: str, field: str) -> bool:
+    match = re.search(
+        rf"^(?P<indent>\s*){re.escape(field)}:\s*$",
+        text,
+        re.MULTILINE,
+    )
+    if not match:
+        return False
+    indent = len(match.group("indent"))
+    start = match.end()
+    body_lines = []
+    for line in text[start:].splitlines():
+        if not line.strip():
+            body_lines.append(line)
+            continue
+        current_indent = len(line) - len(line.lstrip())
+        if current_indent <= indent:
+            break
+        body_lines.append(line)
+    return bool(re.search(r"^\s*-\s+\S", "\n".join(body_lines), re.MULTILINE))
 
 
 def category_has_list_item(text: str, category: str) -> bool:
@@ -110,6 +148,43 @@ def category_has_list_item(text: str, category: str) -> bool:
     end = start + next_match.start() if next_match else len(text)
     body = text[start:end]
     return bool(re.search(r"^\s*-\s+\S", body, re.MULTILINE))
+
+
+def list_field_values(text: str, field: str) -> list[str]:
+    inline_match = re.search(
+        rf"^\s*{re.escape(field)}:\s*\[(.*?)\]\s*(?:#.*)?$",
+        text,
+        re.MULTILINE,
+    )
+    if inline_match:
+        return [
+            item.strip().strip("\"'")
+            for item in inline_match.group(1).split(",")
+            if item.strip().strip("\"'")
+        ]
+    block_match = re.search(
+        rf"^\s*{re.escape(field)}:\s*$\n(?P<body>(?:^\s+-\s+.*$\n?)*)",
+        text,
+        re.MULTILINE,
+    )
+    if not block_match:
+        return []
+    return [
+        value.strip().strip("\"'")
+        for value in re.findall(r"^\s+-\s+(.+?)\s*$", block_match.group("body"), re.MULTILINE)
+        if value.strip().strip("\"'")
+    ]
+
+
+def mapping_item_blocks(text: str, first_field: str) -> list[str]:
+    starts = list(
+        re.finditer(rf"^\s+-\s+{re.escape(first_field)}:\s*.*$", text, re.MULTILINE)
+    )
+    blocks = []
+    for index, match in enumerate(starts):
+        end = starts[index + 1].start() if index + 1 < len(starts) else len(text)
+        blocks.append(text[match.start():end])
+    return blocks
 
 
 def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
@@ -148,7 +223,7 @@ def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
 
     for field in STRICT_REQUIRED_FIELDS:
         if field in {"success_criteria", "selected_path"}:
-            if not section_has_list_item(text, field):
+            if not field_has_list_item(text, field):
                 failures.append(f"{field} must contain at least one list item")
         elif not scalar_value(text, field) and f"{field}:" not in text:
             failures.append(f"missing field: {field}")
@@ -159,6 +234,21 @@ def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
     decision_body = section_text(text, "decision_record")
     if "decision:" not in decision_body or "evidence:" not in decision_body:
         failures.append("decision_record must include decision and evidence")
+    decision_ids = {
+        scalar_value(block, "id")
+        for block in mapping_item_blocks(decision_body, "id")
+        if scalar_value(block, "id")
+    }
+    if not decision_ids:
+        failures.append("decision_record must include at least one non-empty id")
+    for block in mapping_item_blocks(decision_body, "id"):
+        decision_id = scalar_value(block, "id") or "<empty>"
+        confidence = scalar_value(block, "confidence")
+        if confidence not in {"high", "medium", "low"}:
+            failures.append(
+                f"decision_record {decision_id} has invalid confidence: "
+                f"{confidence or '<empty>'}"
+            )
 
     review_body = section_text(text, "review_loop")
     if "iterations:" not in review_body:
@@ -168,21 +258,85 @@ def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
     if not any(category_has_list_item(next_body, category) for category in NEXT_ACTION_CATEGORIES):
         failures.append("next_actions must include at least one concrete action")
 
+    readiness_body = section_text(text, "readiness")
+    blocker_ids = {
+        value
+        for value in re.findall(r"^\s+-\s+id:\s*([^\s#]+)", readiness_body, re.MULTILINE)
+        if value
+    }
+    closure_body = section_text(text, "action_closure")
+    closure_blocks = mapping_item_blocks(closure_body, "action_id")
+    if not closure_blocks:
+        failures.append("action_closure.critical_path must include at least one action")
+    closure_ids: set[str] = set()
+    closure_statuses: list[str] = []
+    for block in closure_blocks:
+        action_id = scalar_value(block, "action_id")
+        action = scalar_value(block, "action")
+        owner = scalar_value(block, "owner")
+        due_phase = scalar_value(block, "due_phase")
+        completion_evidence = scalar_value(block, "completion_evidence")
+        status = scalar_value(block, "status")
+        decision_refs = list_field_values(block, "source_decision_ids")
+        blocker_refs = list_field_values(block, "source_blocker_ids")
+        if not action_id:
+            failures.append("action_closure item has empty action_id")
+        elif action_id in closure_ids:
+            failures.append(f"duplicate action_closure action_id: {action_id}")
+        else:
+            closure_ids.add(action_id)
+        if not action:
+            failures.append(f"action_closure {action_id or '<empty>'} has empty action")
+        if not owner:
+            failures.append(f"action_closure {action_id or '<empty>'} has empty owner")
+        if due_phase not in ACTION_DUE_PHASES:
+            failures.append(
+                f"action_closure {action_id or '<empty>'} has invalid due_phase: "
+                f"{due_phase or '<empty>'}"
+            )
+        if not completion_evidence:
+            failures.append(
+                f"action_closure {action_id or '<empty>'} has empty completion_evidence"
+            )
+        if status not in ACTION_STATUSES:
+            failures.append(
+                f"action_closure {action_id or '<empty>'} has invalid status: "
+                f"{status or '<empty>'}"
+            )
+        else:
+            closure_statuses.append(status)
+        if not decision_refs and not blocker_refs:
+            failures.append(
+                f"action_closure {action_id or '<empty>'} must reference a decision or blocker"
+            )
+        unknown_decisions = sorted(set(decision_refs) - decision_ids)
+        unknown_blockers = sorted(set(blocker_refs) - blocker_ids)
+        if unknown_decisions:
+            failures.append(
+                f"action_closure {action_id or '<empty>'} references unknown decision ids: "
+                + ", ".join(unknown_decisions)
+            )
+        if unknown_blockers:
+            failures.append(
+                f"action_closure {action_id or '<empty>'} references unknown blocker ids: "
+                + ", ".join(unknown_blockers)
+            )
+    if termination_status == "needs_input" and "needs_input" not in closure_statuses:
+        failures.append("needs_input termination requires a needs_input action_closure item")
+    if termination_status == "blocked" and "blocked" not in closure_statuses:
+        failures.append("blocked termination requires a blocked action_closure item")
+
     memory_body = section_text(text, "memory_candidates")
     if not memory_body.strip():
         failures.append("memory_candidates section is empty")
     elif "write_recommendation:" not in memory_body and "none" not in memory_body.lower():
         warnings.append("memory_candidates should contain candidates or explicit none")
 
-    if "product judgment" not in text.lower() and "产品判断" not in text:
-        warnings.append("trace does not explicitly mention product judgment")
-    if "confidence:" not in text:
-        warnings.append("trace does not expose confidence")
-
     return {
         "status": "failed" if failures else "passed",
         "task_mode": task_mode,
         "autonomy_level": autonomy_level,
+        "action_closure_count": len(closure_blocks),
         "present_sections": present_sections,
         "missing_sections": missing_sections,
         "failures": failures,

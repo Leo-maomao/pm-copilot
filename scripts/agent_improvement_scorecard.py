@@ -284,6 +284,7 @@ AGENTIC_TRACE_FIELDS = (
     "review_loop",
     "memory_candidates",
     "next_actions",
+    "action_closure",
 )
 
 PRD_AGENTIC_TERMS = {
@@ -582,6 +583,7 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
             "score_sum": sum(score_values),
             "missing_agentic_fields": missing_agentic_fields,
             "agentic_trace_complete": bool(run_log.is_file() and not missing_agentic_fields),
+            "has_action_closure": "action_closure:" in run_log_text,
             "prd_agentic_markers": prd_agentic_markers,
         })
     return runs
@@ -662,6 +664,7 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
         "with_review_loop": sum(1 for item in runs if "review_loop" not in item["missing_agentic_fields"]),
         "with_memory_candidates": sum(1 for item in runs if "memory_candidates" not in item["missing_agentic_fields"]),
         "with_next_actions_trace": sum(1 for item in runs if "next_actions" not in item["missing_agentic_fields"]),
+        "with_action_closure": sum(1 for item in runs if item["has_action_closure"]),
         "prd_with_product_judgment": sum(
             1 for item in runs if item["prd_agentic_markers"].get("product_judgment")
         ),
@@ -731,6 +734,15 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
             "issue": (
                 f"{len(runs) - run_quality['with_agentic_trace_complete']} runtime run(s) lack "
                 "complete PM Copilot 3.0 agentic trace fields."
+            ),
+        })
+    if runs and run_quality["with_action_closure"] < len(runs):
+        risks.append({
+            "severity": "Medium",
+            "area": "action_closure",
+            "issue": (
+                f"{len(runs) - run_quality['with_action_closure']} runtime run(s) lack "
+                "an accountable critical path with owner and completion evidence."
             ),
         })
     if runs and run_quality["prd_with_next_actions"] < run_quality["with_prd"]:
@@ -890,6 +902,10 @@ def prioritize_actions(
         actions.append(
             "Add PM usefulness review to generated PRDs so product judgment, confidence, alternatives, and next actions are visible before delivery."
         )
+    if "action_closure" in risk_areas:
+        actions.append(
+            "Add action_closure.critical_path to new runs with owner, due phase, source decision or blocker, completion evidence, and status."
+        )
     uncovered = [
         risk["area"]
         for risk in risks
@@ -999,6 +1015,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- runs with decision record: {report['run_quality']['with_decision_record']}",
         f"- runs with review loop: {report['run_quality']['with_review_loop']}",
         f"- runs with memory candidates: {report['run_quality']['with_memory_candidates']}",
+        f"- runs with action closure: {report['run_quality']['with_action_closure']}",
         f"- PRDs with product judgment: {report['run_quality']['prd_with_product_judgment']}",
         f"- PRDs with next actions: {report['run_quality']['prd_with_next_actions']}",
         "",

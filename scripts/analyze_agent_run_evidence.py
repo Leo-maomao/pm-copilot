@@ -24,6 +24,7 @@ AGENTIC_FIELDS = (
     "review_loop",
     "memory_candidates",
     "next_actions",
+    "action_closure",
 )
 
 PRD_AGENTIC_MARKERS = {
@@ -106,6 +107,10 @@ def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
     if complete_traces < total:
         risks.append(
             f"{total - complete_traces} run(s) lack complete PM Copilot 3.0 agentic trace fields."
+        )
+    if missing_counts["action_closure"]:
+        risks.append(
+            f"{missing_counts['action_closure']} run(s) lack accountable action closure."
         )
     if marker_counts["next_actions"] < total:
         risks.append(f"{total - marker_counts['next_actions']} PRD run(s) lack explicit next actions.")

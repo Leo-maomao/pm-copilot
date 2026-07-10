@@ -1,0 +1,81 @@
+agent_strategy:
+  task_mode: product_review
+  autonomy_level: full-loop
+  goal: Turn a product recommendation into an accountable critical path.
+  success_criteria:
+    - The selected decision has an owned and evidence-based next action.
+  effort_budget: standard-loop
+  selected_path:
+    - Review the decision and validate action closure.
+  final_delivery_contract:
+    judgment_required: true
+
+delegation_plan:
+  active: false
+
+resume_checkpoint:
+  last_reliable_state: review_complete
+
+termination_condition:
+  status: complete
+  evidence: The recommendation and critical path are validated.
+  pm_usefulness: The PM can assign and verify the next action.
+  remaining_limitation: none
+
+tool_plan:
+  required_tools:
+    - tool_id: validation.agent_trace
+      purpose: Validate accountable action closure.
+
+decision_record:
+  - id: D1
+    decision: Proceed with the reviewed option.
+    confidence: high
+    evidence:
+      - Review evidence supports the option.
+    alternatives_considered:
+      - Delay the decision.
+    tradeoff: Proceeding requires one owned verification step.
+    readiness_impact: engineering
+
+replan_triggers:
+  - trigger: other
+    observed_at_state: review
+    action_taken: No replan required.
+
+review_loop:
+  iterations: 1
+  critical_or_high_findings: []
+  fixes_applied:
+    - Added accountable action closure.
+  accepted_risks: []
+
+memory_candidates:
+  none: true
+
+next_actions:
+  product:
+    - Assign the verification action.
+  design: []
+  engineering: []
+  qa: []
+  analytics: []
+  launch: []
+
+action_closure:
+  critical_path:
+    - action_id: A1
+      action: Verify the selected option against engineering constraints.
+      owner: Engineering lead
+      due_phase: before_engineering
+      source_decision_ids: [D1]
+      source_blocker_ids: []
+      completion_evidence: Engineering lead records an approved feasibility note.
+      status: ready
+
+readiness:
+  prd_status: ready for review
+  engineering_handoff_status: ready
+  launch_status: not applicable
+  engineering_blockers: []
+  launch_blockers: []

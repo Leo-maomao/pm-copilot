@@ -77,7 +77,7 @@ Before drafting, PM Orchestrator must record or be ready to state:
 - delegation plan when specialist work should run independently
 - resume checkpoint for long, resumed, interrupted, or self-iteration work
 - termination condition: `complete`, `needs_input`, `blocked`, `degraded`, or `failed`
-- expected final delivery: artifacts, blockers, validation result, next actions, and memory candidates
+- expected final delivery: artifacts, blockers, validation result, accountable action closure, and memory candidates
 
 Use the loop in `agents/agent-operating-model.md`:
 
@@ -87,7 +87,7 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 
 Replan when evidence is insufficient, the user changes the goal, tools fail, artifacts conflict, or Review Agent finds High/Critical issues.
 Do not call a run complete just because it reached the last workflow state.
-Completion requires PM usefulness, evidence, validation status, blockers, next actions, and a termination condition.
+Completion requires PM usefulness, evidence, validation status, blockers, an accountable critical path, and a termination condition.
 
 ## Context Source Rule
 
@@ -220,6 +220,7 @@ A final response should include:
 - blockers and unresolved confirmations
 - validation commands and results
 - next actions that help the PM move work forward
+- accountable critical-path actions with owner, due phase, decision or blocker linkage, completion evidence, and status
 - memory candidates when durable reusable facts or preferences were learned
 
 Every final artifact set must keep PRD status, engineering handoff status, and launch status separate.

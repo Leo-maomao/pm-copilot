@@ -52,7 +52,7 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - Agent strategy with task mode, autonomy level, success criteria, selected path, and rejected alternatives
 - Delegation plan, resume checkpoint, termination condition, and effort budget when the run is long, broad, or self-iterative
 - Agent transition log with status and artifact deltas
-- Product judgment, blockers, validation summary, next actions, and memory candidates
+- Product judgment, blockers, validation summary, next actions, accountable action closure, and memory candidates
 - Run id and artifact paths
 - `prd.md`
 - `catalog.md` or `reference.md` when the primary delivery is a structured reference
@@ -70,13 +70,14 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - Agent strategy records task mode, autonomy level, effort budget, success criteria, selected path, and rejected alternatives when they affect scope or readiness.
 - Delegated work is reconciled into one final product judgment instead of pasted together as unrelated specialist notes.
 - Termination condition is explicit: complete, needs_input, blocked, degraded, or failed.
+- `action_closure.critical_path` links the final decision or blocker to an owner, due phase, completion evidence, and status; generic unowned follow-ups do not satisfy completion.
 - Workflow states are not skipped without a concrete skip reason and downstream impact.
 - Review Agent has completed the readiness check.
 - Remaining assumptions and risks are explicit.
 - In default-option mode, every auto-selected answer is traceable and does not approve launch-sensitive, legal, privacy, payment, security, financial, or regulated-content decisions.
 - Required tools are either run, setup is attempted, or a skipped status includes the concrete allowed reason.
 - Final PRD readiness status is accurate across PRD, engineering handoff, and launch. Do not mark engineering handoff ready while engineering-blocking confirmations remain unresolved, and do not hide launch blockers behind an engineering-ready label.
-- Final response is useful to a product manager: it names artifacts, decision status, blockers, validation result, next actions, and memory candidates when applicable.
+- Final response is useful to a product manager: it names artifacts, decision status, blockers, validation result, accountable critical-path actions, and memory candidates when applicable.
 - Unattended execution handoff preserves blockers. `ready_to_launch` is not used without explicit human approval evidence.
 - If resuming an existing run folder, the latest `run-log.yaml` is loaded first and the run continues from the last reliable state instead of duplicating artifacts or silently changing the run id.
 

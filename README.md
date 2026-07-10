@@ -99,7 +99,7 @@ PM Copilot 会先识别上下文模式、任务模式和自治等级；缺关键
 | `prd.md` | 目标用户、当前产品约束、外部参考结论、MVP/可选/未来范围、成员邀请、角色变更、权限拦截、审计记录、加载/空/错误/无权限状态 |
 | Web UI 交付物 | 有前端源码时使用源码驱动的预览路由、Storybook/demo 或 `source_delta_patch`，复用现有后台壳层、组件库和表格密度；需要离线交付时从源码预览区域提取 HTML |
 | `dev-tasks.yaml` | 可转 issue 的研发任务、依赖关系、验收标准、测试建议、相关宿主项目文件和阻塞确认项 |
-| `run-log.yaml` | `task_mode`、`autonomy_level`、上下文模式、读取文件、外部调研来源、样式证据、工具校验、产品判断、下一步和 memory candidates |
+| `run-log.yaml` | `task_mode`、`autonomy_level`、上下文模式、读取文件、外部调研来源、样式证据、工具校验、产品判断、下一步、可追责关键路径和 memory candidates |
 
 ### Demo 2：没有代码仓库的会员自动续费优化
 
@@ -157,6 +157,7 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 
 PM Copilot 还会为复杂任务选择 effort budget，并记录必要的委派计划、恢复检查点和终止条件。
 这让长任务可以说明“为什么继续做、为什么停下、哪些 specialist 输出被采纳或拒绝”，而不是只显示流程状态。
+从 3.0.1 起，完整交付还会把推荐方案转成 `action_closure`：每个关键动作都要有 owner、截止阶段、来源决策或阻塞项、完成证据和状态，避免只留下“后续对齐”式建议。
 
 ## 在现有项目中使用
 

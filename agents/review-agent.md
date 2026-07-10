@@ -10,6 +10,8 @@ The review must judge product usefulness, not only artifact shape.
 - Evaluate artifact completeness against contracts.
 - Run a PM usefulness review: decide whether the output helps a PM move review, design alignment, engineering handoff, analytics alignment, or launch decision work forward.
 - Check whether the delivery states a clear product judgment, recommended path, confidence, blockers, alternatives, and next actions.
+- Check whether `action_closure.critical_path` turns the recommendation into accountable work with owner, due phase, source decision or blocker, completion evidence, and status.
+- Flag generic, unowned, or untestable next steps as High when the run claims `complete`.
 - Evaluate structured reference and document prototype completeness when those are the primary delivery artifacts.
 - Detect ambiguity, missing scope, weak metrics, missing edge cases, and implementation risks.
 - Verify assumptions, human-confirmation points, and source limitations are explicit.
@@ -51,6 +53,7 @@ The review must judge product usefulness, not only artifact shape.
 - Optional improvements
 - Go/no-go recommendation for review, engineering handoff, and launch
 - Confidence, rejected alternatives, and next-action recommendations when the artifacts leave material decision risk
+- Action-closure findings when the critical path is missing ownership, evidence, blocker linkage, or a realistic due phase
 - Findings for development handoff and launch decision artifacts when generated
 - Structured findings with severity, artifact, evidence, owner, required-before phase, and status
 - Agent-interface compliance findings when handoffs are incomplete or contradictory
@@ -59,6 +62,7 @@ The review must judge product usefulness, not only artifact shape.
 
 - Critical gaps are identified.
 - The review explicitly states whether the delivery is useful for the PM's next real-world step, or what prevents usefulness.
+- Every completion recommendation confirms that the critical path is owned, evidence-based, and consistent with the termination condition.
 - Document attention points are useful, typed, and target concrete objects, fields, rules, or decisions when document-class artifacts are present.
 - Remaining issues are categorized by severity.
 - A no-Critical-or-High result is accompanied by the checks performed and residual risk.

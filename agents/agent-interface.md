@@ -45,6 +45,7 @@ artifact_delta:
 validation_delta:
 risks:
 next_actions:
+action_closure:
 handoff:
 ```
 
@@ -58,6 +59,7 @@ Rules:
 - `decisions` must include evidence and tradeoffs for product-relevant choices.
 - `alternatives` must note rejected paths when the choice affects scope, artifact mode, readiness, user experience, analytics, or launch.
 - `next_actions` must identify the smallest useful follow-up for product, design, engineering, QA, analytics, launch, or memory.
+- `action_closure` must turn the selected decision or blocker into an accountable critical path with owner, due phase, completion evidence, and status.
 - Specialist agents may recommend readiness, but PM Orchestrator owns the final PRD, engineering handoff, and launch readiness fields.
 - When two agents disagree, keep both positions visible and route the conflict to PM Orchestrator or Review Agent before final delivery.
 
@@ -106,5 +108,6 @@ validation_delta:
 decisions:
 alternatives:
 next_actions:
+action_closure:
 next_expected_output:
 ```

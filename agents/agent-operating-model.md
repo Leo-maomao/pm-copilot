@@ -17,7 +17,7 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 | Decide | Choose the delivery path, autonomy level, tools, and artifact set. Record alternatives that were rejected. | `decision_record`, `tool_plan`, `workflow.states_skipped` |
 | Act | Produce or revise artifacts with specialist agents and skills. | `agent_transitions`, `artifacts`, `handoff_artifacts` |
 | Verify | Run repository, output, visual, rendering, and delivery checks that match the selected path. | `validation_results`, `visual_validation`, `tool-results/` |
-| Learn | Capture reusable product facts, user preferences, durable decisions, and workflow defects. | `memory_candidates`, `next_actions`, optimization-cycle notes |
+| Learn | Capture reusable product facts, user preferences, durable decisions, workflow defects, and the accountable critical path. | `memory_candidates`, `next_actions`, `action_closure`, optimization-cycle notes |
 
 ## Task Modes
 
@@ -109,7 +109,7 @@ On resume, load `run-log.yaml` first, then continue from the checkpoint instead 
 
 End a run only when one of these conditions is true:
 
-- `complete`: required artifacts exist, product judgment is clear, validation ran or was explicitly skipped with reason, next actions are stated.
+- `complete`: required artifacts exist, product judgment is clear, validation ran or was explicitly skipped with reason, and the accountable critical path is stated.
 - `needs_input`: a must-answer question or required approval blocks the next safe action.
 - `blocked`: required context, tooling, permission, or external state is unavailable and no useful degraded artifact is safe.
 - `degraded`: a lower-fidelity artifact is delivered with visible limitations, confidence impact, and next recovery action.
@@ -117,6 +117,7 @@ End a run only when one of these conditions is true:
 
 Do not call a run complete merely because the workflow reached S12.
 Completion is measured by PM usefulness and evidence, not by state count.
+Before choosing `complete`, convert the recommended path into `action_closure.critical_path`. Each action must name an owner, due phase, source decision or blocker, completion evidence, and status. `next_actions` remains the area-based summary; `action_closure` is the accountable path that proves the PM can move the work forward.
 
 ## Replanning Triggers
 
@@ -141,6 +142,7 @@ A useful PM Copilot final response includes more than paths:
 - Remaining blockers with owner and required confirmation.
 - Validation commands and pass/fail/skipped results.
 - Recommended next actions for product, design, engineering, QA, analytics, or launch.
+- Accountable critical-path actions linked to product decisions or blockers, with owner, due phase, completion evidence, and status.
 - Suggested memory updates when reusable facts or preferences were learned.
 
 The final response should make it clear how the PM can move the work forward without reading every internal file.
