@@ -42,6 +42,31 @@ validation:
     - command: git diff --check
       status: passed
 release:
-  commit_status: pending
-  remote_push_status: pending
-  embedded_copy_sync_status: pending
+  commit_status: committed
+  release_commit: f14719f
+  remote_push_status: pushed
+  remote_branch: origin/main
+  pushed_at: 2026-07-10T11:39:26+0800
+  embedded_copy_sync_status: synced
+  embedded_copy_sync_targets:
+    - target: ai-video/pm-copilot
+      version: 3.0.1
+      status: synced
+    - target: ai-video/src/features/pm-copilot
+      version: 3.0.1
+      status: synced
+    - target: my-fund-site/pm-copilot
+      version: 3.0.1
+      status: synced
+    - target: qiki/pm-copilot
+      version: 3.0.1
+      status: synced
+    - target: sea-craft-next-main/pm-copilot
+      version: 3.0.1
+      status: synced
+    - target: seaart-video-editor/pm-copilot
+      version: 3.0.1
+      status: synced
+    - target: requirement-docs/pm-copilot
+      version: 3.0.1
+      status: synced
