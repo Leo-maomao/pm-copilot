@@ -71,7 +71,7 @@ Minimum recommended analytics score: 21 / 28.
 | Existing surface fit | Invents unrelated product UI, mutates production files unexpectedly, or mixes UI-delivery notes into unchanged UI | Some existing context reflected | Preserves baseline UI through source-backed preview/delta when source exists; when standalone HTML is required, source extraction is traceable to a validated host preview with selector, screenshot, style, asset, and limitation evidence |
 | Annotation mapping | Notes are detached from UI | Some notes tied to controls | Page-scoped annotations are reachable from specific UI elements or transitions |
 
-Minimum recommended UI delivery score: 24 / 32. The run-log score key may remain `prototype` for backward compatibility.
+Minimum recommended UI delivery score: 24 / 32. The run-log score key is `ui_delivery`.
 
 ## Structured Reference And Document Prototype Rubric
 

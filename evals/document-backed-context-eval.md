@@ -65,5 +65,5 @@ We do not have a project repository here. I uploaded last quarter's checkout PRD
 | Field | Value |
 |---|---|
 | Run ID | document-backed-checkout-20260526-1852 |
-| Status | Passed |
-| Notes | Non-fixture document-backed run generated PRD and run-log from uploaded-document context without requiring a repository. `python3 scripts/run_delivery_checks.py outputs/document-backed-checkout-20260526-1852 --language en` passed. Platform, service contracts, privacy review, and launch approvals remain explicit blockers. |
+| Status | Historical baseline (pre-4.0) |
+| Notes | Retained as evidence that document-backed context works. The output is not a current delivery fixture and its old trace/PRD structure is intentionally rejected by 4.0 validation. |

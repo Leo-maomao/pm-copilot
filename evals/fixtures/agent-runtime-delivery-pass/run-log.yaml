@@ -1,0 +1,135 @@
+agent_strategy:
+  task_mode: launch_readiness
+  autonomy_level: full-loop
+  goal: Stop a gated launch request before generation until approval is recorded.
+  success_criteria:
+    - The launch gate and exact required human decision are explicit.
+  effort_budget: standard-loop
+  selected_path:
+    - Frame the launch gate and stop before downstream generation.
+  final_delivery_contract:
+    judgment_required: true
+
+delegation_plan:
+  active: false
+
+resume_checkpoint:
+  last_reliable_state: approval_pending
+
+termination_condition:
+  status: needs_input
+  evidence: Launch approval is required before generation or execution.
+  pm_usefulness: The PM knows the exact decision needed to continue.
+  remaining_limitation: Human approval is pending.
+
+tool_plan:
+  required_tools:
+    - tool_id: control.agent_loop
+      purpose: Enforce the human launch checkpoint.
+
+decision_record:
+  - id: D1
+    decision: Stop before generation and request launch approval.
+    owner: PM Orchestrator
+    confidence: high
+    evidence:
+      - The requested action crosses an explicit launch gate.
+    alternatives_considered:
+      - Draft downstream artifacts before approval.
+    tradeoff: Waiting preserves accountability and avoids premature delivery.
+    readiness_impact: launch
+
+replan_triggers:
+  - trigger: other
+    observed_at_state: human_decision
+    action_taken: Paused for the configured checkpoint.
+
+review_loop:
+  iterations: 1
+  critical_or_high_findings: []
+  finding_closures: []
+  unresolved_findings: []
+  final_recommendation: needs_input
+
+loop_policy:
+  enabled: true
+  loop_type: execution
+  disabled_reason: ""
+  max_iterations: 3
+  max_tool_calls: 10
+  max_elapsed_minutes: 30
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 5
+  stop_conditions:
+    - needs_input
+  human_checkpoint:
+    required_after_iteration: 0
+    status: not_required
+    required_before_actions: []
+
+loop_state:
+  current_iteration: 1
+  tool_calls_used: 2
+  elapsed_minutes: 5
+  consecutive_no_progress: 0
+  last_progress_score: 70
+  success_criteria_met: false
+
+iteration_trace:
+  - iteration: 1
+    hypothesis: Framing the gate will identify the exact human input needed.
+    planned_actions:
+      - Inspect the requested launch action and approval boundary.
+    observations:
+      - Launch approval is missing.
+    evidence_delta:
+      - The approval boundary and owner are explicit.
+    artifact_delta: []
+    decision_delta:
+      - Downstream generation is paused.
+    validation_delta:
+      - The checkpoint is recorded in the runtime trace.
+    review_findings: []
+    progress_score_before: 20
+    progress_score_after: 70
+    outcome: needs_input
+    next_decision: stop_needs_input
+
+loop_summary:
+  iterations_completed: 1
+  stop_reason: needs_input
+  final_progress_score: 70
+  unresolved_items:
+    - Human launch approval.
+
+memory_candidates:
+  none: true
+
+next_actions:
+  launch:
+    - Approve or decline downstream launch generation.
+
+action_closure:
+  critical_path:
+    - action_id: A1
+      action: Approve or decline downstream launch generation.
+      owner: Launch approver
+      due_phase: before_launch
+      source_decision_ids: [D1]
+      source_blocker_ids: []
+      completion_evidence: Approval decision is recorded.
+      status: needs_input
+
+stopped_before_generation: true
+must_answer_before_generation:
+  - id: Q1
+    question: Is downstream launch generation approved?
+unanswered_questions:
+  - Q1
+
+readiness:
+  prd_status: blocked
+  engineering_handoff_status: blocked
+  launch_status: blocked
+  engineering_blockers: []
+  launch_blockers: []

@@ -42,7 +42,7 @@ Use `python3 scripts/agent_improvement_scorecard.py` after each cycle. The score
 For full self-iteration or embedded-project benchmarking, every cycle must generate the complete round artifacts before judging the failure:
 
 - `outputs/<run-id>/prd.md`
-- UI deliverable reference when the scenario is user-facing: source-backed preview/delta by default, or `outputs/<run-id>/prototype-<platform>.html` for compatibility standalone/fallback mode
+- UI deliverable reference when the scenario is user-facing: source-backed preview/delta by default, or `outputs/<run-id>/prototype-<platform>.html` for portable HTML mode
 - `outputs/<run-id>/run-log.yaml`
 - `outputs/<run-id>/tool-results/delivery-check-report.json` from `scripts/run_delivery_checks.py`
 - `outputs/<run-id>/visual-review/visual-report.json` after Playwright/browser setup succeeds for visual validation

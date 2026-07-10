@@ -46,9 +46,40 @@ replan_triggers:
 review_loop:
   iterations: 1
   critical_or_high_findings: []
-  fixes_applied:
-    - Added accountable action closure.
-  accepted_risks: []
+  finding_closures: []
+  unresolved_findings: []
+  final_recommendation: proceed
+
+loop_policy:
+  enabled: false
+  loop_type: direct
+  disabled_reason: Single-pass action-closure fixture.
+  max_iterations: 1
+  max_tool_calls: 1
+  max_elapsed_minutes: 5
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 1
+  stop_conditions: [success_criteria_met]
+  human_checkpoint:
+    required_after_iteration: 0
+    status: not_required
+    required_before_actions: []
+
+loop_state:
+  current_iteration: 0
+  tool_calls_used: 0
+  elapsed_minutes: 0
+  consecutive_no_progress: 0
+  last_progress_score: 0
+  success_criteria_met: true
+
+iteration_trace: []
+
+loop_summary:
+  iterations_completed: 0
+  stop_reason: not_applicable
+  final_progress_score: 0
+  unresolved_items: []
 
 memory_candidates:
   none: true

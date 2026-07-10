@@ -40,7 +40,7 @@ Add an approval reminder setting to the existing workspace settings page. There 
 
 - UI deliverable preserves the current page structure, navigation, layout density, and component style.
 - Run log `host_frontend_inventory`, `style_evidence.source_files`, `style_evidence.reused_components`, `style_evidence.icon_asset_sources`, and `source_to_demo_mapping` name real host files/components/assets and explain how they are represented in the UI deliverable.
-- Run log `isolated_ui_prototype.baseline_import` lists imported baseline sources and `delta_patch` lists only preview/delta files, strategy, and next multi-turn anchor.
+- Run log `ui_delivery_trace.baseline_import` lists imported baseline sources and `delta_patch` lists only preview/delta files, strategy, and next multi-turn anchor.
 - UI deliverable clearly shows the new requirement as a delta on the existing page.
 - Each page or screen has its own annotation group.
 - Each annotation is reachable from a marker or hotspot tied to a specific UI element, with details in a local marker popover beside that UI element and the current-state annotation list.

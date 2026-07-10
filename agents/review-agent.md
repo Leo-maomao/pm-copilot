@@ -9,6 +9,9 @@ The review must judge product usefulness, not only artifact shape.
 
 - Evaluate artifact completeness against contracts.
 - Run a PM usefulness review: decide whether the output helps a PM move review, design alignment, engineering handoff, analytics alignment, or launch decision work forward.
+- Serve as evaluator in `evaluator_optimizer` loops: return concrete findings, severity, required fix, evidence, and measurable progress impact before another iteration is allowed.
+- Close every Critical or High finding through an exact `finding_closures` entry: verified fix, accepted risk with owner, due phase, and rationale, or replan trigger. A severe finding may not disappear between iterations or be closed by unrelated evidence.
+- Return unresolved findings separately and finish with exactly one recommendation: `proceed`, `proceed_with_controls`, `revise`, `needs_input`, `blocked`, or `stop`.
 - Check whether the delivery states a clear product judgment, recommended path, confidence, blockers, alternatives, and next actions.
 - Check whether `action_closure.critical_path` turns the recommendation into accountable work with owner, due phase, source decision or blocker, completion evidence, and status.
 - Flag generic, unowned, or untestable next steps as High when the run claims `complete`.
@@ -34,6 +37,9 @@ The review must judge product usefulness, not only artifact shape.
 - Check every specialist handoff against `agents/agent-interface.md` when handoff data is available.
 - Flag contradictions between PRD readiness, run-log readiness, review findings, handoff artifacts, and validation reports as High unless there is a recorded accepted limitation.
 - Flag stale validation placeholders in final artifacts as High because they make external delivery unreliable.
+- Flag an iteration as `no_progress` when it changes wording without adding evidence, artifact quality, decision quality, validation, or readiness movement.
+- Flag Loop continuation as High when budgets are exhausted, a human checkpoint is pending, or the same High/Critical finding repeats without a new recovery path.
+- Never recommend `proceed` or `proceed_with_controls` while unresolved findings remain, and never allow `complete` termination with unresolved review findings.
 
 ## Inputs
 
@@ -56,6 +62,7 @@ The review must judge product usefulness, not only artifact shape.
 - Action-closure findings when the critical path is missing ownership, evidence, blocker linkage, or a realistic due phase
 - Findings for development handoff and launch decision artifacts when generated
 - Structured findings with severity, artifact, evidence, owner, required-before phase, and status
+- Severe-finding closure records, unresolved findings, and one final recommendation from the allowed recommendation set
 - Agent-interface compliance findings when handoffs are incomplete or contradictory
 
 ## Completion Criteria

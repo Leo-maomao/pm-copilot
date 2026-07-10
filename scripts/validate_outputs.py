@@ -36,43 +36,20 @@ CHINESE_STATUS_LEAK_RE = re.compile(
 )
 
 REQUIRED_PRD_SECTIONS_ZH = [
-    "文档信息",
-    "版本记录",
-    "需求背景",
-    "需求目标",
-    "需求调研",
-    "需求列表",
+    "产品决策摘要",
+    "背景与证据",
+    "目标与成功标准",
+    "范围与非目标",
     "需求详情",
-    "埋点需求",
-    "多语言需求",
-    "验收标准",
-    "测试建议",
+    "交付设计",
+    "风险、决策与待确认",
+    "验收与就绪度",
 ]
 
 IMPLEMENTED_PRD_SECTIONS_ZH = [
-    "代码实现说明",
-    "代码位置",
+    "实现证据与覆盖映射",
     "验证结果",
 ]
-
-FORBIDDEN_LEGACY_PRD_TOP_LEVEL_SECTIONS_ZH = {
-    "需求输入",
-    "就绪摘要",
-    "需求范围",
-    "信息架构和入口",
-    "参数和规则",
-    "状态和异常",
-    "权限和操作边界",
-    "数据和 API 要求",
-    "前端真实数据接入说明",
-    "功能流程图",
-    "UI 交付",
-    "工程实施路径",
-    "风险",
-    "交付评审",
-    "实现证据和覆盖映射",
-    "参考代码位置",
-}
 
 PROTOTYPE_FILE_NAMES = (
     "index.html",
@@ -163,7 +140,7 @@ EXPECTED_REVIEW_SCORES = {
     "delivery": 32,
     "prd": 40,
     "metrics_and_tracking": 28,
-    "prototype": 32,
+    "ui_delivery": 32,
     "review_checklist": 20,
 }
 
@@ -171,7 +148,7 @@ EXPECTED_QUALITY_THRESHOLDS = {
     "delivery": 23,
     "prd": 31,
     "metrics_and_tracking": 21,
-    "prototype": 24,
+    "ui_delivery": 24,
     "review_checklist": 15,
 }
 
@@ -214,7 +191,6 @@ PRODUCTION_DECISIONS = {
     "ready_to_launch",
 }
 RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?")
-LEGACY_EVIDENCE_RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{8}-\d{4}")
 IMAGE_PLACEHOLDER_RE = re.compile(
     r"(?P<block>^>\s*占位图[:：]\s*(?P<block_name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$)"
     r"|(?P<inline>占位图[:：]\s*(?P<inline_name>[^`<>\n|]+?\.(?:png|jpg|jpeg|webp))"
@@ -316,9 +292,9 @@ def html_has_state(text: str, *names: str) -> bool:
     return any(name.lower() in joined for name in names)
 
 
-def check_compatibility_html_boundary(text: str, prototype_name: str) -> None:
-    if not re.search(r"data-delivery-boundary|delivery-boundary|compatibility_html_review_artifact", text, re.IGNORECASE):
-        fail(f"{prototype_name} missing compatibility UI delivery boundary metadata")
+def check_portable_html_boundary(text: str, prototype_name: str) -> None:
+    if not re.search(r"portable_html_review_artifact", text, re.IGNORECASE):
+        fail(f"{prototype_name} missing portable UI delivery boundary metadata")
     visible = visible_html_text(text)
     if re.search(r"不是生产代码|not\s+production\s+code|prototype\s+only", visible, re.IGNORECASE):
         fail(f"{prototype_name} must not show not-production/example labels in product UI")
@@ -410,7 +386,6 @@ def implemented_feature_prd_is_active(run_log: str) -> bool:
     mode = yaml_scalar_field_value(section, "mode")
     return active is True or mode in {
         "implemented_feature_prd",
-        "implemented_feature_prd_html",
         "implemented_feature_prd_review",
     }
 
@@ -735,7 +710,7 @@ def raw_request_allows_greenfield_ui(run_log: str) -> bool:
 
 def source_rendering_was_blocked(run_log: str) -> bool:
     inventory_block = extract_yaml_block(run_log, "host_frontend_inventory")
-    isolated_block = extract_yaml_block(run_log, "isolated_ui_prototype")
+    isolated_block = extract_yaml_block(run_log, "ui_delivery_trace")
     limitation = yaml_scalar_field_value(inventory_block, "source_rendering_limitation")
     context = "\n".join(
         (
@@ -760,7 +735,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     style_block = extract_yaml_block(run_log, "style_evidence")
     inventory_block = extract_yaml_block(run_log, "host_frontend_inventory")
     visual_baseline_block = extract_yaml_block(run_log, "existing_ui_visual_baseline")
-    isolated_block = extract_yaml_block(run_log, "isolated_ui_prototype")
+    isolated_block = extract_yaml_block(run_log, "ui_delivery_trace")
     source_map_block = extract_yaml_block(isolated_block, "source_to_demo_mapping")
     baseline_import_block = extract_yaml_block(isolated_block, "baseline_import")
     delta_patch_block = extract_yaml_block(isolated_block, "delta_patch")
@@ -788,7 +763,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
 
     if not yaml_mapping_field_has_value(source_map_block, "source"):
         fail("Repo-backed UI delivery source_to_demo_mapping must include non-empty source entries")
-    if not yaml_mapping_field_has_value(source_map_block, "prototype_representation"):
+    if not yaml_mapping_field_has_value(source_map_block, "representation"):
         fail(
             "Repo-backed UI delivery source_to_demo_mapping must describe how each source appears "
             "in the UI deliverable"
@@ -796,7 +771,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
 
     mode = yaml_scalar_field_value(isolated_block, "mode")
     allowed_modes = {
-        "self_contained_html_from_host_code",
+        "portable_html",
         "source_extract_html",
         "source_delta_patch",
         "source_rendered_preview",
@@ -808,7 +783,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         "not_applicable",
     }
     if mode not in allowed_modes:
-        fail("Repo-backed UI delivery isolated_ui_prototype.mode must name a supported artifact mode")
+        fail("Repo-backed UI delivery ui_delivery_trace.mode must name a supported artifact mode")
     recommended_mode = yaml_scalar_field_value(inventory_block, "recommended_artifact_mode")
     render_entrypoint = yaml_scalar_field_value(inventory_block, "render_entrypoint")
     preview = yaml_scalar_field_value(inventory_block, "preview_surface")
@@ -867,7 +842,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
             "attempted and blocked"
         )
     if (
-        mode == "self_contained_html_from_host_code"
+        mode == "portable_html"
         and recommended_mode in source_rendered_modes
         and render_entrypoint
         and preview
@@ -878,7 +853,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
             "explicitly requested portable/standalone HTML, requested greenfield/redesign UI, or source rendering was attempted and blocked"
         )
     if (
-        mode == "self_contained_html_from_host_code"
+        mode == "portable_html"
         and recommended_mode in source_rendered_modes
         and render_entrypoint
         and preview
@@ -895,7 +870,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         run_log,
         re.IGNORECASE,
     )
-    if exact_fidelity_requested and mode == "self_contained_html_from_host_code":
+    if exact_fidelity_requested and mode == "portable_html":
         fail(
             "Repo-backed exact/source-level UI fidelity must use source_delta_patch, source_rendered_preview, "
             "code_preview_route, storybook_or_demo, mini_program_preview, or app_preview_screen; "
@@ -903,12 +878,12 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
         )
     isolated_values = strip_yaml_comments(isolated_block)
     parity_claim = yaml_scalar_field_value(isolated_values, "parity_claim")
-    if mode == "self_contained_html_from_host_code" and not re.search(
+    if mode == "portable_html" and not re.search(
         r"(limited|fidelity[-_ ]limited|not source-rendered|degraded|有限|非源码渲染|降级)",
         parity_claim + "\n" + isolated_values,
         re.IGNORECASE,
     ):
-        fail("Repo-backed standalone HTML mode must explicitly mark source-rendered fidelity as limited")
+        fail("Repo-backed portable_html mode must explicitly mark source-rendered fidelity as limited")
     if mode in source_rendered_modes:
         if not yaml_list_field_has_values(isolated_block, "preview_files_changed"):
             fail("Host-rendered UI delivery mode must record preview_files_changed")
@@ -954,7 +929,7 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
             fail("source_extract_html must record delta_patch.patch_files")
         source_extract_block = extract_yaml_block(isolated_block, "source_extract")
         if not source_extract_block:
-            fail("source_extract_html must record isolated_ui_prototype.source_extract")
+            fail("source_extract_html must record ui_delivery_trace.source_extract")
         for field in (
             "source_target",
             "selector",
@@ -1132,14 +1107,12 @@ def is_document_prototype_html(text: str) -> bool:
     )
 
 
-def check_folder(path: Path, *, allow_legacy_run_id: bool = False) -> None:
+def check_folder(path: Path) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
     if path.parent.name != "outputs":
         fail("Output folder must be a direct child of outputs/: outputs/<run-id>")
-    is_current_run_id = bool(RUN_ID_RE.fullmatch(path.name))
-    is_legacy_evidence_run_id = bool(LEGACY_EVIDENCE_RUN_ID_RE.fullmatch(path.name))
-    if not is_current_run_id and not (allow_legacy_run_id and is_legacy_evidence_run_id):
+    if not RUN_ID_RE.fullmatch(path.name):
         fail(
             "Output folder names under outputs/ must use "
             "requirement-slug-YYYY-MM-DD with an optional numeric collision suffix"
@@ -1409,19 +1382,19 @@ def check_default_option_trace(path: Path) -> None:
 def check_scope_and_surface_trace(path: Path) -> None:
     run_log = read(path / "run-log.yaml")
     required = ("scope_decisions:", "future_scope:", "non_goals:", "surface_decisions:")
-    alternatives = (
-        ("confirmed_mvp:", "confirmed_mvp_scope:"),
-        ("optional_or_conditional:", "optional_scope:"),
-        ("entry_points:", "entry_point:"),
-        ("eligible_user_state:", "eligibility:"),
-        ("fallback_states:", "fallback:"),
+    canonical_markers = (
+        "confirmed_mvp:",
+        "optional_or_conditional:",
+        "entry_points:",
+        "eligible_user_state:",
+        "fallback_states:",
     )
     for marker in required:
         if marker not in run_log:
             fail(f"Run log missing scope/surface marker: {marker}")
-    for canonical, legacy in alternatives:
-        if canonical not in run_log and legacy not in run_log:
-            fail(f"Run log missing scope/surface marker: {canonical} or {legacy}")
+    for marker in canonical_markers:
+        if marker not in run_log:
+            fail(f"Run log missing scope/surface marker: {marker}")
     if "navigation_visibility:" not in run_log:
         fail("Run log missing scope/surface marker: navigation_visibility:")
 
@@ -1466,7 +1439,7 @@ def check_visual_validation_trace(path: Path) -> None:
         if not is_document_prototype_html(read(prototype))
     ]
     has_html_prototype = bool(ui_html_prototypes)
-    has_source_rendered_prototype = "isolated_ui_prototype:" in run_log and re.search(
+    has_source_rendered_prototype = "ui_delivery_trace:" in run_log and re.search(
         r"^\s*mode:\s*(source_delta_patch|source_rendered_preview|code_preview_route|storybook_or_demo|mini_program_preview|app_preview_screen)\b",
         run_log,
         re.MULTILINE,
@@ -1493,7 +1466,7 @@ def check_visual_validation_trace(path: Path) -> None:
 def check_prototype_agent_and_style_trace(path: Path, language: str | None = None) -> None:
     prototypes = generated_prototypes(path)
     run_log = read(path / "run-log.yaml")
-    if not prototypes and "isolated_ui_prototype:" not in run_log:
+    if not prototypes and "ui_delivery_trace:" not in run_log:
         return
 
     document_prototypes = [
@@ -1509,13 +1482,13 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
     for prototype in document_prototypes:
         check_document_prototype_html(prototype)
 
-    if not ui_prototypes and "isolated_ui_prototype:" not in run_log:
+    if not ui_prototypes and "ui_delivery_trace:" not in run_log:
         return
 
-    if "UI Delivery Agent" not in run_log and "Prototype Agent" not in run_log:
-        fail("Run log missing UI Delivery Agent/Prototype Agent for UI delivery")
-    if "multi-platform-prototype" not in run_log:
-        fail("Run log missing multi-platform-prototype skill for UI delivery")
+    if "UI Delivery Agent" not in run_log:
+        fail("Run log missing UI Delivery Agent for UI delivery")
+    if "multi-platform-ui-delivery" not in run_log:
+        fail("Run log missing multi-platform-ui-delivery skill for UI delivery")
     for marker in (
         "design_calibration:",
         "visual_density:",
@@ -1538,7 +1511,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
             "source_files:",
             "reused_components:",
             "reused_tokens_or_classes:",
-            "prototype_delta:",
+            "ui_delta:",
             "limitations:",
         ):
             if marker not in run_log:
@@ -1553,7 +1526,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
             if marker not in run_log:
                 fail(f"Repo-backed UI delivery missing existing UI visual baseline marker: {marker}")
         for marker in (
-            "isolated_ui_prototype:",
+            "ui_delivery_trace:",
             "host_mutation_policy:",
             "mode:",
             "target_surface:",
@@ -1578,7 +1551,7 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
 
     for prototype in ui_prototypes:
         text = read(prototype)
-        check_compatibility_html_boundary(text, prototype.name)
+        check_portable_html_boundary(text, prototype.name)
         check_annotation_marker_contract(text, prototype.name, language)
 
 
@@ -1892,13 +1865,23 @@ def check_chinese_prd(path: Path) -> None:
                 "Non-implemented Chinese PRD must hide code-related top-level section(s): "
                 + ", ".join(unexpected_code_sections)
             )
-    legacy_top_level = sorted(
-        title
-        for title in h2_titles
-        if title in FORBIDDEN_LEGACY_PRD_TOP_LEVEL_SECTIONS_ZH
+    summary_section = next(
+        (section for section in markdown_sections(text) if section.get("level") == 2 and section.get("raw_title") == "1. 产品决策摘要"),
+        None,
     )
-    if legacy_top_level:
-        fail("Chinese PRD uses legacy top-level section(s); fold them into the new numbered structure: " + ", ".join(legacy_top_level))
+    summary_body = str(summary_section.get("body", "")) if summary_section else ""
+    summary_marker_groups = (
+        ("推荐方案", "还原后的推荐定义"),
+        ("置信度", "实现与产品意图一致度"),
+        ("PRD 状态",),
+        ("研发交接状态",),
+        ("上线状态",),
+        ("关键阻塞", "关键阻塞 / 偏差"),
+        ("下一检查点",),
+    )
+    for aliases in summary_marker_groups:
+        if not any(alias in summary_body for alias in aliases):
+            fail("Chinese PRD decision summary missing marker: " + " or ".join(aliases))
     if CHINESE_STATUS_LEAK_RE.search(text):
         fail("Chinese PRD contains raw English readiness/review status labels")
     if "Mini Program" in text:
@@ -1906,26 +1889,32 @@ def check_chinese_prd(path: Path) -> None:
     for marker in ("MVP", "可选", "未来", "非目标"):
         if marker not in text:
             fail(f"Chinese PRD missing scope partition marker: {marker}")
-    for marker in ("加载", "空", "错误"):
-        if marker not in text:
-            fail(f"Chinese PRD missing state coverage marker: {marker}")
-    has_mini_program = (path / "prototype-mini-program.html").is_file()
-    state_markers = ("无家庭",) if has_mini_program else ("未登录", "游客", "无权限")
-    if not any(marker in text for marker in state_markers):
-        fail(
-            "Chinese PRD missing access/setup state marker: "
-            + " or ".join(state_markers)
-        )
+    ui_state_scope = bool(generated_prototypes(path)) or re.search(
+        r"(页面|界面|按钮|弹窗|表单|交互|前端|H5|微信小程序|App|Web UI)",
+        text,
+        re.IGNORECASE,
+    )
+    if ui_state_scope:
+        missing_state_markers = [marker for marker in ("加载", "空", "错误") if marker not in text]
+        if missing_state_markers:
+            fail("Chinese UI PRD missing applicable state coverage marker(s): " + ", ".join(missing_state_markers))
+        has_mini_program = (path / "prototype-mini-program.html").is_file()
+        state_markers = ("无家庭",) if has_mini_program else ("未登录", "游客", "无权限")
+        if not any(marker in text for marker in state_markers):
+            fail(
+                "Chinese UI PRD missing access/setup state marker: "
+                + " or ".join(state_markers)
+            )
     if "source_mode: repo-backed" in run_log and not is_implemented_prd:
         if not any(marker in text for marker in ("工程", "研发", "技术", "实现", "代码")):
             fail("Repo-backed planned Chinese PRD missing engineering notes inside requirement details or test suggestions")
     ac_count = len(re.findall(r"\|\s*AC\d+\s*\|", text))
-    if ac_count < 4:
-        fail("PRD must include at least four acceptance criteria for this scenario")
+    if ac_count < 1:
+        fail("PRD must include at least one traceable acceptance criterion")
     prototype_refs = re.findall(r"`(prototype-[a-z-]+\.html)`", text)
     for ref in prototype_refs:
         if not (path / ref).is_file():
-            fail(f"PRD references missing compatibility UI HTML file: {ref}")
+            fail(f"PRD references missing portable UI HTML file: {ref}")
 
 
 def check_tracking_context(path: Path) -> None:
@@ -2386,7 +2375,7 @@ def check_mini_program_prototype(path: Path, language: str | None = None) -> Non
         return
 
     text = read(prototypes[0])
-    check_compatibility_html_boundary(text, prototypes[0].name)
+    check_portable_html_boundary(text, prototypes[0].name)
     check_annotation_marker_contract(text, prototypes[0].name, language)
     required = [
         "mini-capsule",
@@ -2408,7 +2397,7 @@ def check_mini_program_prototype(path: Path, language: str | None = None) -> Non
                 fail(f"Content-backed UI HTML missing marker: {marker}")
     external_refs = ("http://", "https://", "cdn.", "unpkg.com", "cdnjs.")
     if any(ref in text for ref in external_refs):
-        fail("Compatibility UI HTML should be self-contained and avoid external network references")
+        fail("Portable UI HTML should be self-contained and avoid external network references")
 
 
 def check_web_prototype(path: Path, language: str | None = None) -> None:
@@ -2419,7 +2408,7 @@ def check_web_prototype(path: Path, language: str | None = None) -> None:
     text = read(prototypes[0])
     if is_document_prototype_html(text):
         return
-    check_compatibility_html_boundary(text, prototypes[0].name)
+    check_portable_html_boundary(text, prototypes[0].name)
     check_annotation_marker_contract(text, prototypes[0].name, language)
     required = [
         "prototype-shell",
@@ -2976,18 +2965,10 @@ def main() -> None:
     parser.add_argument("output_folder", type=Path)
     parser.add_argument("--language", choices=["zh", "en"], default=None)
     parser.add_argument("--pre-clarification", action="store_true")
-    parser.add_argument(
-        "--allow-legacy-run-id",
-        action="store_true",
-        help=(
-            "Allow compact timestamp run IDs used only by retained local runtime evidence "
-            "folders, for example requirement-slug-YYYYMMDD-HHMM."
-        ),
-    )
     args = parser.parse_args()
 
     folder = args.output_folder
-    check_folder(folder, allow_legacy_run_id=args.allow_legacy_run_id)
+    check_folder(folder)
     if args.pre_clarification:
         check_pre_clarification(folder)
         print(f"PM Copilot pre-clarification output validation passed: {folder}")

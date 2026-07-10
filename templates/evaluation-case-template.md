@@ -46,7 +46,7 @@ Paste the original realistic product request here.
 ## Required Artifacts
 
 - `outputs/<run-id>/prd.md`
-- UI deliverable reference: source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility HTML mode
+- UI deliverable reference: source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for portable HTML mode
 - `outputs/<run-id>/run-log.yaml` when trace is useful
 - Optional exports such as `tracking-plan.csv` or `user-flow.mmd` when useful
 
@@ -69,6 +69,7 @@ Paste the original realistic product request here.
 | `autonomy_level` | Explains when the agent asks, drafts with risk, runs full loop, or self-iterates. |
 | Product judgment | States recommended path, confidence, blockers, and alternatives. |
 | Review loop | Checks PM usefulness, not only document format. |
+| Bounded Loop | Uses explicit budgets, per-iteration deltas, no-progress detection, and a stop reason when autonomous iteration is enabled. |
 | Next actions | Gives the PM concrete follow-up steps. |
 | Action closure | Links the critical path to an owner, due phase, source decision or blocker, completion evidence, and status. |
 | Memory candidates | Lists durable facts or preferences when the run learned something reusable. |
@@ -101,6 +102,7 @@ Paste the original realistic product request here.
 - PRD status, engineering handoff status, and launch status are recorded separately.
 - Launch-only blockers do not get hidden behind `Ready for engineering`; they remain visible with owner and required confirmation.
 - Critical-path actions are owned, phase-bound, evidence-based, and linked to the decision or blocker they resolve.
+- Autonomous iteration stops on success, input, blocker, budget, no-progress, human checkpoint, or failure; iteration count is never treated as a target.
 - `prd.md` and the UI deliverable are generated after the clarification gate passes.
 - Assumptions are explicit.
 - Confirmed MVP scope is separated from optional, conditional, and future scope.

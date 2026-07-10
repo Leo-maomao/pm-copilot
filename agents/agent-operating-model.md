@@ -17,7 +17,7 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 | Decide | Choose the delivery path, autonomy level, tools, and artifact set. Record alternatives that were rejected. | `decision_record`, `tool_plan`, `workflow.states_skipped` |
 | Act | Produce or revise artifacts with specialist agents and skills. | `agent_transitions`, `artifacts`, `handoff_artifacts` |
 | Verify | Run repository, output, visual, rendering, and delivery checks that match the selected path. | `validation_results`, `visual_validation`, `tool-results/` |
-| Learn | Capture reusable product facts, user preferences, durable decisions, workflow defects, and the accountable critical path. | `memory_candidates`, `next_actions`, `action_closure`, optimization-cycle notes |
+| Learn | Convert verified evidence into the next decision: close severe findings, replan when reflection changes the path, capture source-backed memory candidates safely, and turn generalized runtime defects into regression-backed improvements. Reflection that changes neither decision nor validation is not learning. | `review_loop`, `memory_candidates`, `self_iteration`, `next_actions`, `action_closure`, optimization-cycle notes |
 
 ## Task Modes
 
@@ -61,6 +61,45 @@ The budget controls how much context, research, review, validation, and revision
 | `release/self-iteration` | PM Copilot itself changes or release metadata is required. | Update version, changelog, optimization note, eval/validator when needed, and run release validation. |
 
 If the user asks for a broad system upgrade, default to `release/self-iteration`.
+
+## Bounded Loop Policy
+
+Loop is the Agent's bounded mechanism for acting on new evidence. Workflow provides the available states; Loop decides whether another iteration is useful.
+
+Choose one loop type:
+
+| Loop type | Use when | Typical cycle |
+|---|---|---|
+| `direct` | One pass is enough. | Act -> Verify -> Stop |
+| `execution` | Tool results or implementation evidence may require replanning. | Act -> Observe -> Decide |
+| `evaluator_optimizer` | A draft must improve against Review Agent findings. | Generate -> Evaluate -> Fix -> Re-evaluate |
+| `research` | New sources change product judgment or confidence. | Search -> Synthesize -> Gap check -> Search |
+| `self_improvement` | Runtime evidence exposes a reusable PM Copilot defect. | Observe failure -> Generalize -> Patch -> Validate -> Score |
+
+Recommended default budgets:
+
+| Effort budget | Max iterations | Max tool calls | Max elapsed minutes | Max consecutive no-progress |
+|---|---:|---:|---:|---:|
+| `fast-pass` | 1 | 3 | 10 | 1 |
+| `standard-loop` | 3 | 10 | 30 | 1 |
+| `deep-agentic` | 6 | 24 | 90 | 2 |
+| `research-intensive` | 6 | 30 | 120 | 2 |
+| `release/self-iteration` | 10 | 40 | 180 | 2 |
+
+Budgets are ceilings, not targets. Stop immediately when success criteria are met, input is required, a blocker prevents safe progress, a due human checkpoint is pending or declined, or further work has no meaningful evidence delta. A due checkpoint is evaluated before autonomous success: the Agent cannot approve its own gated action.
+
+Each iteration must record:
+
+- hypothesis and planned actions
+- observations
+- evidence, artifact, decision, and validation deltas
+- review findings
+- progress score before and after
+- outcome and next decision
+
+Progress requires a concrete delta. Repeating a tool call, rewriting prose without changing product meaning, or restating the same finding is `no_progress`.
+At the no-progress threshold, stop and return the missing input, blocker, or alternative path. Never continue merely to consume the configured iteration count.
+Run `scripts/evaluate_agent_loop.py` after each iteration when the Loop is enabled.
 
 ## Delegation Model
 
@@ -115,7 +154,7 @@ End a run only when one of these conditions is true:
 - `degraded`: a lower-fidelity artifact is delivered with visible limitations, confidence impact, and next recovery action.
 - `failed`: the Agent cannot produce a useful output and records why.
 
-Do not call a run complete merely because the workflow reached S12.
+Do not call a run complete merely because the selected graph path ended.
 Completion is measured by PM usefulness and evidence, not by state count.
 Before choosing `complete`, convert the recommended path into `action_closure.critical_path`. Each action must name an owner, due phase, source decision or blocker, completion evidence, and status. `next_actions` remains the area-based summary; `action_closure` is the accountable path that proves the PM can move the work forward.
 

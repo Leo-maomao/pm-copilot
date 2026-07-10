@@ -282,6 +282,10 @@ AGENTIC_TRACE_FIELDS = (
     "decision_record",
     "replan_triggers",
     "review_loop",
+    "loop_policy",
+    "loop_state",
+    "iteration_trace",
+    "loop_summary",
     "memory_candidates",
     "next_actions",
     "action_closure",
@@ -584,6 +588,13 @@ def collect_runs(outputs_dir: Path) -> list[dict[str, Any]]:
             "missing_agentic_fields": missing_agentic_fields,
             "agentic_trace_complete": bool(run_log.is_file() and not missing_agentic_fields),
             "has_action_closure": "action_closure:" in run_log_text,
+            "has_bounded_loop": all(
+                f"{field}:" in run_log_text
+                for field in ("loop_policy", "loop_state", "iteration_trace", "loop_summary")
+            ),
+            "has_no_progress_stop": bool(
+                re.search(r"^\s+stop_reason:\s+no_progress\b", run_log_text, re.MULTILINE)
+            ),
             "prd_agentic_markers": prd_agentic_markers,
         })
     return runs
@@ -665,6 +676,8 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
         "with_memory_candidates": sum(1 for item in runs if "memory_candidates" not in item["missing_agentic_fields"]),
         "with_next_actions_trace": sum(1 for item in runs if "next_actions" not in item["missing_agentic_fields"]),
         "with_action_closure": sum(1 for item in runs if item["has_action_closure"]),
+        "with_bounded_loop": sum(1 for item in runs if item["has_bounded_loop"]),
+        "with_no_progress_stop": sum(1 for item in runs if item["has_no_progress_stop"]),
         "prd_with_product_judgment": sum(
             1 for item in runs if item["prd_agentic_markers"].get("product_judgment")
         ),
@@ -733,7 +746,7 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
             "area": "agentic_trace",
             "issue": (
                 f"{len(runs) - run_quality['with_agentic_trace_complete']} runtime run(s) lack "
-                "complete PM Copilot 3.0 agentic trace fields."
+                "complete PM Copilot agentic trace fields."
             ),
         })
     if runs and run_quality["with_action_closure"] < len(runs):
@@ -743,6 +756,15 @@ def summarize(evals: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[s
             "issue": (
                 f"{len(runs) - run_quality['with_action_closure']} runtime run(s) lack "
                 "an accountable critical path with owner and completion evidence."
+            ),
+        })
+    if runs and run_quality["with_bounded_loop"] < len(runs):
+        risks.append({
+            "severity": "Medium",
+            "area": "bounded_loop",
+            "issue": (
+                f"{len(runs) - run_quality['with_bounded_loop']} runtime run(s) lack bounded "
+                "Loop policy, iteration trace, state, or stop summary."
             ),
         })
     if runs and run_quality["prd_with_next_actions"] < run_quality["with_prd"]:
@@ -896,7 +918,7 @@ def prioritize_actions(
         )
     if "agentic_trace" in risk_areas:
         actions.append(
-            "Backfill PM Copilot 3.0 trace coverage in new runs: agent_strategy, task_mode, autonomy_level, decisions, review_loop, next_actions, and memory_candidates."
+            "Backfill PM Copilot trace coverage in new runs: agent_strategy, task_mode, autonomy_level, decisions, review_loop, next_actions, and memory_candidates."
         )
     if "pm_usefulness" in risk_areas:
         actions.append(
@@ -905,6 +927,10 @@ def prioritize_actions(
     if "action_closure" in risk_areas:
         actions.append(
             "Add action_closure.critical_path to new runs with owner, due phase, source decision or blocker, completion evidence, and status."
+        )
+    if "bounded_loop" in risk_areas:
+        actions.append(
+            "Add bounded loop_policy, iteration_trace, loop_state, and loop_summary to new full-loop and self-iteration runs."
         )
     uncovered = [
         risk["area"]
@@ -1016,6 +1042,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- runs with review loop: {report['run_quality']['with_review_loop']}",
         f"- runs with memory candidates: {report['run_quality']['with_memory_candidates']}",
         f"- runs with action closure: {report['run_quality']['with_action_closure']}",
+        f"- runs with bounded loop: {report['run_quality']['with_bounded_loop']}",
+        f"- runs stopped for no progress: {report['run_quality']['with_no_progress_stop']}",
         f"- PRDs with product judgment: {report['run_quality']['prd_with_product_judgment']}",
         f"- PRDs with next actions: {report['run_quality']['prd_with_next_actions']}",
         "",

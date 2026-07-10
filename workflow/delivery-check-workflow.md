@@ -1,7 +1,6 @@
 # Delivery Check Workflow
 
-This workflow verifies that PM-facing deliverables are complete, consistent, useful, and backed by evidence.
-It replaces the legacy `workflow/package-workflow.md` name; the old file remains as a compatibility redirect.
+This is the only delivery-check entry. It verifies that PM-facing deliverables are complete, consistent, useful, and backed by evidence.
 
 ## Inputs
 
@@ -9,7 +8,7 @@ It replaces the legacy `workflow/package-workflow.md` name; the old file remains
 - `outputs/<run-id>/prd.html` when browser-readable PRD delivery is requested, and always for implemented-feature PRD delivery
 - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary delivery
 - Document prototype HTML when the requested prototype is a browser-readable reference document
-- UI deliverable reference when user-facing UI is relevant: source-backed preview/delta files by default, or `outputs/<run-id>/prototype-<platform>.html` for compatibility standalone/fallback mode
+- UI deliverable reference when user-facing UI is relevant: source-backed preview/delta files by default, source-extracted HTML when independent handoff is needed, or portable `outputs/<run-id>/prototype-<platform>.html` when there is no usable source or the user explicitly requests standalone HTML
 - Optional exports such as `tracking-plan.csv` or `user-flow.mmd`
 - Internal `run-log.yaml`, when available
 - `dev-tasks.yaml` and `launch-decision.yaml`, when requested
@@ -56,12 +55,12 @@ If the answer is no, the check should fail or record a High finding even when fi
 - `prd.md`
 - `prd.html` when browser-readable PRD delivery is requested, and always for implemented-feature PRD delivery
 - Structured reference or document prototype when PRD is not in scope
-- UI deliverable reference; `prototype-<platform>.html` only for compatibility standalone/fallback mode
+- UI deliverable reference; `prototype-<platform>.html` only for portable HTML mode
 - `run-log.yaml` as internal trace only
 - Optional `dev-tasks.yaml` for controlled engineering handoff
 - Optional `launch-decision.yaml` for release decision support
 
-## Legacy Files
+## Focused Delivery Set
 
-Do not generate `pm-package.md`, `final-package-summary.md`, `review-checklist.md`, `tracking-plan.md`, `user-flow.md`, or other split Markdown files by default.
+Do not generate `pm-package.md`, `final-package-summary.md`, `review-checklist.md`, `tracking-plan.md`, `user-flow.md`, or other fragmented Markdown files by default.
 Keep the handoff centered on `prd.md`, structured reference, document prototype, UI delivery, and the run log unless the user explicitly asks for an export.

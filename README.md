@@ -7,15 +7,15 @@
 PM Copilot 是一个开箱即用的 AI 产品经理 Agent 系统。
 它把模糊目标、现有代码、产品文档、截图、调研线索或已实现功能，转化为 PM 能直接推进评审、设计、研发、埋点、上线和复盘的交付物。
 
-它不是模板库，也不是只会按 S0-S12 机械流转的流水线。
-workflow 是 Agent 的安全执行轨道；用户感知到的是一个会理解目标、主动找证据、做产品判断、产出交付物、验证结果并沉淀记忆候选的 AI PM。
+它不是模板库，也不是固定步骤流水线。
+执行图是 Agent 的安全边界；用户感知到的是一个会理解目标、主动找证据、做产品判断、产出交付物、验证结果并沉淀记忆候选的 AI PM。
 
 ## 它能做什么
 
 - 需求澄清：判断目标、用户、范围、平台、风险和必须先问的问题。
 - PRD 交付：生成可评审的 `prd.md`，覆盖背景、目标、调研、需求、埋点、验收、风险和就绪状态。
 - PRD HTML：用 `scripts/render_prd_html.py` 生成浏览器可读的 `prd.html`，适合外部交付和同步评审。
-- UI 交付：在有源码时优先做 source-backed preview/delta；需要离线交付时用 `extract_ui_region.py` 从源码预览提取；无源码或明确便携 HTML 时生成兼容 `prototype-<platform>.html`。
+- UI 交付：在有源码时优先做 source-backed preview/delta；需要独立交付时用 `extract_ui_region.py` 从源码预览提取；无源码或明确要求便携 HTML 时生成 portable `prototype-<platform>.html`。
 - 埋点和指标：输出事件、属性、触发时机、隐私说明和验证方式。
 - 研发交接：按需生成 `dev-tasks.yaml`，保留依赖、验收、阻塞项和 issue-ready 切片。
 - 上线判断：按需生成 `launch-decision.yaml`，区分工程可交接、上线阻塞、owner、回滚和人工批准缺口。
@@ -37,7 +37,6 @@ PM Copilot 将中文和英文都视为一等用户语言。
 直接使用 Agent 时请看 `docs/direct-use.md`。
 嵌入到现有项目中使用时请看 `docs/embedded-use.md`。
 常见场景看 `docs/use-cases.md`，自治模式看 `docs/agent-modes.md`，交付物价值看 `docs/output-gallery.md`。
-从 2.x 升级看 `docs/migration-3.0.md`。
 
 推荐用自然产品目标表达，而不是背内部流程：
 
@@ -76,10 +75,11 @@ PM Copilot 将中文和英文都视为一等用户语言。
 
 把下面任一请求直接粘贴给支持 Agent 的工作区。
 PM Copilot 会先识别上下文模式、任务模式和自治等级；缺关键信息时先问问题，信息足够后生成交付物并记录验证结果。
+对于高风险或证据不足的请求，正确停在 `stop_needs_input` 或人工检查点也是有效结果，不应为了展示文件数量继续生成。
 
 ### Demo 1：已有项目里的团队权限管理
 
-适合证明 PM Copilot 不只是写通用文档，而是会读取现有代码仓库，贴合当前产品结构、权限模型、路由、UI 组件和埋点约定。
+适合验证 PM Copilot 会先读取代码和产品证据，再形成权限模型、交互边界和研发交接判断，而不是套一份权限管理模板。
 
 ![团队权限管理 Demo 截图](docs/assets/readme-demo-team-permissions.png)
 
@@ -96,14 +96,14 @@ PM Copilot 会先识别上下文模式、任务模式和自治等级；缺关键
 
 | 产物 | 应该看到什么 |
 |---|---|
-| `prd.md` | 目标用户、当前产品约束、外部参考结论、MVP/可选/未来范围、成员邀请、角色变更、权限拦截、审计记录、加载/空/错误/无权限状态 |
+| `prd.md` | 首屏直接给出推荐权限方案、置信度、MVP/非目标、关键安全阻塞和下一检查点；需求详情覆盖邀请、角色变更、权限拦截、审计和异常恢复 |
 | Web UI 交付物 | 有前端源码时使用源码驱动的预览路由、Storybook/demo 或 `source_delta_patch`，复用现有后台壳层、组件库和表格密度；需要离线交付时从源码预览区域提取 HTML |
 | `dev-tasks.yaml` | 可转 issue 的研发任务、依赖关系、验收标准、测试建议、相关宿主项目文件和阻塞确认项 |
-| `run-log.yaml` | `task_mode`、`autonomy_level`、上下文模式、读取文件、外部调研来源、样式证据、工具校验、产品判断、下一步、可追责关键路径和 memory candidates |
+| `run-log.yaml` | Agent 选择 `mixed_delivery` 和合适自治等级，记录源码证据、产品决策、Loop 进展、停止原因、下一步、可追责关键路径和 memory candidates |
 
 ### Demo 2：没有代码仓库的会员自动续费优化
 
-适合证明 PM Copilot 可以从一段模糊业务描述或产品文档出发，不依赖代码仓库，也能处理支付、取消、提醒、埋点、隐私和上线门禁这类更高风险的产品需求。
+适合验证 PM Copilot 面对支付和消费者权益风险时不会机械生成全套文件：证据不足就停在 `stop_needs_input`，信息足够后才推进方案、UI、埋点和上线判断。
 
 ![会员自动续费 Demo 截图](docs/assets/readme-demo-membership-renewal.png)
 
@@ -119,15 +119,15 @@ PM Copilot 会先识别上下文模式、任务模式和自治等级；缺关键
 
 | 产物 | 应该看到什么 |
 |---|---|
-| `prd.md` | 用户问题、业务目标、外部参考、当前假设、提醒策略、取消链路、支付/客服/法务风险、验收标准和上线状态 |
-| `prototype-h5.html` | 无代码或文档起步时的 H5 兼容 HTML UI 交付物，覆盖会员中心入口、续费提醒、自动续费管理、取消确认、结果回执、未登录/无会员/接口失败等访问态和边界状态 |
+| `prd.md` | 首屏显示推荐策略、置信度、关键阻塞、PRD/研发/上线三类状态；正文覆盖提醒、取消、支付、客服、法务风险和非目标 |
+| `prototype-h5.html` | 无代码或文档起步时的 H5 portable HTML UI 交付物，覆盖会员中心入口、续费提醒、自动续费管理、取消确认、结果回执、未登录/无会员/接口失败等访问态和边界状态 |
 | PRD 内埋点表 | `renewal_notice_view`、`renewal_manage_open`、`renewal_cancel_submit`、`renewal_cancel_result` 等事件和隐私说明 |
 | `launch-decision.yaml` | 工程可交接范围、上线阻塞项、法务/支付/客服 owner、回滚建议和人工批准缺口 |
-| `run-log.yaml` | 澄清问题、默认假设、外部调研状态、访问态视觉校验、工具结果和未确认门禁 |
+| `run-log.yaml` | 澄清问题、默认假设、外部调研、每轮证据增量、Loop 停止原因、访问态视觉校验、工具结果和未确认门禁 |
 
 ## Agent 运行模型
 
-PM Copilot 3.0 的主循环定义在 `agents/agent-operating-model.md`：
+PM Copilot 的主循环定义在 `agents/agent-operating-model.md`：
 
 ```text
 Observe -> Frame -> Decide -> Act -> Verify -> Learn
@@ -139,7 +139,7 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 |---|---|
 | `prd_delivery` | 从目标或上下文生成完整 PRD |
 | `implemented_feature_prd` | 从已实现分支还原 PRD 和 HTML |
-| `ui_delivery` | 交付源码优先 UI、源码提取 HTML 或兼容 HTML |
+| `ui_delivery` | 交付源码优先 UI、源码提取 HTML 或 portable HTML |
 | `tracking_plan` | 生成指标和埋点方案 |
 | `launch_readiness` | 判断上线阻塞、owner、回滚和批准缺口 |
 | `dev_handoff` | 生成研发任务和交接信息 |
@@ -157,7 +157,8 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 
 PM Copilot 还会为复杂任务选择 effort budget，并记录必要的委派计划、恢复检查点和终止条件。
 这让长任务可以说明“为什么继续做、为什么停下、哪些 specialist 输出被采纳或拒绝”，而不是只显示流程状态。
-从 3.0.1 起，完整交付还会把推荐方案转成 `action_closure`：每个关键动作都要有 owner、截止阶段、来源决策或阻塞项、完成证据和状态，避免只留下“后续对齐”式建议。
+完整交付会把推荐方案转成 `action_closure`：每个关键动作都要有 owner、截止阶段、来源决策或阻塞项、完成证据和状态，避免只留下“后续对齐”式建议。
+复杂任务使用有界 Agent Loop：每轮必须记录证据、产物、决策或验证增量，并受轮次、工具调用、耗时和连续无进展上限约束；`evaluate_agent_loop.py` 负责给出继续或停止决定。该运行契约与模型无关。
 
 ## 在现有项目中使用
 
@@ -208,7 +209,7 @@ adapters/      Codex、Claude Code、Cursor 等宿主项目适配器
 python3 scripts/preflight_tools.py
 python3 scripts/validate_outputs.py outputs/<run-id>
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
-python3 scripts/validate_agent_trace.py outputs/<run-id> --strict
+python3 scripts/validate_agent_trace.py outputs/<run-id>
 python3 scripts/analyze_agent_run_evidence.py --json
 python3 scripts/setup_visual_validation.py
 python3 scripts/validate_prototype_visual.py outputs/<run-id>
@@ -220,7 +221,7 @@ python3 scripts/validate_repo.py
 
 `tools/tool-registry.yaml` 是工具能力源。
 工具结果应尽量符合 `artifacts/tool-result-contract.md`。
-生成兼容 HTML UI 交付物时使用 `validate_prototype_visual.py`；源码驱动预览使用宿主项目预览路径，并在有 URL 或文件时使用 `validate_ui_preview.py`。
+生成 portable HTML UI 交付物时使用 `validate_prototype_visual.py`；源码驱动预览使用宿主项目预览路径，并在有 URL 或文件时使用 `validate_ui_preview.py`。
 
 ## 记忆
 

@@ -7,8 +7,8 @@
 PM Copilot is an out-of-the-box AI Product Manager Agent System.
 It turns ambiguous goals, existing code, product documents, screenshots, research signals, or already implemented features into deliverables a PM can use to drive review, design alignment, engineering handoff, tracking, launch decisions, and learning.
 
-It is not a template library, and it is not a rigid S0-S12 pipeline.
-The workflow is the agent's safety rail; the user-facing experience is an AI PM that understands the goal, gathers evidence, makes product judgments, creates artifacts, verifies the result, and proposes memory candidates for future runs.
+It is not a template library or a fixed-step pipeline.
+The execution graph provides safety boundaries; the user-facing experience is an AI PM that understands the goal, gathers evidence, makes product judgments, creates artifacts, verifies the result, and proposes memory candidates for future runs.
 
 中文简介：PM Copilot 是面向产品经理的开源 AI Product Manager Agent System，支持 PRD、UI 交付、埋点方案、研发交接、上线判断、已实现功能反向 PRD、结构化参考和自我迭代。
 
@@ -17,7 +17,7 @@ The workflow is the agent's safety rail; the user-facing experience is an AI PM 
 - Clarifies requirements: goal, user, scope, platform, risk, and must-answer questions.
 - Delivers PRDs: `prd.md` with background, goals, research, requirements, tracking, acceptance, risks, and readiness.
 - Renders PRD HTML: `scripts/render_prd_html.py` creates browser-readable `prd.html` for external review.
-- Delivers UI: source-backed preview/delta by default when source exists; source-extracted HTML through `extract_ui_region.py` when an independent handoff is needed; compatibility `prototype-<platform>.html` for no-source or explicit portable HTML work.
+- Delivers UI: source-backed preview/delta by default when source exists; source-extracted HTML through `extract_ui_region.py` when an independent handoff is needed; portable `prototype-<platform>.html` for no-source or explicit standalone HTML work.
 - Designs metrics and tracking: events, properties, triggers, privacy notes, and validation.
 - Supports engineering handoff: optional `dev-tasks.yaml` with dependencies, acceptance, blockers, and issue-ready slices.
 - Supports launch decisions: optional `launch-decision.yaml` with readiness, blockers, owners, rollback, and approval gaps.
@@ -41,7 +41,6 @@ For embedded project usage, see `docs/embedded-use.md`.
 For practical PM scenarios, see `docs/use-cases.md`.
 For autonomy choices, see `docs/agent-modes.md`.
 For artifact value examples, see `docs/output-gallery.md`.
-For 2.x to 3.0 compatibility, see `docs/migration-3.0.md`.
 
 Use natural product goals instead of internal state names:
 
@@ -80,10 +79,11 @@ Cover every independent changed page, window, panel, or dialog, but do not split
 
 Paste either request into an agent-enabled workspace.
 PM Copilot should classify context mode, task mode, and autonomy level first; ask blocking questions when required; then generate artifacts and validation evidence when enough information is available.
+For high-risk or evidence-poor requests, stopping at `stop_needs_input` or a human checkpoint is a valid result; the Agent should not continue merely to produce more files.
 
 ### Demo 1: Team Permission Management In An Existing Project
 
-This shows that PM Copilot does more than write generic documents: it inspects the current repository and fits the requirement into existing routes, role models, permission logic, UI components, and analytics conventions.
+This verifies that PM Copilot reads code and product evidence before forming the permission model, interaction boundaries, and engineering handoff judgment instead of applying a generic permissions template.
 
 ![Team permission management demo screenshot](docs/assets/readme-demo-team-permissions.png)
 
@@ -100,14 +100,14 @@ A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `prd.md` | Target users, current-product constraints, external reference findings, MVP/optional/future scope, member invites, role changes, permission blocking, audit logs, loading/empty/error/no-permission states |
+| `prd.md` | The first screen states the recommended permission approach, confidence, MVP/non-goals, key security blocker, and next checkpoint; details cover invites, role changes, permission blocking, audit, and recovery states |
 | Web UI deliverable | Source-backed preview route, Storybook/demo, or `source_delta_patch` when source exists; source-extracted HTML when independent handoff is required |
 | `dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
-| `run-log.yaml` | `task_mode`, `autonomy_level`, context mode, loaded files, research sources, style evidence, tool validation, product judgment, next actions, accountable critical path, and memory candidates |
+| `run-log.yaml` | Agent selection of `mixed_delivery` and autonomy level, source evidence, product decisions, Loop progress and stop reason, next actions, accountable critical path, and memory candidates |
 
 ### Demo 2: Membership Auto-Renewal Optimization Without A Code Repository
 
-This shows that PM Copilot can start from a brief or product documents and still handle higher-risk product requirements involving payment, cancellation, reminders, tracking, privacy, and launch gates.
+This verifies that PM Copilot does not mechanically produce every artifact for a payment and consumer-rights scenario: it stops with `stop_needs_input` when evidence is insufficient and proceeds only when the gates are satisfied.
 
 ![Membership auto-renewal demo screenshot](docs/assets/readme-demo-membership-renewal.png)
 
@@ -123,15 +123,15 @@ A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `prd.md` | User problem, business goals, external references, current assumptions, reminder strategy, cancellation flow, payment/support/legal risks, acceptance criteria, and launch status |
-| `prototype-h5.html` | Compatibility HTML UI deliverable for no-code/document-backed starts, covering membership center entry, renewal reminder, auto-renewal management, cancellation confirmation, result receipt, logged-out/no-membership/API-failure states |
+| `prd.md` | The first screen states the recommendation, confidence, blockers, and separate PRD/engineering/launch statuses; details cover reminders, cancellation, payment, support, legal risks, and non-goals |
+| `prototype-h5.html` | `portable_html` UI deliverable for no-code/document-backed starts, covering membership center entry, renewal reminder, auto-renewal management, cancellation confirmation, result receipt, logged-out/no-membership/API-failure states |
 | Tracking table inside the PRD | Events such as `renewal_notice_view`, `renewal_manage_open`, `renewal_cancel_submit`, `renewal_cancel_result`, plus privacy notes |
 | `launch-decision.yaml` | Engineering-ready scope, launch blockers, legal/payment/support owners, rollback recommendation, and missing human approvals |
-| `run-log.yaml` | Clarifying questions, default assumptions, external research status, access-state visual validation, tool results, and unresolved gates |
+| `run-log.yaml` | Clarifying questions, assumptions, external research, per-iteration evidence delta, Loop stop reason, access-state visual validation, tool results, and unresolved gates |
 
 ## Agent Operating Model
 
-PM Copilot 3.0 is defined in `agents/agent-operating-model.md`:
+PM Copilot is defined in `agents/agent-operating-model.md`:
 
 ```text
 Observe -> Frame -> Decide -> Act -> Verify -> Learn
@@ -143,7 +143,7 @@ Task modes:
 |---|---|
 | `prd_delivery` | Create a complete PRD from goals and context |
 | `implemented_feature_prd` | Reconstruct PRD and HTML from an implemented branch |
-| `ui_delivery` | Deliver source-first UI, source-extracted HTML, or compatibility HTML |
+| `ui_delivery` | Deliver source-first UI, source-extracted HTML, or portable HTML |
 | `tracking_plan` | Create metrics and analytics tracking |
 | `launch_readiness` | Judge launch blockers, owners, rollback, and approvals |
 | `dev_handoff` | Create development tasks and handoff information |
@@ -161,7 +161,8 @@ Autonomy levels:
 
 For complex work, PM Copilot also chooses an effort budget and records delegation plan, resume checkpoint, and termination condition.
 That makes long runs explain why they continue, why they stop, and which specialist outputs were accepted or rejected instead of only showing workflow state.
-From 3.0.1, a full delivery also converts the recommendation into `action_closure`: every critical action needs an owner, due phase, source decision or blocker, completion evidence, and status instead of a generic "align later" follow-up.
+A full delivery converts the recommendation into `action_closure`: every critical action needs an owner, due phase, source decision or blocker, completion evidence, and status instead of a generic "align later" follow-up.
+Complex work uses a bounded Agent Loop. Every iteration must record an evidence, artifact, decision, or validation delta and is limited by iteration, tool-call, elapsed-time, and consecutive no-progress budgets. `evaluate_agent_loop.py` decides continue or stop. This is a model-independent runtime contract.
 
 ## Use Inside An Existing Project
 
@@ -212,7 +213,7 @@ Common commands:
 python3 scripts/preflight_tools.py
 python3 scripts/validate_outputs.py outputs/<run-id>
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language en
-python3 scripts/validate_agent_trace.py outputs/<run-id> --strict
+python3 scripts/validate_agent_trace.py outputs/<run-id>
 python3 scripts/analyze_agent_run_evidence.py --json
 python3 scripts/setup_visual_validation.py
 python3 scripts/validate_prototype_visual.py outputs/<run-id>
@@ -224,7 +225,7 @@ python3 scripts/validate_repo.py
 
 `tools/tool-registry.yaml` is the source of tool capability truth.
 Tool results should follow `artifacts/tool-result-contract.md` where possible.
-Use `validate_prototype_visual.py` for compatibility HTML UI deliverables.
+Use `validate_prototype_visual.py` for portable HTML UI deliverables.
 Use the host project's preview route for source-backed UI, and run `validate_ui_preview.py` when a URL or file target is available.
 
 ## Memory

@@ -1,6 +1,6 @@
 # Artifact Contracts
 
-Every generated artifact must follow the relevant contract. For required top-level sections, if a section cannot be completed or does not apply, keep the section and mark it as `Unknown`, `Assumed`, or `Not applicable` with a reason. For conditional sections or optional blocks, hide the section/block when it has no real content instead of leaving empty placeholders.
+Every generated artifact must follow the relevant contract. Required decision fields must state `Unknown` or `Assumed` with a reason when evidence is incomplete. Conditional sections and optional blocks should be hidden when they do not apply instead of being preserved as empty or artificial `Not applicable` content.
 
 Use the user's language for all human-facing artifact content, including headings, table column labels, status labels, notes, UI delivery annotations, and review labels. For analytics tables, localize reviewer-facing labels and keep machine field names such as `event_name` or `required_properties` visible in code formatting when implementation needs them. Keep file names, event names, property names, Mermaid node IDs, and other machine-readable identifiers in ASCII.
 
@@ -16,7 +16,7 @@ The default product-manager delivery contains only:
 - `outputs/<run-id>/prd.html` when the user requests a browser-readable, externally deliverable, or copy/share-friendly PRD document
 - a UI deliverable when a user-facing UI artifact is relevant:
   - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
-  - `outputs/<run-id>/prototype-<platform>.html` for source-extracted HTML handoff or compatibility standalone/no-source/fallback mode
+  - `outputs/<run-id>/prototype-<platform>.html` for source-extracted HTML handoff or portable standalone/no-source mode
   - `outputs/<run-id>/index.html` only as an offline folder entry when the user explicitly asks for portable/offline HTML handoff
 
 When the user asks to turn an already implemented branch or current diff into a requirement delivery, PM Copilot must generate `outputs/<run-id>/prd.html` beside `prd.md`. This file is a browser-readable PRD document rendering, not a UI prototype and not a document-class structured catalog.
@@ -38,7 +38,7 @@ When the user asks for engineering handoff, issue planning, unattended task plan
 
 These are controlled handoff artifacts. They must follow `artifacts/dev-task-contract.md` and `artifacts/launch-decision-contract.md`.
 
-The original request, clarified answers, low-risk assumptions, scope decisions, metrics, tracking plan, flow diagrams, risks, and validation results belong in the fixed numbered PRD structure when a PRD is in scope. Document-class requests keep source facts, product decisions, field dictionary, source status, review status, attention points, object-level changes, completeness checks, and engineering handoff notes in the structured reference artifact instead. If the user explicitly says no PRD is needed, do not create `prd.md`.
+The original request, clarified answers, assumptions, scope decisions, metrics, applicable tracking, flows, risks, and validation results belong in the decision-first PRD structure when a PRD is in scope. Document-class requests keep source facts, product decisions, field dictionary, source status, review status, attention points, object-level changes, completeness checks, and engineering handoff notes in the structured reference artifact instead. If the user explicitly says no PRD is needed, do not create `prd.md`.
 
 ## Clarification Gate
 
@@ -54,40 +54,36 @@ Default readiness is `Ready for engineering` for the confirmed engineering scope
 
 ## PRD
 
-Required sections:
+Required decision-first sections:
 
 - H1 as one concise requirement sentence plus date, such as `# 优化团队权限设置体验 - 2026-06-29`
-- `## 1. 文档信息`
-- `## 2. 版本记录`
-- `## 3. 需求背景`
-- `## 4. 需求目标`
-- `## 5. 需求调研`
-- `## 6. 需求列表`
-- `## 7. 需求详情`
-- `## 8. 埋点需求`
-- `## 9. 多语言需求`
-- `## 10. 验收标准`
-- `## 11. 测试建议`
-- `## 12. 代码实现说明`, when reconstructed from a current branch or implementation
-- `## 13. 代码位置`, when reconstructed from a current branch or implementation
-- `## 14. 验证结果`, when reconstructed from a current branch or implementation
+- `## 1. 产品决策摘要`
+- `## 2. 背景与证据`
+- `## 3. 目标与成功标准`
+- `## 4. 范围与非目标`
+- `## 5. 需求详情`
+- `## 6. 交付设计`
+- `## 7. 风险、决策与待确认`
+- `## 8. 验收与就绪度`
+- `## 9. 实现证据与覆盖映射`, when reconstructed from a current branch or implementation
+- `## 10. 验证结果`, when reconstructed from a current branch or implementation
 
-Code-related top-level sections must not appear in planned/non-implemented PRDs. If no implementation exists, keep likely technical notes inside `需求详情` or `测试建议`.
+Implementation-evidence top-level sections must not appear in planned/non-implemented PRDs. Keep likely technical notes inside `需求详情` or the applicable `交付设计` subsection.
 
 Required formatting:
 
-- Use tables for version history, confirmations, goals, scope, requirement list, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
+- Use tables for comparable decisions, evidence, goals, scope, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
 - Use stable IDs such as `R1`, `F1`, `AC1`, and `E1`.
 - Use short paragraphs for background, research conclusions, and rationale.
 - Avoid long undifferentiated unordered lists.
-- Keep confirmed MVP scope separate from optional, conditional, future, and non-goal scope inside the numbered structure, usually in `需求列表` or `需求详情`.
+- Keep confirmed MVP scope separate from optional, conditional, future, and non-goal scope in `范围与非目标`.
 - Flow diagrams are optional and must sit inside the specific requirement detail they explain. Do not add fixed global `用户流程图` and `功能流程图` subsections to every PRD.
 - Remove optional diagrams, image blocks, API matrices, code evidence, or risk tables when they do not apply. Do not ship empty tables, angle-bracket placeholders, `TBD`, or `待补充`.
 - Acceptance criteria cover confirmed MVP requirements only.
 - PRD status, engineering handoff status, and launch status are separate and non-contradictory.
 - Existing-product entry points, navigation visibility, permission or eligibility states, and fallback states are explicit when the feature adds or changes a surface.
 - Frontend page, UI component, visual-state, or interactive-control requirements include the relevant interface specification inside the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
-- Implemented-feature PRDs include a branch evidence map under `代码实现说明` that links changed files, screenshots/assets, tests, and observed UI behavior to requirement IDs, plus any unverified product intent.
+- Implemented-feature PRDs include a branch evidence map under `实现证据与覆盖映射` that links changed files, screenshots/assets, tests, and observed UI behavior to requirement IDs, plus any unverified product intent.
 - Implemented-feature PRDs keep screenshots and missing-image markers inline with the relevant requirement, table row, flow step, state, dialog, or evidence. Do not create a detached image list, figure list, or screenshot appendix by default.
 - Missing screenshots in Chinese PRDs use the exact inline block only, for example `> 占位图：资料卡片-加载中.png` followed by a `> 用途：...` line. Do not use the marker words elsewhere.
 - Screenshot file names describe content. State screenshots use object plus concrete state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; generic names such as `资料卡片-状态.png` or `profile-card-state.png` are not acceptable.
@@ -120,7 +116,7 @@ Minimum quality bar:
 - Validation results must be finalized after tools run. Do not leave placeholder statuses such as `pending`, `待执行`, `should run`, or `to be verified` in delivered artifacts once the corresponding command has already been executed or intentionally skipped.
 - UI visual validation should include browser screenshot and visual diff checks. If tooling is unavailable, PM Copilot should attempt or guide setup first. A skipped visual check must include the setup failure, environment restriction, or user-declined reason in `run-log.yaml` and the PRD validation section.
 - Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
-- Delivery review findings and risks should be folded into `代码实现说明`, `验收标准`, or `测试建议` unless the user explicitly asks for a separate launch-review artifact.
+- Delivery review findings and risks belong in `风险、决策与待确认` and `验收与就绪度`, with implementation-specific evidence linked from `实现证据与覆盖映射` when applicable.
 
 ## PRD HTML Document
 
@@ -212,15 +208,15 @@ Minimum quality bar:
 
 Required elements:
 
-- Runs locally without build tooling when a standalone HTML compatibility artifact is selected; source-rendered preview modes run through the host app's normal dev, preview, Storybook, simulator, or platform tooling.
+- Runs locally without build tooling when a portable HTML artifact is selected; source-rendered preview modes run through the host app's normal dev, preview, Storybook, simulator, or platform tooling.
 - Simulates or uses the selected platform container.
 - Matches existing product style when current screenshots, demos, routes, components, or design-system references are available.
 - For repo-backed UI-delivery work, reads real host frontend code and assets, keeps production flows read-only by default, and uses `source_delta_patch` or a platform-specific source-rendered preview whenever host frontend source exists. This does not require the user to ask for exact UI parity.
-- For repo-backed UI-delivery work, records `isolated_ui_prototype` in `run-log.yaml`, including host mutation policy, artifact mode, target surface, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
+- For repo-backed UI-delivery work, records `ui_delivery_trace` in `run-log.yaml`, including host mutation policy, artifact mode, target surface, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
 - For repo-backed UI-delivery work, imports/renders `baseline_import` from original host source and puts only new feature behavior in `delta_patch`: preview composition, mock state, markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
 - For repo-backed frontend products, records concrete `style_evidence` in `run-log.yaml`, includes source-to-demo mappings for reused host components, and includes `style-source-summary` or `data-style-source` in the HTML.
 - For source-backed previews, records the preview command, preview route/screen/story, and changed preview/delta files; a localhost URL alone is not a complete UI deliverable reference.
-- For standalone compatibility HTML, records boundary metadata/comments and the generated HTML path without adding visible "example/demo/not production" copy to the product UI.
+- For portable HTML HTML, records boundary metadata/comments and the generated HTML path without adding visible "example/demo/not production" copy to the product UI.
 - For repo-backed frontend products, records `existing_ui_visual_baseline` in `run-log.yaml`, including captured/provided screenshot evidence or an explicit skipped reason.
 - For screenshot/image-to-UI work, records `image_reference_reconstruction` in `run-log.yaml`, including reference dimensions, intended viewport, visual inventory summary, asset handling, comparison method, mismatches fixed, and remaining fidelity limits.
 - Includes key screens and states through realistic product controls or mocked data/API transitions, not just a reviewer state switcher.
@@ -277,7 +273,7 @@ Minimum quality bar:
 
 ## Document Prototype
 
-Use a document prototype when the requested HTML/prototype is a browser-readable document or reference surface rather than a user-facing product page. The artifact may use legacy filenames such as `prototype-web.html` for compatibility, but it must declare:
+Use a document prototype when the requested HTML is a browser-readable document or reference surface rather than a user-facing product page. It may use `prototype-web.html` when that is the selected HTML delivery path, but it must declare:
 
 ```html
 <meta name="pm-copilot-artifact" content="document_prototype">

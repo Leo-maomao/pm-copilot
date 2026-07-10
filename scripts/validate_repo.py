@@ -48,7 +48,7 @@ REQUIRED_FILES = [
     "artifacts/dev-task-contract.md",
     "artifacts/launch-decision-contract.md",
     "artifacts/prd-contract.md",
-    "artifacts/prototype-contract.md",
+    "artifacts/ui-delivery-contract.md",
     "artifacts/structured-catalog-contract.md",
     "artifacts/tool-result-contract.md",
     "artifacts/trace-contract.md",
@@ -58,6 +58,7 @@ REQUIRED_FILES = [
     "tools/launch-tooling.md",
     "tools/repo-context-tooling.md",
     "tools/research-tooling.md",
+    "tools/ui-delivery-tooling.md",
     "tools/tool-use-protocol.md",
     "tools/validation-tooling.md",
     "guardrails/guardrails.md",
@@ -73,7 +74,6 @@ REQUIRED_FILES = [
     "docs/use-cases.md",
     "docs/output-gallery.md",
     "docs/agent-modes.md",
-    "docs/migration-3.0.md",
     "docs/agent-system-references.md",
     "docs/optimization-playbook.md",
     "docs/practice-self-iteration.md",
@@ -102,6 +102,10 @@ REQUIRED_FILES = [
     "scripts/render_prd_html.py",
     "scripts/validate_outputs.py",
     "scripts/validate_agent_trace.py",
+    "scripts/evaluate_agent_loop.py",
+    "scripts/test_agent_loop.py",
+    "scripts/test_prd_contract.py",
+    "scripts/test_reflection_learning_trace.py",
     "scripts/validate_prototype_visual.py",
     "scripts/validate_ui_preview.py",
     "docs/implemented-feature-prd-workflow.md",
@@ -115,6 +119,7 @@ REQUIRED_FILES = [
     "adapters/cursor/.cursor/rules/pm-copilot.mdc",
     "adapters/cursor/CURSOR_RULE.snippet.md",
     "agents/agent-operating-model.md",
+    "agents/ui-delivery-agent.md",
 ]
 
 TRACKING_COLUMNS = [
@@ -201,6 +206,30 @@ SELF_ITERATION_CORE_PREFIXES = (
 SELF_ITERATION_RELEASE_METADATA = ("VERSION", "CHANGELOG.md")
 SELF_ITERATION_RECORD_PREFIXES = ("docs/optimization-cycles/",)
 
+FORBIDDEN_OBSOLETE_PATHS = (
+    "workflow/package-workflow.md",
+    "agents/" + "prototype-agent.md",
+    "tools/" + "prototype-tooling.md",
+    "docs/migration-3.0.md",
+    "docs/migration-3.1.md",
+    "artifacts/" + "prototype-contract.md",
+    "skills/" + "multi-platform-prototype",
+)
+
+FORBIDDEN_CURRENT_SOURCE_TOKENS = (
+    "--allow-" + "legacy-run-id",
+    "--strict-" + "agent-trace",
+    "compatibility_" + "command:",
+    "strict_agent_" + "trace_command:",
+    "agents/" + "prototype-agent.md",
+    "tools/" + "prototype-tooling.md",
+    "artifacts/" + "prototype-contract.md",
+    "skills/" + "multi-platform-prototype",
+    "self_contained_html_" + "from_host_code",
+    "compatibility_html_" + "review_artifact",
+    "S0" + "-S12",
+)
+
 REQUIRED_AGENT_SECTIONS = [
     "Purpose",
     "Responsibilities",
@@ -279,7 +308,6 @@ REQUIRED_TEXT_TOKENS = {
         "docs/use-cases.md",
         "docs/output-gallery.md",
         "docs/agent-modes.md",
-        "docs/migration-3.0.md",
         "语言支持",
         "validate_outputs.py",
         "preflight_tools.py",
@@ -306,7 +334,6 @@ REQUIRED_TEXT_TOKENS = {
         "docs/use-cases.md",
         "docs/output-gallery.md",
         "docs/agent-modes.md",
-        "docs/migration-3.0.md",
         "Language Support",
         "validate_outputs.py",
         "preflight_tools.py",
@@ -373,26 +400,18 @@ REQUIRED_TEXT_TOKENS = {
         "Write Rules",
     ],
     "workflow/main-workflow.md": [
-        "Agentic Execution Graph",
+        "Agent Execution Graph",
+        "Graph Nodes",
+        "Routing Rules",
+        "Common Subgraphs",
+        "Loop Integration",
         "task_mode",
         "autonomy_level",
         "effort_budget",
         "delegation_plan",
         "termination_condition",
-        "Delivery Orchestrator",
-        "Generalization Boundary",
-        "Readiness Model",
-        "engineering handoff status",
-        "launch status",
-        "content source",
-        "structured review findings",
-        "Agent State And Handoff Discipline",
-        "Resume And Idempotency",
-        "Conflict Resolution",
-        "UI Visual Validation",
-        "Tool Preflight",
-        "Delivery Orchestrator",
-        "Execution Handoff",
+        "evaluate_agent_loop.py",
+        "run_delivery_checks.py",
     ],
     "workflow/delivery-check-workflow.md": [
         "PM Usefulness Review",
@@ -401,11 +420,6 @@ REQUIRED_TEXT_TOKENS = {
         "run_delivery_checks.py",
         "dev-tasks.yaml",
         "launch-decision.yaml",
-    ],
-    "workflow/package-workflow.md": [
-        "compatibility",
-        "workflow/delivery-check-workflow.md",
-        "run_delivery_checks.py",
     ],
     "artifacts/artifact-contracts.md": [
         "Default Delivery",
@@ -462,6 +476,10 @@ REQUIRED_TEXT_TOKENS = {
         "decision_record:",
         "replan_triggers:",
         "review_loop:",
+        "loop_policy:",
+        "loop_state:",
+        "iteration_trace:",
+        "loop_summary:",
         "memory_candidates:",
         "action_closure:",
         "request_source:",
@@ -496,6 +514,10 @@ REQUIRED_TEXT_TOKENS = {
         "decision_record:",
         "replan_triggers:",
         "review_loop:",
+        "loop_policy:",
+        "loop_state:",
+        "iteration_trace:",
+        "loop_summary:",
         "memory_candidates:",
         "next_actions:",
         "action_closure:",
@@ -543,12 +565,13 @@ REQUIRED_TEXT_TOKENS = {
     ],
     "templates/prd-template.md": [
         "# <一句话需求> - <YYYY-MM-DD>",
-        "## 1. <文档信息>",
-        "## 5. <需求调研>",
-        "## 7. <需求详情>",
-        "<前端界面规格>",
-        "## 8. <埋点需求>",
-        "## 11. <测试建议>",
+        "## 1. <产品决策摘要>",
+        "<置信度>",
+        "## 4. <范围与非目标>",
+        "## 5. <需求详情>",
+        "<界面与交互>",
+        "## 7. <风险、决策与待确认>",
+        "## 8. <验收与就绪度>",
     ],
     "templates/evaluation-case-template.md": [
         "Agentic Expectation Matrix",
@@ -599,13 +622,6 @@ REQUIRED_TEXT_TOKENS = {
         "full-loop",
         "self-iteration",
     ],
-    "docs/migration-3.0.md": [
-        "Agent-first",
-        "workflow/package-workflow.md",
-        "workflow/delivery-check-workflow.md",
-        "run-log",
-        "additive",
-    ],
     "docs/agent-system-references.md": [
         "OpenAI Agents SDK",
         "Anthropic",
@@ -613,6 +629,8 @@ REQUIRED_TEXT_TOKENS = {
         "AutoGen",
         "validation.agent_trace",
         "analysis.agent_runs",
+        "bounded Loop",
+        "termination",
     ],
     "scripts/validate_agent_trace.py": [
         "TASK_MODES",
@@ -621,6 +639,52 @@ REQUIRED_TEXT_TOKENS = {
         "termination_condition",
         "ACTION_DUE_PHASES",
         "ACTION_STATUSES",
+        "LOOP_TYPES",
+        "ITERATION_OUTCOMES",
+        "LOOP_NEXT_DECISIONS",
+    ],
+    "scripts/evaluate_agent_loop.py": [
+        "nested_section",
+        "stop_needs_input",
+        "stop_blocked",
+        "stop_no_progress",
+        "stop_human_checkpoint",
+        "iteration budget exhausted",
+        "tool-call budget exhausted",
+    ],
+    "scripts/test_agent_loop.py": [
+        "human_checkpoint_precedes_success",
+        "iteration_budget",
+        "tool_budget",
+        "time_budget",
+        "invalid_budget",
+    ],
+    "scripts/test_reflection_learning_trace.py": [
+        "missing_final_recommendation",
+        "unresolved_severe_finding",
+        "unrelated_severe_closure",
+        "unsafe_sensitive_memory",
+        "self_improvement_without_regression",
+    ],
+    "agents/ui-delivery-agent.md": [
+        "UI Delivery Agent",
+        "source-rendered",
+        "source_extract_html",
+        "portable",
+    ],
+    "evals/bounded-agent-loop-eval.md": [
+        "bounded Agent Loop",
+        "false-progress",
+        "human checkpoint",
+        "stop_needs_input",
+        "stop_blocked",
+    ],
+    "evals/fixtures/agent-runtime-delivery-pass/run-log.yaml": [
+        "agent_strategy:",
+        "loop_policy:",
+        "stop_needs_input",
+        "stopped_before_generation: true",
+        "must_answer_before_generation:",
     ],
     "scripts/analyze_agent_run_evidence.py": [
         "AGENTIC_FIELDS",
@@ -665,12 +729,12 @@ REQUIRED_TEXT_TOKENS = {
     ],
     "templates/implemented-feature-prd-template.md": [
         "# <一句话需求> - <YYYY-MM-DD>",
-        "## 1. <文档信息>",
-        "## 7. <需求详情>",
-        "<前端界面规格>",
-        "## 12. <代码实现说明>",
-        "## 13. <代码位置>",
-        "## 14. <验证结果>",
+        "## 1. <产品决策摘要>",
+        "<实现与产品意图一致度>",
+        "## 5. <需求详情>",
+        "<界面与交互>",
+        "## 9. <实现证据与覆盖映射>",
+        "## 10. <验证结果>",
         "占位图",
     ],
     "scripts/render_prd_html.py": [
@@ -707,6 +771,37 @@ def check_required_paths() -> None:
         path = ROOT / file_name
         if not path.is_file():
             fail(f"Missing required file: {file_name}")
+
+
+def check_obsolete_runtime_removed() -> None:
+    for relative_path in FORBIDDEN_OBSOLETE_PATHS:
+        if (ROOT / relative_path).exists():
+            fail(f"Obsolete runtime path must be removed: {relative_path}")
+
+    current_paths = [
+        ROOT / "PM_COPILOT.md",
+        ROOT / "README.md",
+        ROOT / "README.en.md",
+        ROOT / "agents",
+        ROOT / "artifacts",
+        ROOT / "prompts",
+        ROOT / "scripts",
+        ROOT / "templates",
+        ROOT / "tools",
+        ROOT / "workflow",
+    ]
+    for root in current_paths:
+        paths = [root] if root.is_file() else sorted(root.rglob("*"))
+        for path in paths:
+            if not path.is_file() or path.suffix not in {".md", ".py", ".yaml", ".yml"}:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for token in FORBIDDEN_CURRENT_SOURCE_TOKENS:
+                if token in text:
+                    fail(
+                        f"Obsolete runtime token '{token}' found in "
+                        f"{path.relative_to(ROOT)}"
+                    )
 
 
 def check_contract_template_alignment() -> None:
@@ -887,7 +982,7 @@ def check_quality_threshold_alignment() -> None:
         "delivery": (32, 23),
         "prd": (40, 31),
         "metrics_and_tracking": (28, 21),
-        "prototype": (32, 24),
+        "ui_delivery": (32, 24),
         "review_checklist": (20, 15),
     }
 
@@ -904,7 +999,7 @@ def check_quality_threshold_alignment() -> None:
         ("delivery", "23 / 32"),
         ("PRD", "31 / 40"),
         ("analytics", "21 / 28"),
-        ("prototype", "24 / 32"),
+        ("UI delivery", "24 / 32"),
         ("review", "15 / 20"),
     ]
     for label, score_text in rubric_checks:
@@ -1361,6 +1456,7 @@ def should_skip_machine_path(path: Path) -> bool:
 
 def main() -> None:
     check_required_paths()
+    check_obsolete_runtime_removed()
     check_contract_template_alignment()
     check_tool_registry()
     check_preflight_tool_alignment()

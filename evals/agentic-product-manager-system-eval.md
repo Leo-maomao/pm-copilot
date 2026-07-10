@@ -72,7 +72,7 @@ We are preparing a customer-facing change that adds bulk notification scheduling
 
 ## Known Risks
 
-- The agent mechanically follows S0-S12 without stating why the path fits the goal.
+- The agent mechanically traverses every graph node without stating why the path fits the goal.
 - The output is format-complete but not useful for PM decision making.
 - The output lists generic next steps but does not assign ownership or define completion evidence.
 - Launch, privacy, abuse, fatigue, or data-quality blockers are hidden behind a generic ready label.
@@ -114,4 +114,4 @@ We are preparing a customer-facing change that adds bulk notification scheduling
 |---|---|
 | Run ID | pending |
 | Status | Pending |
-| Notes | Added as part of PM Copilot 3.0 Agent System upgrade. |
+| Notes | Added as part of PM Copilot Agent System upgrade. |

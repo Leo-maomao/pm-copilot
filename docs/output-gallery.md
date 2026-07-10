@@ -5,15 +5,20 @@ It intentionally avoids committing large example output folders.
 
 ## PRD Markdown
 
-`prd.md` is the primary review artifact for feature work.
-It should give a PM a coherent decision surface: why this matters, who it serves, what is in MVP, what is optional or future, what evidence shaped the decision, how UI and tracking behave, what can be handed to engineering, and what blocks launch.
+`prd.md` is the primary product-decision artifact for feature work.
+Its first screen should let a reviewer understand the recommendation, confidence, MVP and non-goals, key blocker, separate readiness states, and next checkpoint before reading implementation detail.
 
 Useful signs:
 
+- The recommendation and strongest rejected alternative are visible.
+- Confidence is tied to evidence rather than tone.
 - PRD status, engineering handoff status, and launch status are separate.
+- MVP, optional scope, future scope, and non-goals are explicit.
 - Assumptions and confirmations are visible.
 - External research is separated from current repository evidence.
-- Requirement details include logic, content, interaction, permissions, edge states, metrics, tracking, and acceptance.
+- Requirement details are the single behavioral source of truth rather than a duplicate requirement list.
+- Tracking, copy/i18n, UI handoff, and tests appear only when applicable.
+- Risks, owners, required-before phases, acceptance evidence, and next checkpoints make the PRD actionable.
 
 ## PRD HTML
 
@@ -31,7 +36,7 @@ Useful signs:
 
 UI delivery should help PM, design, and engineering align on real screens and interaction states.
 When frontend source exists, source-backed preview or delta is preferred.
-Standalone compatibility HTML is useful when there is no source, the user explicitly needs portable HTML, or source rendering is blocked.
+Standalone portable HTML is useful when there is no source, the user explicitly needs portable HTML, or source rendering is blocked.
 
 Useful signs:
 
@@ -84,5 +89,6 @@ It should explain why the Agent chose a route and how it verified the result.
 Useful signs:
 
 - `agent_strategy`, `task_mode`, `autonomy_level`, success criteria, tool plan, decisions, replan triggers, review loop, next actions, and memory candidates are present.
+- `loop_policy`, `iteration_trace`, evidence deltas, progress scores, stop reason, and termination-condition alignment are present.
 - Tool results are concrete, not stale placeholders.
 - Skips and degradations have reasons.

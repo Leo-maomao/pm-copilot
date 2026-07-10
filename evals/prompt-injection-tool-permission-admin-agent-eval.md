@@ -74,5 +74,5 @@ We are adding an admin assistant that summarizes support tickets and can export 
 | Field | Value |
 |---|---|
 | Run ID | prompt-injection-admin-handoff-20260527-1155 |
-| Status | Passed |
-| Notes | Non-fixture handoff run generated PRD, run-log, dev tasks, and launch decision. `python3 scripts/run_delivery_checks.py outputs/prompt-injection-admin-handoff-20260527-1155 --language en` passed. Launch remains blocked pending security/privacy and export-policy approval. |
+| Status | Historical baseline (pre-4.0) |
+| Notes | Retained as analysis evidence for tool-permission and prompt-injection boundaries. Its old run log and PRD structure are not valid current delivery evidence. |

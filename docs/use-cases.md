@@ -1,5 +1,7 @@
 # PM Copilot Use Cases
 
+An effective run does not always end with every possible artifact. In high-risk or under-specified cases, `stop_needs_input`, `stop_human_checkpoint`, or a bounded degraded delivery can be the correct Agent result when the run log records the missing evidence and resume condition.
+
 This page is written for PM work, not for explaining internal architecture.
 Use these prompts as starting points and let PM Copilot choose task mode, autonomy level, and execution path.
 

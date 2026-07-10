@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate PM Copilot 3.0 agentic trace fields in a run folder."""
+"""Validate the complete PM Copilot Agent runtime trace in a run folder."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ TERMINATION_STATUSES = {
     "failed",
 }
 
-REQUIRED_3_0_SECTIONS = (
+REQUIRED_TRACE_SECTIONS = (
     "agent_strategy",
     "delegation_plan",
     "resume_checkpoint",
@@ -56,6 +56,10 @@ REQUIRED_3_0_SECTIONS = (
     "decision_record",
     "replan_triggers",
     "review_loop",
+    "loop_policy",
+    "loop_state",
+    "iteration_trace",
+    "loop_summary",
     "memory_candidates",
     "next_actions",
     "action_closure",
@@ -95,6 +99,71 @@ ACTION_STATUSES = {
     "not_applicable",
 }
 
+LOOP_TYPES = {
+    "direct",
+    "execution",
+    "evaluator_optimizer",
+    "research",
+    "self_improvement",
+}
+
+ITERATION_OUTCOMES = {
+    "progress",
+    "no_progress",
+    "success",
+    "needs_input",
+    "blocked",
+    "failed",
+}
+
+LOOP_NEXT_DECISIONS = {
+    "continue",
+    "stop_success",
+    "stop_needs_input",
+    "stop_blocked",
+    "stop_budget",
+    "stop_no_progress",
+    "stop_human_checkpoint",
+    "stop_failed",
+}
+
+LOOP_STOP_REASONS = {
+    "not_applicable",
+    "success",
+    "needs_input",
+    "blocked",
+    "budget",
+    "no_progress",
+    "human_checkpoint",
+    "failed",
+}
+
+HUMAN_CHECKPOINT_STATUSES = {
+    "not_required",
+    "pending",
+    "approved",
+    "declined",
+}
+
+REVIEW_RECOMMENDATIONS = {
+    "proceed",
+    "proceed_with_controls",
+    "revise",
+    "needs_input",
+    "blocked",
+    "stop",
+}
+
+REVIEW_CLOSURE_DISPOSITIONS = {"fixed", "accepted_risk", "replan"}
+
+MEMORY_CONFIDENCE_LEVELS = {"high", "medium", "low"}
+MEMORY_SENSITIVITY_LEVELS = {"normal", "sensitive", "private"}
+MEMORY_WRITE_RECOMMENDATIONS = {
+    "suggest",
+    "ask_before_writing",
+    "do_not_store",
+}
+
 
 def scalar_value(text: str, field: str) -> str:
     match = re.search(
@@ -107,6 +176,23 @@ def scalar_value(text: str, field: str) -> str:
     return match.group(1).strip().strip("\"'")
 
 
+def integer_value(text: str, field: str, default: int = -1) -> int:
+    value = scalar_value(text, field)
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def boolean_value(text: str, field: str) -> bool | None:
+    value = scalar_value(text, field).lower()
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return None
+
+
 def section_text(text: str, section: str) -> str:
     match = re.search(rf"^{re.escape(section)}:\s*$", text, re.MULTILINE)
     if not match:
@@ -115,6 +201,27 @@ def section_text(text: str, section: str) -> str:
     next_match = re.search(r"^[A-Za-z_][A-Za-z0-9_]*:\s*$", text[start:], re.MULTILINE)
     end = start + next_match.start() if next_match else len(text)
     return text[start:end]
+
+
+def nested_section_text(text: str, section: str) -> str:
+    match = re.search(
+        rf"^(?P<indent>\s+){re.escape(section)}:\s*$",
+        text,
+        re.MULTILINE,
+    )
+    if not match:
+        return ""
+    indent = len(match.group("indent"))
+    body_lines = []
+    for line in text[match.end():].splitlines():
+        if not line.strip():
+            body_lines.append(line)
+            continue
+        current_indent = len(line) - len(line.lstrip())
+        if current_indent <= indent:
+            break
+        body_lines.append(line)
+    return "\n".join(body_lines)
 
 
 def field_has_list_item(text: str, field: str) -> bool:
@@ -187,23 +294,13 @@ def mapping_item_blocks(text: str, first_field: str) -> list[str]:
     return blocks
 
 
-def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
+def validate_run_log(run_log: Path) -> dict[str, Any]:
     text = run_log.read_text(encoding="utf-8")
     failures: list[str] = []
     warnings: list[str] = []
 
-    present_sections = [section for section in REQUIRED_3_0_SECTIONS if f"{section}:" in text]
-    missing_sections = [section for section in REQUIRED_3_0_SECTIONS if f"{section}:" not in text]
-
-    if missing_sections and not strict:
-        return {
-            "status": "skipped",
-            "reason": "legacy run-log has no complete PM Copilot 3.0 agentic trace",
-            "present_sections": present_sections,
-            "missing_sections": missing_sections,
-            "failures": [],
-            "warnings": [],
-        }
+    present_sections = [section for section in REQUIRED_TRACE_SECTIONS if f"{section}:" in text]
+    missing_sections = [section for section in REQUIRED_TRACE_SECTIONS if f"{section}:" not in text]
 
     for section in missing_sections:
         failures.append(f"missing section: {section}")
@@ -251,8 +348,248 @@ def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
             )
 
     review_body = section_text(text, "review_loop")
-    if "iterations:" not in review_body:
-        failures.append("review_loop must include iteration count")
+    review_iterations = integer_value(review_body, "iterations")
+    if review_iterations < 0:
+        failures.append("review_loop.iterations must be a nonnegative integer")
+    review_recommendation = scalar_value(review_body, "final_recommendation")
+    if review_recommendation not in REVIEW_RECOMMENDATIONS:
+        failures.append(
+            "review_loop.final_recommendation must be one of: "
+            + ", ".join(sorted(REVIEW_RECOMMENDATIONS))
+        )
+    if "unresolved_findings:" not in review_body:
+        failures.append("review_loop must include unresolved_findings")
+
+    severe_findings = list_field_values(review_body, "critical_or_high_findings")
+    unresolved_findings = list_field_values(review_body, "unresolved_findings")
+    closure_body = nested_section_text(review_body, "finding_closures")
+    closure_blocks = mapping_item_blocks(closure_body, "finding")
+    closed_findings: set[str] = set()
+    for block in closure_blocks:
+        finding = scalar_value(block, "finding") or "<empty>"
+        disposition = scalar_value(block, "disposition")
+        evidence = scalar_value(block, "evidence")
+        owner = scalar_value(block, "owner")
+        due_phase = scalar_value(block, "due_phase")
+        rationale = scalar_value(block, "rationale")
+        if finding != "<empty>":
+            closed_findings.add(finding)
+        if disposition not in REVIEW_CLOSURE_DISPOSITIONS:
+            failures.append(
+                f"review finding closure {finding} has invalid disposition: "
+                f"{disposition or '<empty>'}"
+            )
+        if not evidence:
+            failures.append(f"review finding closure {finding} requires evidence")
+        if disposition == "accepted_risk" and (
+            not owner or due_phase not in ACTION_DUE_PHASES or not rationale
+        ):
+            failures.append(
+                f"accepted risk closure {finding} requires owner, valid due_phase, and rationale"
+            )
+    missing_closures = [finding for finding in severe_findings if finding not in closed_findings]
+    unexpected_closures = [finding for finding in closed_findings if finding not in severe_findings]
+    if missing_closures:
+        failures.append(
+            "Critical/High review findings missing exact closure: "
+            + ", ".join(missing_closures)
+        )
+    if unexpected_closures:
+        failures.append(
+            "review finding closures do not match a Critical/High finding: "
+            + ", ".join(sorted(unexpected_closures))
+        )
+    if termination_status == "complete" and unresolved_findings:
+        failures.append("complete termination cannot retain unresolved review findings")
+    if unresolved_findings and review_recommendation in {"proceed", "proceed_with_controls"}:
+        failures.append(
+            "review recommendation cannot proceed while unresolved findings remain"
+        )
+
+    loop_policy_body = section_text(text, "loop_policy")
+    loop_state_body = section_text(text, "loop_state")
+    iteration_body = section_text(text, "iteration_trace")
+    loop_summary_body = section_text(text, "loop_summary")
+    loop_enabled = boolean_value(loop_policy_body, "enabled")
+    loop_type = scalar_value(loop_policy_body, "loop_type")
+    disabled_reason = scalar_value(loop_policy_body, "disabled_reason")
+    max_iterations = integer_value(loop_policy_body, "max_iterations")
+    max_tool_calls = integer_value(loop_policy_body, "max_tool_calls")
+    max_elapsed_minutes = integer_value(loop_policy_body, "max_elapsed_minutes")
+    max_no_progress = integer_value(loop_policy_body, "max_consecutive_no_progress")
+    min_progress_delta = integer_value(loop_policy_body, "min_progress_score_delta")
+    checkpoint_body = nested_section_text(loop_policy_body, "human_checkpoint")
+    checkpoint_after = integer_value(checkpoint_body, "required_after_iteration")
+    checkpoint_status = scalar_value(checkpoint_body, "status")
+    loop_stop_reason = scalar_value(loop_summary_body, "stop_reason")
+    iteration_blocks = mapping_item_blocks(iteration_body, "iteration")
+
+    if loop_enabled is None:
+        failures.append("loop_policy.enabled must be true or false")
+    elif not loop_enabled:
+        if not disabled_reason:
+            failures.append("disabled loop_policy requires disabled_reason")
+        if loop_stop_reason != "not_applicable":
+            failures.append("disabled loop_policy requires loop_summary.stop_reason not_applicable")
+    else:
+        if loop_type not in LOOP_TYPES - {"direct"}:
+            failures.append(f"enabled loop_policy has invalid loop_type: {loop_type or '<empty>'}")
+        for field, value in (
+            ("max_iterations", max_iterations),
+            ("max_tool_calls", max_tool_calls),
+            ("max_elapsed_minutes", max_elapsed_minutes),
+            ("max_consecutive_no_progress", max_no_progress),
+            ("min_progress_score_delta", min_progress_delta),
+        ):
+            if value < 1:
+                failures.append(f"loop_policy.{field} must be a positive integer")
+        if loop_stop_reason not in LOOP_STOP_REASONS - {"not_applicable"}:
+            failures.append(
+                f"enabled loop_policy has invalid loop_summary.stop_reason: "
+                f"{loop_stop_reason or '<empty>'}"
+            )
+        if not iteration_blocks:
+            failures.append("enabled loop_policy requires iteration_trace items")
+
+    if checkpoint_after < 0:
+        failures.append("loop_policy.human_checkpoint.required_after_iteration must be zero or greater")
+    if checkpoint_status not in HUMAN_CHECKPOINT_STATUSES:
+        failures.append(
+            "loop_policy.human_checkpoint.status has invalid value: "
+            f"{checkpoint_status or '<empty>'}"
+        )
+    if checkpoint_status == "not_required" and checkpoint_after != 0:
+        failures.append("not_required human checkpoint must use required_after_iteration 0")
+    if checkpoint_status != "not_required" and checkpoint_after < 1:
+        failures.append("required human checkpoint must name a positive trigger iteration")
+
+    expected_iteration = 1
+    no_progress_tail = 0
+    previous_score = None
+    for block in iteration_blocks:
+        iteration = integer_value(block, "iteration")
+        outcome = scalar_value(block, "outcome")
+        next_decision = scalar_value(block, "next_decision")
+        before = integer_value(block, "progress_score_before")
+        after = integer_value(block, "progress_score_after")
+        if iteration != expected_iteration:
+            failures.append(
+                f"iteration_trace must be sequential from 1; expected {expected_iteration}, got {iteration}"
+            )
+        expected_iteration += 1
+        if outcome not in ITERATION_OUTCOMES:
+            failures.append(
+                f"iteration {iteration} has invalid outcome: {outcome or '<empty>'}"
+            )
+        if next_decision not in LOOP_NEXT_DECISIONS:
+            failures.append(
+                f"iteration {iteration} has invalid next_decision: {next_decision or '<empty>'}"
+            )
+        if before < 0 or after < 0 or after > 100:
+            failures.append(f"iteration {iteration} progress scores must be between 0 and 100")
+        if previous_score is not None and before != previous_score:
+            failures.append(
+                f"iteration {iteration} progress_score_before must equal prior progress_score_after"
+            )
+        previous_score = after
+        delta_fields = (
+            "evidence_delta",
+            "artifact_delta",
+            "decision_delta",
+            "validation_delta",
+        )
+        has_delta = any(list_field_values(block, field) for field in delta_fields)
+        score_delta = after - before
+        if outcome in {"progress", "success"}:
+            if not has_delta:
+                failures.append(
+                    f"iteration {iteration} claims {outcome} without evidence, artifact, decision, or validation delta"
+                )
+            if score_delta < max(min_progress_delta, 1):
+                failures.append(
+                    f"iteration {iteration} claims {outcome} without minimum progress score delta"
+                )
+            no_progress_tail = 0
+        elif outcome == "no_progress":
+            if has_delta or score_delta > 0:
+                failures.append(
+                    f"iteration {iteration} no_progress outcome contradicts recorded delta"
+                )
+            no_progress_tail += 1
+        else:
+            no_progress_tail = 0
+
+    current_iteration = integer_value(loop_state_body, "current_iteration")
+    state_no_progress = integer_value(loop_state_body, "consecutive_no_progress")
+    last_progress_score = integer_value(loop_state_body, "last_progress_score")
+    iterations_completed = integer_value(loop_summary_body, "iterations_completed")
+    final_progress_score = integer_value(loop_summary_body, "final_progress_score")
+    if iteration_blocks:
+        if current_iteration != len(iteration_blocks):
+            failures.append("loop_state.current_iteration must match iteration_trace count")
+        if iterations_completed != len(iteration_blocks):
+            failures.append("loop_summary.iterations_completed must match iteration_trace count")
+        if state_no_progress != no_progress_tail:
+            failures.append("loop_state.consecutive_no_progress must match iteration trace tail")
+        if last_progress_score != previous_score or final_progress_score != previous_score:
+            failures.append("loop state and summary progress scores must match final iteration score")
+    if loop_enabled:
+        expected_final_decision = {
+            "success": "stop_success",
+            "needs_input": "stop_needs_input",
+            "blocked": "stop_blocked",
+            "budget": "stop_budget",
+            "no_progress": "stop_no_progress",
+            "human_checkpoint": "stop_human_checkpoint",
+            "failed": "stop_failed",
+        }.get(loop_stop_reason)
+        if iteration_blocks and expected_final_decision:
+            final_decision = scalar_value(iteration_blocks[-1], "next_decision")
+            if final_decision != expected_final_decision:
+                failures.append(
+                    "final iteration next_decision must align with loop_summary.stop_reason"
+                )
+        success_criteria_met = boolean_value(loop_state_body, "success_criteria_met")
+        if success_criteria_met is None:
+            failures.append("loop_state.success_criteria_met must be true or false")
+        elif loop_stop_reason == "success" and not success_criteria_met:
+            failures.append("success stop reason requires success_criteria_met true")
+        elif success_criteria_met and loop_stop_reason not in {"success", "human_checkpoint"}:
+            failures.append(
+                "success_criteria_met true requires success or due human_checkpoint stop reason"
+            )
+        if current_iteration > max_iterations:
+            failures.append("loop_state.current_iteration exceeds max_iterations")
+        if integer_value(loop_state_body, "tool_calls_used") > max_tool_calls:
+            failures.append("loop_state.tool_calls_used exceeds max_tool_calls")
+        if integer_value(loop_state_body, "elapsed_minutes") > max_elapsed_minutes:
+            failures.append("loop_state.elapsed_minutes exceeds max_elapsed_minutes")
+        if state_no_progress > max_no_progress:
+            failures.append("loop_state.consecutive_no_progress exceeds policy threshold")
+        expected_termination_reason = {
+            "complete": "success",
+            "needs_input": "needs_input",
+            "blocked": "blocked",
+            "failed": "failed",
+        }.get(termination_status)
+        if expected_termination_reason and loop_stop_reason != expected_termination_reason:
+            failures.append(
+                "loop_summary.stop_reason must align with termination_condition.status"
+            )
+        checkpoint_due = checkpoint_after > 0 and current_iteration >= checkpoint_after
+        if checkpoint_due and checkpoint_status in {"pending", "declined"}:
+            if loop_stop_reason != "human_checkpoint":
+                failures.append(
+                    "pending or declined due human checkpoint requires human_checkpoint stop reason"
+                )
+            if iteration_blocks and scalar_value(iteration_blocks[-1], "next_decision") != "stop_human_checkpoint":
+                failures.append(
+                    "pending or declined due human checkpoint requires stop_human_checkpoint next decision"
+                )
+        elif loop_stop_reason == "human_checkpoint":
+            failures.append(
+                "human_checkpoint stop reason requires a due pending or declined checkpoint"
+            )
 
     next_body = section_text(text, "next_actions")
     if not any(category_has_list_item(next_body, category) for category in NEXT_ACTION_CATEGORIES):
@@ -329,8 +666,110 @@ def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
     memory_body = section_text(text, "memory_candidates")
     if not memory_body.strip():
         failures.append("memory_candidates section is empty")
-    elif "write_recommendation:" not in memory_body and "none" not in memory_body.lower():
-        warnings.append("memory_candidates should contain candidates or explicit none")
+    elif boolean_value(memory_body, "none") is not True:
+        memory_candidate_count = 0
+        for block in mapping_item_blocks(memory_body, "fact"):
+            memory_candidate_count += 1
+            fact = scalar_value(block, "fact") or "<empty>"
+            source = scalar_value(block, "source")
+            confidence = scalar_value(block, "confidence")
+            sensitivity = scalar_value(block, "sensitivity")
+            recommendation = scalar_value(block, "write_recommendation")
+            if fact == "<empty>" or not source:
+                failures.append(f"product memory {fact} requires fact and source")
+            if confidence not in MEMORY_CONFIDENCE_LEVELS:
+                failures.append(
+                    f"product memory {fact} has invalid confidence: {confidence or '<empty>'}"
+                )
+            if sensitivity not in MEMORY_SENSITIVITY_LEVELS:
+                failures.append(
+                    f"product memory {fact} has invalid sensitivity: {sensitivity or '<empty>'}"
+                )
+            if recommendation not in MEMORY_WRITE_RECOMMENDATIONS:
+                failures.append(
+                    f"product memory {fact} has invalid write_recommendation: "
+                    f"{recommendation or '<empty>'}"
+                )
+            if sensitivity in {"sensitive", "private"} and recommendation == "suggest":
+                failures.append(
+                    f"product memory {fact} is {sensitivity} and cannot be suggested for silent write"
+                )
+
+        for block in mapping_item_blocks(memory_body, "preference"):
+            memory_candidate_count += 1
+            preference = scalar_value(block, "preference") or "<empty>"
+            source = scalar_value(block, "source")
+            recommendation = scalar_value(block, "write_recommendation")
+            if preference == "<empty>" or not source:
+                failures.append(
+                    f"user preference {preference} requires preference and source"
+                )
+            if recommendation not in MEMORY_WRITE_RECOMMENDATIONS:
+                failures.append(
+                    f"user preference {preference} has invalid write_recommendation: "
+                    f"{recommendation or '<empty>'}"
+                )
+
+        for block in mapping_item_blocks(memory_body, "decision"):
+            memory_candidate_count += 1
+            decision = scalar_value(block, "decision") or "<empty>"
+            rationale = scalar_value(block, "rationale")
+            source = scalar_value(block, "source")
+            recommendation = scalar_value(block, "write_recommendation")
+            if decision == "<empty>" or not rationale or not source:
+                failures.append(
+                    f"decision memory {decision} requires decision, rationale, and source"
+                )
+            if recommendation not in MEMORY_WRITE_RECOMMENDATIONS:
+                failures.append(
+                    f"decision memory {decision} has invalid write_recommendation: "
+                    f"{recommendation or '<empty>'}"
+                )
+        if memory_candidate_count == 0:
+            failures.append("memory_candidates must contain validated candidates or none: true")
+
+    self_iteration_required = (
+        task_mode == "self_improvement" or autonomy_level == "self-iteration"
+    )
+    self_iteration_body = section_text(text, "self_iteration")
+    if self_iteration_required:
+        if not self_iteration_body.strip():
+            failures.append("self-improvement runs require self_iteration evidence")
+        else:
+            if boolean_value(self_iteration_body, "triggered") is not True:
+                failures.append("self_iteration.triggered must be true")
+            source_present = bool(
+                scalar_value(self_iteration_body, "source_run_id")
+                or list_field_values(self_iteration_body, "source_run_ids")
+                or list_field_values(self_iteration_body, "failure_evidence")
+            )
+            if not source_present:
+                failures.append(
+                    "self_iteration requires a source run or explicit failure evidence"
+                )
+            if not (
+                list_field_values(self_iteration_body, "user_corrections")
+                or list_field_values(self_iteration_body, "failure_evidence")
+            ):
+                failures.append(
+                    "self_iteration requires user correction or failure evidence"
+                )
+            for field in (
+                "generalized_failures",
+                "selected_fix_surfaces",
+                "regression_updates",
+                "validation_commands",
+            ):
+                if not field_has_list_item(self_iteration_body, field):
+                    failures.append(f"self_iteration.{field} requires at least one item")
+            if not scalar_value(self_iteration_body, "generalization_boundary"):
+                failures.append("self_iteration requires generalization_boundary")
+            if not scalar_value(self_iteration_body, "version_change"):
+                failures.append("self_iteration requires version_change")
+            if loop_enabled is not True or loop_type != "self_improvement":
+                failures.append(
+                    "self-improvement runs require an enabled self_improvement loop_policy"
+                )
 
     return {
         "status": "failed" if failures else "passed",
@@ -347,7 +786,6 @@ def validate_run_log(run_log: Path, *, strict: bool) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_folder", type=Path)
-    parser.add_argument("--strict", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -359,7 +797,7 @@ def main() -> None:
             "warnings": [],
         }
     else:
-        result = validate_run_log(run_log, strict=args.strict)
+        result = validate_run_log(run_log)
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -369,8 +807,6 @@ def main() -> None:
             print(f"FAIL: {failure}")
         for warning in result.get("warnings", []):
             print(f"WARN: {warning}")
-        if result.get("status") == "skipped":
-            print(f"SKIP: {result.get('reason')}")
 
     if result["status"] == "failed":
         sys.exit(1)

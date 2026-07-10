@@ -1,0 +1,23 @@
+loop_policy:
+  enabled: true
+  loop_type: execution
+  max_iterations: 6
+  max_tool_calls: 20
+  max_elapsed_minutes: 60
+  max_consecutive_no_progress: 2
+  min_progress_score_delta: 5
+  human_checkpoint:
+    status: not_required
+loop_state:
+  current_iteration: 3
+  tool_calls_used: 8
+  elapsed_minutes: 25
+  consecutive_no_progress: 2
+  last_progress_score: 55
+  success_criteria_met: false
+termination_condition:
+  status: degraded
+loop_summary:
+  iterations_completed: 3
+  stop_reason: no_progress
+  final_progress_score: 55

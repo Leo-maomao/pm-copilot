@@ -32,3 +32,15 @@ jobs:
       - name: Validate repository
         run: |
           python3 scripts/validate_repo.py
+
+      - name: Test bounded Agent Loop
+        run: |
+          python3 scripts/test_agent_loop.py
+
+      - name: Test decision-first PRD contract
+        run: |
+          python3 scripts/test_prd_contract.py
+
+      - name: Test reflection and learning trace
+        run: |
+          python3 scripts/test_reflection_learning_trace.py

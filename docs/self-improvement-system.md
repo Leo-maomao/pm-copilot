@@ -83,8 +83,12 @@ Progress is not more files or longer prompts. Progress means:
 
 Use artifact expectations to avoid false confidence. An eval should say which outputs are required for that scenario and which command proves them.
 
+- A self-improvement claim is valid only when the run records concrete failure or correction evidence, a generalized defect, the selected fix surface, an explicit generalization boundary, and a deterministic regression or repository guard that failed before the fix and passes after it.
+- A memory candidate is valid only when its source and safe write recommendation are explicit. Product facts also require confidence and sensitivity; sensitive or private facts require user confirmation or must not be stored.
+- A reflection cycle is valid only when every Critical/High finding becomes a verified fix, an owned accepted risk, or a replan, and the final recommendation agrees with any unresolved findings.
+
 - `prd.md` proves requirement reasoning only when readiness, scope, risks, tracking, review findings, and validation evidence agree.
-- UI deliverables prove surface quality only when source-backed preview or compatibility HTML validation has screenshot or preview evidence.
+- UI deliverables prove surface quality only when source-backed preview or portable HTML validation has screenshot or preview evidence.
 - `dev-tasks.yaml` proves handoff readiness only when tasks trace to PRD IDs, owners, validation commands, blockers, and `ready_for_issue` are machine-checkable.
 - `launch-decision.yaml` proves launch discipline only when gates, human approvals, blockers, allowed/disallowed actions, and rollback are explicit.
 - A pre-clarification `run-log.yaml` is a valid success only when downstream artifacts are absent and must-answer blockers are recorded.

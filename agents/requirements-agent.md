@@ -22,7 +22,7 @@ When the user explicitly asks for no PRD or primarily needs a structured referen
 - For financial record models, transaction types, portfolio calculations, or historical data changes, include data migration, calculation impact, backfill/manual correction behavior, compatibility with existing records, and the regression test entry points engineering should run.
 - For automatic suggestions, smart grouping, inferred labels, or assisted organization, specify explanation, user confirmation, manual override priority, undo/revert behavior, and what happens when the suggestion is wrong.
 - Preserve upstream clarification IDs, assumption IDs, and blocker IDs in the PRD instead of renaming them without trace.
-- Mark requirement sections as `Unknown`, `Assumed`, or `Not applicable` when a contract field cannot be completed; do not omit required sections silently.
+- Mark required decision fields as `Unknown` or `Assumed` with a reason when evidence is incomplete. Remove conditional fields and subsections that do not apply instead of emitting filler.
 - Return `degraded` instead of `complete` if the PRD is reviewable but misses an implementation-grade section due to unavailable context.
 
 ## Inputs

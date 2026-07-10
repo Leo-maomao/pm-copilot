@@ -1,147 +1,176 @@
 # <一句话需求> - <YYYY-MM-DD>
 
 <!--
-This template defines PM Copilot's default PRD structure.
-Generated PRDs must keep the numbered section order below.
-The H1 must be one concise requirement sentence plus the requirement date, not a topic list plus "PRD".
-Localize all human-facing headings and labels to the user's language. Keep IDs, event names, property names, file names, and Mermaid node IDs ASCII.
-Content applicability rules:
-- Keep top-level sections 1-11. If a required top-level section has no applicable content, write one explicit localized `Not applicable: <reason>` line or row instead of leaving it empty.
-- Remove optional subsections, example tables, diagrams, image blocks, risk/API/detail matrices, or other blocks that do not apply. Do not leave empty tables, placeholder angle-bracket text, or "TBD" content.
-- Do not add code-related top-level sections unless the PRD is reconstructed from implemented code. Use `implemented-feature-prd-template.md` for that mode.
-- Flow diagrams are optional and follow the relevant requirement. Put each diagram inside the specific requirement subsection it explains; do not create generic `User flow` and `Functional flow` subsections for every PRD.
+This is PM Copilot's decision-first PRD template.
+Keep the eight numbered top-level sections in this order. Localize all human-facing text.
+Do not preserve empty optional subsections, empty tables, angle-bracket placeholders, or TBD text.
+The first screen must let a reviewer understand the recommendation, confidence, scope, blockers, and next checkpoint.
+Requirement details are the behavioral source of truth. Do not create a duplicate scan-only requirement list.
+Tracking, copy/i18n, UI handoff, engineering notes, and test suggestions are optional subsections inside section 6.
+Use implemented-feature-prd-template.md when reconstructing a PRD from implemented code.
 Remove this note from generated artifacts.
 -->
 
-## 1. <文档信息>
+## 1. <产品决策摘要>
 
-| <项目> | <内容> |
+### 1.1 <建议与理由>
+
+<!-- State the recommended product direction in 2-4 sentences. Name the user outcome, key trade-off, and why this option is preferred over the strongest alternative. -->
+
+| <决策项> | <当前判断> |
 | --- | --- |
-| <一句话需求> |  |
-| <需求日期> |  |
-| <需求来源> |  |
-| <相关模块 / 平台> |  |
+| <推荐方案> |  |
+| <置信度> | <高 / 中 / 低，并说明依据> |
 | <PRD 状态> |  |
 | <研发交接状态> |  |
 | <上线状态> |  |
+| <关键阻塞> |  |
+| <下一检查点> | <负责人 / 阶段 / 完成证据> |
 
-## 2. <版本记录>
+### 1.2 <文档元数据>
 
-| <版本> | <日期> | <变更摘要> | <负责人> |
-| --- | --- | --- | --- |
+| <项目> | <内容> |
+| --- | --- |
+| <需求来源> |  |
+| <需求日期> |  |
+| <相关模块 / 平台> |  |
+| <本次变更> |  |
 
-## 3. <需求背景>
+## 2. <背景与证据>
 
-<!-- Explain user pain, business context, current-product problem, and why the requirement is needed now. -->
+### 2.1 <问题与用户场景>
 
-## 4. <需求目标>
+<!-- Describe the current behavior, user pain, affected role/scenario, frequency or severity, and why action is needed now. -->
 
-| ID | <目标> | <指标> | <目标方向> | <测量说明> |
+### 2.2 <证据与限制>
+
+| ID | <来源 / 类型> | <已知事实或发现> | <可信状态> | <产品影响> |
 | --- | --- | --- | --- | --- |
 
-## 5. <需求调研>
+### 2.3 <假设与未知项>
 
-<!-- Cover users, scenarios, current-product research, external research when available, assumptions, rejected options, and reusable conclusions. -->
-
-### 5.1 <用户与场景>
-
-| ID | <用户 / 角色> | <场景> | <期望结果> |
-| --- | --- | --- | --- |
-
-### 5.2 <现状调研>
-
-| <调研项> | <结论> | <产品影响> |
-| --- | --- | --- |
-
-### 5.3 <外部调研与限制>
-
-| <调研来源> | <状态> | <结论 / 限制> | <影响> |
-| --- | --- | --- | --- |
-
-### 5.4 <调研结论>
-
-| ID | <结论> | <对应需求> |
-| --- | --- | --- |
-
-## 6. <需求列表>
-
-<!-- Requirement list is a scan-level summary only. Complete behavior belongs in section 7. -->
-
-| ID | <需求简述> | <用户价值> | <优先级> | <状态> |
+| ID | <假设 / 未知项> | <当前处理> | <确认时点> | <影响> |
 | --- | --- | --- | --- | --- |
 
-## 7. <需求详情>
+## 3. <目标与成功标准>
+
+| ID | <产品目标> | <用户 / 业务结果> | <指标或可观察信号> | <目标方向 / 阈值> | <验证窗口> |
+| --- | --- | --- | --- | --- | --- |
+
+<!-- Include guardrail metrics or failure signals when optimization could create abuse, fatigue, privacy, quality, support, or revenue risk. -->
+
+## 4. <范围与非目标>
+
+| <范围层级> | <内容> | <理由 / 进入条件> |
+| --- | --- | --- |
+| MVP |  |  |
+| <可选> |  |  |
+| <未来> |  |  |
+| <非目标> |  |  |
+
+## 5. <需求详情>
 
 <!--
-This is the most important PRD section.
-Each functional item should cover scenario, entry/trigger, content, business logic, interaction rules, data/state rules, permissions, edge cases, tracking links, and acceptance links.
-For frontend UI/page/component changes, include the relevant UI specification in the requirement detail: affected page/component, layout/alignment, dimensions, spacing, typography, color/token, icon/image requirements, component states, responsive behavior, accessibility/focus behavior, and visual acceptance notes.
-Flow diagrams are optional. Add them only when a specific requirement has a complex user path, cross-system process, or many states; place the Mermaid block inside that requirement's subsection.
-Screenshots and missing-image placeholders belong inline with the requirement they explain, never in a detached image list.
+Create one subsection per coherent product capability or behavioral change.
+Each requirement must be independently reviewable and traceable to goals and acceptance criteria.
+Use prose, a compact table, or both. Keep only applicable rows.
+Flow diagrams are optional and belong inside the requirement they explain.
+Place screenshots or exact inline placeholders at the requirement position they support.
 -->
 
-### 7.1 <R1 需求名称>
+### 5.1 <R1 需求名称>
 
-<!-- Optional, include only when this requirement needs a flow diagram:
-#### <操作 / 功能流程图>
-
-```mermaid
-flowchart TD
-  A[<用户或系统进入场景>] --> B[<触发动作>]
-  B --> C{<判断条件>}
-  C -- <通过> --> D[<目标状态>]
-  C -- <不通过> --> E[<兜底状态>]
-```
--->
+**产品判断：** <What behavior should exist and why this is the chosen behavior.>
 
 | <维度> | <需求说明> |
 | --- | --- |
-| <用户场景> |  |
+| <用户场景与价值> |  |
 | <入口 / 触发> |  |
-| <内容要求> |  |
-| <前端界面规格> | <Only keep for UI/page/component changes. Include affected component, layout/alignment, size, spacing, typography, color/token, icon/image, states, responsive/accessibility notes, and visual acceptance notes.> |
-| <业务逻辑> |  |
-| <交互规则> |  |
-| <数据规则> |  |
-| <权限和边界> |  |
-| <加载 / 空 / 错误状态> |  |
-| <埋点> |  |
-| <验收> |  |
-| <图示> |  |
+| <主流程与业务规则> |  |
+| <内容 / 文案> |  |
+| <界面与交互> | <Only when UI is in scope: affected surface, hierarchy, states, responsive/accessibility behavior, and visual acceptance.> |
+| <数据与状态> |  |
+| <权限与边界> |  |
+| <加载 / 空 / 错误 / 恢复> |  |
+| <依赖与降级> |  |
+| <关联目标 / 验收> | <G1, AC1...> |
+| <图示> | <Real local image or exact inline placeholder when needed.> |
 
-## 8. <埋点需求>
+<!-- Optional complex flow:
+#### 5.1.1 <关键流程>
 
-<!-- If no approved taxonomy is found, explicitly mark this as a proposed taxonomy and name the source gap. -->
+```mermaid
+flowchart TD
+  A[<进入场景>] --> B[<触发动作>]
+  B --> C{<关键判断>}
+  C -- <通过> --> D[<目标状态>]
+  C -- <不通过> --> E[<恢复或兜底>]
+```
+-->
 
-| <事件名> (`event_name`) | <事件说明> (`description`) | <触发时机> (`trigger`) | <平台> (`platform`) | <主体> (`actor`) | <必填属性> (`required_properties`) | <可选属性> (`optional_properties`) | <成功标准> (`success_criteria`) | <验证说明> (`validation_notes`) | <隐私说明> (`privacy_notes`) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+## 6. <交付设计>
 
-### 8.1 <属性字典>
+<!-- Keep only applicable subsections. This section connects product behavior to cross-functional execution without duplicating separate handoff artifacts. -->
 
-| <属性名> (`property_name`) | <类型> (`type`) | <是否必填> (`required`) | <示例> (`example`) | <说明> (`description`) | <可选值> (`allowed_values`) | <隐私级别> (`privacy_level`) | <来源> (`source`) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+### 6.1 <数据与埋点>
 
-## 9. <多语言需求>
+| <事件名> | <触发时机> | <主体> | <关键属性> | <成功 / 失败判定> | <隐私与验证说明> |
+| --- | --- | --- | --- | --- | --- |
 
-<!-- Put only brand-new user-facing copy with no existing i18n key in the pure-text block. Keep existing-key reuse, keys, and usage notes in the table below. If there is no new copy, state that explicitly. -->
+### 6.2 <文案与多语言>
 
-### 9.1 <纯文本提取>
+<!-- Include only brand-new user-facing copy without an existing i18n key. Put reusable keys and usage notes in the mapping table. -->
 
 ```text
 <new or changed UI copy line>
 ```
 
-### 9.2 <使用位置映射>
-
-| <文案> | <使用位置> | <多语言说明> |
+| <文案 / Key> | <使用位置> | <复用或翻译说明> |
 | --- | --- | --- |
 
-## 10. <验收标准>
+### 6.3 <UI 与研发交接>
 
-| ID | <关联需求> | <验收标准> | <验证方法> |
-| --- | --- | --- | --- |
+| <交付项> | <路径 / 位置> | <说明 / 边界> |
+| --- | --- | --- |
 
-## 11. <测试建议>
+### 6.4 <测试重点>
 
-| <测试类型> | <覆盖范围> | <建议用例> |
+| <测试类型> | <高风险路径 / 状态> | <建议验证> |
+| --- | --- | --- |
+
+## 7. <风险、决策与待确认>
+
+### 7.1 <关键决策记录>
+
+| ID | <决策> | <依据> | <替代方案及未选原因> | <影响> |
+| --- | --- | --- | --- | --- |
+
+### 7.2 <风险与阻塞>
+
+| ID | <风险 / 阻塞> | <级别> | <影响> | <缓解方案> | <负责人> | <必须解决阶段> |
+| --- | --- | --- | --- | --- | --- | --- |
+
+### 7.3 <待确认问题>
+
+| ID | <问题> | <默认处理 / 是否可继续> | <负责人> | <确认时点> |
+| --- | --- | --- | --- | --- |
+
+## 8. <验收与就绪度>
+
+### 8.1 <验收标准>
+
+| ID | <关联需求> | <Given / When / Then 或可验证结果> | <验证方法> | <状态> |
+| --- | --- | --- | --- | --- |
+
+### 8.2 <推进就绪度>
+
+| <阶段> | <状态> | <已具备证据> | <缺口 / 负责人> | <下一动作> |
+| --- | --- | --- | --- | --- |
+| <产品评审> |  |  |  |  |
+| <研发交接> |  |  |  |  |
+| <上线决策> |  |  |  |  |
+
+### 8.3 <验证结果>
+
+| <检查项 / 命令> | <结果> | <证据 / 限制> |
 | --- | --- | --- |

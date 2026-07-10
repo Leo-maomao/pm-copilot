@@ -59,7 +59,8 @@ Please review and iterate a browser-readable PRD for a monetization feature. The
 ## Pass Criteria
 
 - `prd.md` contains exactly one H1 and uses consistent left-aligned Markdown table separators.
-- `需求列表` is a scan-level summary; `需求详情` contains complete per-function behavior or a complete detail table.
+- `产品决策摘要` exposes recommendation, confidence, readiness, blockers, and next checkpoint before detailed content.
+- `需求详情` is the single behavioral source of truth and does not duplicate a scan-only top-level requirement list.
 - Requirement screenshots or `占位图` blocks appear inline with the related detail row or subsection.
 - Copy/i18n pure-text blocks contain only visible copy lines; key mapping is separate.
 - `prd.html` uses the fixed PM Copilot document shell, excludes the H1 from the TOC, uses stable ASCII anchors, and keeps the TOC synced to `h2`/`h3`.
@@ -81,5 +82,5 @@ Please review and iterate a browser-readable PRD for a monetization feature. The
 | Field | Value |
 |---|---|
 | Run ID | commerce-prd-html-stability-2026-06-24 |
-| Status | Passed |
-| Notes | Regression criteria were codified in renderer, output validator, workflow docs, PRD contract, and template guidance. |
+| Status | Superseded by decision-first PRD contract |
+| Notes | HTML stability checks remain active. The old requirement-list/detail structure was replaced by a single behavioral source of truth and first-screen product decision summary in 4.0. |

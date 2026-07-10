@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture and compare generated PM Copilot compatibility HTML UI deliverables.
+"""Capture and compare generated PM Copilot portable HTML UI deliverables.
 
 The script intentionally has no hard dependency at import time. Install
 or repair Playwright/browser dependencies with:
@@ -149,7 +149,7 @@ def find_prototypes(folder: Path, explicit: str | None) -> list[Path]:
     if explicit:
         candidate = folder / explicit
         if not candidate.is_file():
-            fail(f"Compatibility UI HTML file not found: {candidate}")
+            fail(f"Portable UI HTML file not found: {candidate}")
         return [candidate]
     prototypes = [
         folder / file_name
@@ -158,7 +158,7 @@ def find_prototypes(folder: Path, explicit: str | None) -> list[Path]:
     ]
     if prototypes:
         return prototypes
-    fail(f"No supported compatibility UI HTML file found in {folder}")
+    fail(f"No supported portable UI HTML file found in {folder}")
 
 
 def path_for_report(path: Path, base: Path) -> str:

@@ -48,7 +48,7 @@ Review the proposed launch plan, choose the recommended path, and finish the PM 
 
 | Artifact | Required When | Validation |
 |---|---|---|
-| `run-log.yaml` | Always | `python3 scripts/validate_agent_trace.py outputs/<run-id> --strict` |
+| `run-log.yaml` | Always | `python3 scripts/validate_agent_trace.py outputs/<run-id>` |
 | `prd.md` or review findings | Product decision evidence is available | `python3 scripts/validate_outputs.py outputs/<run-id>` |
 | `launch-decision.yaml` | Launch readiness is claimed | `python3 scripts/run_delivery_checks.py outputs/<run-id>` |
 
@@ -94,7 +94,7 @@ Review the proposed launch plan, choose the recommended path, and finish the PM 
 - Every action references an existing decision or blocker id.
 - Duplicate or empty action ids fail validation.
 - Blocked or needs-input termination states expose a matching blocked or needs-input action.
-- `python3 scripts/validate_agent_trace.py outputs/<run-id> --strict` passes.
+- `python3 scripts/validate_agent_trace.py outputs/<run-id>` passes.
 
 ## Latest Result
 
@@ -102,4 +102,4 @@ Review the proposed launch plan, choose the recommended path, and finish the PM 
 |---|---|
 | Run ID | pending |
 | Status | Pending |
-| Notes | Added for PM Copilot 3.0.1 accountable action-closure regression coverage. |
+| Notes | Added for PM Copilot.1 accountable action-closure regression coverage. |

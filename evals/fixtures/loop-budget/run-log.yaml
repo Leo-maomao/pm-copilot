@@ -1,0 +1,23 @@
+loop_policy:
+  enabled: true
+  loop_type: research
+  max_iterations: 3
+  max_tool_calls: 12
+  max_elapsed_minutes: 45
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 5
+  human_checkpoint:
+    status: not_required
+loop_state:
+  current_iteration: 3
+  tool_calls_used: 9
+  elapsed_minutes: 30
+  consecutive_no_progress: 0
+  last_progress_score: 70
+  success_criteria_met: false
+termination_condition:
+  status: degraded
+loop_summary:
+  iterations_completed: 3
+  stop_reason: budget
+  final_progress_score: 70

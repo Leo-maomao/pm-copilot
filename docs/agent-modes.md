@@ -1,6 +1,6 @@
 # Agent Modes
 
-PM Copilot 3.0 separates task mode from autonomy level.
+PM Copilot separates task mode from autonomy level.
 Task mode describes the PM job.
 Autonomy level describes how far the Agent should go before stopping.
 
@@ -10,7 +10,7 @@ Autonomy level describes how far the Agent should go before stopping.
 |---|---|---|
 | `prd_delivery` | A new or changed feature needs a product requirement | `prd.md`, UI delivery, run log |
 | `implemented_feature_prd` | The feature already exists in the branch and needs reverse PRD/HTML | `prd.md`, `prd.html`, implementation evidence |
-| `ui_delivery` | The main value is UI surface, interaction, or visual handoff | Source preview/delta, extracted HTML, or compatibility HTML |
+| `ui_delivery` | The main value is UI surface, interaction, or visual handoff | Source preview/delta, extracted HTML, or portable HTML |
 | `tracking_plan` | Metrics and analytics are the primary need | Tracking table or `tracking-plan.csv` |
 | `launch_readiness` | The PM needs go/no-go support | Findings, blockers, `launch-decision.yaml` |
 | `dev_handoff` | Confirmed scope must become engineering work | `dev-tasks.yaml` |
@@ -47,6 +47,7 @@ Defaults forward when:
 
 Use when the user expects end-to-end delivery.
 The Agent observes context, frames scope, decides route, acts, verifies, reviews, revises when needed, and returns next actions.
+The Loop is bounded by iteration, tool-call, elapsed-time, and no-progress budgets. Every additional iteration must produce a concrete delta and pass the Loop decision check.
 
 Continues by default when:
 
@@ -70,6 +71,7 @@ Stops only when:
 - The failure cannot be reproduced or generalized from available evidence.
 - Required release metadata or validation cannot be produced.
 - The user changes the improvement target.
+- The configured budget or no-progress threshold is reached.
 
 ## Final Delivery Expectations
 

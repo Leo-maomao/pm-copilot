@@ -31,7 +31,7 @@ Checkout conversion dropped after we added coupon and shipping options. Make the
 
 - `outputs/<run-id>/prd.md`
 - `outputs/<run-id>/run-log.yaml`
-- UI deliverable reference through source-backed preview or compatibility HTML
+- UI deliverable reference through source-backed preview or portable HTML
 
 ## Artifact Expectation Matrix
 

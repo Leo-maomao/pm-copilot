@@ -39,9 +39,9 @@ I already generated the desired feature UI in the original project. Extract just
 
 ## Pass Criteria
 
-- `isolated_ui_prototype.mode` is `source_extract_html`.
-- `isolated_ui_prototype.preview_files_changed`, `baseline_import`, `delta_patch`, and `source_to_demo_mapping` are populated.
-- `isolated_ui_prototype.source_extract` includes `source_target`, `selector`, `extraction_command`, `extracted_html_path`, `source_region_screenshot`, `extracted_region_screenshot`, `region_diff`, `interaction_scope`, `interaction_checks`, `style_capture_method`, `asset_handling`, `annotation_layer`, `validation_report`, and `limitations`.
+- `ui_delivery_trace.mode` is `source_extract_html`.
+- `ui_delivery_trace.preview_files_changed`, `baseline_import`, `delta_patch`, and `source_to_demo_mapping` are populated.
+- `ui_delivery_trace.source_extract` includes `source_target`, `selector`, `extraction_command`, `extracted_html_path`, `source_region_screenshot`, `extracted_region_screenshot`, `region_diff`, `interaction_scope`, `interaction_checks`, `style_capture_method`, `asset_handling`, `annotation_layer`, `validation_report`, and `limitations`.
 - The extracted `prototype-<platform>.html` includes `data-source-extract="true"` or a `source-extract-summary` comment.
 - The product surface does not show visible "demo", "prototype", or "not production" labels.
 - Annotation markers are numbered, red/white, local to the extracted region, and backed by marker dialogs plus the right-side annotation panel.

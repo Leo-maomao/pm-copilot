@@ -11,7 +11,7 @@ Transform a review-ready PM Copilot package into engineering tasks and a launch 
 
 ## Workflow
 
-1. Load `prd.md`, `run-log.yaml`, the UI deliverable reference or compatibility HTML, and validation results.
+1. Load `prd.md`, `run-log.yaml`, the UI deliverable reference or portable HTML, and validation results.
 2. Confirm the PRD status, engineering handoff status, launch status, and open review findings before generating tasks.
 3. Follow `artifacts/dev-task-contract.md` for `dev-tasks.yaml`.
 4. Follow `artifacts/launch-decision-contract.md` for `launch-decision.yaml`.

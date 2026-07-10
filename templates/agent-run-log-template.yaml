@@ -107,8 +107,68 @@ replan_triggers:
 review_loop:
   iterations: 0
   critical_or_high_findings: []
-  fixes_applied: []
-  accepted_risks: []
+  finding_closures:
+    - finding: ""
+      disposition: "" # fixed | accepted_risk | replan
+      evidence: ""
+      owner: ""
+      due_phase: "" # now | before_review | before_engineering | before_launch | post_launch
+      rationale: ""
+  unresolved_findings: []
+  final_recommendation: "" # proceed | proceed_with_controls | revise | needs_input | blocked | stop
+
+loop_policy:
+  enabled: false
+  loop_type: "" # direct | execution | evaluator_optimizer | research | self_improvement
+  disabled_reason: ""
+  max_iterations: 1
+  max_tool_calls: 1
+  max_elapsed_minutes: 5
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 1
+  stop_conditions:
+    - success_criteria_met
+    - needs_input
+    - blocked
+    - failed
+    - iteration_budget_exhausted
+    - tool_budget_exhausted
+    - time_budget_exhausted
+    - no_progress
+    - human_checkpoint
+  human_checkpoint:
+    required_after_iteration: 0
+    status: not_required # not_required | pending | approved | declined
+    required_before_actions: []
+
+loop_state:
+  current_iteration: 0
+  tool_calls_used: 0
+  elapsed_minutes: 0
+  consecutive_no_progress: 0
+  last_progress_score: 0
+  success_criteria_met: false
+
+iteration_trace:
+  - iteration: 0
+    hypothesis: ""
+    planned_actions: []
+    observations: []
+    evidence_delta: []
+    artifact_delta: []
+    decision_delta: []
+    validation_delta: []
+    review_findings: []
+    progress_score_before: 0
+    progress_score_after: 0
+    outcome: "" # progress | no_progress | success | needs_input | blocked | failed
+    next_decision: "" # continue | stop_success | stop_needs_input | stop_blocked | stop_budget | stop_no_progress | stop_human_checkpoint | stop_failed
+
+loop_summary:
+  iterations_completed: 0
+  stop_reason: "" # not_applicable | success | needs_input | blocked | budget | no_progress | human_checkpoint | failed
+  final_progress_score: 0
+  unresolved_items: []
 
 memory_candidates:
   product_memory:
@@ -223,7 +283,7 @@ workflow:
 
 implemented_feature_prd:
   active: false
-  mode: "" # implemented_feature_prd | implemented_feature_prd_html legacy alias | implemented_feature_prd_review | not_applicable; active implemented-feature modes require prd.html
+  mode: "" # implemented_feature_prd | implemented_feature_prd_review | not_applicable; active implemented-feature modes require prd.html
   branch_name: ""
   diff_commands: []
   changed_files: []
@@ -379,11 +439,11 @@ style_evidence:
   reused_components: [] # host component-library or page components rendered or mirrored in the UI deliverable
   reused_tokens_or_classes: []
   icon_asset_sources: [] # exact icon/image/font asset sources reused or explicit not_applicable reason
-  prototype_delta: "" # legacy key; describe the UI delivery delta, not a hand-written standalone prototype by default
+  ui_delta: "" # describe the requested UI change relative to the current product surface
   limitations: []
 
-isolated_ui_prototype:
-  mode: "" # legacy section name; self_contained_html_from_host_code only for raw-request portable/standalone/HTML output, raw-request redesign/greenfield, no frontend source, or concrete blocked source rendering; otherwise source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | document_or_screenshot_only | not_applicable
+ui_delivery_trace:
+  mode: "" # source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | source_extract_html | portable_html | document_or_screenshot_only | not_applicable
   host_mutation_policy: "" # production_flows_read_only | isolated_preview_files_only | production_implementation_requested | not_applicable
   target_surface: ""
   preview_files_changed: [] # required for source-rendered modes; keep production flow files out unless requested
@@ -403,7 +463,7 @@ isolated_ui_prototype:
     next_delta_anchor: "" # where future turns should continue adding changes
   source_to_demo_mapping:
     - source: "" # host file, screenshot, demo route, or component source
-      prototype_representation: "" # legacy key; where and how that source appears in the UI deliverable or compatibility HTML
+      representation: "" # where and how that source appears in the UI deliverable
       confidence: ""
   backend_simulation:
     method: "" # mock_data_and_annotations | existing_mock_source | real_api_not_used | not_applicable
@@ -573,7 +633,6 @@ open_questions:
 
 artifacts:
   prd: ""
-  prototype: "" # legacy key; use for compatibility HTML path or source-backed UI preview reference
   catalog: ""
   ui_deliverable: ""
   run_log: ""
@@ -644,8 +703,7 @@ review_scores:
     score: null
     max_score: 28
     status: ""
-  # Legacy score key; score UI delivery quality.
-  prototype:
+  ui_delivery:
     score: null
     max_score: 32
     status: ""
@@ -658,8 +716,7 @@ quality_thresholds:
   delivery: 23
   prd: 31
   metrics_and_tracking: 21
-  # Legacy threshold key; UI delivery threshold.
-  prototype: 24
+  ui_delivery: 24
   review_checklist: 15
 
 quality_decision:
@@ -679,10 +736,14 @@ validation_results:
 self_iteration:
   triggered: false
   source_run_id: ""
+  source_run_ids: []
+  failure_evidence: []
   user_corrections: []
   generalized_failures: []
   selected_fix_surfaces: []
   regression_updates: []
+  generalization_boundary: ""
+  validation_commands: []
   version_change: ""
   embedded_copy_sync: []
 

@@ -34,7 +34,7 @@
 - Select one scenario per iteration, not the easiest one.
 - Classify context mode and risk profile before drafting.
 - Stop before generation when must-answer safety, legal, privacy, payment, or security questions block responsible output.
-- For UI work, use source-backed preview when source exists, image-reference reconstruction when screenshot is source of truth, or compatibility mode only when source is absent or explicitly out of scope.
+- For UI work, use source-backed preview when source exists, image-reference reconstruction when a screenshot is the source of truth, or `portable_html` only when source is absent, explicitly out of scope, or concretely blocked.
 - Turn any serious failure into a focused eval, validator, contract, guardrail, or scorecard improvement.
 
 ## Pass Criteria

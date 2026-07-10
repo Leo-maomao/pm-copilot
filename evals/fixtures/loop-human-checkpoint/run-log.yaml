@@ -1,0 +1,133 @@
+agent_strategy:
+  task_mode: launch_readiness
+  autonomy_level: full-loop
+  goal: Prepare a launch recommendation without bypassing approval.
+  success_criteria:
+    - Launch evidence is complete and the gated action is ready for approval.
+  effort_budget: standard-loop
+  selected_path:
+    - Validate evidence and stop for launch approval.
+  final_delivery_contract:
+    judgment_required: true
+
+delegation_plan:
+  active: false
+
+resume_checkpoint:
+  last_reliable_state: approval_pending
+
+termination_condition:
+  status: degraded
+  evidence: Delivery evidence is complete but launch approval is pending.
+  pm_usefulness: The PM can inspect the recommendation before authorizing launch.
+  remaining_limitation: Human launch approval is required.
+
+tool_plan:
+  required_tools:
+    - tool_id: control.agent_loop
+      purpose: Enforce the human launch checkpoint.
+
+decision_record:
+  - id: D1
+    decision: Stop before launch execution and request approval.
+    owner: PM Orchestrator
+    confidence: high
+    evidence:
+      - The launch gate requires an accountable human decision.
+    alternatives_considered:
+      - Treat validation success as launch approval.
+    tradeoff: Approval adds latency but preserves launch accountability.
+    readiness_impact: launch
+
+replan_triggers:
+  - trigger: other
+    observed_at_state: launch_gate
+    action_taken: Paused for the configured human checkpoint.
+
+review_loop:
+  iterations: 1
+  critical_or_high_findings: []
+  finding_closures: []
+  unresolved_findings: []
+  final_recommendation: needs_input
+
+loop_policy:
+  enabled: true
+  loop_type: execution
+  disabled_reason: ""
+  max_iterations: 3
+  max_tool_calls: 10
+  max_elapsed_minutes: 30
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 5
+  stop_conditions:
+    - success_criteria_met
+    - human_checkpoint
+  human_checkpoint:
+    required_after_iteration: 1
+    status: pending
+    required_before_actions:
+      - Execute launch.
+
+loop_state:
+  current_iteration: 1
+  tool_calls_used: 3
+  elapsed_minutes: 10
+  consecutive_no_progress: 0
+  last_progress_score: 85
+  success_criteria_met: true
+
+iteration_trace:
+  - iteration: 1
+    hypothesis: Validation can make the launch recommendation ready for approval.
+    planned_actions:
+      - Validate launch evidence.
+    observations:
+      - Evidence passed and the launch gate is now due.
+    evidence_delta:
+      - Launch evidence is complete.
+    artifact_delta:
+      - Launch recommendation updated.
+    decision_delta:
+      - Execution requires human approval.
+    validation_delta:
+      - Launch validation passed.
+    review_findings: []
+    progress_score_before: 40
+    progress_score_after: 85
+    outcome: progress
+    next_decision: stop_human_checkpoint
+
+loop_summary:
+  iterations_completed: 1
+  stop_reason: human_checkpoint
+  final_progress_score: 85
+  unresolved_items:
+    - Human launch approval.
+
+memory_candidates:
+  none: true
+
+next_actions:
+  launch:
+    - Approve or decline launch execution.
+
+action_closure:
+  critical_path:
+    - action_id: A1
+      action: Approve or decline launch execution.
+      owner: Launch approver
+      due_phase: before_launch
+      source_decision_ids: [D1]
+      source_blocker_ids: []
+      completion_evidence: Approval decision is recorded.
+      status: needs_input
+
+readiness:
+  prd_status: ready for review
+  engineering_handoff_status: ready
+  launch_status: blocked
+  engineering_blockers: []
+  launch_blockers:
+    - id: B1
+      description: Human approval is pending.

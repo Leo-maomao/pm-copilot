@@ -1,195 +1,163 @@
 # <一句话需求> - <YYYY-MM-DD>
 
 <!--
-Use this template for implemented-feature PRD delivery.
-All generated PRDs must keep the numbered section order below.
-The H1 must be one concise requirement sentence plus the requirement date, not a topic list plus "PRD".
-Human-facing headings, labels, statuses, and notes must be localized before delivery.
-Keep requirement IDs, event names, property names, file names, paths, and Mermaid node IDs in ASCII where they are machine identifiers.
-Content applicability rules:
-- Keep top-level sections 1-14 in implemented-feature mode because code evidence exists by definition.
-- If a required top-level section has no applicable content, write one explicit localized `Not applicable: <reason>` line or row instead of leaving it empty.
-- Remove optional subsections, diagrams, image blocks, matrices, or evidence rows that do not apply. Do not leave empty tables, placeholder angle-bracket text, or "TBD" content.
-- Flow diagrams are optional and must follow the specific requirement they explain. Put each Mermaid diagram inside that requirement's subsection, not as generic global `User flow` and `Functional flow` sections.
-Remove this note from generated artifacts.
+Use this template to reconstruct product intent from an implemented feature.
+Sections 1-8 follow the decision-first PRD structure. Sections 9-10 are mandatory implementation evidence and verification appendices.
+Implementation is evidence, not automatically the correct product requirement. Separate observed behavior, inferred intent, gaps, and recommendations.
+Localize human-facing text. Keep IDs, paths, event names, and machine identifiers ASCII.
+Remove empty optional subsections and this note from generated artifacts.
 -->
 
-## 1. <文档信息>
+## 1. <产品决策摘要>
 
-| <项目> | <内容> |
+### 1.1 <反向还原结论>
+
+<!-- State what product capability the implementation appears to deliver, whether it is coherent enough to document as intended behavior, and the most important gap or decision. -->
+
+| <决策项> | <当前判断> |
 | --- | --- |
-| <一句话需求> |  |
-| <需求日期> |  |
-| <需求来源> |  |
-| <分支 / 版本> |  |
-| <相关模块> |  |
+| <还原后的推荐定义> |  |
+| <实现与产品意图一致度> | <高 / 中 / 低，并说明依据> |
 | <PRD 状态> |  |
 | <研发交接状态> |  |
 | <上线状态> |  |
+| <关键阻塞 / 偏差> |  |
+| <下一检查点> | <负责人 / 阶段 / 完成证据> |
 
-## 2. <版本记录>
+### 1.2 <文档元数据>
 
-| <版本> | <日期> | <变更摘要> | <负责人> |
+| <项目> | <内容> |
+| --- | --- |
+| <需求来源> | <已实现功能反向还原> |
+| <需求日期> |  |
+| <分支 / 版本> |  |
+| <相关模块 / 平台> |  |
+| <本次变更> |  |
+
+## 2. <背景与证据>
+
+### 2.1 <问题与用户场景>
+
+### 2.2 <实现侧证据摘要>
+
+| ID | <证据类型> | <文件 / 页面 / 测试 / 资源> | <观察到的行为> | <可信状态> | <产品含义> |
+| --- | --- | --- | --- | --- | --- |
+
+### 2.3 <推断、缺口与未知项>
+
+| ID | <推断 / 未知项> | <证据基础> | <当前处理> | <需要谁确认> | <影响> |
+| --- | --- | --- | --- | --- | --- |
+
+## 3. <目标与成功标准>
+
+| ID | <推断或已确认目标> | <用户 / 业务结果> | <指标或可观察信号> | <证据状态> | <验证窗口> |
+| --- | --- | --- | --- | --- | --- |
+
+## 4. <范围与非目标>
+
+| <范围层级> | <内容> | <实现覆盖> | <判断 / 理由> |
 | --- | --- | --- | --- |
+| MVP |  |  |  |
+| <可选> |  |  |  |
+| <未来> |  |  |  |
+| <非目标> |  |  |  |
 
-## 3. <需求背景>
+## 5. <需求详情>
 
-<!-- Explain the current problem, business/user impact, and why this requirement is needed now. For implemented features, separate observed implementation facts from inferred product intent. -->
+<!-- Create one subsection per implemented capability. Describe intended behavior first, then cite implementation evidence and discrepancies. -->
+<!-- Missing Chinese screenshot outside a table: `> 占位图：<surface>-<state>.png` followed by `> 用途：<what this proves>`. Inside the table below, keep the same text in the `图示` value cell. -->
 
-## 4. <需求目标>
+### 5.1 <R1 需求名称>
 
-| ID | <目标> | <指标> | <目标方向> | <测量说明> |
-| --- | --- | --- | --- | --- |
-
-## 5. <需求调研>
-
-<!-- This section must cover users and scenarios, current-product research, implementation evidence, external research when available, and reusable conclusions. Repository facts are current-product context, not competitor research. -->
-
-### 5.1 <用户与场景>
-
-| ID | <用户 / 角色> | <场景> | <期望结果> |
-| --- | --- | --- | --- |
-
-### 5.2 <现状调研>
-
-| <调研项> | <结论> | <产品影响> |
-| --- | --- | --- |
-
-### 5.3 <外部调研与限制>
-
-| <调研来源> | <状态> | <结论 / 限制> | <影响> |
-| --- | --- | --- | --- |
-
-### 5.4 <调研结论>
-
-| ID | <结论> | <对应需求> |
-| --- | --- | --- |
-
-## 6. <需求列表>
-
-<!-- Requirement list is a scan-level summary only. Complete behavior belongs in section 7. -->
-
-| ID | <需求简述> | <用户价值> | <优先级> | <状态> |
-| --- | --- | --- | --- | --- |
-
-## 7. <需求详情>
-
-<!--
-Requirement details are the most important part of the PRD.
-Each requirement should cover scenario, entry/trigger, content, business rules, interaction rules, data/state rules, permissions, edge states, tracking links, acceptance links, and screenshots/figures.
-For frontend UI/page/component changes, include the implemented UI specification in the requirement detail: affected page/component, layout/alignment, dimensions, spacing, typography, color/token, icon/image requirements, component states, responsive behavior, accessibility/focus behavior, and visual acceptance notes.
-Flow diagrams are optional. Add them only when a specific requirement has a complex user path, cross-system process, or many states; place the Mermaid block inside that requirement's subsection.
-Screenshots and placeholders must appear inside the relevant requirement detail, not in a detached image list.
-When a requirement detail uses the two-column table below, the `图示` row must contain the real image or placeholder in the same value cell. Do not leave `图示` blank and put a blockquote or image paragraph after the table.
-
-Missing-image placeholder format must be exactly:
-
-> 占位图：<recommended-image-name>.png
-> 用途：<one sentence describing the UI state, dialog, or requirement position>
-
-When the real image exists, replace the whole placeholder block with:
-![<recommended-image-name>](./assets/<recommended-image-name>.png)
-
-Inside a Markdown table cell, use this one-line form instead of a blockquote:
-占位图：<recommended-image-name>.png<br>用途：<one sentence describing the UI state, dialog, or requirement position>
--->
-
-### 7.1 <R1 需求名称>
-
-<!-- Optional, include only when this requirement needs a flow diagram:
-#### <操作 / 功能流程图>
-
-```mermaid
-flowchart TD
-  A[<用户或系统进入场景>] --> B[<触发动作>]
-  B --> C{<判断条件>}
-  C -- <通过> --> D[<目标状态>]
-  C -- <不通过> --> E[<兜底状态>]
-```
--->
+**产品判断：** <What this behavior should mean for users and whether the implementation supports that interpretation.>
 
 | <维度> | <需求说明> |
 | --- | --- |
-| <用户场景> |  |
+| <用户场景与价值> |  |
 | <入口 / 触发> |  |
-| <内容要求> |  |
-| <前端界面规格> | <Only keep for UI/page/component changes. Include affected component, layout/alignment, size, spacing, typography, color/token, icon/image, states, responsive/accessibility notes, and visual acceptance notes.> |
-| <业务逻辑> |  |
-| <交互规则> |  |
-| <数据规则> |  |
-| <权限和边界> |  |
-| <加载 / 空 / 错误状态> |  |
-| <埋点> |  |
-| <验收> |  |
-| <图示> | <Use `![推荐图片名](./assets/推荐图片名.png)` when the image exists. If missing, use `占位图：推荐图片名.png<br>用途：说明该图对应的界面、状态或需求位置。` in this same table cell. Do not place the image or placeholder outside this table.> |
+| <主流程与业务规则> |  |
+| <内容 / 文案> |  |
+| <界面与交互> |  |
+| <数据与状态> |  |
+| <权限与边界> |  |
+| <加载 / 空 / 错误 / 恢复> |  |
+| <依赖与降级> |  |
+| <实现证据> | <EV1, file path, route, test, screenshot...> |
+| <实现偏差 / 未证明项> |  |
+| <关联目标 / 验收> | <G1, AC1...> |
+| <图示> | <Real local image or exact inline placeholder when needed.> |
 
-## 8. <埋点需求>
+## 6. <交付设计>
 
-<!-- If no approved taxonomy is found, explicitly mark the table as proposed and name the source gap. -->
+### 6.1 <数据与埋点>
 
-| <事件名> (`event_name`) | <事件说明> (`description`) | <触发时机> (`trigger`) | <平台> (`platform`) | <主体> (`actor`) | <必填属性> (`required_properties`) | <可选属性> (`optional_properties`) | <成功标准> (`success_criteria`) | <验证说明> (`validation_notes`) | <隐私说明> (`privacy_notes`) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-
-### 8.1 <属性字典>
-
-| <属性名> (`property_name`) | <类型> (`type`) | <是否必填> (`required`) | <示例> (`example`) | <说明> (`description`) | <可选值> (`allowed_values`) | <隐私级别> (`privacy_level`) | <来源> (`source`) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-
-## 9. <多语言需求>
-
-<!-- Put only brand-new user-facing copy with no existing i18n key in the pure-text block. Keep existing-key reuse, keys, and usage notes in the table below. If there is no new copy, state that explicitly. -->
-
-### 9.1 <纯文本提取>
-
-```text
-<new or changed UI copy line>
-```
-
-### 9.2 <使用位置映射>
-
-| <文案> | <使用位置> | <多语言说明> |
-| --- | --- | --- |
-
-## 10. <验收标准>
-
-| ID | <关联需求> | <验收标准> | <验证方法> |
-| --- | --- | --- | --- |
-
-## 11. <测试建议>
-
-| <测试类型> | <覆盖范围> | <建议用例> |
-| --- | --- | --- |
-
-## 12. <代码实现说明>
-
-<!-- Required for implemented-feature PRDs. Include implementation scope, data/API notes, parameters/rules, states/exceptions, risks/dependencies, and implementation evidence. -->
-
-### 12.1 <实现范围>
-
-| <模块> | <实现说明> | <关联需求> |
-| --- | --- | --- |
-
-### 12.2 <参数、状态与接口规则>
-
-| <规则类型> | <规则说明> | <关联需求> |
-| --- | --- | --- |
-
-### 12.3 <风险与依赖>
-
-| ID | <风险 / 依赖> | <影响> | <负责人> | <缓解 / 决策> |
+| <事件名> | <触发时机> | <关键属性> | <实现状态 / 位置> | <隐私与验证说明> |
 | --- | --- | --- | --- | --- |
 
-### 12.4 <实现证据和覆盖映射>
+### 6.2 <文案与多语言>
 
-| <证据 ID> | <来源> | <观察到的行为> | <关联需求> | <覆盖状态> | <缺口 / 风险> |
-| --- | --- | --- | --- | --- | --- |
+```text
+<new or changed UI copy without an existing i18n key>
+```
 
-## 13. <代码位置>
+| <文案 / Key> | <使用位置> | <实现位置> | <复用或翻译说明> |
+| --- | --- | --- | --- |
 
-| <模块> | <路径> | <说明> |
-| --- | --- | --- |
+### 6.3 <UI 与研发交接>
 
-## 14. <验证结果>
+| <交付项> | <路径 / 位置> | <已实现 / 建议调整> | <说明 / 边界> |
+| --- | --- | --- | --- |
 
-| <验证项> | <命令> | <结果> | <说明> |
+### 6.4 <测试重点>
+
+| <测试类型> | <现有覆盖> | <高风险缺口> | <建议验证> |
+| --- | --- | --- | --- |
+
+## 7. <风险、决策与待确认>
+
+### 7.1 <关键决策记录>
+
+| ID | <决策 / 推荐调整> | <实现证据> | <替代方案及未选原因> | <影响> |
+| --- | --- | --- | --- | --- |
+
+### 7.2 <风险、偏差与阻塞>
+
+| ID | <风险 / 偏差 / 阻塞> | <级别> | <影响> | <缓解方案> | <负责人> | <必须解决阶段> |
+| --- | --- | --- | --- | --- | --- | --- |
+
+### 7.3 <待确认问题>
+
+| ID | <问题> | <默认处理 / 是否可继续> | <负责人> | <确认时点> |
+| --- | --- | --- | --- | --- |
+
+## 8. <验收与就绪度>
+
+### 8.1 <验收标准>
+
+| ID | <关联需求> | <可验证结果> | <实现证据 / 验证方法> | <状态> |
+| --- | --- | --- | --- | --- |
+
+### 8.2 <推进就绪度>
+
+| <阶段> | <状态> | <已具备证据> | <缺口 / 负责人> | <下一动作> |
+| --- | --- | --- | --- | --- |
+| <产品评审> |  |  |  |  |
+| <研发交接> |  |  |  |  |
+| <上线决策> |  |  |  |  |
+
+## 9. <实现证据与覆盖映射>
+
+### 9.1 <代码与资源位置>
+
+| ID | <类型> | <路径 / 标识> | <证明的行为> | <关联需求> |
+| --- | --- | --- | --- | --- |
+
+### 9.2 <需求覆盖检查>
+
+| <实现行为> | <是否写入 PRD> | <是否有验收> | <未解决的产品意图> |
+| --- | --- | --- | --- |
+
+## 10. <验证结果>
+
+| <检查项 / 命令> | <结果> | <覆盖范围> | <证据 / 限制> |
 | --- | --- | --- | --- |

@@ -6,7 +6,7 @@ Use this reference when a user asks PM Copilot to turn a screenshot, mockup, gen
 
 Activate this mode for wording such as screenshot-to-UI, image-to-UI, recreate this image, match this mockup, visual reconstruction, "图片还原", "截图还原", "把图转成 UI", or when the supplied image is clearly intended as the visual target.
 
-This mode extends `skills/multi-platform-prototype/SKILL.md`; it is not a separate skill. Repo-backed source-first rules still apply when host frontend source exists.
+This mode extends `skills/multi-platform-ui-delivery/SKILL.md`; it is not a separate skill. Repo-backed source-first rules still apply when host frontend source exists.
 
 ## Intake
 

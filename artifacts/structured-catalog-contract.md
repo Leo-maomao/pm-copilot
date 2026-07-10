@@ -2,7 +2,7 @@
 
 Use this contract when the requested deliverable is primarily a structured document, reference, or table artifact rather than a product requirement or user-facing product flow. Typical examples include model integration matrices, API capability catalogs, vendor comparison tables, parameter dictionaries, migration inventories, data dictionaries, feature flags, payment rules, risk rules, SOPs, runbooks, and engineering reference lists.
 
-The default file remains `outputs/<run-id>/catalog.md` for backward compatibility. `outputs/<run-id>/reference.md` is also valid when the run is a broader document-reference handoff. Generate `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` compatibility HTML only when the user asks for HTML, a browser-readable review artifact, or a richer document review view.
+Use `outputs/<run-id>/catalog.md` for flat catalogs, matrices, dictionaries, and inventories. Use `outputs/<run-id>/reference.md` for broader document-reference handoffs with narrative guidance or grouped rules. Generate `catalog.html`, `reference.html`, or a `document_prototype` only when the user asks for HTML, a browser-readable review artifact, or a richer document review view.
 
 ## Required Metadata
 

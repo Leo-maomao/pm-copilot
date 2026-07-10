@@ -342,7 +342,7 @@ def build_report(root: Path, limit: int, query: str = "") -> dict[str, Any]:
 
 def recommended_mode(platform: str, render_available: bool) -> str:
     if not render_available:
-        return "self_contained_html_from_host_code"
+        return "portable_html"
     if platform in {"mini_program", "taro", "uni_app"}:
         return "mini_program_preview"
     if platform in {"react_native", "flutter", "native_app"}:

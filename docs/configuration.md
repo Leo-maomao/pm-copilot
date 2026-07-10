@@ -143,7 +143,7 @@ If research tools are unavailable, agents must not fabricate competitor facts.
 ## UI Delivery Preferences
 
 ```yaml
-prototype_preferences: # legacy key name; values define UI delivery behavior
+ui_delivery_preferences:
   fidelity: "Low"
   default_output: "Source-rendered preview whenever repo-backed frontend source exists; local HTML only for no-source, explicit portable HTML, explicit redesign/greenfield, or concrete source-rendering blockers"
   repo_backed_ui_mode: "Host frontend inventory first; source-rendered preview when frontend source exists"

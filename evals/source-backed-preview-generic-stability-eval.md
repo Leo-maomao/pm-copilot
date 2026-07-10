@@ -51,7 +51,7 @@ Use an arbitrary host product repository as a temporary pressure fixture. Pick o
 |---|---|---|
 | `prd.md` | Required after the selected host requirement is safe to draft. | `python3 scripts/validate_outputs.py outputs/<run-id> --language <en|zh>` |
 | Source-backed UI preview/delta | Required when frontend source exists and UI delivery is in scope. | `python3 scripts/validate_ui_preview.py <preview> --run-folder outputs/<run-id>` |
-| Compatibility HTML | Allowed only when raw request asks for portable HTML, no frontend source exists, or source rendering is concretely blocked. | `python3 scripts/validate_prototype_visual.py outputs/<run-id>` |
+| `portable_html` | Allowed only when the raw request asks for portable HTML, no frontend source exists, or source rendering is concretely blocked. | `python3 scripts/validate_prototype_visual.py outputs/<run-id>` |
 | `run-log.yaml` | Required to preserve host-source evidence and generalization boundary. | `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <en|zh>` |
 
 ## Known Risks

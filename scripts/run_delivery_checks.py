@@ -25,7 +25,6 @@ PROTOTYPE_NAMES = (
 )
 PRD_HTML_NAMES = ("prd.html",)
 EXTERNAL_REF_RE = re.compile(r"https?://|cdn\.|unpkg\.com|cdnjs\.", re.IGNORECASE)
-LEGACY_EVIDENCE_RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{8}-\d{4}")
 
 
 class PrototypeHTMLParser(HTMLParser):
@@ -144,7 +143,7 @@ def existing_visual_report_check(
         failures.append(f"visual report status is {data.get('status')!r}")
     missing = sorted(prototype_names - reported_names)
     if missing:
-        failures.append("visual report missing compatibility UI HTML files: " + ", ".join(missing))
+        failures.append("visual report missing portable UI HTML files: " + ", ".join(missing))
     viewport_reports = [
         viewport
         for prototype_report in data.get("prototypes", [])
@@ -266,11 +265,6 @@ def main() -> None:
     parser.add_argument("--skip-visual", action="store_true")
     parser.add_argument("--skip-visual-reason", default="")
     parser.add_argument(
-        "--strict-agent-trace",
-        action="store_true",
-        help="Fail when run-log.yaml lacks PM Copilot 3.0 agentic trace fields.",
-    )
-    parser.add_argument(
         "--source-preview",
         default="",
         help="Source-backed preview URL or file path to validate with scripts/validate_ui_preview.py.",
@@ -369,16 +363,18 @@ def main() -> None:
             command.extend(["--language", args.language])
         if args.pre_clarification:
             command.append("--pre-clarification")
-        if LEGACY_EVIDENCE_RUN_ID_RE.fullmatch(output_folder.name):
-            command.append("--allow-legacy-run-id")
         results.append({"tool": "validate_outputs", **run_command(command)})
 
         trace_command = [sys.executable, "scripts/validate_agent_trace.py", str(output_folder)]
-        if args.strict_agent_trace:
-            trace_command.append("--strict")
         results.append({
             "tool": "validate_agent_trace",
-            **run_command(trace_command, required=args.strict_agent_trace),
+            **run_command(trace_command, required=True),
+        })
+
+        loop_command = [sys.executable, "scripts/evaluate_agent_loop.py", str(output_folder)]
+        results.append({
+            "tool": "evaluate_agent_loop",
+            **run_command(loop_command, required=True),
         })
 
     required_failures = [

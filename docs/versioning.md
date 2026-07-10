@@ -22,12 +22,7 @@ Example:
 
 ## Current Stability
 
-`2.x` means:
-
-- Suitable for early external users and contributors.
-- Agent handoff and trace interfaces are explicit and validator-backed.
-- Artifact contracts are usable and intended to remain backward compatible within the major version.
-- Users should copy their own `context/` and generated `outputs/` before upgrading.
+`4.x` prioritizes Agent effectiveness and a single current runtime contract over compatibility with obsolete internal paths. Generated outputs remain user-owned evidence, but old run logs are not accepted as current final-delivery traces.
 
 ## Compatibility Policy
 
@@ -38,7 +33,7 @@ Breaking changes include:
 - Changing required tracking plan columns.
 - Changing agent handoff payload shape.
 - Removing or renaming existing skills.
-- Changing workflow states in a way that breaks existing prompts.
+- Changing execution graph nodes in a way that breaks existing prompts.
 
 Non-breaking changes include:
 
@@ -86,6 +81,6 @@ Every release should update:
 
 When a self-iteration changes PM Copilot core source files in a git checkout, repository validation requires `VERSION`, `CHANGELOG.md`, and a `docs/optimization-cycles/` note to be changed together. If the current folder is only an embedded copy without its own remote, record the skipped push reason and embedded-copy sync target status instead of claiming a release push.
 
-## Deprecation Policy
+## Removal Policy
 
-When changing a public artifact contract, keep the old field documented for at least one minor release unless the field is unsafe. Mark deprecated items clearly in the changelog.
+Remove obsolete internal entry points, aliases, and permissive validation branches when they reduce Agent clarity or weaken evidence. Preserve user data and externally useful artifact formats, not historical implementation structure.

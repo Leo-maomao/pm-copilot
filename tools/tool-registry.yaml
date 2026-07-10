@@ -42,7 +42,7 @@ capabilities:
     records_to:
       - run-log.yaml:host_frontend_inventory
       - run-log.yaml:style_evidence
-      - run-log.yaml:isolated_ui_prototype
+      - run-log.yaml:ui_delivery_trace
     fallback: "Manually inspect host frontend files. If source files cannot be found, stop for the missing host path; if rendering is blocked, record the concrete blocker and mark standalone HTML as fidelity-limited. Do not treat 'only generate a prototype' as standalone HTML consent."
 
   - id: research.web_search
@@ -77,7 +77,7 @@ capabilities:
 
   - id: validation.outputs
     category: validation
-    required_when: "A run folder contains prd.md, compatibility UI HTML, dev-tasks.yaml, or launch-decision.yaml."
+    required_when: "A run folder contains prd.md, portable UI HTML, dev-tasks.yaml, or launch-decision.yaml."
     command: "python3 scripts/validate_outputs.py outputs/<run-id> --language <zh|en>"
     result_contract: artifacts/tool-result-contract.md
     records_to:
@@ -87,11 +87,11 @@ capabilities:
 
   - id: validation.visual
     category: validation
-    required_when: "A compatibility UI HTML file is generated, or a source-backed UI preview is used."
+    required_when: "A portable UI HTML file is generated, or a source-backed UI preview is used."
     command: "python3 scripts/validate_prototype_visual.py outputs/<run-id>"
     source_preview_command: "python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>"
     setup_command: "python3 scripts/setup_visual_validation.py"
-    behavior: "When no --prototype is provided, validates every supported compatibility HTML file in the run folder. Source-backed previews should be validated with validate_ui_preview.py after the host dev/preview/Storybook/simulator path is running, or with equivalent simulator evidence recorded under visual_validation."
+    behavior: "When no --prototype is provided, validates every supported portable HTML file in the run folder. Source-backed previews should be validated with validate_ui_preview.py after the host dev/preview/Storybook/simulator path is running, or with equivalent simulator evidence recorded under visual_validation."
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - prd.md:validation_results
@@ -106,14 +106,14 @@ capabilities:
     command: "python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>"
     result_contract: artifacts/tool-result-contract.md
     records_to:
-      - run-log.yaml:isolated_ui_prototype.source_extract
+      - run-log.yaml:ui_delivery_trace.source_extract
       - run-log.yaml:visual_validation
       - outputs/<run-id>/visual-review/source-extract-report.json
-    fallback: "Keep the source-rendered preview as the authoritative handoff, or generate compatibility HTML only with explicit limitation. Do not hand-recreate standalone HTML while claiming source-derived fidelity."
+    fallback: "Keep the source-rendered preview as the authoritative handoff, or generate portable HTML only with explicit limitation. Do not hand-recreate standalone HTML while claiming source-derived fidelity."
 
   - id: validation.html
     category: validation
-    required_when: "A compatibility UI HTML file is generated."
+    required_when: "A portable UI HTML file is generated."
     command: "python3 scripts/run_delivery_checks.py outputs/<run-id>"
     optional_command: "tidy -errors -quiet -utf8 prototype-<platform>.html"
     result_contract: artifacts/tool-result-contract.md
@@ -125,7 +125,6 @@ capabilities:
     category: validation
     required_when: "Before final delivery or before scoring an iteration round."
     command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>"
-    strict_agent_trace_command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --strict-agent-trace"
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - outputs/<run-id>/tool-results/delivery-check-report.json
@@ -134,14 +133,24 @@ capabilities:
 
   - id: validation.agent_trace
     category: validation
-    required_when: "PM Copilot 3.0 full-loop, self-iteration, eval, or final delivery claims Agent strategy, decisions, review loop, next actions, or memory candidates."
-    command: "python3 scripts/validate_agent_trace.py outputs/<run-id> --strict"
-    compatibility_command: "python3 scripts/validate_agent_trace.py outputs/<run-id>"
+    required_when: "Every final delivery, eval, and self-iteration run."
+    command: "python3 scripts/validate_agent_trace.py outputs/<run-id>"
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - run-log.yaml:validation_results
       - outputs/<run-id>/tool-results/delivery-check-report.json
-    fallback: "For legacy runs, record skipped compatibility status. For 3.0 runs, do not claim full-loop Agent delivery until trace fields are fixed."
+    fallback: "Do not claim final delivery until the runtime trace is complete and valid."
+
+  - id: control.agent_loop
+    category: control
+    required_when: "Every final delivery; enabled Loops receive continue or stop decisions and direct runs record not_applicable."
+    command: "python3 scripts/evaluate_agent_loop.py outputs/<run-id>"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - run-log.yaml:loop_state
+      - run-log.yaml:loop_summary
+      - outputs/<run-id>/tool-results/delivery-check-report.json
+    fallback: "Stop autonomous iteration and record needs_input, blocked, degraded, or failed. Do not continue an unbounded loop."
 
   - id: analysis.agent_runs
     category: optimization
@@ -198,5 +207,4 @@ default_preflight:
 
 default_delivery_check:
   command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>"
-  strict_agent_trace_command: "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --strict-agent-trace"
   report_path: "outputs/<run-id>/tool-results/delivery-check-report.json"

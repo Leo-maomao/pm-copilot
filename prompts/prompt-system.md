@@ -36,7 +36,7 @@ Classify the request before drafting:
 | Launch readiness | `launch_readiness` | Go/no-go, rollout, launch blockers, approval gaps | Separate engineering handoff status from launch status |
 | Dev handoff | `dev_handoff` | Issue planning, development tasks, handoff | Preserve blockers in `dev-tasks.yaml` |
 | Document-class delivery | `structured_reference` | Structured reference, parameter table, rule reference, data dictionary, SOP/runbook, document prototype | Use Knowledge Ops and structured reference/document prototype contracts; do not force PRD when user says no PRD |
-| Review only | `product_review` | "Review this PRD/UI deliverable" or legacy "Review this PRD/prototype" wording | Use Review Agent and write findings with PM usefulness |
+| Review only | `product_review` | "Review this PRD/UI deliverable" or user wording such as "Review this prototype" | Use Review Agent and write findings with PM usefulness |
 | Self-improvement | `self_improvement` | Improve PM Copilot, absorb learning, add regression, upgrade version | Update durable repo surfaces, release metadata, and validation |
 | Mixed PM delivery | `mixed_delivery` | PRD + UI + tracking + handoff + launch | Use the smallest graph that covers all outcomes |
 | Clarification only | `prd_delivery` or relevant task mode | "Help me ask questions first" | Stop after questions and optional run log |
@@ -65,9 +65,12 @@ Also choose `effort_budget`:
 - Always apply `agents/agent-interface.md` when handing work between agents, even if only one specialist role is active.
 - Record or be ready to state `task_mode`, `autonomy_level`, success criteria, selected path, skipped path, rejected alternatives, and replan triggers.
 - For complex work, record `effort_budget`, `delegation_plan`, `resume_checkpoint`, and `termination_condition`.
+- For enabled Loops, choose `loop_type`, set hard iteration/tool/time/no-progress budgets, and record one `iteration_trace` item after each cycle.
+- Continue only when the previous iteration produced or can plausibly produce a concrete evidence, artifact, decision, or validation delta. Use `scripts/evaluate_agent_loop.py` for the next decision.
+- Stop on success, input, blocker, budget, no-progress, human checkpoint, or failure. Iteration count is a ceiling, never a target.
 - Before final delivery, convert the selected recommendation into `action_closure.critical_path`. Each critical action must include owner, due phase, source decision or blocker id, completion evidence, and status.
 - Do not treat generic follow-ups as completion. If the run is blocked or needs input, the action closure must identify the exact unblock evidence or answer.
-- Treat S0-S12 as an execution graph. Skip, merge, or backtrack states when the selected task mode warrants it, and record the reason.
+- Select the smallest sufficient execution subgraph for the task. Revisit nodes only when new evidence changes the decision, and record material routing changes.
 - Use memory summaries, not full memory dumps, when only a few facts are relevant.
 - Keep the user's language for all human-facing generated content.
 - Keep file names, event names, property names, Mermaid node IDs, and other machine identifiers in ASCII.
@@ -112,7 +115,7 @@ When the clarification gate passes, generate:
 - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary artifact
 - document prototype HTML when the requested HTML/prototype is a browser-readable reference document
 - source-backed UI preview/delta files when repo-backed frontend source exists
-- `outputs/<run-id>/prototype-<platform>.html` only when compatibility standalone/no-source/fallback HTML mode is selected
+- `outputs/<run-id>/prototype-<platform>.html` only when portable standalone/no-source/fallback HTML mode is selected
 - `outputs/<run-id>/run-log.yaml` when a trace is useful
 
 In embedded host repositories, the same files must live under `pm-copilot/outputs/<run-id>/`, not the host root.
@@ -122,10 +125,10 @@ Every full delivery should include product judgment, confidence, blockers, valid
 For implemented-feature PRD delivery:
 
 - Use `templates/implemented-feature-prd-template.md`.
-- Use the fixed numbered PRD structure from `artifacts/prd-contract.md`.
+- Use the decision-first numbered PRD structure from `artifacts/prd-contract.md`.
 - Make the H1 a one-sentence requirement plus date, for example `# 优化团队权限设置体验 - 2026-06-29`, not a topic list plus `PRD`.
-- Keep the top-level sequence as `文档信息`, `版本记录`, `需求背景`, `需求目标`, `需求调研`, `需求列表`, `需求详情`, `埋点需求`, `多语言需求`, `验收标准`, `测试建议`, then `代码实现说明`, `代码位置`, and `验证结果` when the feature is already implemented. Omit those code-related sections when no implementation has been inspected.
-- If a required top-level section has no applicable content, keep it with a clear localized `Not applicable: <reason>` statement. Hide optional diagrams, API/risk matrices, image blocks, evidence tables, and other conditional blocks when they do not apply.
+- Keep the decision-first sequence from `artifacts/prd-contract.md`: `产品决策摘要`, `背景与证据`, `目标与成功标准`, `范围与非目标`, `需求详情`, `交付设计`, `风险、决策与待确认`, and `验收与就绪度`. Implemented-feature PRDs append `实现证据与覆盖映射` and `验证结果`.
+- Put recommendation, confidence, separate readiness states, blockers, and the next checkpoint on the first rendered screen. Remove optional subsections and empty tables when they do not apply instead of preserving artificial not-applicable filler.
 - For frontend page, UI component, visual-state, or interactive-control changes, include UI specifications inside the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
 - Flow diagrams are optional and must appear inside the specific requirement detail they explain, not as fixed global `用户流程图` and `功能流程图` sections.
 - Generate `prd.html` with `scripts/render_prd_html.py` when HTML is requested.

@@ -25,17 +25,17 @@ Future UI delivery tasks that start from screenshots, generated UI concepts, moc
 - Verify with same-viewport screenshots and visual comparison when tooling is available.
 - Handle missing assets explicitly through host/supplied assets, approved image generation, or honest placeholders plus one prompt per missing asset.
 
-Trigger this capability through `skills/multi-platform-prototype/SKILL.md` when users ask for image-to-UI, screenshot reconstruction, target mockup matching, or "图片还原".
+Trigger this capability through `skills/multi-platform-ui-delivery/SKILL.md` when users ask for image-to-UI, screenshot reconstruction, target mockup matching, or "图片还原".
 
 ## Packaging Plan
 
 Integrated into the canonical UI Delivery capability:
 
-- `skills/multi-platform-prototype/SKILL.md`: added Image Reference Reconstruction Mode and output/quality requirements.
-- `skills/multi-platform-prototype/references/image-reference-reconstruction.md`: added the detailed workflow reference.
-- `agents/prototype-agent.md`: added responsibilities, outputs, and completion criteria for image-reference reconstruction.
-- `artifacts/prototype-contract.md`: added contract rules for screenshot/mockup target fidelity and comparison evidence.
-- `tools/prototype-tooling.md`: added implementation and verification checklist items.
+- `skills/multi-platform-ui-delivery/SKILL.md`: owns Image Reference Reconstruction Mode and output/quality requirements.
+- `skills/multi-platform-ui-delivery/references/image-reference-reconstruction.md`: owns the detailed workflow reference.
+- `agents/ui-delivery-agent.md`: added responsibilities, outputs, and completion criteria for image-reference reconstruction.
+- `artifacts/ui-delivery-contract.md`: owns screenshot/mockup target fidelity and comparison evidence.
+- `tools/ui-delivery-tooling.md`: added implementation and verification checklist items.
 - `artifacts/trace-contract.md` and `templates/agent-run-log-template.yaml`: added trace expectations and fields for reference dimensions, comparison, and fidelity limits.
 - `PM_COPILOT.md`, `README.md`, and `README.en.md`: updated discoverability without creating a duplicate skill entry.
 - `evals/ui-from-image-reconstruction-eval.md`: added a regression case.
@@ -45,7 +45,7 @@ Integrated into the canonical UI Delivery capability:
 - Did not copy the external `compare_screenshots.py` helper because the source repo has no declared license and PM Copilot already has screenshot/diff validation through `scripts/validate_prototype_visual.py`.
 - Did not copy `AGENTS.md.template` or external registration metadata because PM Copilot already has platform-neutral adapters and agent contracts.
 - Did not import example images or repository branding because they are not needed for durable PM Copilot behavior.
-- Did not add a sibling `skills/ui-from-image/` folder because this overlaps the canonical `multi-platform-prototype` UI Delivery skill.
+- Did not add a sibling `skills/ui-from-image/` folder because this overlaps the canonical `multi-platform-ui-delivery` skill.
 
 ## Validation
 

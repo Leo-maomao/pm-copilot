@@ -23,16 +23,16 @@ Use this screenshot as the source of truth and recreate it as an annotated UI de
 ## Context Files
 
 - `PM_COPILOT.md`
-- `agents/prototype-agent.md`
-- `skills/multi-platform-prototype/SKILL.md`
-- `skills/multi-platform-prototype/references/image-reference-reconstruction.md`
-- `artifacts/prototype-contract.md`
-- `tools/prototype-tooling.md`
+- `agents/ui-delivery-agent.md`
+- `skills/multi-platform-ui-delivery/SKILL.md`
+- `skills/multi-platform-ui-delivery/references/image-reference-reconstruction.md`
+- `artifacts/ui-delivery-contract.md`
+- `tools/ui-delivery-tooling.md`
 - `artifacts/trace-contract.md`
 
 ## Expected Workflow
 
-- Load `skills/multi-platform-prototype/SKILL.md`.
+- Load `skills/multi-platform-ui-delivery/SKILL.md`.
 - Activate Image Reference Reconstruction Mode because the image is the visual source of truth.
 - Record reference image source, exact dimensions, intended viewport, role, and uncertainty before drafting UI.
 - Inventory all visible UI elements before implementation: layout, typography, controls, icons, assets, colors, spacing, scroll regions, and responsive risks.
@@ -45,7 +45,7 @@ Use this screenshot as the source of truth and recreate it as an annotated UI de
 
 ## Required Artifacts
 
-- UI deliverable in the selected source-backed or compatibility mode.
+- UI deliverable in the selected source-backed, source-extracted, or `portable_html` mode.
 - `run-log.yaml` entries for reference source/dimensions, visual inventory, asset handling, comparison method, mismatches fixed, and remaining limitations.
 - Visual validation evidence or a concrete skipped-tool reason.
 - Annotation markers and notes tied to the reconstructed UI elements.
@@ -56,7 +56,7 @@ Use this screenshot as the source of truth and recreate it as an annotated UI de
 - Claiming high, exact, 1:1, or pixel-level fidelity without same-viewport screenshot comparison evidence.
 - Omitting small icons, carets, status dots, chart details, or image crops from the reference.
 - Using CSS `zoom`, root transforms, screenshot backgrounds, or an inflated canvas to fake similarity.
-- Creating a duplicate image-to-UI skill instead of extending `multi-platform-prototype`.
+- Creating a duplicate image-to-UI skill instead of extending `multi-platform-ui-delivery`.
 
 ## Rubric Thresholds
 
@@ -76,13 +76,13 @@ Use this screenshot as the source of truth and recreate it as an annotated UI de
 
 ## Pass Criteria
 
-- Image-reference reconstruction is handled by `multi-platform-prototype`.
+- Image-reference reconstruction is handled by `multi-platform-ui-delivery`.
 - Reference image dimensions and viewport are recorded before implementation.
 - The UI deliverable matches the reference at the primary viewport before responsive refinements.
 - Fidelity claims match the available screenshot comparison evidence.
 - Missing assets are explicit and have one replacement path each.
 - `python3 scripts/validate_repo.py` passes after capability changes.
-- UI delivery runs pass `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --source-preview <preview-url-or-file>` when a source-backed browser target exists, or the compatibility HTML visual path when no host source is available.
+- UI delivery runs pass `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en> --source-preview <preview-url-or-file>` when a source-backed browser target exists, or the portable HTML visual path when no host source is available.
 
 ## Latest Result
 

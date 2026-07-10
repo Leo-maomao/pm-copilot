@@ -53,7 +53,7 @@ Read these files before running a serious PM delivery:
 
 Load additional files only when the task requires them:
 
-- UI delivery: `agents/prototype-agent.md`, `skills/multi-platform-prototype/SKILL.md`, `artifacts/prototype-contract.md`, `tools/prototype-tooling.md`
+- UI delivery: `agents/ui-delivery-agent.md`, `skills/multi-platform-ui-delivery/SKILL.md`, `artifacts/ui-delivery-contract.md`, `tools/ui-delivery-tooling.md`
 - Structured reference or document prototype: `skills/knowledge-ops/SKILL.md`, `artifacts/structured-catalog-contract.md`, `templates/structured-catalog-template.md`, `templates/document-prototype-template.html`
 - External tools or integrations: `agents/integration-governance-agent.md`, `skills/tool-vetting/SKILL.md`, `tools/external-tooling.md`, `tools/external-tool-catalog.json`
 - Product or operations data analysis: `agents/analytics-agent.md`, `skills/product-ops-analysis/SKILL.md`
@@ -77,6 +77,7 @@ Before drafting, PM Orchestrator must record or be ready to state:
 - delegation plan when specialist work should run independently
 - resume checkpoint for long, resumed, interrupted, or self-iteration work
 - termination condition: `complete`, `needs_input`, `blocked`, `degraded`, or `failed`
+- bounded Loop policy: type, iteration/tool/time/no-progress budgets, human checkpoint, iteration trace, and stop reason
 - expected final delivery: artifacts, blockers, validation result, accountable action closure, and memory candidates
 
 Use the loop in `agents/agent-operating-model.md`:
@@ -88,7 +89,7 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 Replan when evidence is insufficient, the user changes the goal, tools fail, artifacts conflict, or Review Agent finds High/Critical issues.
 Do not call a run complete just because it reached the last workflow state.
 Completion requires PM usefulness, evidence, validation status, blockers, an accountable critical path, and a termination condition.
-
+For full-loop, deep-agentic, research-intensive, or self-iteration work, record a bounded `loop_policy`, update `iteration_trace` after every cycle, and use `scripts/evaluate_agent_loop.py` to decide continue or stop. Never iterate to fill a quota.
 ## Context Source Rule
 
 Do not assume product context comes from a code repository.
@@ -117,7 +118,7 @@ English requests should produce English equivalents.
 File names, event names, property names, Mermaid node IDs, anchors, and other machine-readable identifiers stay ASCII.
 Do not copy English headings from repository templates into Chinese deliverables.
 
-For Chinese PRDs, the `多语言需求` pure text extraction block defaults to Chinese-only user-facing copy.
+For Chinese PRDs, any applicable copy/i18n pure text extraction block defaults to Chinese-only user-facing copy.
 Do not list bilingual copy unless the user explicitly asks for bilingual output.
 
 ## Clarification Gate
@@ -150,7 +151,7 @@ Default artifacts by task:
 
 - PRD delivery: `prd.md`, run-log when useful, UI delivery if UI is in scope
 - Implemented-feature PRD: `prd.md`, required `prd.html`, `run-log.yaml`
-- UI delivery: source-backed preview/delta when frontend source exists; source-extracted HTML when the user asks for independent handoff from a rendered source surface; compatibility `prototype-<platform>.html` only for no-source, explicit portable HTML, greenfield/redesign, or concrete source-rendering blockers
+- UI delivery: source-backed preview/delta when frontend source exists; source-extracted HTML when the user asks for independent handoff from a rendered source surface; `portable_html` as `prototype-<platform>.html` for no-source work, explicit portable HTML, greenfield/redesign, or concrete source-rendering blockers
 - Structured reference: `catalog.md`, `reference.md`, requested HTML, or document prototype; do not force PRD when the user explicitly says no PRD
 - Tracking plan: tracking table inside PRD or `tracking-plan.csv` when requested
 - Engineering handoff: optional `dev-tasks.yaml`
@@ -186,9 +187,9 @@ Avoid decorative cards, gradients, unusual backgrounds, nested scroll containers
 
 For repo-backed UI work, prefer source-backed preview/delta files and record them in `run-log.yaml`.
 When the PM needs a standalone handoff from a source-rendered surface, render the target region in the host project or approved current-repo implementation first, then use `scripts/extract_ui_region.py`.
-Use compatibility `prototype-<platform>.html` only when source-backed delivery is not appropriate or the user explicitly asks for portable/no-source HTML.
+Use portable `prototype-<platform>.html` only when source-backed delivery is not appropriate or the user explicitly asks for standalone/no-source HTML.
 
-For UI deliverables, record the active UI Delivery Agent (`agents/prototype-agent.md`, legacy name), `skills/multi-platform-prototype/SKILL.md`, style evidence, existing UI baseline when available, artifact mode, and visual validation.
+For UI deliverables, record the active UI Delivery Agent (`agents/ui-delivery-agent.md`), `skills/multi-platform-ui-delivery/SKILL.md`, style evidence, existing UI baseline when available, artifact mode, and visual validation.
 
 ## Validation Commands
 
@@ -198,7 +199,7 @@ Use these tools when their task applies:
 python3 scripts/preflight_tools.py
 python3 scripts/validate_outputs.py outputs/<run-id>
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>
-python3 scripts/validate_agent_trace.py outputs/<run-id> --strict
+python3 scripts/validate_agent_trace.py outputs/<run-id>
 python3 scripts/analyze_agent_run_evidence.py --json
 python3 scripts/setup_visual_validation.py
 python3 scripts/validate_prototype_visual.py outputs/<run-id>

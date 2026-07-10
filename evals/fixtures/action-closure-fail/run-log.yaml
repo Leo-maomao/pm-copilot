@@ -41,6 +41,43 @@ replan_triggers:
 
 review_loop:
   iterations: 1
+  critical_or_high_findings: []
+  finding_closures: []
+  unresolved_findings:
+    - Critical path owner remains unresolved.
+  final_recommendation: blocked
+
+loop_policy:
+  enabled: false
+  loop_type: direct
+  disabled_reason: Single-pass negative action-closure fixture.
+  max_iterations: 1
+  max_tool_calls: 1
+  max_elapsed_minutes: 5
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 1
+  stop_conditions: [blocked]
+  human_checkpoint:
+    required_after_iteration: 0
+    status: not_required
+    required_before_actions: []
+
+loop_state:
+  current_iteration: 0
+  tool_calls_used: 0
+  elapsed_minutes: 0
+  consecutive_no_progress: 0
+  last_progress_score: 0
+  success_criteria_met: false
+
+iteration_trace: []
+
+loop_summary:
+  iterations_completed: 0
+  stop_reason: not_applicable
+  final_progress_score: 0
+  unresolved_items:
+    - Engineering feasibility is not confirmed.
 
 memory_candidates:
   none: true

@@ -92,7 +92,7 @@
       "runtime": "Figma MCP / Dev Mode integration",
       "command_checks": [],
       "setup_hint": "Requires Figma account access and configured MCP client. Treat write-to-canvas capabilities as approval-gated.",
-      "fallback": "Use user-provided screenshots, exported assets, source-backed UI delivery when frontend source exists, or compatibility HTML only when fallback gates allow it.",
+      "fallback": "Use user-provided screenshots, exported assets, source-backed UI delivery when frontend source exists, or portable HTML only when fallback gates allow it.",
       "verification": {
         "last_checked": "2026-05-21",
         "candidate_status": "verified_candidate",

@@ -16,7 +16,7 @@ This plan captures reusable PM Copilot improvements found during an actual multi
 
 - In repo-backed UI work, read the host frontend source before recreating any UI.
 - If the user asks to implement the UI in the current repo first, the source implementation or isolated preview becomes the source of truth for extraction. The extracted HTML must record whether it came from production-oriented source changes, preview-only delta files, or another user-approved source branch.
-- When the user requests 1:1 parity, source-rendered preview/delta remains the default. A standalone HTML file can be produced for offline handoff only when the run records that it is a compatibility artifact, source-extracted handoff, or documented fallback and names the source/style evidence used.
+- When the user requests 1:1 parity, source-rendered preview/delta remains the default. A standalone HTML file can be produced for offline handoff only when the run records that it is a portable artifact, source-extracted handoff, or documented fallback and names the source/style evidence used.
 - Screenshot captures are visual evidence. They are not a prototype by themselves unless the resulting artifact has real layout, text, controls, state changes, and annotation interactions.
 - Keep generated runtime evidence under `outputs/<run-id>/`; do not promote host-specific nouns, routes, or screenshots into generic PM Copilot docs.
 
@@ -31,7 +31,7 @@ This plan captures reusable PM Copilot improvements found during an actual multi
 
 ## 4. Offline HTML Contract
 
-- `prototype-<platform>.html` remains the platform-specific compatibility HTML name.
+- `prototype-<platform>.html` remains the platform-specific portable HTML name.
 - `index.html` is also allowed when the user needs a self-contained offline folder where the folder name carries the requirement name and date.
 - Standalone HTML must not depend on remote scripts, fonts, CSS, or network images.
 - An offline artifact must be inspectable through direct browser open and pass HTML/script/visual smoke checks where tooling is available.

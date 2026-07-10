@@ -63,7 +63,7 @@ tidy -errors -quiet -utf8 templates/prototype-template.html
 - Human confirmation points are visible for privacy, payment, legal, finance, or compliance issues.
 - PRD, engineering handoff, and launch readiness are separated; launch blockers are not hidden behind engineering-ready status.
 - Reference or regulated content records source status, review owner, review status, disclaimer status, and launch impact.
-- UI deliverables state the source-backed or standalone compatibility boundary and include enough annotations for UI and engineering review.
+- UI deliverables state the source-backed or portable HTML boundary and include enough annotations for UI and engineering review.
 - UI visual validation has run with screenshot/diff evidence, or setup was attempted and the skipped reason is a concrete setup failure, environment restriction, or user-declined installation.
 - Tool registry, preflight, delivery orchestrator, and tool result contracts are updated together when tool behavior changes.
 - Review findings include artifact, evidence, owner, required-before phase, and status.

@@ -38,10 +38,10 @@ prd_preferences:
     - "Avoid long undifferentiated bullet lists"
     - "Keep launch blockers visible"
 
-prototype_preferences:
+ui_delivery_preferences:
   default_fidelity: "mid"
   prefer_existing_ui_delta: true
-  default_output: "source-backed UI preview/delta when frontend source exists; compatibility HTML only for no-source, explicit portable HTML, explicit redesign/greenfield, or concrete source-rendering blockers"
+  default_output: "source-backed UI preview/delta when frontend source exists; portable HTML only for no-source, explicit portable HTML, explicit redesign/greenfield, or concrete source-rendering blockers"
   annotation_style: "full-width product surface with numbered callouts, marker dialogs, short 注释/Notes floating control, and right-edge full-height current-state annotation panel"
   callout_rules:
     - "Use matching numbers on UI markers, dialogs, and annotation list notes"

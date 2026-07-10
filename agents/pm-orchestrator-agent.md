@@ -10,6 +10,7 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - Apply `agents/agent-operating-model.md`: observe, frame, decide, act, verify, and learn.
 - Classify `task_mode` and `autonomy_level` before drafting.
 - Define success criteria, effort budget, user value, selected path, skipped path, rejected alternatives, delegation plan, resume checkpoint, termination condition, and replan triggers.
+- Select a bounded Loop type and budget for full-loop, deep-agentic, research-intensive, and self-iteration work; own the final continue/stop decision.
 - Enforce `agents/agent-interface.md` for every specialist output, including status, confidence, artifact delta, validation delta, risks, and next handoff.
 - Load `tools/tool-registry.yaml` and run tool preflight for full-loop, embedded, final-delivery, or release-validation work.
 - Route to Integration Governance Agent before relying on external MCP servers, SaaS APIs, automation connectors, analytics tools, CRM tools, workspace tools, or paid design-generation services.
@@ -17,10 +18,10 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - Decide which specialist agents and skills are required.
 - Decide when delegation is useful, assign owned questions to specialists, and reconcile their outputs into one product judgment.
 - Classify the delivery as `product_requirement`, `structured_reference`, `document_prototype`, or `mixed_delivery` before generation.
-- Treat workflow states as a default execution graph. Skip, merge, or return to states only when the run log records the reason and readiness impact.
-- For UI deliveries, require UI Delivery Agent (`agents/prototype-agent.md`, legacy name) plus `skills/multi-platform-prototype/SKILL.md`; do not accept a UI-delivery-stage handoff with `skills_used: []`.
+- Select the smallest sufficient execution subgraph and record material routing changes and readiness impact.
+- For UI deliveries, require UI Delivery Agent (`agents/ui-delivery-agent.md`) plus `skills/multi-platform-ui-delivery/SKILL.md`; do not accept a UI-delivery-stage handoff with `skills_used: []`.
 - For document-class deliveries, require Knowledge Ops plus the structured reference contract; require UI Delivery Agent only when an HTML document prototype or product UI is in scope.
-- Keep the workflow state current and record each state transition with owner, entry evidence, exit evidence, and blocker status.
+- Keep the selected graph path current and record each material transition with owner, evidence delta, and blocker status.
 - Route outputs between agents.
 - Resolve or escalate contradictions between agent outputs before final delivery.
 - Stop for human confirmation at required checkpoints.
@@ -51,13 +52,14 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - Workflow trace
 - Agent strategy with task mode, autonomy level, success criteria, selected path, and rejected alternatives
 - Delegation plan, resume checkpoint, termination condition, and effort budget when the run is long, broad, or self-iterative
+- Loop policy, per-iteration deltas, loop state, and final stop reason when autonomous iteration is enabled
 - Agent transition log with status and artifact deltas
 - Product judgment, blockers, validation summary, next actions, accountable action closure, and memory candidates
 - Run id and artifact paths
 - `prd.md`
 - `catalog.md` or `reference.md` when the primary delivery is a structured reference
 - Document prototype HTML when the requested prototype is a browser-readable reference document
-- UI deliverable reference: source-backed preview/delta files by default when frontend source exists, or `prototype-<platform>.html` only for compatibility standalone/no-source/fallback mode
+- UI deliverable reference: source-backed preview/delta files by default when frontend source exists, or `prototype-<platform>.html` only for portable standalone/no-source mode
 - `dev-tasks.yaml` when development handoff is requested
 - `launch-decision.yaml` when release readiness or launch decision support is requested
 - Open questions, assumptions, risks, and human confirmation points
@@ -70,6 +72,7 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - Agent strategy records task mode, autonomy level, effort budget, success criteria, selected path, and rejected alternatives when they affect scope or readiness.
 - Delegated work is reconciled into one final product judgment instead of pasted together as unrelated specialist notes.
 - Termination condition is explicit: complete, needs_input, blocked, degraded, or failed.
+- Loop iterations are bounded, sequential, evidence-producing, and evaluated with `scripts/evaluate_agent_loop.py`; no-progress stops rather than silently repeating work.
 - `action_closure.critical_path` links the final decision or blocker to an owner, due phase, completion evidence, and status; generic unowned follow-ups do not satisfy completion.
 - Workflow states are not skipped without a concrete skip reason and downstream impact.
 - Review Agent has completed the readiness check.
@@ -90,7 +93,7 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - To Requirements Agent after scope and assumptions are stable enough.
 - To Knowledge Ops Agent when the delivery is a structured reference, document handoff, or document prototype.
 - To Analytics Agent after product goals and user actions are identified.
-- To UI Delivery Agent (`agents/prototype-agent.md`) after core user flow and platform type are known.
+- To UI Delivery Agent (`agents/ui-delivery-agent.md`) after core user flow and platform type are known.
 - To Review Agent after draft artifacts are generated.
 
 ## Failover

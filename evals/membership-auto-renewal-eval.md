@@ -36,7 +36,7 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 ## Required Artifacts
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prototype-h5.html` as compatibility HTML because this brief-only case has no frontend source
+- `outputs/<run-id>/prototype-h5.html` as portable HTML because this brief-only case has no frontend source
 - `outputs/<run-id>/run-log.yaml` when a persistent trace is useful
 - Optional split source or export files only when useful
 
@@ -70,7 +70,7 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 - Tracking plan avoids raw payment data.
 - Tracking plan uses complete event and property tables.
 - User flow renders as a standard Mermaid flowchart.
-- H5 UI deliverable is local, clickable, annotated, and records compatibility-HTML boundary metadata when delivered as compatibility HTML without placing visible not-production labels in the product surface.
+- H5 UI deliverable is local, clickable, annotated, and records compatibility-HTML boundary metadata when delivered as portable HTML without placing visible not-production labels in the product surface.
 - Delivery review findings block launch until legal copy, baseline metrics, and payment failure categories are confirmed.
 - PRD status is not `Ready for engineering` while required engineering-blocking billing or payment confirmations remain unresolved.
 - PRD status, engineering handoff status, and launch status are separate.
@@ -81,5 +81,5 @@ We want to optimize membership auto-renewal because renewal conversion looks low
 | Field | Value |
 |---|---|
 | Run ID | membership-auto-renewal-20260526-1804 |
-| Status | Passed |
-| Notes | Non-fixture brief-only run generated PRD, run-log, and compatibility H5 UI delivery. `python3 scripts/run_delivery_checks.py outputs/membership-auto-renewal-20260526-1804 --language en` passed with visual evidence. Engineering and launch blockers remain visible for legal copy, subscription/payment contract, and analytics taxonomy confirmation. |
+| Status | Historical baseline (pre-4.0) |
+| Notes | Retained as high-risk product evidence only. Current behavior should stop at `stop_needs_input` when billing, cancellation, and legal rules are missing; the old run log, compatibility terminology, and PRD structure are intentionally rejected. |

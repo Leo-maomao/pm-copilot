@@ -7,7 +7,7 @@ It is intentionally gated. PM Copilot may generate tasks and a launch recommenda
 ## Inputs
 
 - `outputs/<run-id>/prd.md`
-- UI deliverable reference, when UI is in scope: source-backed preview/delta files recorded in `run-log.yaml`, or `outputs/<run-id>/prototype-<platform>.html` only for compatibility HTML mode
+- UI deliverable reference, when UI is in scope: source-backed preview/delta files recorded in `run-log.yaml`, or `outputs/<run-id>/prototype-<platform>.html` only for portable HTML mode
 - `outputs/<run-id>/run-log.yaml`
 - Validation results, including visual validation evidence or the setup-attempted skipped reason
 - User approvals or review records, when provided

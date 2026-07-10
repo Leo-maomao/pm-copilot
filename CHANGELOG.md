@@ -6,6 +6,47 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.0.0] - 2026-07-10
+
+### Added
+
+- Added a model-independent bounded Agent Loop with `direct`, `execution`, `evaluator_optimizer`, `research`, and `self_improvement` strategies.
+- Added Loop policy, runtime state, per-iteration evidence trace, stop summary, hard iteration/tool/time budgets, no-progress detection, and human checkpoints to the Agent run log.
+- Added `scripts/evaluate_agent_loop.py` as an executable continue/stop controller and registered it as `control.agent_loop`.
+- Added `scripts/test_agent_loop.py` and CI coverage for decision priority, every budget class, no-progress, terminal states, continue behavior, and invalid policy rejection.
+- Added strict success, needs-input, blocked, budget, no-progress, human-checkpoint, and false-progress regression fixtures.
+- Added bounded Agent Loop evaluation coverage and deterministic runtime tests.
+- Added deterministic reflection-and-learning regressions for missing review recommendations, unresolved severe findings, unsafe sensitive-memory writes, and self-improvement without regression evidence.
+
+### Changed
+
+- Reframed workflow as the execution graph and Loop as the bounded controller that decides whether another evidence-producing pass is useful.
+- Expanded PM Orchestrator and Review Agent responsibilities so the reviewer evaluates usefulness and progress while the orchestrator owns the final continue/stop judgment.
+- Extended repository, delivery, scorecard, and runtime-evidence validation to measure Loop trace completeness and reject contradictory or nonsequential iteration claims.
+- Made due human checkpoints take precedence over autonomous success so the Agent cannot approve its own gated action.
+- Replaced the numbered S0-S12 workflow with a semantic, goal-routed execution graph.
+- Renamed `agents/prototype-agent.md` to `agents/ui-delivery-agent.md` and unified UI runtime fields around `ui_delivery_preferences`, `ui_delivery_trace`, `ui_delta`, `representation`, and `ui_delivery` scoring.
+- Renamed the active UI capability entry points to `artifacts/ui-delivery-contract.md` and `skills/multi-platform-ui-delivery/` so Agent routing no longer depends on obsolete prototype-generation terminology.
+- Promoted standalone HTML from a compatibility fallback concept to a first-class `portable_html` delivery mode with explicit fidelity boundaries.
+- Replaced the 11/14-section PRD templates with a decision-first 8/10-section structure that puts recommendation, confidence, scope, blockers, readiness, and next checkpoint before document administration.
+- Made tracking, copy/i18n, UI handoff, test guidance, and UI-state requirements applicability-aware instead of forcing every PRD to emit the same tables and states.
+- Rebuilt both README demo images as 4.0 Agent run snapshots showing product judgment, bounded Loop evidence, stop reasons, and resume conditions.
+- Made review findings operationally closed: every Critical/High finding now requires a verified fix, an owned accepted risk, or a replan, and final recommendations must agree with unresolved findings.
+- Made memory learning source-backed and sensitivity-aware, and made self-improvement runs prove their failure source, generalization boundary, fix surface, validation commands, and deterministic regression update.
+
+### Removed
+
+- Removed `workflow/package-workflow.md` and the version-specific migration documents from the active product surface.
+- Removed compact legacy run-id support, permissive trace skipping, `--allow-legacy-run-id`, and `--strict-agent-trace`.
+- Removed optional strict modes from Agent trace and Loop validation; complete runtime evidence is now mandatory for every final run.
+- Removed legacy UI trace aliases such as `prototype_preferences`, `isolated_ui_prototype`, `prototype_delta`, `prototype_representation`, artifact `prototype`, and prototype quality-score keys.
+- Removed the obsolete `self_contained_html_from_host_code` mode and the old prototype contract/skill paths; current runs must use `portable_html` and the UI Delivery entry points.
+- Removed the duplicate top-level requirement-list pattern and retired pre-4.0 outputs as current demo evidence; historical runs are now labeled analysis baselines.
+
+### Validation
+
+- Release validation covers repository structure, Python compilation, mandatory Agent trace fixtures, every Loop stop branch, reflection/learning safety branches, decision-first PRD positive/negative branches, template HTML rendering, expected failure fixtures, obsolete-runtime guards, scorecard, historical evidence analysis, skill cleanup, and whitespace checks.
+
 ## [3.0.1] - 2026-07-10
 
 ### Added

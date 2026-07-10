@@ -297,7 +297,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "available" if script_available("scripts/validate_agent_trace.py") else "unavailable",
             "scripts/validate_agent_trace.py",
             True,
-            "python3 scripts/validate_agent_trace.py outputs/<run-id> --strict",
+            "python3 scripts/validate_agent_trace.py outputs/<run-id>",
+        ),
+        capability(
+            "control.agent_loop",
+            "available" if script_available("scripts/evaluate_agent_loop.py") else "unavailable",
+            "scripts/evaluate_agent_loop.py",
+            True,
+            "python3 scripts/evaluate_agent_loop.py outputs/<run-id>",
         ),
         capability(
             "analysis.agent_runs",
@@ -344,7 +351,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if visual_status == "available":
         recommended.append("python3 scripts/validate_prototype_visual.py outputs/<run-id>")
         recommended.append("python3 scripts/validate_ui_preview.py <preview-url> --run-folder outputs/<run-id>")
-    recommended.append("python3 scripts/validate_agent_trace.py outputs/<run-id> --strict")
+    recommended.append("python3 scripts/validate_agent_trace.py outputs/<run-id>")
+    recommended.append("python3 scripts/evaluate_agent_loop.py outputs/<run-id>")
     recommended.append("python3 scripts/agent_improvement_scorecard.py")
     recommended.append("python3 scripts/analyze_agent_run_evidence.py --json")
 

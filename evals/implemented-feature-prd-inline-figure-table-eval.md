@@ -63,7 +63,7 @@ The feature is already implemented. Reconstruct the current branch into a Chines
 
 ## Pass Criteria
 
-- `prd.md` has exactly one H1 and follows the fixed numbered implemented-feature structure.
+- `prd.md` has exactly one H1 and follows the decision-first numbered implemented-feature structure.
 - Every missing screenshot marker uses either the blockquote form in prose or the single-cell form inside a table: `占位图：<file>.png<br>用途：...`.
 - Requirement-detail field/value tables do not have blank `图示`/`截图` rows when an image or placeholder exists for that requirement.
 - Images and placeholders do not appear as paragraphs or blockquotes immediately after a field/value requirement table.

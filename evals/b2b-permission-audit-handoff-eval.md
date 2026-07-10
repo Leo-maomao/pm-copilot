@@ -68,5 +68,5 @@ Our B2B workspace admins need to bulk update member roles before an enterprise a
 | Field | Value |
 |---|---|
 | Run ID | b2b-permission-audit-handoff-20260527-1120 |
-| Status | Passed |
-| Notes | Non-fixture handoff run generated PRD, run-log, dev tasks, and launch decision. `python3 scripts/run_delivery_checks.py outputs/b2b-permission-audit-handoff-20260527-1120 --language en` passed. Launch remains blocked pending security/compliance approval. |
+| Status | Historical baseline (pre-4.0) |
+| Notes | Retained as analysis evidence from the 2.x runtime. Its old run log and PRD structure are intentionally rejected by current Agent trace, Loop, and decision-first PRD validation. |

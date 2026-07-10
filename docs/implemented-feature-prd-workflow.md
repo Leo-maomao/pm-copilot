@@ -39,28 +39,22 @@ The PRD should be complete enough for engineering review except for intentionall
 
 The H1 must be one concise requirement sentence plus the requirement date, for example `# 优化团队权限设置体验 - 2026-06-29`. Do not use a loose topic-list title plus `PRD`.
 
-Use numbered top-level sections in this order:
+Use the decision-first numbered structure:
 
-1. 文档信息
-2. 版本记录
-3. 需求背景
-4. 需求目标
-5. 需求调研
-6. 需求列表
-7. 需求详情
-8. 埋点需求
-9. 多语言需求
-10. 验收标准
-11. 测试建议
-12. 代码实现说明
-13. 代码位置
-14. 验证结果
+1. 产品决策摘要
+2. 背景与证据
+3. 目标与成功标准
+4. 范围与非目标
+5. 需求详情
+6. 交付设计
+7. 风险、决策与待确认
+8. 验收与就绪度
+9. 实现证据与覆盖映射
+10. 验证结果
 
-Put scope, non-goals, information architecture, parameters/rules, states/exceptions, permission boundaries, data/API dependencies, frontend integration notes, risks/dependencies, and implementation evidence inside the relevant numbered sections rather than adding old unnumbered top-level appendices.
+The first screen must state the reconstructed product definition, implementation-intent alignment, blockers, and next checkpoint. Implementation evidence belongs next to the product behavior it proves, with sections 9-10 providing the complete auditable map and command results.
 
-Because this workflow is only for already implemented features, the code-related sections 12-14 are required here. Planned/non-implemented PRDs must use the default PRD template and omit those sections.
-
-If a required top-level section has no applicable content, keep the section and state `不涉及：原因` or the localized equivalent. Optional subsections, diagrams, image blocks, API/risk matrices, and evidence rows with no real content should be removed, not left empty.
+Remove optional subsections, diagrams, image blocks, and rows that have no real content. Do not preserve empty tables or artificial `不涉及` text solely to satisfy the template.
 
 Flow diagrams are optional. Add them only for requirements with complex user paths, cross-system behavior, state transitions, or branching logic, and place each Mermaid `flowchart` inside the specific requirement detail it explains. Do not create fixed global `用户流程图` and `功能流程图` subsections for every PRD.
 

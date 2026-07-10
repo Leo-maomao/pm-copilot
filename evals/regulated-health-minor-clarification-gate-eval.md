@@ -58,5 +58,5 @@
 | Field | Value |
 |---|---|
 | Run ID | regulated-health-minor-clarification-20260526-1906 |
-| Status | Passed |
-| Notes | Pre-clarification run created only `run-log.yaml` and `python3 scripts/run_delivery_checks.py outputs/regulated-health-minor-clarification-20260526-1906 --pre-clarification` passed. |
+| Status | Historical baseline (pre-4.0) |
+| Notes | Retained as evidence for stop-before-generation behavior. Current runs must also satisfy mandatory Agent trace and Loop state validation. |

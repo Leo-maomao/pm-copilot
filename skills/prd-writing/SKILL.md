@@ -1,6 +1,6 @@
 ---
 name: prd-writing
-description: Use when generating or improving PRDs with background, goals, research, requirements, tracking, i18n, acceptance, and code evidence.
+description: Use when generating decision-first PRDs with evidence, scope, requirements, risks, readiness, and implementation traceability.
 ---
 
 # PRD Writing
@@ -16,23 +16,23 @@ Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact t
 3. For implemented-feature PRD delivery, inspect branch/diff evidence before drafting. Record changed files, UI surfaces, business logic, data operations, permissions, screenshots/assets, tests, and unverified intent; then reconstruct the requirement from observed behavior instead of inventing product scope.
 4. Localize human-facing headings and prose to the user's language, while keeping machine-readable IDs, event names, property names, and file names ASCII.
 5. Make the H1 a one-sentence requirement plus date, for example `# 优化团队权限设置体验 - 2026-06-29`. Do not use a loose topic-list title plus `PRD`.
-6. Use the fixed numbered top-level structure: `文档信息`, `版本记录`, `需求背景`, `需求目标`, `需求调研`, `需求列表`, `需求详情`, `埋点需求`, `多语言需求`, `验收标准`, and `测试建议`.
-7. For implemented-feature PRD delivery, append `代码实现说明`, `代码位置`, and `验证结果`. Omit these code-related top-level sections when no implementation has been inspected.
-8. Add separate PRD status, engineering handoff status, and launch status inside `文档信息`.
-9. Write concise background and research/reference findings. Include user/business research, scenarios, current-product research, existing implementation findings, historical PRD findings, screenshots, and technical solution references when available.
+6. Use the decision-first structure: `产品决策摘要`, `背景与证据`, `目标与成功标准`, `范围与非目标`, `需求详情`, `交付设计`, `风险、决策与待确认`, and `验收与就绪度`.
+7. For implemented-feature PRD delivery, append `实现证据与覆盖映射` and `验证结果`. Omit these sections when no implementation has been inspected.
+8. Put the recommendation, confidence, separate PRD/engineering/launch states, key blocker, and next checkpoint on the first rendered screen.
+9. Write concise background and evidence findings. Separate user/business evidence, current-product evidence, external evidence, assumptions, and unknowns.
 10. Mark source date, confidence, and limitation for external or time-sensitive facts.
 11. Define project goals and metrics.
-12. Separate confirmed MVP scope, optional or conditional scope, future scope, and non-goals inside `需求列表` or `需求详情` rather than creating an unnumbered scope appendix.
-13. Create a requirement list with stable IDs, but keep it scan-level only.
-14. Write requirement details for each functional item, including function, scenario, entry/trigger, content requirements, business logic, interaction rules, data rules, permission rules, edge states, tracking links, and acceptance links where relevant.
+12. Separate confirmed MVP scope, optional or conditional scope, future scope, and non-goals in `范围与非目标`.
+13. Use `需求详情` as the single behavioral source of truth; do not duplicate it with a scan-only top-level requirement list.
+14. Write requirement details for each coherent product capability, including product judgment, scenario, entry/trigger, business logic, interaction, data, permissions, recovery states, dependencies, and goal/acceptance links where relevant.
 15. Place screenshots or image placeholders inline in the related requirement, flow, table row, or evidence position. Do not create a separate image list by default. If a requirement detail is a two-column field/value table, put the screenshot or placeholder in the same `Figures`/`图示` row value cell instead of placing it below the table.
 16. For frontend page, UI component, visual-state, or interactive-control changes, include UI specifications in the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
 17. Add flow diagrams only when they improve reviewability for a specific requirement. Place each Mermaid diagram inside that requirement's detail subsection, not as fixed global `用户流程图` and `功能流程图` sections.
-18. Add tracking plan event and property tables inside `埋点需求` by default.
-19. Add newly added or changed UI copy as a pure-text extraction block in `多语言需求`, or explicitly state that no new UI copy is involved. Include only brand-new copy with no existing i18n key. For repo-backed PRDs, search available translation sources such as `i18n-data/`, locale JSON files, and local i18n helpers before adding each line; if a key already exists, keep that copy out of the pure-text block and record the key reuse only in the usage mapping table. Use only the current delivery language in that pure-text block unless the user explicitly asks for bilingual output.
-20. For implemented-feature PRDs, add a code implementation section with risks/dependencies and implementation evidence that links branch evidence to requirement IDs and exposes partial/unverified/conflicting behavior.
-21. Add code locations and concrete validation results when implementation evidence exists.
-22. For required top-level sections with no applicable content, write one explicit localized `Not applicable: <reason>` line or row. Remove optional subsections, diagrams, tables, and image blocks that have no real content; never ship empty placeholders or `待补充`.
+18. Add tracking only when measurement, experiment evaluation, funnel behavior, or operational monitoring is relevant; place it in the applicable `交付设计` subsection.
+19. Add new UI copy as a pure-text extraction block only when new copy without an existing i18n key exists. Search repo translation sources before adding it; keep existing-key copy only in the usage mapping.
+20. Make key decisions, the strongest rejected alternative, risks, owners, required-before phases, and open-question defaults explicit.
+21. For implemented-feature PRDs, map implementation evidence to requirement IDs and expose partial, unverified, or conflicting behavior.
+22. Remove optional subsections, diagrams, tables, and image blocks that have no real content; never ship empty placeholders, artificial `Not applicable` filler, or `待补充`.
 
 ## Output
 

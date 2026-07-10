@@ -1,0 +1,115 @@
+agent_strategy:
+  task_mode: product_review
+  autonomy_level: full-loop
+  goal: Improve a launch review.
+  success_criteria:
+    - Review quality improves.
+  effort_budget: standard-loop
+  selected_path:
+    - Repeat review until iteration count is reached.
+  final_delivery_contract:
+    judgment_required: true
+
+delegation_plan:
+  active: false
+resume_checkpoint:
+  last_reliable_state: review
+termination_condition:
+  status: complete
+  evidence: Three iterations were completed.
+  pm_usefulness: The document was rewritten.
+  remaining_limitation: none
+tool_plan:
+  required_tools:
+    - tool_id: control.agent_loop
+      purpose: Evaluate Loop.
+decision_record:
+  - id: D1
+    decision: Continue rewriting.
+    owner: PM Orchestrator
+    confidence: low
+    evidence:
+      - Iteration count remains.
+replan_triggers:
+  - trigger: other
+    observed_at_state: review
+    action_taken: Repeat the same review.
+review_loop:
+  iterations: 2
+  critical_or_high_findings: []
+  finding_closures: []
+  unresolved_findings: []
+  final_recommendation: revise
+loop_policy:
+  enabled: true
+  loop_type: evaluator_optimizer
+  disabled_reason: ""
+  max_iterations: 2
+  max_tool_calls: 4
+  max_elapsed_minutes: 20
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 5
+  stop_conditions: [success_criteria_met, no_progress]
+  human_checkpoint:
+    required_after_iteration: 0
+    status: not_required
+    required_before_actions: []
+loop_state:
+  current_iteration: 2
+  tool_calls_used: 4
+  elapsed_minutes: 20
+  consecutive_no_progress: 2
+  last_progress_score: 40
+  success_criteria_met: true
+iteration_trace:
+  - iteration: 1
+    hypothesis: Rewording will improve quality.
+    planned_actions: [Rewrite review]
+    observations: [Same finding remains]
+    evidence_delta: []
+    artifact_delta: []
+    decision_delta: []
+    validation_delta: []
+    review_findings: [Same High finding]
+    progress_score_before: 40
+    progress_score_after: 40
+    outcome: progress
+    next_decision: continue
+  - iteration: 3
+    hypothesis: Repeat again.
+    planned_actions: [Rewrite review]
+    observations: [Same finding remains]
+    evidence_delta: []
+    artifact_delta: []
+    decision_delta: []
+    validation_delta: []
+    review_findings: [Same High finding]
+    progress_score_before: 30
+    progress_score_after: 40
+    outcome: no_progress
+    next_decision: continue
+loop_summary:
+  iterations_completed: 3
+  stop_reason: success
+  final_progress_score: 60
+  unresolved_items: []
+memory_candidates:
+  none: true
+next_actions:
+  product: [Continue later]
+action_closure:
+  critical_path:
+    - action_id: A1
+      action: Continue later.
+      owner: PM
+      due_phase: before_review
+      source_decision_ids: [D1]
+      source_blocker_ids: []
+      completion_evidence: Review is changed.
+      status: ready
+readiness:
+  prd_status: ready for review
+  engineering_handoff_status: not applicable
+  launch_status: not applicable
+  engineering_blockers: []
+  launch_blockers: []

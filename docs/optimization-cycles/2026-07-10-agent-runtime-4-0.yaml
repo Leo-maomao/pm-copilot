@@ -1,0 +1,120 @@
+date: 2026-07-10
+version: 4.0.0
+source:
+  type: user_requested_system_upgrade
+  summary: The user asked whether the current Agent Loop trend could strengthen PM Copilot and required a complete, non-superficial optimization.
+decision:
+  - Add Loop as a bounded controller around the execution graph, not as repeated workflow execution.
+  - Keep runtime behavior model-independent so external users are not coupled to a provider or model version.
+  - Remove compatibility branches and obsolete names when they weaken Agent clarity or allow incomplete evidence.
+generalized_failure:
+  - A workflow-first run can complete states without proving that another iteration is useful.
+  - An unbounded loop can repeat tools or rewrite prose while claiming progress.
+  - A successful validation result can be confused with approval when a human checkpoint is still due.
+  - Trace summaries can contradict iteration history unless decisions, scores, budgets, and stop reasons are machine checked.
+  - Numbered workflow states, permissive legacy traces, aliases, and redirect files make the Agent reason about repository history instead of the user goal.
+  - Review findings can be listed without proving whether each severe issue was fixed, accepted by an owner, or caused a replan.
+  - Memory candidates and self-improvement claims can look complete while lacking sensitivity controls, failure provenance, generalization boundaries, or regression evidence.
+fix_surface:
+  - PM_COPILOT.md
+  - agents/
+  - workflow/
+  - artifacts/
+  - prompts/
+  - templates/
+  - tools/
+  - scripts/
+  - evals/
+  - docs/
+  - README.md
+  - README.en.md
+changes:
+  - Added direct, execution, evaluator_optimizer, research, and self_improvement Loop types.
+  - Added hard iteration, tool-call, elapsed-time, and consecutive no-progress budgets.
+  - Added loop policy, state, iteration trace, summary, evidence deltas, progress scores, and checkpoint fields.
+  - Added an executable Loop controller with success, needs-input, blocked, budget, no-progress, human-checkpoint, and failure decisions.
+  - Added deterministic controller regression tests and CI coverage for continue, all stop branches, every budget class, checkpoint priority, and invalid budgets.
+  - Added strict trace validation for sequence, progress evidence, score continuity, budget ceilings, checkpoint timing, termination alignment, and final-decision alignment.
+  - Made due pending or declined checkpoints take precedence over autonomous success.
+  - Added passing, false-progress, budget, no-progress, needs-input, blocked, and human-checkpoint fixtures.
+  - Updated scorecard, runtime evidence analysis, tool registry, preflight, delivery checks, migration guidance, and external design references.
+  - Replaced numbered workflow states with semantic graph nodes and task-specific subgraphs.
+  - Removed migration redirects, legacy run-id support, optional strict switches, and silent trace skipping.
+  - Renamed Prototype Agent to UI Delivery Agent and removed legacy UI trace aliases.
+  - Renamed the active UI contract and skill to ui-delivery-contract and multi-platform-ui-delivery.
+  - Replaced self_contained_html_from_host_code with the single portable_html mode and portable_html_review_artifact boundary.
+  - Replaced fixed 11/14-section PRDs with decision-first 8/10-section planned and implemented-feature structures.
+  - Moved recommendation, confidence, blockers, readiness, and next checkpoint to the first PRD screen; removed the duplicate requirement-list chapter.
+  - Made tracking, i18n, test guidance, and UI-state validation conditional on product applicability.
+  - Rebuilt README demos around Agent judgment, bounded Loop progress, stop reasons, and resume conditions; relabeled pre-4.0 outputs as historical baselines.
+  - Added deterministic decision-first PRD positive and negative regression coverage in CI.
+  - Added repository guards that fail if obsolete runtime paths or permissive compatibility switches return.
+  - Added machine-verifiable severe-finding closure, final review recommendation, and unresolved-finding alignment.
+  - Added source, confidence, sensitivity, and safe-write gates for memory candidates.
+  - Added failure provenance, generalized defect, fix surface, generalization boundary, regression update, validation command, and version-impact gates for self-improvement runs.
+  - Added deterministic reflection-and-learning trace tests and CI coverage.
+validation:
+  planned:
+    - python3 scripts/preflight_tools.py --json
+    - python3 scripts/validate_repo.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
+    - python3 scripts/agent_improvement_scorecard.py --json --report outputs/improvement-scorecard.json
+    - python3 scripts/analyze_agent_run_evidence.py --json --report outputs/agent-run-evidence-report.json
+    - run positive and expected-failure Agent Loop fixtures
+    - run every Loop controller stop branch
+    - python3 scripts/test_agent_loop.py
+    - python3 scripts/test_prd_contract.py
+    - python3 scripts/test_reflection_learning_trace.py
+    - python3 scripts/run_delivery_checks.py <temporary-copy-of-agent-runtime-delivery-pass> --pre-clarification --skip-repo
+    - python3 skills/skill-cleaner/scripts/skill_cleaner.py --months 3 --no-logs
+    - git diff --check
+  completed:
+    - command: python3 scripts/preflight_tools.py --json
+      status: passed
+    - command: python3 scripts/validate_repo.py
+      status: passed
+    - command: PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
+      status: passed
+    - command: python3 scripts/agent_improvement_scorecard.py --json --report outputs/improvement-scorecard.json
+      status: passed
+      note: Eval portfolio and bounded Loop coverage recorded.
+    - command: python3 scripts/analyze_agent_run_evidence.py --json --report outputs/agent-run-evidence-report.json
+      status: passed
+      note: 20 historical runs retained as a pre-3.1 baseline without synthetic Loop backfill.
+    - command: python3 scripts/test_agent_loop.py
+      status: passed
+      note: Continue, all terminal branches, every budget class, checkpoint priority, no-progress, and invalid budget rejection passed.
+    - command: python3 scripts/test_prd_contract.py
+      status: passed
+      note: Decision-first positive fixture passed; missing confidence, next checkpoint, requirement details, and acceptance trace were rejected.
+    - command: python3 scripts/test_reflection_learning_trace.py
+      status: passed
+      note: Valid reflection and self-improvement traces passed; missing recommendation, unresolved severe findings, unsafe sensitive memory, and missing regression evidence were rejected.
+    - command: python3 scripts/run_delivery_checks.py <temporary-copy-of-agent-runtime-delivery-pass> --pre-clarification --skip-repo
+      status: passed
+      note: Output, Agent trace, and Loop validation were all required by default.
+    - command: python3 scripts/validate_agent_trace.py evals/fixtures/bounded-loop-pass
+      status: passed
+    - command: python3 scripts/validate_agent_trace.py evals/fixtures/loop-human-checkpoint
+      status: passed
+    - command: python3 scripts/validate_agent_trace.py evals/fixtures/bounded-loop-fail
+      status: expected_failure
+      note: False progress, score inconsistency, nonsequential iteration, and state-summary contradictions were rejected.
+    - command: python3 scripts/validate_agent_trace.py evals/fixtures/action-closure-fail
+      status: expected_failure
+      note: Existing accountable action-closure regression remains active.
+    - command: python3 skills/skill-cleaner/scripts/skill_cleaner.py --months 3 --no-logs
+      status: passed
+      note: Repository skills remain within the configured budget; user-level skill copies were not modified.
+    - command: python3 scripts/validate_agent_trace.py outputs/membership-auto-renewal-20260526-1804
+      status: expected_failure
+      note: Historical pre-4.0 run logs are analysis evidence, not valid current delivery traces.
+    - command: git diff --check
+      status: passed
+release:
+  commit_status: pending
+  release_commit: pending
+  remote_push_status: pending
+  remote_branch: origin/main
+  embedded_copy_sync_status: pending
+  embedded_copy_sync_targets: []

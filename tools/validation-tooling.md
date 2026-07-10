@@ -17,7 +17,7 @@ python3 scripts/validate_outputs.py outputs/<run-id> --language zh
 python3 scripts/validate_outputs.py outputs/<run-id> --language en
 ```
 
-New run folders must use `requirement-slug-YYYY-MM-DD`. The `--allow-legacy-run-id` validator option exists only for retained local 2.x evidence folders that use compact timestamp names such as `requirement-slug-YYYYMMDD-HHMM`; `run_delivery_checks.py` applies that compatibility automatically for those historical evidence folders.
+Run folders must use `requirement-slug-YYYY-MM-DD` with an optional numeric collision suffix.
 
 Run the delivery orchestrator before final delivery or iteration scoring:
 
@@ -25,11 +25,23 @@ Run the delivery orchestrator before final delivery or iteration scoring:
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
 ```
 
-Run strict Agent trace validation for PM Copilot 3.0 full-loop, self-iteration, or eval runs:
+Run strict Agent trace validation for PM Copilot full-loop, self-iteration, or eval runs:
 
 ```bash
-python3 scripts/validate_agent_trace.py outputs/<run-id> --strict
-python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh --strict-agent-trace
+python3 scripts/validate_agent_trace.py outputs/<run-id>
+python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
+```
+
+Evaluate the bounded Loop decision for PM Copilot runs:
+
+```bash
+python3 scripts/evaluate_agent_loop.py outputs/<run-id>
+```
+
+Run deterministic Loop controller regressions after changing parsing, budgets, or decision priority:
+
+```bash
+python3 scripts/test_agent_loop.py
 ```
 
 Analyze local historical PM Copilot outputs before self-iteration:
@@ -49,7 +61,9 @@ python3 scripts/render_prd_html.py outputs/<run-id>
 - Run `python3 scripts/preflight_tools.py` before full-loop iteration, embedded host evaluation, or release checks.
 - Use `python3 scripts/preflight_tools.py --strict` before release validation so required `setup_required`, `unavailable`, or `skipped` capabilities block the release check.
 - Run `python3 scripts/run_delivery_checks.py` for final run-folder validation whenever a run folder exists.
-- Run `python3 scripts/validate_agent_trace.py --strict` when a 3.0 run claims full-loop Agent delivery, self-iteration, or eval success.
+- Every final run must pass `python3 scripts/validate_agent_trace.py`; incomplete runtime traces are invalid.
+- Every final run must pass `python3 scripts/evaluate_agent_loop.py`. Stop when it returns budget, no-progress, human-checkpoint, input, blocker, or failure decisions.
+- Run `python3 scripts/test_agent_loop.py` before release when Loop control code changes.
 - Use `python3 scripts/analyze_agent_run_evidence.py` when self-iteration should learn from local embedded PM Copilot outputs.
 - For implemented-feature PRD folders, validate that outputs live directly under `outputs/<run-id>`, PRD Markdown has one top-level title, `prd.html` is a document rendering, images or `占位图` blocks remain inline, no detached screenshot list exists, and screenshot names use content plus concrete state such as `文件上传-上传中.png`.
 - Do not leave validation placeholders after commands run.
@@ -57,15 +71,15 @@ python3 scripts/render_prd_html.py outputs/<run-id>
 
 ## UI Visual Checks
 
-For compatibility HTML UI deliverables, the delivery orchestrator runs:
+For portable HTML UI deliverables, the delivery orchestrator runs:
 
 ```bash
 python3 scripts/validate_prototype_visual.py outputs/<run-id>
 ```
 
-The visual validator checks every supported compatibility HTML file in the run folder, including offline `index.html` entries, unless `--prototype <file>` is used to isolate one platform. It captures screenshots and records DOM smoke evidence for each viewport: body text length, visible interactive controls, horizontal overflow, console errors, page errors, access-state leakage from unauthenticated account triggers, editable `annotationConfig.notes`, body-only marker popovers, side-panel outside-click closing, and annotation overflow. Source-backed UI previews should run through the host dev/preview/Storybook/simulator path, then use `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` when a browser target is available; record equivalent simulator evidence under `visual_validation` when it is not. For source-extracted HTML handoffs, run `python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>`, which writes source-region and extracted-region screenshots plus a `region_diff` comparison. The target may be an isolated preview or a user-approved implementation already running in the host repository. Add repeated `--interaction` arguments for dynamic behavior that matters; the extraction report then replays those actions on both the source preview and extracted HTML and compares the resulting region screenshots. Then validate both the preview target and extracted HTML. Browser automation defaults to Playwright-managed cached browsers; use a system browser only with explicit `--browser-channel` or `PLAYWRIGHT_BROWSER_CHANNEL`. Source preview navigation defaults to `domcontentloaded` with a bounded navigation timeout so dev-server HMR or long-lived requests do not hang validation; use `--wait-until networkidle` only for static pages where that state is reliable.
+The visual validator checks every supported portable HTML file in the run folder, including offline `index.html` entries, unless `--prototype <file>` is used to isolate one platform. It captures screenshots and records DOM smoke evidence for each viewport: body text length, visible interactive controls, horizontal overflow, console errors, page errors, access-state leakage from unauthenticated account triggers, editable `annotationConfig.notes`, body-only marker popovers, side-panel outside-click closing, and annotation overflow. Source-backed UI previews should run through the host dev/preview/Storybook/simulator path, then use `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` when a browser target is available; record equivalent simulator evidence under `visual_validation` when it is not. For source-extracted HTML handoffs, run `python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>`, which writes source-region and extracted-region screenshots plus a `region_diff` comparison. The target may be an isolated preview or a user-approved implementation already running in the host repository. Add repeated `--interaction` arguments for dynamic behavior that matters; the extraction report then replays those actions on both the source preview and extracted HTML and compares the resulting region screenshots. Then validate both the preview target and extracted HTML. Browser automation defaults to Playwright-managed cached browsers; use a system browser only with explicit `--browser-channel` or `PLAYWRIGHT_BROWSER_CHANNEL`. Source preview navigation defaults to `domcontentloaded` with a bounded navigation timeout so dev-server HMR or long-lived requests do not hang validation; use `--wait-until networkidle` only for static pages where that state is reliable.
 
-When `run_delivery_checks.py` skips a duplicate visual run because a previous visual validation already passed, it must read `visual-review/visual-report.json` and confirm that the report is passed, covers every compatibility HTML file, and includes DOM smoke evidence, including access-state evidence. A legacy report that only proves nonblank screenshots is not enough for reuse.
+When `run_delivery_checks.py` skips a duplicate visual run because a previous visual validation already passed, it must read `visual-review/visual-report.json` and confirm that the report is passed, covers every portable HTML file, and includes DOM smoke evidence, including access-state evidence. A report that only proves nonblank screenshots is not enough for reuse.
 
 If Playwright or a browser is missing, run:
 
@@ -77,7 +91,7 @@ A skipped visual check is valid only when setup fails, browser launch is forbidd
 
 ## HTML Checks
 
-`run_delivery_checks.py` always runs a Python `html.parser` check for compatibility HTML files. If `tidy` is available, it also records `tidy` output as optional evidence. Older `tidy` compatibility failures must not be described as browser validation failures.
+`run_delivery_checks.py` always runs a Python `html.parser` check for portable HTML files. If `tidy` is available, it also records `tidy` output as optional evidence. Older `tidy` parser limitations must not be described as browser validation failures.
 
 For source-backed preview final checks, pass the preview target to the delivery orchestrator:
 

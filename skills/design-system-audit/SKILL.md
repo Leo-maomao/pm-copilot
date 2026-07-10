@@ -11,7 +11,7 @@ Extract and enforce the current product's design system so UI deliverables and P
 
 ## Workflow
 
-1. Inspect available design evidence: Figma, screenshots, Storybook, routes, component files, token files, CSS variables, Tailwind config, theme files, icon libraries, and previous UI deliverables or compatibility prototypes.
+1. Inspect available design evidence: Figma, screenshots, Storybook, routes, component files, token files, CSS variables, Tailwind config, theme files, icon libraries, and previous UI deliverables or portable prototypes.
 2. Capture tokens: colors, typography, spacing, radius, shadows, borders, density, breakpoints, motion, and semantic states.
 3. Capture component patterns: navigation, tables, filters, forms, empty states, modals, toasts, cards, tabs, status chips, and permission states.
 4. Check accessibility basics: contrast, focus style, keyboard reachability, label association, touch target size, reduced-motion expectation, and error text.
@@ -22,7 +22,7 @@ Extract and enforce the current product's design system so UI deliverables and P
 
 ## Boundary
 
-Use this skill to audit or derive design-system evidence and UI delivery reuse guidance. Use `skills/multi-platform-prototype/SKILL.md` to build the actual UI deliverable. Do not create separate token-audit, visual-consistency, or UI-system-review skills; extend this one.
+Use this skill to audit or derive design-system evidence and UI delivery reuse guidance. Use `skills/multi-platform-ui-delivery/SKILL.md` to build the actual UI deliverable. Do not create separate token-audit, visual-consistency, or UI-system-review skills; extend this one.
 
 ## Output
 

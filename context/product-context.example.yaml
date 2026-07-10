@@ -84,7 +84,7 @@ competitors:
       notes: "Replace with a real competitor."
   research_policy: "Use source-backed claims only."
 
-prototype_preferences:
+ui_delivery_preferences:
   fidelity: "Low"
   default_output: "Source-backed UI preview/delta when frontend source exists; local HTML only for no-source, explicit portable HTML, explicit redesign/greenfield, or concrete source-rendering blockers"
   platform_selection: "Choose based on scenario; generate multiple only for cross-platform needs."

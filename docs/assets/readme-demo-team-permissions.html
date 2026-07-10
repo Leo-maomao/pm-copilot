@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PM Copilot 4.0 - Team Permissions Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; width: 1200px; height: 720px; overflow: hidden; color: #172033; background: #f3f6fa; font: 15px/1.45 Inter, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .page { width: 100%; height: 100%; padding: 34px 42px; background: linear-gradient(135deg, #eef5ff 0 55%, #fff8ee 100%); }
+    header { display: flex; justify-content: space-between; align-items: flex-start; height: 102px; }
+    .eyebrow { color: #1768e5; font-size: 12px; font-weight: 800; letter-spacing: 1.4px; }
+    h1 { margin: 7px 0 3px; font-size: 30px; line-height: 1.2; letter-spacing: 0; }
+    .sub { color: #627087; font-size: 16px; font-weight: 600; }
+    .badges { display: flex; flex-wrap: wrap; width: 290px; gap: 8px; justify-content: flex-end; }
+    .badge { padding: 7px 11px; border: 1px solid #c9d5e5; border-radius: 18px; background: rgba(255,255,255,.8); color: #33445c; font-size: 12px; font-weight: 800; }
+    .grid { display: grid; grid-template-columns: 1.06fr .94fr; gap: 18px; height: 530px; }
+    .panel { overflow: hidden; border: 1px solid #cbd7e6; border-radius: 8px; background: rgba(255,255,255,.94); box-shadow: 0 14px 35px rgba(35,62,98,.08); }
+    .panel-head { height: 46px; display: flex; align-items: center; justify-content: space-between; padding: 0 17px; border-bottom: 1px solid #d7e0eb; background: #f8fafc; font-weight: 800; }
+    .strategy { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; padding: 14px 16px 10px; }
+    .metric { padding: 10px; border: 1px solid #d7e1ee; border-radius: 7px; background: #f7faff; }
+    .metric b { display: block; margin-bottom: 3px; font-size: 12px; color: #66758a; }
+    .metric span { font-weight: 800; color: #1d5fd0; }
+    .decision { margin: 0 16px 12px; padding: 13px 14px; border-left: 4px solid #1f6feb; background: #eef5ff; }
+    .decision b { display: block; margin-bottom: 4px; color: #124fae; }
+    .scope { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px 12px; }
+    .scope-box { padding: 11px 12px; border: 1px solid #dce4ee; border-radius: 7px; }
+    .scope-box h3 { margin: 0 0 6px; font-size: 13px; }
+    .scope-box ul { margin: 0; padding-left: 18px; color: #46566d; font-size: 12px; }
+    .scope-box.no { background: #fff7f3; border-color: #f0d1c7; }
+    .blocker { margin: 0 16px; padding: 11px 12px; border: 1px solid #f2c4c4; border-radius: 7px; background: #fff3f3; font-size: 12px; }
+    .blocker strong { color: #b4232c; }
+    .loop { padding: 14px 16px; }
+    .iteration { display: grid; grid-template-columns: 30px 1fr 70px; gap: 9px; align-items: center; margin-bottom: 10px; padding: 10px 11px; border: 1px solid #dbe4ef; border-radius: 7px; background: #fff; }
+    .num { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #1f6feb; color: white; font-weight: 800; }
+    .iteration b { display: block; font-size: 13px; }
+    .iteration small { color: #66758a; }
+    .score { color: #16824b; font-weight: 800; text-align: right; }
+    .stop { margin-top: 13px; padding: 13px; border: 1px solid #acd9be; border-radius: 7px; background: #ecfbf2; }
+    .stop b { color: #0b6a3a; }
+    .next { margin-top: 10px; padding: 12px; border: 1px solid #d8e0eb; border-radius: 7px; background: #f8fafc; font-size: 12px; }
+    .dots { color: #e94d4d; letter-spacing: 4px; }
+  </style>
+</head>
+<body><main class="page">
+  <header><div><div class="eyebrow">PM COPILOT 4.0 · AGENT RUN SNAPSHOT</div><h1>团队权限管理：从源码证据到可执行产品判断</h1><div class="sub">不是顺序跑流程，而是观察现状、形成决策、验证增量并在目标达成时停止。</div></div><div class="badges"><span class="badge">mixed_delivery</span><span class="badge">full-loop</span><span class="badge">source_delta_patch</span><span class="badge">stop_success</span></div></header>
+  <section class="grid">
+    <article class="panel"><div class="panel-head"><span>PRD 首屏：产品决策摘要</span><span class="dots">●●●</span></div>
+      <div class="strategy"><div class="metric"><b>推荐方案</b><span>分层角色 + 审计</span></div><div class="metric"><b>置信度</b><span>中高</span></div><div class="metric"><b>研发交接</b><span>有条件就绪</span></div><div class="metric"><b>上线状态</b><span>阻塞</span></div></div>
+      <div class="decision"><b>产品判断</b>复用现有成员页和 RBAC 模型，以“预设角色 + 高危权限二次确认 + 全量审计”作为 MVP；不在本轮引入任意自定义权限组合。</div>
+      <div class="scope"><div class="scope-box"><h3>MVP</h3><ul><li>邀请时选择角色</li><li>高危变更二次确认</li><li>变更前后值与操作者审计</li></ul></div><div class="scope-box no"><h3>非目标</h3><ul><li>组织级继承规则</li><li>自定义权限编辑器</li><li>跨租户角色共享</li></ul></div></div>
+      <div class="blocker"><strong>关键阻塞 SEC-1：</strong>安全负责人确认审计保留周期和超级管理员降权策略。下一检查点：安全评审，通过证据为审批记录。</div>
+    </article>
+    <article class="panel"><div class="panel-head"><span>Bounded Loop：每轮必须产生证据增量</span><span>3 iterations</span></div><div class="loop">
+      <div class="iteration"><span class="num">1</span><div><b>Observe · 读取真实产品面</b><small>路由、成员页、RBAC 字段、组件 token、现有埋点</small></div><span class="score">+0.29</span></div>
+      <div class="iteration"><span class="num">2</span><div><b>Decide · 收敛权限方案</b><small>拒绝自定义权限编辑器，确定 MVP 与安全门禁</small></div><span class="score">+0.24</span></div>
+      <div class="iteration"><span class="num">3</span><div><b>Verify · 交付与评审闭环</b><small>源码预览、PRD、dev tasks、验收与 PM usefulness review</small></div><span class="score">+0.18</span></div>
+      <div class="stop"><b>stop_success</b><br>交付目标已满足；上线仍由安全审批控制，Agent 不代替人工批准。</div>
+      <div class="next"><b>下一动作：</b>Security Owner 在开发联调前确认 SEC-1；完成证据为审计策略审批记录。<br><b>Memory candidate：</b>后台高危权限变更默认要求二次确认与审计。</div>
+    </div></article>
+  </section>
+</main></body></html>
