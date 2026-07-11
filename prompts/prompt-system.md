@@ -133,6 +133,10 @@ For implemented-feature PRD delivery:
 - Flow diagrams are optional and must appear inside the specific requirement detail they explain, not as fixed global `用户流程图` and `功能流程图` sections.
 - Generate `prd.html` with `scripts/render_prd_html.py` when HTML is requested.
 - Put real screenshots under `<run-folder>/assets/` and place Markdown image references inline where the requirement needs them.
+- When a PRD needs a product image, attempt a real automated screenshot first. Discover the host project's runnable UI and available browser tooling; do not assume the current repository, a canvas product, a fixed port, or one automation framework.
+- If browser tooling or its plugin is missing, attempt the supported setup or installation flow and retry before falling back. If authentication is missing, ask the user to sign in in the selected browser or provide a task-scoped token through an approved secure channel, then continue automation without exposing the credential in artifacts or responses.
+- Validate screenshot clarity before embedding. Retry blurred, blank, clipped, or unreadably small captures with a larger viewport, higher device scale, focused zoom or crop, or a full-window screenshot with sufficient context.
+- Use manual capture only as a fallback. Use the exact `占位图` block only after automated capture, supported tool repair or setup, authentication recovery, and manual capture cannot produce the required image.
 - If an image is missing in a Chinese PRD, use only this inline block and avoid the marker words elsewhere:
 
 ```markdown

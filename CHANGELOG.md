@@ -6,6 +6,21 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.0.1] - 2026-07-11
+
+### Changed
+
+- Made real automated screenshots the default visual-evidence path for PRDs instead of a placeholder-first, human-replacement workflow.
+- Added project-agnostic browser discovery, supported plugin or dependency setup and retry, authentication recovery through user sign-in or task-scoped tokens, and manual capture as the penultimate fallback.
+- Added screenshot clarity requirements that reject blurred, blank, clipped, or unreadably small images and require retry with a larger viewport, higher device scale, focused target, or contextual crop.
+- Restricted inline `占位图` output to the final fallback after automated capture, setup or repair, authentication recovery, and manual capture are unavailable or unsuccessful.
+- Added credential-safety rules preventing tokens or login data from entering PRDs, logs, source-controlled environment files, image metadata, or user-visible output.
+
+### Validation
+
+- Added `evals/prd-automated-screenshot-recovery-eval.md` covering missing browser tooling, missing login state, sensitive-token handling, blurred element captures, cross-project generalization, and final placeholder fallback.
+- Added optimization-cycle evidence in `docs/optimization-cycles/2026-07-11-automated-prd-screenshot-recovery.yaml`.
+
 ## [4.0.0] - 2026-07-10
 
 ### Added

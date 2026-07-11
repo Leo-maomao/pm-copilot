@@ -60,6 +60,18 @@ Flow diagrams are optional. Add them only for requirements with complex user pat
 
 ## Screenshot Rules
 
+Screenshot acquisition order:
+
+1. Inspect the host repository and identify its runnable UI, existing browser or e2e tooling, authentication path, and stable target state.
+2. Capture the real state with the best available automated browser or visual-validation integration.
+3. If the browser plugin or automation dependency is missing, run the supported setup or installation flow and retry. Do not assume one browser, framework, port, or host product.
+4. If login is required, ask the user to sign in in the selected browser or provide a task-scoped token through an approved secure channel, then resume the same automated flow.
+5. Validate that the image is readable at normal document width. Retry with a larger viewport, higher device scale, focused target, or full-window context when an element screenshot is too small or blurred.
+6. Use manual capture only when automated capture cannot reproduce the required state.
+7. Use the exact placeholder format only when automated setup, authentication recovery, and manual capture are all unavailable or unsuccessful.
+
+Never copy credentials into generated artifacts, source-controlled environment files, logs, user-visible commands, or image metadata. Record only the authentication limitation and recovery status.
+
 Real screenshots:
 
 - Save under `<run-folder>/assets/`.
@@ -85,11 +97,12 @@ Rules:
 
 Replacement loop:
 
-1. First pass: deliver inline placeholders.
-2. Human pass: user saves screenshots under `assets/` using the recommended names.
-3. Second pass: replace each placeholder block with a Markdown image reference at the same location.
-4. Regenerate `prd.html`.
-5. Verify no `占位图` marker remains unless screenshots are still intentionally missing.
+1. First pass: attempt real automated screenshots and place successful captures inline.
+2. Recovery pass: install or configure supported browser tooling, or obtain login through user sign-in or a task-scoped token, then retry failed captures.
+3. Manual fallback: request a human capture only for states that automation still cannot reach.
+4. Final fallback: place the exact inline placeholder only for screenshots that remain unavailable after all prior stages.
+5. Regenerate `prd.html` and verify every real image is clear, local, correctly positioned, and click-to-fullscreen capable.
+6. Verify no `占位图` marker remains unless the screenshot is intentionally unavailable and its failed recovery path is recorded.
 
 ## HTML Rendering
 

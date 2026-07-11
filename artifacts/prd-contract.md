@@ -158,6 +158,12 @@ Before drafting, inspect the current branch, diff, changed files, entry points, 
 
 Place every image or missing-image placeholder exactly where the requirement needs it. Do not create a detached screenshot inventory or image appendix by default.
 
+Real product screenshots are the default when visual evidence is needed. Attempt automated capture against the host project's actual runnable UI before emitting a missing-image placeholder. Discover the route, runtime, browser capability, fixture or data state, and authentication path rather than assuming a canvas, fixed port, or named framework.
+
+Missing browser tooling triggers its supported setup or plugin installation plus retry. Missing authentication triggers a user sign-in or task-scoped-token checkpoint plus resume. Credentials must not enter generated artifacts, logs, source-controlled environment files, user-visible commands, or image metadata.
+
+Every embedded screenshot must be legible at normal document width and must not be unexpectedly blank, clipped, or blurred. Small element captures require target focus or zoom, sufficient device scale, or a larger contextual crop. Manual capture is a fallback. A placeholder is permitted only after automated capture, supported setup or repair, authentication recovery, and manual capture are unavailable or unsuccessful.
+
 For Chinese PRDs, a missing screenshot outside a table uses exactly:
 
 ```markdown
