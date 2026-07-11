@@ -179,6 +179,14 @@ Inside a requirement detail table, keep it in the same value cell:
 
 Replace the same block or cell with a local image when available. Screenshot names must identify the surface and concrete state, not a generic word such as `状态`.
 
+When motion, timing, transitions, or gesture feedback is material evidence, insert a local video link in the same requirement cell or nearby evidence block:
+
+```markdown
+[快捷键面板显隐动效.mp4](./assets/快捷键面板显隐动效.mp4)
+```
+
+`scripts/render_prd_html.py` converts local `.mp4`, `.webm`, `.mov`, `.m4v`, `.ogv`, and `.ogg` links into inline HTML video players. Prefer H.264 video with AAC audio in an `.mp4` container for broad browser compatibility. When `ffmpeg` is available, MOV and M4V evidence is automatically remuxed to a sibling `.browser.mp4` asset, with H.264/AAC transcoding as fallback; the original source link remains available. Without `ffmpeg`, the player keeps the original container and an explicit fallback link, so unsupported codecs remain visible as a delivery limitation. Record video evidence as `type: video`, not `type: image`, in `screenshots_and_placeholders`.
+
 ## Output Rules
 
 - Use exactly one H1.
@@ -186,5 +194,5 @@ Replace the same block or cell with a local image when available. Screenshot nam
 - Keep machine IDs, event names, property names, paths, and Mermaid node IDs ASCII.
 - Remove optional subsections that do not apply; do not leave empty tables, placeholders, or artificial `Not applicable` rows merely to satisfy a format.
 - Prefer compact tables for comparable records and prose for product reasoning.
-- Render PRD HTML as a readable document with numbered-section navigation, stable anchors, complete tables, Mermaid rendering, and inline figures.
+- Render PRD HTML as a readable document with numbered-section navigation, stable anchors, complete tables, Mermaid rendering, inline figures, and controllable inline video for motion evidence.
 - Keep PRD status, engineering handoff status, and launch status separate everywhere.

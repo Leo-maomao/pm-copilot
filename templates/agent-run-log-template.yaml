@@ -301,7 +301,7 @@ implemented_feature_prd:
       gap_or_risk: ""
   screenshots_and_placeholders:
     - target_ref: "" # requirement id, evidence id, flow step, or table row
-      type: "" # image | placeholder
+      type: "" # image | video | placeholder
       path: ""
       recommended_file_name: ""
       inline_marker: ""

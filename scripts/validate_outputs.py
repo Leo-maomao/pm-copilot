@@ -11,6 +11,7 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import unquote
 
 
 FORBIDDEN_DEFAULT_FILES = {
@@ -984,6 +985,7 @@ class PRDHTMLInspectionParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.stack: list[str] = []
         self.images: list[dict[str, object]] = []
+        self.videos: list[dict[str, object]] = []
         self.scripts: list[str] = []
         self.stylesheets: list[str] = []
         self.tables: list[dict[str, object]] = []
@@ -1036,6 +1038,21 @@ class PRDHTMLInspectionParser(HTMLParser):
             })
             if in_table and self.tables:
                 self.tables[-1]["image_count"] = int(self.tables[-1].get("image_count", 0)) + 1
+        if tag == "video":
+            self.videos.append({
+                "src": attr_map.get("src", ""),
+                "controls": "controls" in attr_map,
+                "playsinline": "playsinline" in attr_map,
+                "sources": [],
+                "in_table": "table" in self.stack,
+            })
+        if tag == "source" and "video" in self.stack and self.videos:
+            sources = self.videos[-1].setdefault("sources", [])
+            if isinstance(sources, list):
+                sources.append({
+                    "src": attr_map.get("src", ""),
+                    "type": attr_map.get("type", ""),
+                })
         self.stack.append(tag)
 
     def handle_endtag(self, tag: str) -> None:
@@ -2650,7 +2667,47 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
         if not image_path.is_file():
             fail(f"{prd_html_path.name} image path not found: {src}")
 
+    video_sources: list[str] = []
+    for video in parser.videos:
+        if not bool(video.get("controls")):
+            fail(f"{prd_html_path.name} inline video must expose browser controls")
+        if not bool(video.get("playsinline")):
+            fail(f"{prd_html_path.name} inline video must use playsinline")
+        direct_src = str(video.get("src") or "")
+        if direct_src:
+            video_sources.append(direct_src)
+        sources = video.get("sources", [])
+        if isinstance(sources, list):
+            for source in sources:
+                if isinstance(source, dict):
+                    src = str(source.get("src") or "")
+                    if src:
+                        video_sources.append(src)
+                    if not str(source.get("type") or ""):
+                        fail(f"{prd_html_path.name} video source must declare a MIME type")
+        if not direct_src and not sources:
+            fail(f"{prd_html_path.name} contains video without a source")
+
+    for src in video_sources:
+        if re.match(r"^[a-z]+:", src, re.IGNORECASE) and not src.startswith("data:"):
+            fail(f"{prd_html_path.name} video must use local relative path or data URI: {src}")
+        if src.startswith("data:"):
+            continue
+        local_src = unquote(src).split("#", 1)[0].split("?", 1)[0]
+        video_path = (prd_html_path.parent / local_src).resolve()
+        try:
+            video_path.relative_to(prd_html_path.parent.resolve())
+        except ValueError:
+            fail(f"{prd_html_path.name} video path escapes output folder: {src}")
+        if not video_path.is_file():
+            fail(f"{prd_html_path.name} video path not found: {src}")
+
     markdown_image_count = len(re.findall(r"!\[[^\]]*\]\([^)]+\)|<img\b", markdown_text, re.IGNORECASE))
+    markdown_video_refs = re.findall(
+        r"(?<!!)\[[^\]]+\]\(([^)]+\.(?:mp4|webm|mov|m4v|ogv|ogg)(?:[?#][^)]*)?)\)",
+        markdown_text,
+        re.IGNORECASE,
+    )
     markdown_table_image_count = markdown_image_count_in_tables(markdown_text)
     html_table_image_count = sum(1 for item in parser.images if bool(item.get("in_table")))
     placeholder_count = len(IMAGE_PLACEHOLDER_RE.findall(markdown_text)) + len(
@@ -2658,6 +2715,8 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
     )
     if markdown_image_count and not parser.images:
         fail(f"{prd_html_path.name} missing images referenced by prd.md")
+    if markdown_video_refs and len(parser.videos) < len(markdown_video_refs):
+        fail(f"{prd_html_path.name} must render local video links as inline video players")
     if parser.images:
         if markdown_table_image_count and html_table_image_count < markdown_table_image_count:
             fail(f"{prd_html_path.name} must keep table images inside the corresponding table cells")

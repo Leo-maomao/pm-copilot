@@ -15,6 +15,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDORED_MERMAID_RUNTIME = ROOT / "vendor" / "mermaid" / "mermaid.min.js"
+VIDEO_EXTENSIONS = {
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+    ".m4v": "video/x-m4v",
+    ".ogv": "video/ogg",
+    ".ogg": "video/ogg",
+}
 
 DOCUMENT_CSS = """
     :root {
@@ -188,7 +196,9 @@ DOCUMENT_CSS = """
       margin: 16px 0 24px;
     }
     figure img,
-    td img {
+    td img,
+    figure video,
+    td video {
       display: block;
       max-width: 100%;
       max-height: calc(100vh - 160px);
@@ -197,6 +207,13 @@ DOCUMENT_CSS = """
       background: var(--pm-doc-bg);
       cursor: zoom-in;
       object-fit: contain;
+    }
+    figure video,
+    td video {
+      width: min(100%, 960px);
+      min-height: 180px;
+      background: #111827;
+      cursor: default;
     }
     td img {
       margin: 4px 0;
@@ -401,12 +418,97 @@ def markdown_needs_assets_folder(markdown: str) -> bool:
     if re.search(r"占位图[:：]\s*.+?\.(?:png|jpg|jpeg|webp)", markdown):
         return True
     refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
+    refs.extend(re.findall(r"(?<!!)\[[^\]]+\]\(([^)]+)\)", markdown))
     refs.extend(re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", markdown, re.IGNORECASE))
     for ref in refs:
         normalized = ref.strip().split("#", 1)[0].split("?", 1)[0].replace("\\", "/")
         if normalized.startswith("./assets/") or normalized.startswith("assets/"):
             return True
     return False
+
+
+def video_mime_type(target: str) -> str:
+    normalized = unquote(html_lib.unescape(target)).split("#", 1)[0].split("?", 1)[0]
+    return VIDEO_EXTENSIONS.get(Path(normalized).suffix.lower(), "")
+
+
+def browser_video_target(target: str, run_folder: Path | None) -> tuple[str, str]:
+    mime_type = video_mime_type(target)
+    if not run_folder or mime_type not in {"video/quicktime", "video/x-m4v"}:
+        return target, mime_type
+
+    decoded = unquote(html_lib.unescape(target))
+    clean_target = decoded.split("#", 1)[0].split("?", 1)[0]
+    source_path = (run_folder / clean_target).resolve()
+    try:
+        source_path.relative_to(run_folder.resolve())
+    except ValueError:
+        return target, mime_type
+    if not source_path.is_file():
+        return target, mime_type
+
+    output_path = source_path.with_name(f"{source_path.stem}.browser.mp4")
+    if not output_path.is_file() or output_path.stat().st_mtime < source_path.stat().st_mtime:
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg:
+            return target, mime_type
+        remux = subprocess.run(
+            [
+                ffmpeg, "-y", "-i", str(source_path), "-map", "0:v:0", "-map", "0:a?",
+                "-c", "copy", "-movflags", "+faststart", str(output_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if remux.returncode != 0:
+            transcode = subprocess.run(
+                [
+                    ffmpeg, "-y", "-i", str(source_path), "-map", "0:v:0", "-map", "0:a?",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                    "-movflags", "+faststart", str(output_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if transcode.returncode != 0:
+                output_path.unlink(missing_ok=True)
+                return target, mime_type
+
+    relative_output = output_path.relative_to(run_folder).as_posix()
+    if clean_target.startswith("./"):
+        relative_output = f"./{relative_output}"
+    return relative_output, "video/mp4"
+
+
+def convert_video_links(html: str, run_folder: Path | None = None) -> str:
+    pattern = re.compile(
+        r"<a(?P<attrs>[^>]*?)\bhref=(?P<quote>[\"'])(?P<href>[^\"']+)(?P=quote)(?P<tail>[^>]*)>"
+        r"(?P<label>.*?)</a>",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        href = match.group("href")
+        mime_type = video_mime_type(href)
+        if not mime_type:
+            return match.group(0)
+        playback_href, playback_mime_type = browser_video_target(href, run_folder)
+        label_text = visible_text_from_html(match.group("label")) or Path(unquote(href)).name
+        escaped_href = html_lib.escape(html_lib.unescape(href), quote=True)
+        escaped_playback_href = html_lib.escape(html_lib.unescape(playback_href), quote=True)
+        escaped_label = html_lib.escape(label_text, quote=False)
+        return (
+            f'<video class="prd-video" controls preload="metadata" playsinline '
+            f'aria-label="{html_lib.escape(label_text, quote=True)}">'
+            f'<source src="{escaped_playback_href}" type="{playback_mime_type}" />'
+            f'<span>当前浏览器无法直接播放此视频。'
+            f'<a href="{escaped_href}">打开 {escaped_label}</a></span>'
+            f'</video>'
+        )
+
+    return pattern.sub(replace, html)
 
 
 def ensure_assets_dir(run_folder: Path) -> Path:
@@ -649,6 +751,7 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
         ensure_assets_dir(run_folder)
     html = normalize_html_shell(html)
     html = convert_mermaid_blocks(html)
+    html = convert_video_links(html, run_folder)
     html = normalize_heading_anchors(html)
     html = remove_h1_from_toc(html)
     html = merge_requirement_image_table_cells(html)

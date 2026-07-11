@@ -105,6 +105,7 @@ REQUIRED_FILES = [
     "scripts/evaluate_agent_loop.py",
     "scripts/test_agent_loop.py",
     "scripts/test_prd_contract.py",
+    "scripts/test_prd_media_rendering.py",
     "scripts/test_reflection_learning_trace.py",
     "scripts/validate_prototype_visual.py",
     "scripts/validate_ui_preview.py",
@@ -665,6 +666,14 @@ REQUIRED_TEXT_TOKENS = {
         "unrelated_severe_closure",
         "unsafe_sensitive_memory",
         "self_improvement_without_regression",
+    ],
+    "scripts/test_prd_media_rendering.py": [
+        "mov_becomes_video",
+        "mov_has_controls",
+        "mov_has_mime",
+        "mov_keeps_fallback_link",
+        "non_video_link_unchanged",
+        "failed_conversion_keeps_source",
     ],
     "agents/ui-delivery-agent.md": [
         "UI Delivery Agent",

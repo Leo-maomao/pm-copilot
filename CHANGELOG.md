@@ -6,6 +6,21 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.0.2] - 2026-07-11
+
+### Fixed
+
+- Rendered local PRD video evidence as an inline HTML5 player instead of a plain link that navigates to or downloads the media file.
+- Added `.mp4`, `.webm`, `.mov`, `.m4v`, `.ogv`, and `.ogg` detection with MIME-aware `<source>` elements, browser controls, inline playback, metadata preloading, and a source-link fallback.
+- Added automatic MOV/M4V remuxing to a sibling browser-compatible MP4 when `ffmpeg` is available, with H.264/AAC transcoding fallback when stream-copy remuxing fails.
+- Added output validation for local video paths, required controls, `playsinline`, MIME declarations, and Markdown-to-HTML media coverage.
+- Extended run-log visual evidence types with `video` and documented MP4 H.264/AAC as the broad-compatibility delivery format.
+
+### Validation
+
+- Added `scripts/test_prd_media_rendering.py` and CI coverage for MOV/MP4 conversion, required player attributes, fallback links, parser detection, and non-video link preservation.
+- Re-rendered the `canvas-menu-shortcuts-prd-2026-07-07` real-run case and verified that its shortcut-panel motion evidence is embedded as a controllable video player.
+
 ## [4.0.1] - 2026-07-11
 
 ### Changed
