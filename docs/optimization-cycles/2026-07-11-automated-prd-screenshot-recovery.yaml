@@ -79,8 +79,12 @@ baseline:
 results:
   generated_artifacts:
     - "evals/prd-automated-screenshot-recovery-eval.md"
-  validation_commands: []
-  validation_reports: []
+  validation_commands:
+    - "python3 scripts/validate_repo.py"
+    - "python3 scripts/test_prd_contract.py"
+    - "git diff --check"
+  validation_reports:
+    - "Repository validation passed in the primary repository and six embedded copies."
   review_scores:
     delivery: null
     prd: null
@@ -127,16 +131,24 @@ versioning:
   changelog_updated: true
 sync:
   embedded_copies_checked:
-    - "current host repository embedded copy"
+    - "requirements-document host copy"
+    - "video-editor host copy"
+    - "AI-video host copy"
+    - "qiki host copy"
+    - "fund-site host copy"
+    - "SeaCraft host copy"
   embedded_copies_updated:
-    - "current host repository embedded copy"
-  skipped_targets:
-    - path: "other local host repositories"
-      reason: "The user requested optimization of the current repository copy only."
+    - "requirements-document host copy"
+    - "video-editor host copy"
+    - "AI-video host copy"
+    - "qiki host copy"
+    - "fund-site host copy"
+    - "SeaCraft host copy"
+  skipped_targets: []
 after:
-  scorecard_report: ""
-  validation_pass_rate: null
+  scorecard_report: "outputs/improvement-scorecard.json"
+  validation_pass_rate: 1.0
   high_severity_failures: []
 decision:
   status: "improved"
-  next_action: "Run repository validation and use the new eval in the next applicable PRD run."
+  next_action: "Use the new eval in the next applicable PRD run and retain real screenshot evidence in the run folder."
