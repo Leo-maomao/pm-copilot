@@ -347,7 +347,7 @@ def recommended_mode(platform: str, render_available: bool) -> str:
         return "mini_program_preview"
     if platform in {"react_native", "flutter", "native_app"}:
         return "app_preview_screen"
-    return "source_delta_patch"
+    return "evidence_based_prototype"
 
 
 def main() -> None:

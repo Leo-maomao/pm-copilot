@@ -772,6 +772,9 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
 
     mode = yaml_scalar_field_value(isolated_block, "mode")
     allowed_modes = {
+        "evidence_based_prototype",
+        "existing_ui_extract",
+        "ui_specification",
         "portable_html",
         "source_extract_html",
         "source_delta_patch",
@@ -785,6 +788,13 @@ def check_repo_backed_style_evidence_quality(run_log: str) -> None:
     }
     if mode not in allowed_modes:
         fail("Repo-backed UI delivery ui_delivery_trace.mode must name a supported artifact mode")
+    if mode in {"evidence_based_prototype", "existing_ui_extract", "ui_specification"}:
+        mutation_policy = yaml_scalar_field_value(isolated_block, "host_mutation_policy")
+        if mutation_policy not in {"host_read_only", "not_applicable"}:
+            fail("Review-only UI delivery must record host_mutation_policy: host_read_only or not_applicable")
+        if not yaml_mapping_field_has_value(source_map_block, "source"):
+            fail("Review-only UI delivery must record at least one evidence source")
+        return
     recommended_mode = yaml_scalar_field_value(inventory_block, "recommended_artifact_mode")
     render_entrypoint = yaml_scalar_field_value(inventory_block, "render_entrypoint")
     preview = yaml_scalar_field_value(inventory_block, "preview_surface")

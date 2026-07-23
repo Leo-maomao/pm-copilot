@@ -37,7 +37,7 @@ Prompt:
 Please update the existing <surface> UX for <goal>. Reuse current components and styles. If source exists, produce a source-backed preview or delta, not a standalone redesign.
 ```
 
-Expected artifacts: source-backed preview/delta reference, UI notes in PRD or run log, optional `prototype-<platform>.html` only when justified.
+Expected artifacts: evidence-based UI reference, UI notes in PRD or run log, and an optional `prototype-<platform>.html` when interactive review is useful.
 Context needed: frontend source, route/screen, component library, design tokens, target states.
 Validation: `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>`.
 

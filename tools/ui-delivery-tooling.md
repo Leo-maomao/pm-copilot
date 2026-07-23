@@ -1,68 +1,24 @@
 # UI Delivery Tooling
 
-UI deliverables should use the artifact mode that matches source availability first. Repo-backed UI with frontend source should use a source-rendered delta patch. When the PM needs a portable engineering handoff after shaping or implementing the UI in the real project, use `source_extract_html`: render the target UI from host source, extract the selected region, then add the editable annotation layer in standalone HTML. Portable HTML is used for true no-source situations, explicit standalone HTML without source implementation, explicit redesign/greenfield work, or concrete source-rendering blockers.
+## Scope
 
-## Requirements
+Tools support evidence collection and review-artifact validation. They must not be used to modify a host product, create feature code, deploy a release, or imply that a requested feature exists.
 
-- No build step for portable HTML artifacts. Source-rendered preview artifacts use the host app's normal dev, preview, Storybook, simulator, or platform tooling.
-- No external network dependency unless the host app already requires it and the limitation is recorded.
-- Inline CSS and JavaScript are acceptable only for standalone HTML artifacts.
-- Use semantic buttons and links for interactions.
-- Include `portable_html_review_artifact` boundary metadata or comments for `portable_html`; do not add visible "example/demo/not production" copy to the product UI.
-- When current product UI evidence exists, match the current surface before adding the new requirement.
-- In repo-backed UI-delivery-only work, keep production flows read-only by default: read real frontend code and assets, then use `source_delta_patch` whenever host frontend source exists. Import/render the original baseline from host source and add the requested feature only through isolated preview/delta files.
-- Split repo-backed UI deliverables into `baseline_import` and `delta_patch`: baseline import renders unchanged host UI; delta patch contains only preview composition, mock state, new feature UI, markers, explanation dialogs, interactions, backend simulation notes, and tracking or edge-case annotations.
-- In repo-backed frontend work, run `python3 scripts/inspect_host_frontend.py --host <host-repo> --query "<requirement or target surface>" --pretty` when available, then inspect the host app shell/root layout, global stylesheet or theme config, design-system components, affected route/page/component files, local icons/assets, and screenshots or demos before writing any delta patch.
-- For image-to-UI, screenshot reconstruction, target mockup, or "图片还原" work, record the reference image path/source, exact dimensions, intended viewport, and role before writing UI. Build a visual inventory of sections, containers, text, controls, iconography, assets, typography, colors, spacing, radii, shadows, charts, scroll regions, and responsive intent.
-- Match the primary reference viewport first. Capture an implementation screenshot at the same CSS viewport when browser tooling is available, compare against the reference by visual diff or side-by-side review, fix structure before fine details, then verify responsive behavior. Do not use CSS `zoom`, root transforms, screenshot backgrounds, or inflated canvases as a shortcut.
-- For missing visual assets in image-reference work, use supplied or host assets, approved image generation, or honest dimensionally accurate placeholders plus one standalone generation prompt per missing asset. Do not silently omit small icons, carets, badges, logos, or chart details.
-- Record `ui_delivery_trace` in `run-log.yaml`: host mutation policy, artifact mode, target route or screen, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
-- Record `host_frontend_inventory` and `style_evidence` in `run-log.yaml`: source files, reused components, reused tokens or class patterns, icon/asset sources, UI delta, and limitations.
-- Source-backed previews must hand off the preview command, route/story/screen, and changed preview/delta files; do not give only a localhost URL. `portable_html` must hand off the generated HTML path.
-- Source-extracted HTML must hand off both the source preview and the extracted file: preview command, route/story/screen, changed preview/delta or user-approved implementation files, source target, extraction selector, extraction command, source-region screenshot, extracted-region screenshot, region diff result, interaction replay scope and results, extracted HTML path, style capture method, asset handling, editable annotation layer/configuration, source-change scope, validation report, and limitations.
-- Use standalone HTML fallback only when the user's raw request explicitly requests portability/standalone/HTML output, explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI, or source rendering is attempted and blocked by concrete command, browser, simulator, dependency, or preview-surface evidence. "Only generate a prototype" means review scope only; it does not authorize standalone HTML or greenfield UI. Production read-only policy is not a blocker because isolated preview files are allowed.
-- Add a hidden `style-source-summary` comment or `data-style-source` attribute only in generated HTML artifacts.
-- Capture or record `existing_ui_visual_baseline` for repo-backed UI work when possible: running host app screenshot, preview route, Storybook/demo screenshot, existing screenshot asset, or user-provided image. If a renderable host frontend falls back to standalone HTML, a missing baseline must cite a raw-request portable/standalone/HTML request or concrete attempted-render/browser/setup failure.
-- After style evidence is captured, run a design calibration pass: match the host product's visual density, layout variance, and motion intensity; remove generic AI patterns that do not belong to the current surface.
-- Keep the product surface full-width; annotation notes must not reserve layout space or shrink the product viewport.
-- Model real interactions and states. Use primary product controls, form submissions, retry actions, permission gates, and mocked data/API transitions; reviewer-only state switching must be fixed, collapsed, marked `data-reviewer-only="true"`, and secondary.
-- Use matching numbered callouts at a safe top-right position on the annotated component and marker-triggered dialogs. Generate default markers from one editable annotation configuration block so users can add, remove, reorder, or edit notes without touching the extracted product DOM. Default UI markers are red/white borderless circular badges with `annotation-marker`, `data-annotation-id`, and `data-annotation-placement="top-right"`. Badge text must be plain digits such as `1`, `2`, and `3`, not circled numeral glyphs or nested badge content. Marker-triggered dialogs are body-only popovers: no repeated number, title/name, close button, or horizontal scrollbar. The short `注释`/`Notes` floating control uses `data-draggable="true"` and opens a right-edge full-height `annotation-list` panel for current page/state notes. The side panel may include matching plain digit note numbers and titles, and closes through its close control or outside-page clicks.
+## Read-Only Evidence Tools
 
-## Suggested Verification
+- `scripts/inspect_host_frontend.py` discovers relevant host UI files and runtime entry points.
+- Browser or screenshot tooling may inspect existing rendered screens and capture evidence under `outputs/<run-id>/`.
+- `scripts/extract_ui_region.py` may extract an existing rendered region into the run folder as `existing_ui_extract`; it cannot be used as proof of a proposed feature.
 
-- Open the file locally.
-- Click through the main path.
-- Confirm text does not overflow the mobile frame.
-- Confirm the selected platform shape is obvious.
-- Confirm long pages, multi-state screens, and modals are scrollable like the host product and are not clipped by an artificial frame.
-- Confirm standalone HTML JavaScript parses when HTML is generated, and primary buttons, product tabs, dialogs, annotation markers, and the annotation toggle all produce visible state changes. Confirm marker dialogs contain only annotation body text, the right-side page annotation panel shows matching plain digit number badges, and clicking outside the side panel closes it.
-- Confirm repo-backed UI-delivery-only work did not modify host production routes, pages, components, styles, assets, package files, or backend code unless explicitly requested.
-- Confirm unchanged baseline UI is not redesigned or explained inline, and that delta markers/dialogs do not resize, crop, recolor, or cover critical unchanged UI.
-- Confirm source-rendered repo-backed UI deliverables import/render the baseline from host source, record `baseline_import`, and change only `delta_patch` preview files.
-- Confirm source-extracted HTML deliverables record `source_extract` with source target, selector, command, source-region screenshot, extracted-region screenshot, region diff result, interaction replay scope and results, extracted file path, style capture method, asset handling, editable annotation layer, source-change scope, validation report, and limitations. Do not claim exact visual equivalence if `region_diff` is skipped or fails. Do not claim behavioral equivalence unless representative interactions were replayed on both source and extracted targets and passed.
-- Confirm repo-backed HTML fallbacks contain a source-to-demo map in the run log and a style source summary in the artifact.
-- Confirm repo-backed UI deliverables have host frontend inventory, style evidence, and use the host app shell, components, tokens, assets, and density.
-- Confirm repo-backed UI deliverables include existing UI visual baseline evidence or a concrete skipped reason.
-- Confirm image-reference reconstruction runs record reference dimensions, viewport, visual inventory, asset decisions, comparison method, mismatches fixed, and remaining fidelity limits. High or pixel-level fidelity claims require exact-size screenshot comparison evidence.
-- Confirm backend-dependent behavior is simulated with mock data plus loading, empty, error, permission, and success states where relevant, rather than silently implying real backend implementation.
-- Confirm the product surface does not contain visible `示例`, `演示`, `Demo`, `Sample`, `Prototype`, `Not production code`, or `不是生产代码` labels unless the requirement explicitly needs visible draft status.
-- Confirm the UI deliverable includes loading, empty, error, disabled, and success feedback where relevant, and does not rely on a static success-only screen.
-- Confirm motion, if any, uses stable CSS transform/opacity and does not destabilize screenshot validation.
-- Confirm numbered callouts sit at a visible, unclipped top-right position, do not make compact text wrap, and map to matching marker dialogs and the current-state annotation panel.
-- Confirm the annotation floating control can be dragged away from host-product controls, hides while the right-side panel is open, and reappears when it closes.
-- Confirm notes describe concrete logic, interaction, text limit, data, permission, state, and tracking rules where relevant.
-- Confirm no external image, font, or script is required.
-- If `tidy` is available, run it and record its version or compatibility limitation. Older macOS `tidy` builds may report valid HTML5 elements such as `main`, `section`, `aside`, `meta charset`, or ARIA attributes as errors.
-- When `tidy` is incompatible with modern HTML, also run a fallback parser check such as Python `html.parser` and record both results instead of treating the fallback as if `tidy` passed.
-- Run `python3 scripts/validate_prototype_visual.py outputs/<run-id>` to capture desktop/mobile screenshots and a visual report for every supported portable HTML file in the run folder. Use `--prototype <file>` only when intentionally validating one platform. For source-backed previews, run the host dev/preview/Storybook/simulator path, then run `python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` when a browser target exists. Browser automation defaults to Playwright-managed cached browsers; use a system browser only with explicit `--browser-channel` or `PLAYWRIGHT_BROWSER_CHANNEL`. If Playwright/browser tooling is missing, run or guide `python3 scripts/setup_visual_validation.py` first.
-- For regression suites, pass `--baseline-dir <baseline-path>` and compare screenshots. Use `--update-baseline` only when intentionally accepting a new visual baseline.
-- For final delivery, prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` so visual, HTML, repository, and output checks are recorded in one report.
-- For source-extracted HTML handoffs, use `python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>` after the source preview is running, then validate both the source preview and the extracted HTML. Add repeated `--interaction` arguments, such as `--interaction 'click=.save-button'` or `--interaction 'fill=input[name=email]::pm@example.com'`, for dynamic behavior that must match.
-- Record screenshot paths, nonblank ratio, diff status, report path, and any skipped-tool limitation in `run-log.yaml` and the PRD validation section. A skipped status must show that setup was attempted or guided first unless browser launch is explicitly forbidden or installation was declined.
+## Review Artifact Tools
 
-## Platform Hints
+- `scripts/validate_prototype_visual.py outputs/<run-id>` checks portable review artifacts.
+- `scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>` may check an existing preview supplied by the host project or user.
+- `scripts/setup_visual_validation.py` prepares optional browser validation when available.
 
-- Web: use a desktop-like layout with navigation, panels, tables, or forms.
-- H5: use a narrow mobile browser frame with scrollable single-column content.
-- App: use a native-style top bar and bottom navigation when relevant.
-- Mini Program: include a capsule area and mini-program style top chrome.
+## Recording Rules
+
+- Record source URL or file, selector when used, capture time, and fidelity limitation in the run log.
+- Keep generated screenshots, extracts, and HTML under `outputs/<run-id>/`.
+- Label proposed UI separately from existing evidence and name the human owner who will implement it.
+- If evidence is unavailable, continue with a conceptual artifact only when the user accepts that limitation.

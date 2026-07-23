@@ -59,7 +59,7 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - `prd.md`
 - `catalog.md` or `reference.md` when the primary delivery is a structured reference
 - Document prototype HTML when the requested prototype is a browser-readable reference document
-- UI deliverable reference: source-backed preview/delta files by default when frontend source exists, or `prototype-<platform>.html` only for portable standalone/no-source mode
+- UI deliverable reference: evidence-based prototype, existing UI extract, or specification with fidelity and implementation-owner notes
 - `dev-tasks.yaml` when development handoff is requested
 - `launch-decision.yaml` when release readiness or launch decision support is requested
 - Open questions, assumptions, risks, and human confirmation points

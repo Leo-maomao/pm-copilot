@@ -15,7 +15,7 @@ PM Copilot 是一个开箱即用的 AI 产品经理 Agent 系统。
 - 需求澄清：判断目标、用户、范围、平台、风险和必须先问的问题。
 - PRD 交付：生成可评审的 `prd.md`，覆盖背景、目标、调研、需求、埋点、验收、风险和就绪状态。
 - PRD HTML：用 `scripts/render_prd_html.py` 生成浏览器可读的 `prd.html`，适合外部交付和同步评审。
-- UI 交付：在有源码时优先做 source-backed preview/delta；需要独立交付时用 `extract_ui_region.py` 从源码预览提取；无源码或明确要求便携 HTML 时生成 portable `prototype-<platform>.html`。
+- UI 交付：基于现有源码、截图和设计系统证据生成可审阅的标注原型、流程或规格；产物默认位于 `outputs/<run-id>/`，不修改宿主源码。
 - 埋点和指标：输出事件、属性、触发时机、隐私说明和验证方式。
 - 研发交接：按需生成 `dev-tasks.yaml`，保留依赖、验收、阻塞项和 issue-ready 切片。
 - 上线判断：按需生成 `launch-decision.yaml`，区分工程可交接、上线阻塞、owner、回滚和人工批准缺口。
@@ -97,7 +97,7 @@ PM Copilot 会先识别上下文模式、任务模式和自治等级；缺关键
 | 产物 | 应该看到什么 |
 |---|---|
 | `prd.md` | 首屏直接给出推荐权限方案、置信度、MVP/非目标、关键安全阻塞和下一检查点；需求详情覆盖邀请、角色变更、权限拦截、审计和异常恢复 |
-| Web UI 交付物 | 有前端源码时使用源码驱动的预览路由、Storybook/demo 或 `source_delta_patch`，复用现有后台壳层、组件库和表格密度；需要离线交付时从源码预览区域提取 HTML |
+| Web UI 交付物 | 基于只读源码、现有页面、截图或设计系统证据的标注原型或 UI 规格；明确区分现状、提议行为、保真度和研发 owner |
 | `dev-tasks.yaml` | 可转 issue 的研发任务、依赖关系、验收标准、测试建议、相关宿主项目文件和阻塞确认项 |
 | `run-log.yaml` | Agent 选择 `mixed_delivery` 和合适自治等级，记录源码证据、产品决策、Loop 进展、停止原因、下一步、可追责关键路径和 memory candidates |
 
@@ -225,7 +225,7 @@ python3 scripts/validate_repo.py
 
 ## 记忆
 
-PM Copilot 使用本地文件记忆，让重复使用更贴合产品和个人工作方式：
+PM Copilot 使用本地文件记忆，让重复使用更贴合产品和个人工作方式。每次任务先由 `indexes/runtime-routing.yaml` 选择最小相关记录，而不是整文件加载：
 
 - `context/product-memory.local.yaml` 存放稳定产品事实
 - `context/user-preferences.local.yaml` 存放用户工作风格

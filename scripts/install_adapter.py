@@ -25,9 +25,8 @@ CONTEXT_RULE = (
     "Ask must-answer questions and identify development or launch confirmation blockers "
     "if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until "
     "those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, "
-    "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; use source-backed preview/delta "
-    "files when frontend source exists, and use standalone HTML only for explicit portable HTML, "
-    "explicit redesign/greenfield, no-source, or concretely blocked source rendering. For document-class requests "
+    "user wording like \"prototype\" or \"only generate a prototype\" means review scope only; produce an evidence-based "
+    "review artifact and do not modify host source, create preview/delta files, deploy, or approve a release. For document-class requests "
     "where the user says no PRD is needed, use the structured reference or document prototype as the primary "
     "delivery and do not force a PRD."
 )

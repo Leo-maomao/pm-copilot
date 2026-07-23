@@ -6,6 +6,20 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.1.0] - 2026-07-23
+
+### Changed
+
+- Repositioned PM Copilot as an auxiliary Product Agent Loop: it now supports evidence gathering, product judgment, PM artifacts, review, handoff, and learning without modifying host product code, deploying releases, or replacing human approval.
+- Replaced the fixed serious-task first-read list with `indexes/runtime-routing.yaml`, which selects the smallest active workflow, contract, skill, and policy set for each task mode.
+- Converted repo-backed UI delivery to read-only evidence-based prototypes, specifications, and existing UI extracts; proposed behavior must be separated from observed behavior and handed to a named human implementation owner.
+- Added rule-governance policy and moved the one-off real-run UI plan into `docs/archive/` so historical repair guidance is not a runtime instruction.
+
+### Validation
+
+- Added `scripts/validate_runtime_routing.py` and repository integration to verify active routing paths, canonical rule ownership, task-mode coverage, and archive exclusion.
+- Updated runtime, adapter, template, UI, and validation surfaces to enforce the review-only boundary.
+
 ## [4.0.2] - 2026-07-11
 
 ### Fixed

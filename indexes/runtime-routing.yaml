@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "purpose": "Route each PM task to the smallest active document set. Archived, example, output, and change-record documents are not runtime instructions.",
+  "bootstrap": [
+    "policy.role_boundary",
+    "runtime.routing",
+    "workflow.context_loading"
+  ],
+  "documents": {
+    "policy.role_boundary": {"path": "policies/role-boundary.md", "kind": "policy", "status": "active", "canonical_for": "pm_agent_role_boundary"},
+    "policy.rule_governance": {"path": "policies/rule-governance.md", "kind": "policy", "status": "active", "canonical_for": "runtime_rule_ownership"},
+    "runtime.routing": {"path": "indexes/runtime-routing.yaml", "kind": "index", "status": "active", "canonical_for": "runtime_document_selection"},
+    "workflow.context_loading": {"path": "workflow/context-loading.md", "kind": "workflow", "status": "active", "canonical_for": "context_selection"},
+    "workflow.main": {"path": "workflow/main-workflow.md", "kind": "workflow", "status": "active", "canonical_for": "pm_loop"},
+    "workflow.handoff": {"path": "workflow/execution-handoff-workflow.md", "kind": "workflow", "status": "active", "canonical_for": "handoff_readiness"},
+    "contract.prd": {"path": "artifacts/prd-contract.md", "kind": "contract", "status": "active", "canonical_for": "prd_delivery"},
+    "contract.ui": {"path": "artifacts/ui-delivery-contract.md", "kind": "contract", "status": "active", "canonical_for": "ui_review_delivery"},
+    "contract.tracking": {"path": "artifacts/tracking-plan-contract.md", "kind": "contract", "status": "active", "canonical_for": "tracking_delivery"},
+    "contract.dev_tasks": {"path": "artifacts/dev-task-contract.md", "kind": "contract", "status": "active", "canonical_for": "development_handoff"},
+    "contract.launch": {"path": "artifacts/launch-decision-contract.md", "kind": "contract", "status": "active", "canonical_for": "launch_readiness_assessment"},
+    "contract.trace": {"path": "artifacts/trace-contract.md", "kind": "contract", "status": "active", "canonical_for": "run_trace"},
+    "skill.prd": {"path": "skills/prd-writing/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "prd_method"},
+    "skill.ui": {"path": "skills/multi-platform-ui-delivery/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "ui_review_method"},
+    "skill.tracking": {"path": "skills/tracking-plan/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "tracking_method"},
+    "skill.review": {"path": "skills/review-checklist/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "product_review_method"},
+    "skill.handoff": {"path": "skills/development-handoff/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "handoff_method"},
+    "skill.knowledge": {"path": "skills/knowledge-ops/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "structured_reference_method"},
+    "archive.real_run_ui_plan": {"path": "docs/archive/real-run-ui-delivery-improvement-plan.md", "kind": "change_record", "status": "archived", "canonical_for": ""}
+  },
+  "routes": {
+    "prd_delivery": ["workflow.main", "contract.prd", "contract.trace", "skill.prd"],
+    "implemented_feature_prd": ["workflow.main", "contract.prd", "contract.trace", "skill.prd"],
+    "ui_delivery": ["workflow.main", "contract.ui", "contract.trace", "skill.ui"],
+    "tracking_plan": ["workflow.main", "contract.tracking", "contract.trace", "skill.tracking"],
+    "launch_readiness": ["workflow.main", "workflow.handoff", "contract.launch", "contract.trace", "skill.review"],
+    "dev_handoff": ["workflow.main", "workflow.handoff", "contract.dev_tasks", "contract.trace", "skill.handoff"],
+    "structured_reference": ["workflow.main", "contract.trace", "skill.knowledge"],
+    "product_review": ["workflow.main", "contract.trace", "skill.review"],
+    "self_improvement": ["policy.rule_governance", "workflow.main", "contract.trace"],
+    "mixed_delivery": ["workflow.main", "contract.trace"]
+  },
+  "memory_selection": {
+    "allowed_files": [
+      "context/product-memory.local.yaml",
+      "context/user-preferences.local.yaml",
+      "context/decision-log.local.yaml"
+    ],
+    "required_fields": ["id", "source", "confidence", "last_updated"],
+    "selection_fields": ["scope", "tags", "status"]
+  }
+}

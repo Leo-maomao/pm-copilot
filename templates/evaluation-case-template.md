@@ -46,7 +46,7 @@ Paste the original realistic product request here.
 ## Required Artifacts
 
 - `outputs/<run-id>/prd.md`
-- UI deliverable reference: source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists, or `outputs/<run-id>/prototype-<platform>.html` only for portable HTML mode
+- UI deliverable reference: evidence-based prototype, existing UI extract, or `outputs/<run-id>/prototype-<platform>.html` recorded with fidelity and owner notes
 - `outputs/<run-id>/run-log.yaml` when trace is useful
 - Optional exports such as `tracking-plan.csv` or `user-flow.mmd` when useful
 

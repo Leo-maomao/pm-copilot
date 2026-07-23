@@ -12,7 +12,7 @@ Make the final PM delivery easy to review, share, and continue without creating 
 ## Workflow
 
 1. Verify `prd.md` exists and follows the PRD contract when PRD is in scope. If the user explicitly requested no PRD, verify the structured reference or document prototype is the primary delivery instead.
-2. Verify a UI deliverable exists or is recorded when UI is in scope: source-backed preview/delta by default when frontend source exists, source-extracted HTML when the UI was first rendered or implemented in the host project, or `prototype-<platform>.html` for portable HTML mode.
+2. Verify a UI deliverable exists or is recorded when UI is in scope: an evidence-based prototype, existing UI extract, specification, or `prototype-<platform>.html`, each with fidelity and implementation-owner notes.
 3. For implemented-feature PRD delivery, verify branch evidence was inspected and every visible feature behavior is represented in `prd.md` or marked as an explicit gap/risk. Reviewers should not need to manually inspect the branch to find missing requirement content.
 4. Verify PRD and UI deliverable agree on scope, screens, states, logic, interactions, tracking, and blockers.
 5. Verify the PRD contains version history, confirmation record, background, research/reference findings, goals/metrics, scope, implementation evidence when applicable, requirement list, requirement details, tracking plan, UI delivery reference, risks/open confirmations, acceptance criteria, and validation results.

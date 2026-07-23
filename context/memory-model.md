@@ -66,13 +66,13 @@ Stored in `outputs/<run-id>/run-log.yaml` when a persistent trace is useful:
 
 ## Read Order
 
-For each run, load memory after repository defaults and before generating task-specific artifacts:
+For each run, select memory through `indexes/runtime-routing.yaml` after task classification:
 
-1. `PM_COPILOT.md`
-2. Workflow, guardrails, artifact contracts, and prompt system
-3. Local memory files in `context/*.local.yaml`, when present
-4. Current user request and answers
-5. Current host repository context or user-provided documents
+1. `PM_COPILOT.md`, `policies/role-boundary.md`, and `indexes/runtime-routing.yaml`
+2. Current user request and answers
+3. Only active workflow, contract, skill, and tool documents selected by the task route
+4. Matching local memory records in `context/*.local.yaml`, when present
+5. Current host repository evidence or user-provided documents
 6. Tool observations from the current run
 
 Memory is never stronger than current user instruction or current product evidence.
@@ -110,6 +110,7 @@ Each durable memory record should include:
 - `last_updated`
 - optional `owner`
 - optional `supersedes`
+- optional `scope`, `tags`, and `status` so later runs can select the smallest relevant record set
 
 ## Sensitive Data Rules
 

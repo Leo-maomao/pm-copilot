@@ -87,11 +87,11 @@ capabilities:
 
   - id: validation.visual
     category: validation
-    required_when: "A portable UI HTML file is generated, or a source-backed UI preview is used."
+    required_when: "A portable UI review artifact is generated, or an existing host preview is inspected as evidence."
     command: "python3 scripts/validate_prototype_visual.py outputs/<run-id>"
     source_preview_command: "python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>"
     setup_command: "python3 scripts/setup_visual_validation.py"
-    behavior: "When no --prototype is provided, validates every supported portable HTML file in the run folder. Source-backed previews should be validated with validate_ui_preview.py after the host dev/preview/Storybook/simulator path is running, or with equivalent simulator evidence recorded under visual_validation."
+    behavior: "When no --prototype is provided, validates every supported portable HTML file in the run folder. Existing host previews may be inspected with validate_ui_preview.py and recorded as read-only evidence under visual_validation."
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - prd.md:validation_results
@@ -102,14 +102,14 @@ capabilities:
 
   - id: ui_delivery.source_extract
     category: ui_delivery
-    required_when: "A repo-backed UI handoff needs independent standalone HTML after the desired UI has first been rendered in the host project."
+    required_when: "A PM run needs a read-only extract of an already rendered existing UI region as evidence."
     command: "python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>"
     result_contract: artifacts/tool-result-contract.md
     records_to:
       - run-log.yaml:ui_delivery_trace.source_extract
       - run-log.yaml:visual_validation
       - outputs/<run-id>/visual-review/source-extract-report.json
-    fallback: "Keep the source-rendered preview as the authoritative handoff, or generate portable HTML only with explicit limitation. Do not hand-recreate standalone HTML while claiming source-derived fidelity."
+    fallback: "Keep the existing rendered region as evidence, or generate a conceptual review artifact with an explicit limitation. Do not claim a proposed feature is source-derived or implemented."
 
   - id: validation.html
     category: validation

@@ -6,7 +6,7 @@ decisions:
   - id: dec_001
     date: "2026-05-18"
     title: "Default delivery is PRD plus UI deliverable"
-    decision: "PM-facing output should default to prd.md plus a UI deliverable. Use source-backed preview/delta files when frontend source exists; use prototype-<platform>.html only as the portable standalone/no-source/fallback artifact."
+    decision: "PM-facing output should default to prd.md plus a UI review deliverable. Read frontend source as evidence when available; use prototype-<platform>.html or a UI specification without modifying the host product."
     rationale: "Product managers should not need to assemble many small files to review one requirement."
     scope:
       - delivery_model

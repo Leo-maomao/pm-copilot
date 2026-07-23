@@ -18,6 +18,8 @@ REQUIRED_DIRS = [
     "agents",
     "skills",
     "context",
+    "indexes",
+    "policies",
     "prompts",
     "workflow",
     "artifacts",
@@ -68,6 +70,9 @@ REQUIRED_FILES = [
     "context/user-preferences.example.yaml",
     "context/decision-log.example.yaml",
     "context/memory-model.md",
+    "indexes/runtime-routing.yaml",
+    "policies/role-boundary.md",
+    "policies/rule-governance.md",
     "prompts/prompt-system.md",
     "docs/direct-use.md",
     "docs/embedded-use.md",
@@ -102,6 +107,7 @@ REQUIRED_FILES = [
     "scripts/render_prd_html.py",
     "scripts/validate_outputs.py",
     "scripts/validate_agent_trace.py",
+    "scripts/validate_runtime_routing.py",
     "scripts/evaluate_agent_loop.py",
     "scripts/test_agent_loop.py",
     "scripts/test_prd_contract.py",
@@ -191,6 +197,7 @@ SELF_ITERATION_CORE_PREFIXES = (
     "adapters/",
     "agents/",
     "artifacts/",
+    "indexes/",
     "docs/practice-self-iteration.md",
     "docs/optimization-playbook.md",
     "docs/release-checklist.md",
@@ -198,6 +205,7 @@ SELF_ITERATION_CORE_PREFIXES = (
     "docs/versioning.md",
     "guardrails/",
     "prompts/",
+    "policies/",
     "scripts/",
     "skills/",
     "templates/",
@@ -269,7 +277,8 @@ EXPECTED_TOOL_IDS = [
 REQUIRED_TEXT_TOKENS = {
     "PM_COPILOT.md": [
         "AI Product Manager Agent System",
-        "agents/agent-operating-model.md",
+        "policies/role-boundary.md",
+        "indexes/runtime-routing.yaml",
         "task_mode",
         "autonomy_level",
         "Generalization Boundary",
@@ -278,8 +287,8 @@ REQUIRED_TEXT_TOKENS = {
         "launch status",
         "content source",
         "navigation visibility",
-        "product-memory.local.yaml",
-        "agent-interface.md",
+        "indexes/runtime-routing.yaml",
+        "auxiliary PM agent work",
         "validate_outputs.py",
         "preflight_tools.py",
         "run_delivery_checks.py",
@@ -291,7 +300,7 @@ REQUIRED_TEXT_TOKENS = {
         "setup_visual_validation.py",
         "validate_prototype_visual.py",
         "validate_ui_preview.py",
-        "extract_ui_region.py",
+        "runtime-routing.yaml",
         "dev-tasks.yaml",
         "launch-decision.yaml",
         "structured-catalog-contract.md",
@@ -321,7 +330,7 @@ REQUIRED_TEXT_TOKENS = {
         "setup_visual_validation.py",
         "validate_prototype_visual.py",
         "validate_ui_preview.py",
-        "extract_ui_region.py",
+        "runtime-routing.yaml",
         "render_prd_html.py",
         "占位图",
         "dev-tasks.yaml",
@@ -347,7 +356,7 @@ REQUIRED_TEXT_TOKENS = {
         "setup_visual_validation.py",
         "validate_prototype_visual.py",
         "validate_ui_preview.py",
-        "extract_ui_region.py",
+        "runtime-routing.yaml",
         "render_prd_html.py",
         "占位图",
         "dev-tasks.yaml",
@@ -677,8 +686,8 @@ REQUIRED_TEXT_TOKENS = {
     ],
     "agents/ui-delivery-agent.md": [
         "UI Delivery Agent",
-        "source-rendered",
-        "source_extract_html",
+        "reviewable UI evidence",
+        "read-only",
         "portable",
     ],
     "evals/bounded-agent-loop-eval.md": [
@@ -1116,8 +1125,8 @@ def check_adapter_snippets_alignment() -> None:
     essential_tokens = (
         "product-manager work such as PRD",
         "@pm-copilot",
-        "source-backed preview/delta",
-        "standalone HTML only",
+        "do not modify host source",
+        "do not modify host source",
         "structured reference or document prototype",
     )
     snippet_paths = [
@@ -1140,7 +1149,7 @@ def check_adapter_snippets_alignment() -> None:
 
 def check_no_orphan_one_off_plan_docs() -> None:
     one_off_docs = [
-        ROOT / "docs/real-run-ui-delivery-improvement-plan.md",
+        ROOT / "docs/archive/real-run-ui-delivery-improvement-plan.md",
     ]
     for path in one_off_docs:
         if not path.exists():
@@ -1480,6 +1489,15 @@ def main() -> None:
     check_scorecard_not_stale()
     check_adapter_snippets_alignment()
     check_no_orphan_one_off_plan_docs()
+    runtime_routing = subprocess.run(
+        [sys.executable, "scripts/validate_runtime_routing.py"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if runtime_routing.returncode:
+        fail(runtime_routing.stderr.strip() or runtime_routing.stdout.strip())
     check_version()
     check_self_iteration_release_guard()
     check_skills()

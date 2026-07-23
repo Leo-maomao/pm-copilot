@@ -914,7 +914,7 @@ def prioritize_actions(
         )
     elif run_quality.get("with_explicit_ui_gap"):
         actions.append(
-            "Create one source-backed preview/delta for the latest UI scenario and validate it with validate_ui_preview.py."
+            "Create one evidence-based UI review artifact for the latest scenario and validate it with the applicable portable or existing-preview check."
         )
     if "agentic_trace" in risk_areas:
         actions.append(

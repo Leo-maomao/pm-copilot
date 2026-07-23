@@ -31,7 +31,7 @@ Classify the request before drafting:
 |---|---|---|
 | PRD delivery | `prd_delivery` | PRD, product requirement, feature scope, review-ready requirement | Run PM Copilot execution graph and produce useful PM artifacts |
 | Implemented feature PRD | `implemented_feature_prd` | Branch-to-PRD, current diff to PRD/HTML, "把实现还原成需求文档" | Inspect implementation evidence first; generate required `prd.html` |
-| UI delivery | `ui_delivery` | UI deliverable, prototype, visual state, source-backed preview | Prefer source-backed preview/delta when frontend source exists |
+| UI delivery | `ui_delivery` | UI deliverable, prototype, visual state, evidence-based review artifact | Inspect source read-only when available; produce a PM review artifact |
 | Tracking | `tracking_plan` | Metrics, analytics events, KPI tree, experiment tracking | Produce measurable plan and privacy notes |
 | Launch readiness | `launch_readiness` | Go/no-go, rollout, launch blockers, approval gaps | Separate engineering handoff status from launch status |
 | Dev handoff | `dev_handoff` | Issue planning, development tasks, handoff | Preserve blockers in `dev-tasks.yaml` |
@@ -114,7 +114,7 @@ When the clarification gate passes, generate:
 - `outputs/<run-id>/prd.md` when PRD is in scope
 - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary artifact
 - document prototype HTML when the requested HTML/prototype is a browser-readable reference document
-- source-backed UI preview/delta files when repo-backed frontend source exists
+- evidence-based UI prototypes or specifications when repo-backed frontend source exists
 - `outputs/<run-id>/prototype-<platform>.html` only when portable standalone/no-source/fallback HTML mode is selected
 - `outputs/<run-id>/run-log.yaml` when a trace is useful
 

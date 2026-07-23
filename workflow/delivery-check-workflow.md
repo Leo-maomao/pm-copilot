@@ -8,7 +8,7 @@ This is the only delivery-check entry. It verifies that PM-facing deliverables a
 - `outputs/<run-id>/prd.html` when browser-readable PRD delivery is requested, and always for implemented-feature PRD delivery
 - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary delivery
 - Document prototype HTML when the requested prototype is a browser-readable reference document
-- UI deliverable reference when user-facing UI is relevant: source-backed preview/delta files by default, source-extracted HTML when independent handoff is needed, or portable `outputs/<run-id>/prototype-<platform>.html` when there is no usable source or the user explicitly requests standalone HTML
+- UI deliverable reference when user-facing UI is relevant: an evidence-based prototype, existing UI extract, or portable `outputs/<run-id>/prototype-<platform>.html` with observed/proposed behavior and fidelity notes
 - Optional exports such as `tracking-plan.csv` or `user-flow.mmd`
 - Internal `run-log.yaml`, when available
 - `dev-tasks.yaml` and `launch-decision.yaml`, when requested

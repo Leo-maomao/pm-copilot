@@ -3,9 +3,10 @@
 PM Copilot is the canonical entry for the AI Product Manager Agent System.
 Use it when a user needs product-manager work such as PRD, tracking plan, UI delivery, prototype review, structured reference, document prototype, competitor research, metrics, engineering handoff, launch status review, implemented-feature PRD reconstruction, or PM Copilot self-improvement.
 
-The default behavior is goal-driven agent work.
+The default behavior is goal-driven auxiliary PM agent work.
 The workflow is the safety rail, not the user-facing experience.
 Start by understanding the user's goal, choose a task mode and autonomy level, then use the smallest execution path that can produce a useful PM delivery.
+PM Copilot supports product decisions and handoffs; it does not modify host product code, deploy releases, or replace human approval.
 
 ## Local Reference Rule
 
@@ -33,25 +34,17 @@ Activate PM Copilot when the user asks for:
 The user should not need to remember the project name.
 If the task is clearly product-manager work, run PM Copilot.
 
-## Required First Reads
+## Required Bootstrap Reads
 
-Read these files before running a serious PM delivery:
+Read only these files before classifying a serious PM task:
 
-- `agents/agent-operating-model.md`
-- `workflow/main-workflow.md`
+- `policies/role-boundary.md`
+- `indexes/runtime-routing.yaml`
 - `workflow/context-loading.md`
-- `prompts/prompt-system.md`
-- `guardrails/guardrails.md`
-- `guardrails/failover.md`
-- `agents/agent-interface.md`
-- `artifacts/artifact-contracts.md`
-- `artifacts/trace-contract.md`
-- `artifacts/tool-result-contract.md`
-- `tools/tool-registry.yaml`
-- `tools/tool-use-protocol.md`
-- `context/memory-model.md`
 
-Load additional files only when the task requires them:
+Classify `task_mode`, then load only the active document IDs listed by `indexes/runtime-routing.yaml`. Read the smallest relevant section rather than whole unrelated documents. Do not load example files, previous outputs, archived plans, or optimization cycles as runtime instructions.
+
+Load additional files only when the selected route or a concrete risk requires them:
 
 - UI delivery: `agents/ui-delivery-agent.md`, `skills/multi-platform-ui-delivery/SKILL.md`, `artifacts/ui-delivery-contract.md`, `tools/ui-delivery-tooling.md`
 - Structured reference or document prototype: `skills/knowledge-ops/SKILL.md`, `artifacts/structured-catalog-contract.md`, `templates/structured-catalog-template.md`, `templates/document-prototype-template.html`
@@ -99,9 +92,9 @@ Classify every run as:
 - `document-backed`: product docs, specs, screenshots, notes, tickets, analytics exports, or other documents are the primary evidence
 - `brief-only`: only a short user request exists
 
-Use memory only as supporting context:
+Use memory only as supporting context selected through `indexes/runtime-routing.yaml`:
 
-- Load `context/product-memory.local.yaml`, `context/user-preferences.local.yaml`, and `context/decision-log.local.yaml` when present.
+- Read only records whose `scope`, `tags`, or active decision status match the task. Do not load entire memory files by default.
 - Prefer `context/product-context.local.yaml` if it exists; otherwise use `context/product-context.example.yaml` only as a generic placeholder.
 - Current user instruction and current product evidence override memory.
 - If reusable facts or preferences are learned, suggest memory candidates at the end. Do not silently store sensitive memory.
@@ -151,7 +144,7 @@ Default artifacts by task:
 
 - PRD delivery: `prd.md`, run-log when useful, UI delivery if UI is in scope
 - Implemented-feature PRD: `prd.md`, required `prd.html`, `run-log.yaml`
-- UI delivery: source-backed preview/delta when frontend source exists; source-extracted HTML when the user asks for independent handoff from a rendered source surface; `portable_html` as `prototype-<platform>.html` for no-source work, explicit portable HTML, greenfield/redesign, or concrete source-rendering blockers
+- UI delivery: annotated `prototype-<platform>.html`, flow, or review specification grounded in available source, screenshot, and design-system evidence; it is a PM review artifact, not a host-code implementation
 - Structured reference: `catalog.md`, `reference.md`, requested HTML, or document prototype; do not force PRD when the user explicitly says no PRD
 - Tracking plan: tracking table inside PRD or `tracking-plan.csv` when requested
 - Engineering handoff: optional `dev-tasks.yaml`
@@ -188,9 +181,9 @@ Avoid decorative cards, gradients, unusual backgrounds, nested scroll containers
 
 ## UI Delivery Rule
 
-For repo-backed UI work, prefer source-backed preview/delta files and record them in `run-log.yaml`.
-When the PM needs a standalone handoff from a source-rendered surface, render the target region in the host project or approved current-repo implementation first, then use `scripts/extract_ui_region.py`.
-Use portable `prototype-<platform>.html` only when source-backed delivery is not appropriate or the user explicitly asks for standalone/no-source HTML.
+For repo-backed UI work, inspect source, screenshots, routes, and design-system evidence in read-only mode. Produce an evidence-based prototype or specification under `outputs/<run-id>/`; do not create preview/delta files in the host project.
+When an existing rendered surface is available, `scripts/extract_ui_region.py` may create a read-only evidence extract under the run folder. It must not be used to implement a requested feature.
+Use portable `prototype-<platform>.html` as the standard review artifact and label any fidelity limitation or unverified behavior.
 
 For UI deliverables, record the active UI Delivery Agent (`agents/ui-delivery-agent.md`), `skills/multi-platform-ui-delivery/SKILL.md`, style evidence, existing UI baseline when available, artifact mode, and visual validation.
 

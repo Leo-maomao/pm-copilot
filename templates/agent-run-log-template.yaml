@@ -429,10 +429,10 @@ host_frontend_inventory:
   icon_asset_sources: [] # icon imports, SVG/iconfont files, image assets, or explicit not_applicable reason
   data_or_mock_sources: []
   render_entrypoint: "" # dev script, preview command, Storybook command, simulator command, or unavailable reason; do not record only localhost URL
-  preview_surface: "" # route/story/demo/screen that renders the source-backed UI deliverable
-  preview_url: "" # optional local URL when applicable; must be accompanied by render_entrypoint and preview_files_changed
-  source_rendering_decision: "" # required | used | blocked | user_explicit_portable | user_explicit_greenfield | not_required; user_explicit_* requires matching raw_request wording
-  source_rendering_limitation: "" # concrete command/browser/simulator/dependency/preview-surface blocker when blocked; production read-only alone is not a blocker
+  preview_surface: "" # existing route/story/demo/screen inspected as evidence, when available
+  preview_url: "" # optional existing local URL or file inspected as evidence
+  source_rendering_decision: "" # evidence_only | not_available | not_required
+  source_rendering_limitation: "" # concrete evidence limitation, not a reason to modify host source
 
 style_evidence:
   source_files: [] # concrete host files/assets inspected, e.g. src/.../Component.tsx, src/styles/..., public/...
@@ -443,11 +443,11 @@ style_evidence:
   limitations: []
 
 ui_delivery_trace:
-  mode: "" # source_delta_patch | source_rendered_preview | code_preview_route | storybook_or_demo | mini_program_preview | app_preview_screen | source_extract_html | portable_html | document_or_screenshot_only | not_applicable
-  host_mutation_policy: "" # production_flows_read_only | isolated_preview_files_only | production_implementation_requested | not_applicable
+  mode: "" # evidence_based_prototype | existing_ui_extract | portable_html | ui_specification | document_or_screenshot_only | not_applicable
+  host_mutation_policy: "" # host_read_only | not_applicable
   target_surface: ""
-  preview_files_changed: [] # required for source-rendered modes; keep production flow files out unless requested
-  implementation_files_changed: [] # only when the user explicitly asks to implement in the current repo before extraction
+  preview_files_changed: [] # must remain empty for PM Copilot review-only work
+  implementation_files_changed: [] # must remain empty for PM Copilot review-only work
   baseline_import:
     imported_sources: [] # original host page/screen/components/styles/assets imported or rendered directly
     render_method: "" # route_composition | story_composition | page_import | screen_import | wrapper_component | not_applicable
@@ -649,7 +649,7 @@ visual_validation:
   required: false
   command: ""
   status: "" # passed | failed | skipped
-  preview_target: "" # source-backed preview URL/file when validate_ui_preview.py is used
+  preview_target: "" # existing preview URL/file when validate_ui_preview.py is used for evidence
   screenshots:
     - viewport: ""
       path: ""

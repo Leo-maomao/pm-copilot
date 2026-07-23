@@ -17,7 +17,8 @@ The execution graph provides safety boundaries; the user-facing experience is an
 - Clarifies requirements: goal, user, scope, platform, risk, and must-answer questions.
 - Delivers PRDs: `prd.md` with background, goals, research, requirements, tracking, acceptance, risks, and readiness.
 - Renders PRD HTML: `scripts/render_prd_html.py` creates browser-readable `prd.html` for external review.
-- Delivers UI: source-backed preview/delta by default when source exists; source-extracted HTML through `extract_ui_region.py` when an independent handoff is needed; portable `prototype-<platform>.html` for no-source or explicit standalone HTML work.
+- Delivers UI: reviewable annotated prototypes, flows, and specifications grounded in existing source, screenshots, and design-system evidence without modifying host source code.
+- Routes each task through `indexes/runtime-routing.yaml` so only the smallest relevant active workflow, contract, skill, and memory records are loaded.
 - Designs metrics and tracking: events, properties, triggers, privacy notes, and validation.
 - Supports engineering handoff: optional `dev-tasks.yaml` with dependencies, acceptance, blockers, and issue-ready slices.
 - Supports launch decisions: optional `launch-decision.yaml` with readiness, blockers, owners, rollback, and approval gaps.
@@ -101,7 +102,7 @@ A useful run should produce:
 | Artifact | What to look for |
 |---|---|
 | `prd.md` | The first screen states the recommended permission approach, confidence, MVP/non-goals, key security blocker, and next checkpoint; details cover invites, role changes, permission blocking, audit, and recovery states |
-| Web UI deliverable | Source-backed preview route, Storybook/demo, or `source_delta_patch` when source exists; source-extracted HTML when independent handoff is required |
+| Web UI deliverable | Evidence-based annotated prototype or UI specification with observed/proposed behavior and fidelity notes |
 | `dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
 | `run-log.yaml` | Agent selection of `mixed_delivery` and autonomy level, source evidence, product decisions, Loop progress and stop reason, next actions, accountable critical path, and memory candidates |
 

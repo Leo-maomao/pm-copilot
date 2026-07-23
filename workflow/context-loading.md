@@ -2,22 +2,25 @@
 
 ## Principle
 
-Load only the context needed for the current workflow state. Too much context can lower output quality by mixing unrelated product facts, stale decisions, and conflicting examples.
+Load only the context needed for the current workflow state. Too much context can lower output quality by mixing unrelated product facts, stale decisions, and conflicting examples. Start from `indexes/runtime-routing.yaml`; do not use directory-wide discovery as a substitute for task routing.
 
 ## Loading Order
 
-1. Current user request and explicit user answers
-2. Product context sources provided by the user
-3. Host project context, when PM Copilot is embedded in another repository
-4. Local memory files in `context/*.local.yaml`, when present
-5. Product context summary
-6. Relevant personas and user segments
-7. Relevant business model and metrics
-8. Relevant PRD style and artifact preferences
-9. Relevant tracking taxonomy
-10. Relevant competitors or research notes
+1. `policies/role-boundary.md` and `indexes/runtime-routing.yaml`
+2. Current user request and explicit user answers
+3. Only the active documents selected for the classified task mode
+4. Product context sources provided by the user
+5. Host project evidence, when PM Copilot is embedded in another repository
+6. Matching records from local memory files in `context/*.local.yaml`, when present
+7. Additional evidence required by the selected route, risk, or unresolved question
 
-Local memory should reduce repeated questions, not override current evidence. Load only relevant memory sections for the current task.
+Local memory should reduce repeated questions, not override current evidence. Load only relevant records for the current task; never treat an example, archived document, previous output, or optimization cycle as product reality.
+
+## Runtime Routing
+
+Classify a task mode before loading workflow, contract, skill, or tool documents. Resolve that mode in `indexes/runtime-routing.yaml`, then read only the listed active document IDs. The routing index is the authority for runtime selection; each selected document remains the authority for its own rule.
+
+Do not route normal PM work to documents with `status: archived`, `kind: change_record`, example schemas, or generated output folders. Use those only for explicit retrospective, self-improvement, or evidence-trace tasks.
 
 ## Memory Context
 
@@ -45,7 +48,7 @@ PM Copilot must work for PMs with or without code repositories. Classify the run
 
 ## Repo-Backed Context
 
-In repo-backed mode, the host project is one source of product reality. Load enough current-state context to avoid proposing a requirement that ignores existing implementation or product constraints.
+In repo-backed mode, the host project is one source of product reality. Load enough current-state context to avoid proposing a requirement that ignores existing behavior or product constraints. Read host files and runnable surfaces as evidence only; PM Copilot must not modify host code, configuration, data, or deployment state.
 
 Use relevant files only. Typical sources include:
 

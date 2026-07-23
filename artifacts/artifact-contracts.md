@@ -15,15 +15,15 @@ The default product-manager delivery contains only:
 - `outputs/<run-id>/prd.md`
 - `outputs/<run-id>/prd.html` when the user requests a browser-readable, externally deliverable, or copy/share-friendly PRD document
 - a UI deliverable when a user-facing UI artifact is relevant:
-  - source-backed preview/delta files recorded in `run-log.yaml` when frontend source exists
-  - `outputs/<run-id>/prototype-<platform>.html` for source-extracted HTML handoff or portable standalone/no-source mode
+  - `outputs/<run-id>/prototype-<platform>.html` for an evidence-based interactive review artifact
+  - a UI flow or specification in `prd.md` when interactive HTML is not useful
   - `outputs/<run-id>/index.html` only as an offline folder entry when the user explicitly asks for portable/offline HTML handoff
 
 When the user asks to turn an already implemented branch or current diff into a requirement delivery, PM Copilot must generate `outputs/<run-id>/prd.html` beside `prd.md`. This file is a browser-readable PRD document rendering, not a UI prototype and not a document-class structured catalog.
 
 When the user asks primarily for a document-class handoff instead of a product requirement, such as a structured reference, parameter table, model matrix, API capability catalog, vendor table, data dictionary, payment or risk rule reference, SOP/runbook, or migration inventory, PM Copilot may generate `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` as the primary delivery artifact. Generate `outputs/<run-id>/catalog.html`, `outputs/<run-id>/reference.html`, or a `document_prototype` HTML only when the user asks for HTML, browser-readable review, or richer document presentation. These files must follow `artifacts/structured-catalog-contract.md`.
 
-For repo-backed UI work with frontend source, the UI delivery reference should be a source-rendered delta patch, preview route, Storybook story, demo entry, Mini Program preview page, or App preview screen recorded in `run-log.yaml` and referenced from the PRD. In that mode, PM Copilot should import/render the original baseline from host source, change only isolated delta/preview files by default, and should not hand-recreate the real UI as standalone HTML while claiming product fit. If the user asks to implement the feature in the current repository first, record the user-approved implementation files and extract the finished running UI as source-derived HTML for handoff. User words such as "prototype", "原型", "demo", or "only generate a prototype" describe review scope, not the artifact method.
+For repo-backed UI work, source is read-only product evidence. The UI delivery reference is an evidence-based prototype, flow, or specification recorded in `run-log.yaml` and referenced from the PRD. It must distinguish current observed behavior from proposed behavior, name fidelity limitations, and identify the human owner who will implement the request. User words such as "prototype", "原型", "demo", or "only generate a prototype" describe review scope and never authorize host-source changes.
 
 `outputs/<run-id>/run-log.yaml` is an internal trace artifact for debugging, regression, and auditability. It is not a PM-facing deliverable.
 
@@ -211,7 +211,7 @@ Required elements:
 - Runs locally without build tooling when a portable HTML artifact is selected; source-rendered preview modes run through the host app's normal dev, preview, Storybook, simulator, or platform tooling.
 - Simulates or uses the selected platform container.
 - Matches existing product style when current screenshots, demos, routes, components, or design-system references are available.
-- For repo-backed UI-delivery work, reads real host frontend code and assets, keeps production flows read-only by default, and uses `source_delta_patch` or a platform-specific source-rendered preview whenever host frontend source exists. This does not require the user to ask for exact UI parity.
+- For repo-backed UI-delivery work, read real host frontend code and assets as evidence, keep the host read-only, and create an evidence-based prototype or specification under the run folder. This does not require the user to ask for exact UI parity.
 - For repo-backed UI-delivery work, records `ui_delivery_trace` in `run-log.yaml`, including host mutation policy, artifact mode, target surface, preview files, `baseline_import`, `delta_patch`, source-to-demo mapping, backend simulation method, parity claim, and limitations.
 - For repo-backed UI-delivery work, imports/renders `baseline_import` from original host source and puts only new feature behavior in `delta_patch`: preview composition, mock state, markers, explanation dialogs, interactions, backend notes, tracking notes, and edge-case notes.
 - For repo-backed frontend products, records concrete `style_evidence` in `run-log.yaml`, includes source-to-demo mappings for reused host components, and includes `style-source-summary` or `data-style-source` in the HTML.
@@ -251,7 +251,7 @@ Minimum quality bar:
 - When existing product UI exists, the UI deliverable adapts the existing surface and highlights the new requirement delta instead of inventing an unrelated product surface.
 - When host frontend code exists, the UI deliverable reuses the current app shell, component-library structure, tokens, spacing density, and copy tone rather than introducing a separate visual system, unless the raw request explicitly asks to redesign/rebuild/from-scratch/stop reusing the original UI.
 - When source-level fidelity is requested or exact icons/components/native platform chrome matter, uses a source-rendered preview mode when available; otherwise the artifact explicitly states standalone-HTML fidelity limitations.
-- Repo-backed UI-delivery-only work does not mutate existing production routes, pages, components, styles, assets, package files, or backend code unless the user explicitly requested production-oriented implementation. Exact-fidelity UI delivery should use isolated preview/delta files.
+- Repo-backed UI-delivery-only work never mutates existing production routes, pages, components, styles, assets, package files, or backend code. It records observed evidence, proposed behavior, fidelity limits, and the human implementation owner.
 - Delta markers and annotation controls do not resize, crop, recolor, or cover critical unchanged baseline UI.
 - Backend-dependent behavior is represented through mock data, states, and annotations rather than implying backend implementation exists.
 - For long pages, multi-state flows, and modals, preserve the product's real scrolling behavior. Do not clip modal contents or force the whole product into a fixed-height frame unless the host product does that.
