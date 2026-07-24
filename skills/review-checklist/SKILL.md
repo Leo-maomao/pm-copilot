@@ -26,6 +26,8 @@ Decide whether the PRD and UI delivery is ready for stakeholder review, engineer
 13. For operational workflows such as feedback, moderation, support, release checks, or admin review, verify the state machine, owner role, SLA or timing assumption, user-visible status, internal-only status, reply/content review, reopen/cancel path, and notification behavior.
 14. For comparison, ranking, scoring, or recommendation-adjacent experiences, verify neutral default ordering, no unexplained winner/highlight, source/fee/risk definitions, disclaimer visibility, and whether any wording implies advice or guaranteed superiority.
 15. For launch-sensitive packages, verify required human approvals are present before any ready-to-launch wording is allowed.
+16. When reviewing a UI artifact, load `skills/design-system-audit/SKILL.md` and add actionable findings for hierarchy, interaction-state coverage, accessibility guidance, visual consistency, and unsupported visual claims.
+17. Do not fetch or rely on mutable third-party design rules during a delivery review unless the user explicitly asks for that source-backed audit and approves its use.
 
 ## Output
 

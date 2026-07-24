@@ -23,6 +23,8 @@ Convert a vague product request into a usable brief without inventing business-c
 10. Write explicit assumptions only after the user says to proceed with a draft or the unknown is low-impact.
 11. Do not put the same unknown in more than one bucket.
 12. If enough evidence exists to draft safely, proceed with assumptions instead of asking low-value questions.
+13. For a consequential unresolved decision, run a focused decision interview: ask one branch-changing question at a time, summarize the answer and trade-off, then ask the next question only when it changes the recommendation.
+14. Record a durable decision only after the user confirms it. Store the decision, alternatives, rationale, owner, and reopen condition in the run artifact; do not create or update a project-wide glossary, ADR, ticket, or host document automatically.
 
 ## Output
 
@@ -48,3 +50,4 @@ Convert a vague product request into a usable brief without inventing business-c
 - Output fits the current product context instead of assuming a greenfield product.
 - The workflow remains usable when the PM has documents but no software repository.
 - The PRD writer can proceed without guessing the core intent.
+- A decision interview ends when the selected option and its remaining uncertainty are clear; it is not an open-ended interrogation.

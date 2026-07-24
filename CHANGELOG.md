@@ -6,6 +6,24 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.2.0] - 2026-07-24
+
+### Added
+
+- Added repository-local capability selectors and `scripts/resolve_runtime_capabilities.py` so optional PM Copilot skills are selected by task mode and request trigger instead of relying on machine-local skill installation or directory-wide loading.
+- Added `test-first-maintenance` and `repository-architecture-review` skills, both restricted to PM Copilot self-improvement work in this repository.
+- Added a root `AGENTS.md` entry point, third-party source intake record, and validation for selector task modes, triggers, and active document paths.
+
+### Changed
+
+- Absorbed the requested visual-direction, UI-quality-audit, and structured-decision-interview practices into the existing design-system audit, delivery review, and requirement-intake canonical skills.
+- Kept source notes and third-party intake records outside the runtime path; skills are now loaded only through the runtime index and matching optional capability selector.
+
+### Validation
+
+- Verified UI quality, visual-direction, decision-interview, test-first-maintenance, and repository-architecture selectors against their resolved local skill paths.
+- Ran runtime-routing and repository validation.
+
 ## [4.1.0] - 2026-07-23
 
 ### Changed

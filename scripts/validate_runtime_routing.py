@@ -66,6 +66,7 @@ def validate_registry(registry: dict[str, object]) -> None:
     documents = registry.get("documents")
     routes = registry.get("routes")
     bootstrap = registry.get("bootstrap")
+    capability_selectors = registry.get("capability_selectors")
     memory_selection = registry.get("memory_selection")
     if not isinstance(documents, dict):
         fail("Routing registry must define documents")
@@ -112,6 +113,37 @@ def validate_registry(registry: dict[str, object]) -> None:
             if not isinstance(document_id, str):
                 fail(f"Route {task_mode} contains non-string document ID")
             require_active_document(document_id, documents, f"route {task_mode}")
+
+    if not isinstance(capability_selectors, dict):
+        fail("Routing registry must define capability_selectors")
+    for selector_id, raw_selector in capability_selectors.items():
+        if not isinstance(selector_id, str) or not selector_id:
+            fail("Capability selector IDs must be non-empty strings")
+        if not isinstance(raw_selector, dict):
+            fail(f"Capability selector {selector_id} must be an object")
+        triggers = raw_selector.get("triggers")
+        task_modes = raw_selector.get("task_modes")
+        document_ids = raw_selector.get("documents")
+        if not isinstance(triggers, list) or not triggers or not all(
+            isinstance(trigger, str) and trigger.strip() for trigger in triggers
+        ):
+            fail(f"Capability selector {selector_id} must define non-empty string triggers")
+        if not isinstance(task_modes, list) or not task_modes:
+            fail(f"Capability selector {selector_id} must define task_modes")
+        unknown_task_modes = sorted(
+            task_mode for task_mode in task_modes if task_mode not in EXPECTED_TASK_MODES
+        )
+        if unknown_task_modes:
+            fail(
+                f"Capability selector {selector_id} references unknown task modes: "
+                f"{unknown_task_modes}"
+            )
+        if not isinstance(document_ids, list) or not document_ids:
+            fail(f"Capability selector {selector_id} must define documents")
+        for document_id in document_ids:
+            if not isinstance(document_id, str):
+                fail(f"Capability selector {selector_id} contains non-string document ID")
+            require_active_document(document_id, documents, f"capability selector {selector_id}")
 
     if not isinstance(memory_selection, dict):
         fail("Routing registry must define memory_selection")

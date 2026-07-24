@@ -20,6 +20,12 @@ Local memory should reduce repeated questions, not override current evidence. Lo
 
 Classify a task mode before loading workflow, contract, skill, or tool documents. Resolve that mode in `indexes/runtime-routing.yaml`, then read only the listed active document IDs. The routing index is the authority for runtime selection; each selected document remains the authority for its own rule.
 
+After loading the base route, inspect `capability_selectors` in the routing index. Select an optional capability only when both its listed trigger and task-mode scope match the request. Load only the selector's listed active documents. Optional capability selection is additive and never replaces a base route, role boundary, contract, or explicit user instruction.
+
+Use `scripts/resolve_runtime_capabilities.py` when a deterministic selector result is needed. Its output is a skill-loading aid, not a replacement for task classification or human-confirmation gates.
+
+Do not load every local skill because it exists. Source notes and third-party intake records are provenance, not runtime instructions unless a selected skill explicitly needs them for a self-improvement task.
+
 Do not route normal PM work to documents with `status: archived`, `kind: change_record`, example schemas, or generated output folders. Use those only for explicit retrospective, self-improvement, or evidence-trace tasks.
 
 ## Memory Context

@@ -59,6 +59,12 @@ Keep one canonical skill per capability type.
 When an external skill or workflow overlaps an existing PM Copilot skill, use `skills/sharingan/SKILL.md` to absorb the useful parts into the canonical skill instead of adding a duplicate sibling.
 Load `skills/skill-cleaner/SKILL.md` when the user asks to audit, trim, clean, de-duplicate, or measure prompt-budget pressure.
 
+## Optional Capability Selection
+
+After selecting a base task route, inspect `capability_selectors` in `indexes/runtime-routing.yaml`. When the request matches a selector and its task-mode scope, load the selector's listed skills in addition to the base route. Do not load optional capabilities by directory discovery or by default.
+
+`self_improvement` selectors are limited to PM Copilot's own repository. They may never be used to modify an embedded host product. Skills that write durable decision records require the user's confirmation before recording the decision.
+
 ## Agent Strategy
 
 Before drafting, PM Orchestrator must record or be ready to state:
