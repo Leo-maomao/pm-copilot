@@ -121,12 +121,21 @@ versioning:
   new_version: "4.2.0"
   changelog_updated: true
 sync:
-  embedded_copies_checked: []
-  embedded_copies_updated: []
+  embedded_copies_checked:
+    - "/Users/mac142/Desktop/ai-video/pm-copilot"
+    - "/Users/mac142/Desktop/ai-video/src/features/pm-copilot"
+    - "/Users/mac142/Desktop/my-fund-site/pm-copilot"
+    - "/Users/mac142/Desktop/sea-craft-next-main/pm-copilot"
+    - "/Users/mac142/Desktop/seaart-video-editor/pm-copilot"
+  embedded_copies_updated:
+    - "/Users/mac142/Desktop/ai-video/pm-copilot"
+    - "/Users/mac142/Desktop/ai-video/src/features/pm-copilot"
+    - "/Users/mac142/Desktop/sea-craft-next-main/pm-copilot"
+    - "/Users/mac142/Desktop/seaart-video-editor/pm-copilot"
   skipped_targets:
-    - path: "embedded copies"
-      reason: "No embedded PM Copilot copy is present in this repository; sync target discovery occurs after the main repository push."
+    - path: "/Users/mac142/Desktop/my-fund-site/pm-copilot"
+      reason: "The embedded copy has extensive uncommitted local customization, so automatic overwrite would be unsafe."
 remote_push:
   required: true
-  status: "pending"
+  status: "pushed"
   target: "origin/main"
