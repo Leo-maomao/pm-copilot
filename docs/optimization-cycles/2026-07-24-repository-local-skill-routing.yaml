@@ -122,18 +122,18 @@ versioning:
   changelog_updated: true
 sync:
   embedded_copies_checked:
-    - "/Users/mac142/Desktop/ai-video/pm-copilot"
-    - "/Users/mac142/Desktop/ai-video/src/features/pm-copilot"
-    - "/Users/mac142/Desktop/my-fund-site/pm-copilot"
-    - "/Users/mac142/Desktop/sea-craft-next-main/pm-copilot"
-    - "/Users/mac142/Desktop/seaart-video-editor/pm-copilot"
+    - "embedded copy: ai-video root adapter"
+    - "embedded copy: ai-video feature adapter"
+    - "embedded copy: fund-site adapter"
+    - "embedded copy: sea-craft adapter"
+    - "embedded copy: video-editor adapter"
   embedded_copies_updated:
-    - "/Users/mac142/Desktop/ai-video/pm-copilot"
-    - "/Users/mac142/Desktop/ai-video/src/features/pm-copilot"
-    - "/Users/mac142/Desktop/sea-craft-next-main/pm-copilot"
-    - "/Users/mac142/Desktop/seaart-video-editor/pm-copilot"
+    - "embedded copy: ai-video root adapter"
+    - "embedded copy: ai-video feature adapter"
+    - "embedded copy: sea-craft adapter"
+    - "embedded copy: video-editor adapter"
   skipped_targets:
-    - path: "/Users/mac142/Desktop/my-fund-site/pm-copilot"
+    - path: "embedded copy: fund-site adapter"
       reason: "The embedded copy has extensive uncommitted local customization, so automatic overwrite would be unsafe."
 remote_push:
   required: true
