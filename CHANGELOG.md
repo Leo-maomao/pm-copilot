@@ -6,6 +6,79 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.7.0] - 2026-07-28
+
+### Added
+
+- Added a safe local-output upgrader that migrates legacy run-folder names, updates internal run references, regenerates PRD HTML with the current renderer, and reports validation results without inventing or rewriting product requirements.
+- Added safe embedded-copy synchronization that preserves each copy's `outputs/` and local context while refreshing PM Copilot source files; dirty Git copies require an explicit overwrite flag.
+- Added targeted collaboration-trace regressions for evidence-backed cross-review and PM Orchestrator arbitration.
+
+### Validation
+
+- Added deterministic migration, protected-copy synchronization, and collaboration-protocol regression coverage.
+
+## [4.6.0] - 2026-07-28
+
+### Changed
+
+- Strengthened PRD content guidance across document information, background, research, requirement list, requirement details, localization, and measurement without changing the standardized PRD structure or tracking-table columns.
+- Defined tracking coverage from the user journey: access, meaningful operation, important outcome, and value behavior such as browsing duration, depth, exposure, completion, or retention.
+- Defined `参数` as additional event context only; empty parameters remain blank, while generic placeholders and generic event names are rejected.
+
+### Validation
+
+- Added Chinese PRD tracking regressions for measurable event names and blank-vs-placeholder additional parameters.
+
+## [4.5.0] - 2026-07-28
+
+### Added
+
+- Added a bounded multi-Agent control plane that selects role-specific evidence work, runs Review only after specialist handoffs, and keeps final arbitration with PM Orchestrator.
+- Added a collaboration trace protocol for evidence-backed claims, targeted cross-review, and conflict arbitration; ungrounded debate and majority voting are prohibited.
+- Added automatic runtime capability reporting that distinguishes a single-Agent fallback from a reachable Seawork multi-Agent loop.
+
+### Validation
+
+- Added deterministic delegation planning, mocked orchestration-order, runtime-degradation, and collaboration-protocol coverage.
+
+## [4.4.0] - 2026-07-28
+
+### Added
+
+- Expanded the Agent Runtime adapter with headless discovery and execution support for Qwen Code, Kimi Code, Qoder CLI, and Tencent CodeBuddy Code.
+- Added discovery-only visibility for domestic IDE tools such as Trae and Baidu Comate, so they are not misrepresented as background worker runtimes.
+
+### Validation
+
+- Added domestic CLI command-contract and active-runtime selection regressions.
+
+## [4.3.0] - 2026-07-28
+
+### Added
+
+- Added a local Agent Runtime adapter that automatically discovers authenticated Seawork, Codex CLI, and Claude CLI installations without requesting API keys.
+- Made automatic execution select the user's active host runtime and active model instead of imposing a fixed runtime default; Seawork-backed sessions retain their current Agent provider/model for worker loops.
+- Added runtime readiness to tool preflight and documented the trace requirements for real delegated execution.
+
+### Validation
+
+- Added deterministic runtime-adapter regression coverage for active-runtime selection, dry-run commands, and credential redaction.
+
+## [4.2.9] - 2026-07-28
+
+### Changed
+
+- Made PRD visual evidence evidence-first: the optional `图示` row normally uses an actual local screenshot or figure, while requirements without visual value omit the row. A controlled placeholder is permitted only for an essential unavailable figure after every trusted capture path fails, with an inline location-and-purpose caption.
+- Defined autonomous evidence capture order: Playwright for previews, Chrome DevTools for authenticated browser surfaces, then Computer Use for non-automatable surfaces; each crop must retain the functional target and locating context.
+- Added input-cleaning and fact-reliability rules so template instructions, process narration, vague filler, and model speculation cannot enter a PRD.
+- Limited version history to initial creation and material product-requirement changes; formatting, rendering, validation, synchronization, and other document operations are excluded.
+- Clarified that Loop Engineering is a bounded decision protocol, while model selection and multi-agent execution require host-runtime delegation support; unsupported runs now record single-agent execution instead of implying collaboration.
+
+### Validation
+
+- Added PRD contract regressions for screenshot placeholders, operation-only version entries, and template-guidance leakage.
+
 ## [4.2.8] - 2026-07-28
 
 ### Changed

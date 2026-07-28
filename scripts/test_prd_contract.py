@@ -6,7 +6,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from validate_outputs import check_chinese_prd
+from validate_outputs import check_chinese_prd, check_prd_output_contract
 
 
 PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
@@ -48,7 +48,6 @@ PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
 | 需求入口 | 团队管理员在成员页修改高危角色时触发。 |
 | 需求详情 | 1. 管理员修改高危角色。2. 系统展示确认信息。3. 管理员确认后完成变更。4. 保存中显示加载，无权限用户不可操作，保存错误时保留原角色并允许重试，成员为空时展示空状态。 |
 | 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |
-| 图示 | 无需补充图示。 |
 
 ## 六、多语言需求
 
@@ -56,6 +55,15 @@ PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
 确认变更角色
 取消
 ```
+
+## 七、埋点需求
+
+| 名称 | 标识 | 时机 | 参数 | 备注 |
+| --- | --- | --- | --- | --- |
+| 成员管理访问 | member_management_view | 团队管理员进入成员管理页并完成首屏展示 |  | 评估入口访问与后续角色变更转化。 |
+| 高危角色变更点击 | high_risk_role_change_click | 团队管理员点击确认变更角色 | 变更前角色、变更后角色、成员标识 | 评估高危角色变更意图。 |
+| 高危角色变更结果 | high_risk_role_change_result | 角色变更结果对用户可见时 | 变更结果、失败原因类型 | 区分成功与可恢复失败。 |
+| 成员列表浏览时长 | member_list_browse_duration | 用户离开成员管理页或浏览达到阈值时汇总 | 浏览时长、最大滚动深度、有效成员曝光数量 | 评估成员信息浏览深度。 |
 """
 
 
@@ -67,6 +75,7 @@ def run_case(name: str, prd: str, should_pass: bool, run_log: str = "source_mode
         passed = True
         try:
             check_chinese_prd(folder)
+            check_prd_output_contract(folder, language="zh")
         except SystemExit:
             passed = False
         if passed != should_pass:
@@ -77,6 +86,11 @@ def run_case(name: str, prd: str, should_pass: bool, run_log: str = "source_mode
 
 def main() -> None:
     run_case("user_driven_prd", PASS_PRD, True)
+    run_case(
+        "research_section_keeps_order",
+        PASS_PRD.replace("## 四、需求清单", "## 三、需求调研\n\n- 访谈显示用户需要先核对角色影响。\n\n## 四、需求清单"),
+        True,
+    )
     run_case(
         "implemented_feature_product_only_prd",
         PASS_PRD,
@@ -93,6 +107,28 @@ def main() -> None:
     run_case(
         "technical_field",
         PASS_PRD.replace("| 详情编号 | 需求名称 |", "| 详情编号 | 文件路径 |"),
+        False,
+    )
+    run_case(
+        "controlled_screenshot_placeholder",
+        PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更.png<br><small>位置：成员管理页的角色编辑区域；用途：展示高危角色变更前的确认信息。</small> |\n| 设计与交互 |"),
+        True,
+    )
+    run_case(
+        "invalid_screenshot_placeholder",
+        PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更.png |\n| 设计与交互 |"),
+        False,
+    )
+    run_case("operation_only_version", PASS_PRD.replace("首次创建", "重新渲染文档"), False)
+    run_case("template_guidance", PASS_PRD.replace("降低误操作", "<说明目标用户的问题>"), False)
+    run_case("vague_requirement_summary", PASS_PRD.replace("降低误操作", "帮助用户更清楚、更高效地完成当前任务"), False)
+    run_case("generic_tracking_event", PASS_PRD.replace("成员管理访问", "访问"), False)
+    run_case(
+        "tracking_param_placeholder",
+        PASS_PRD.replace(
+            "| 成员管理访问 | member_management_view | 团队管理员进入成员管理页并完成首屏展示 |  |",
+            "| 成员管理访问 | member_management_view | 团队管理员进入成员管理页并完成首屏展示 | 无 |",
+        ),
         False,
     )
 

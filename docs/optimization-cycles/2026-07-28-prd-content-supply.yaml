@@ -1,0 +1,26 @@
+cycle:
+  id: prd_content_supply_quality
+  date: 2026-07-28
+  status: completed
+  task_mode: self_improvement
+  version: 4.6.0
+  trigger:
+    - "PRD tracking rows were structurally correct but did not consistently express measurable user journeys, valuable outcomes, or event-specific additional parameters."
+    - "The standard PRD structure needed stronger content guidance without adding explanatory text to delivered PRDs."
+  canonical_owners:
+    - artifacts/prd-contract.md
+    - skills/prd-writing/SKILL.md
+    - scripts/validate_outputs.py
+    - scripts/test_prd_contract.py
+  decisions:
+    - "Keep the existing seven-section PRD structure and five-column tracking table unchanged."
+    - "Select events from measurable user journeys and product decisions, not from an exhaustive list of controls."
+    - "Treat 参数 as additional contextual properties; leave it blank when no property is required."
+    - "Require value signals such as duration, depth, exposure, completion, or retention when sustained use is central to the feature."
+  validations:
+    - python3 scripts/test_prd_contract.py
+    - python3 scripts/test_prd_flow_rendering.py
+    - python3 scripts/test_prd_media_rendering.py
+    - python3 scripts/validate_runtime_routing.py
+    - python3 scripts/validate_repo.py
+    - git diff --check

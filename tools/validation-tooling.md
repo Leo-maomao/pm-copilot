@@ -65,7 +65,7 @@ python3 scripts/render_prd_html.py outputs/<run-id>
 - Every final run must pass `python3 scripts/evaluate_agent_loop.py`. Stop when it returns budget, no-progress, human-checkpoint, input, blocker, or failure decisions.
 - Run `python3 scripts/test_agent_loop.py` before release when Loop control code changes.
 - Use `python3 scripts/analyze_agent_run_evidence.py` when self-iteration should learn from local embedded PM Copilot outputs.
-- For implemented-feature PRD folders, validate that outputs live directly under `outputs/<run-id>`, PRD Markdown has one top-level title, `prd.html` is a document rendering, images or `占位图` blocks remain inline, no detached screenshot list exists, and screenshot names use content plus concrete state such as `文件上传-上传中.png`.
+- For implemented-feature PRD folders, validate that outputs live directly under `outputs/<run-id>`, PRD Markdown has one top-level title, `prd.html` is a document rendering, real images remain inline, no detached screenshot list exists, every screenshot placeholder is essential and includes an inline small `位置` and `用途` caption, and screenshot names use content plus concrete state such as `文件上传-上传中.png`.
 - Do not leave validation placeholders after commands run.
 - Record every command and result using `artifacts/tool-result-contract.md`.
 

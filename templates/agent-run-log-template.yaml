@@ -50,6 +50,39 @@ delegation_plan:
       merge_rule: ""
       status: "" # planned | running | complete | needs_input | blocked | degraded | failed
       confidence: ""
+      runtime: ""
+      model: ""
+      agent_id: ""
+      output_ref: ""
+      started_at: ""
+      finished_at: ""
+
+collaboration_protocol:
+  required: false
+  trigger: not_required # not_required | material_conflict
+  reason: ""
+  claims:
+    - id: ""
+      owner_role: ""
+      statement: ""
+      evidence_refs: []
+      decision_impact: "" # prd | engineering | launch
+  cross_reviews:
+    - id: ""
+      challenger_role: ""
+      target_claim_id: ""
+      challenge_type: "" # evidence_gap | user_conflict | scope_conflict | metric_conflict
+      evidence_refs: []
+      status: "" # raised | resolved | accepted_risk | escalated
+      response_summary: ""
+  arbitrations:
+    - id: ""
+      issue_ref: ""
+      positions: []
+      evidence_compared: []
+      decision_ref: ""
+      outcome: "" # accepted | rejected | escalated_to_human
+      owner: "" # PM Orchestrator
 
 resume_checkpoint:
   last_reliable_state: ""

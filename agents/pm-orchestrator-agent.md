@@ -99,3 +99,11 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 ## Failover
 
 If a specialist agent cannot complete its task, replan before continuing. Keep the workflow moving only when a lower-fidelity artifact can be produced with explicit limitations, accepted assumptions, and downgraded readiness. Otherwise, request human input.
+
+## Local Runtime Delegation
+
+Before delegated work, run `python3 scripts/plan_agent_delegation.py --request '<user request>'`, then `python3 scripts/agent_runtime.py discover --json`. Dispatch only roles with independent evidence-producing questions. The selected active host runtime and active model determine execution; a Seawork-backed session can run worker/verifier loops, while a temporary Seawork outage falls back to the ready CLI matching the active model family for single-worker work. Do not treat a discovered GUI/IDE tool as an executable runtime until it has a stable adapter.
+
+For every dispatched worker, record the provider, requested model, owned question, status, output summary, and validation evidence in `delegation_plan` and `iteration_trace`. The runtime adapter must never write API keys, tokens, prompts containing credentials, or raw environment variables to the run log. If no runtime is ready, preserve the existing single-agent fallback and state the concrete capability limitation.
+
+Use `scripts/run_agent_delegation.py` as the control-plane entry point. It generates the selected-role plan, runs at most three independent evidence workers in parallel, then sends their handoffs to Review Agent. PM Orchestrator alone records claims, material conflicts, and the final evidence-based arbitration; it must not treat a worker majority as a decision.

@@ -56,25 +56,12 @@ For an already implemented feature:
 ```text
 The feature is already implemented on the current branch. Please inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the implementation into a complete PRD Markdown file and generate a deliverable prd.html.
 
-If final screenshots are missing, put inline 占位图 placeholders at the relevant requirement positions. Do not create a separate image list. If the requirement detail is a table, keep the image or placeholder inside the same row and cell instead of placing it below the table.
-```
-
-For missing screenshots in a Chinese PRD, use this exact block only at the requirement position:
-
-```markdown
-> 占位图：资料卡片-加载中.png
-> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
-```
-
-If the missing screenshot belongs in a requirement-detail table row, use the single-cell form:
-
-```markdown
-| 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
+When a figure is needed, capture a real accessible surface: use Playwright for previews first, then an authenticated browser or system UI for a state that automation cannot reach. Save the real image under `assets/` and reference it inline. Omit the figure row when the image would not improve reviewability. When it is necessary but every trusted capture path fails, use the controlled inline fallback `占位图：<name>.png<br><small>位置：...；用途：...</small>` and record the failed paths.
 ```
 
 Name screenshots by content.
 When one object has multiple states, use object plus concrete state, such as `资料卡片-加载中.png` and `资料卡片-加载失败.png`; do not use `资料卡片-状态.png`.
-Cover every independent changed page, window, panel, or dialog, but do not split micro-states when one screenshot captures the complete window or panel.
+Cover every independent changed page, window, panel, or dialog, but do not split micro-states when one screenshot captures the complete window or panel. Avoid both irrelevant full-page captures and crops that hide the locating context.
 
 ## Two Practical Demos
 

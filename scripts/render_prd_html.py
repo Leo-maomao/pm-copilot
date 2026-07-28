@@ -446,8 +446,6 @@ def first_image_src(html: str) -> str:
 
 
 def markdown_needs_assets_folder(markdown: str) -> bool:
-    if re.search(r"占位图[:：]\s*.+?\.(?:png|jpg|jpeg|webp)", markdown):
-        return True
     refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
     refs.extend(re.findall(r"(?<!!)\[[^\]]+\]\(([^)]+)\)", markdown))
     refs.extend(re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", markdown, re.IGNORECASE))

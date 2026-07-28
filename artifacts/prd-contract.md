@@ -6,6 +6,12 @@ A PM Copilot PRD is a user-driven product document. It explains what identified 
 
 Every requirement must be traceable from a user, user scenario, or user-confirmed business problem in `需求清单` to a matching item in `需求详情`.
 
+## Evidence and Writing Reliability
+
+Write only product facts that are user-confirmed, directly observed, or supported by cited research. Before drafting, clean the input into facts, decisions, unknowns, and discarded description; do not copy instructional prose, template notes, process logs, or technical evidence into the PRD.
+
+When a product rule is proposed rather than confirmed, mark it as `待确认` at the affected requirement or stop for a user decision when it would change scope, user rights, pricing, compliance, or a core flow. Do not silently fill gaps with model assumptions, inferred user intent, invented limits, fabricated research, or guessed existing behavior.
+
 ## Canonical Structure
 
 Use these top-level sections and titles in order:
@@ -35,9 +41,13 @@ Do not center the title on the word `PRD`.
 This section starts with two required subsections:
 
 1. `文档信息`: requirement source, target users, affected product surface, document owner/status, and current revision summary.
-2. `版本记录`: version, date, change summary, and owner for every material revision.
+2. `版本记录`: version, date, change summary, and owner for every material product-requirement revision.
 
 Keep document administration compact. It must not replace the user problem, requirement list, or requirement details.
+
+`需求来源` must name the user input, observed problem, research, or confirmed business decision that initiated this document. `目标用户` names a concrete role or segment, not a generic audience. `影响范围` names the affected user-facing surface and excludes unrelated surfaces. `文档状态` states review readiness rather than a document operation. Do not fill any cell with template instructions, generic filler, or model guesses.
+
+Do not add a version entry for rendering, formatting, screenshot capture, synchronization, validation, model invocation, or another document-only operation. `首次创建` is valid for the initial version; later entries must name the changed user problem, product behavior, scope, rule, or user-visible copy.
 
 ## 二、需求背景
 
@@ -51,9 +61,13 @@ State the user problem before proposing product behavior. Include the relevant s
 
 Do not put repository files, technical architecture, or implementation options in this section.
 
+Write the background as a short causal chain: **who** encounters **what current problem** in **which scenario**, causing **what user or business impact**, and why the proposed scope is worth addressing now. Do not repeat the requirement table, promise an outcome without a user problem, or turn a solution preference into background.
+
 ## 三、需求调研（可选）
 
 Use this section only for evidence that changes the product decision. For each finding, state its source, date or confidence, insight, and affected requirement IDs. Do not manufacture research or present implementation observations as external research.
+
+Each finding must answer “what should change in this PRD because of this evidence?” If it does not alter priority, target user, flow, rule, wording, measurement, or scope, omit it. Keep source facts separate from the resulting product judgment.
 
 ## 四、需求清单
 
@@ -70,6 +84,8 @@ Each row must include:
 
 Do not list technical tasks, APIs, code components, data tables, or implementation phases as requirements. A requirement with no identifiable user, scenario, or user value is incomplete and must be clarified before it is treated as an MVP requirement.
 
+Use one row for one independently reviewable user outcome. Name the outcome rather than a screen, button, or internal task. The summary states the user-visible behavior and boundary; it does not repeat the title or hide rules behind words such as “优化”“支持”“完善”.
+
 ## 五、需求详情
 
 `需求详情` is the behavioral source of truth. Create one numbered subsection for every requirement-list row, such as `### 5.1 团队项目入口`. Do not add a second identifier such as `R1`.
@@ -80,22 +96,27 @@ Each detail starts from the affected user and uses the smallest applicable set o
 - `需求入口`: visible entry point, trigger, eligibility, and navigation context
 - `需求详情`: main flow, business rules, permissions, normal and exception states, empty/loading/error feedback, recovery, degradation, and other user-visible boundaries
 - `设计与交互`: information hierarchy, visible controls, interaction, accessibility, and feedback
-- `图示`: inline screenshot, figure, or exact missing-image placeholder when visual evidence is needed
+- `图示`: a real, local screenshot or figure when visual evidence is needed; a controlled missing-image placeholder only when the required capture cannot be recovered
+
+`用户与场景`、`需求入口`、`需求详情`、`设计与交互` are required for every detail. `图示` is optional: omit the row when a screenshot would not clarify the behavior. When a requirement genuinely needs visual evidence but every trusted capture path is unavailable, use the controlled placeholder format below; do not use it for decoration or as a substitute for trying the available tools.
 
 When a field contains more than one concern, use `一、`、`二、`、`三、` to group the concerns, then use `1.`、`2.`、`3.` for the detailed rules under each group. Apply this hierarchy to `需求入口`、`需求详情`、`设计与交互` and other fields when it improves reviewability; do not present every rule as one flat `1.`、`2.`、`3.` list. Do not split exception handling, permissions, or recovery behavior into repetitive standalone rows.
 
+Use the rows for distinct decisions: `用户与场景` explains need and value, `需求入口` explains where and under what eligibility a user begins, `需求详情` explains complete visible behavior and boundary conditions, and `设计与交互` explains how the behavior is understood and operated. Do not use one long sentence to blur these decisions together. Do not add unconfirmed quotas, permissions, sorting, defaults, or existing-product behavior merely to make a detail look thorough.
+
 Flow diagrams are optional and have two distinct uses: a `用户流程图` shows the user's cross-surface path and decision points, while an `操作流程图` shows the operation, rules, permissions, states, and exceptions. Choose either diagram when it clarifies the requirement; use both only when both views add value. Place selected Mermaid diagrams immediately below the requirement title and above its detail table. When both are present, place `用户流程图` followed by `操作流程图`; the HTML delivery always renders the pair side by side, with each pane scrolling horizontally when needed. The affected detail table must follow the diagram(s). Do not add generic global flowchart sections.
 
-Use a screenshot only when it materially clarifies a user-visible surface. Select its crop in three layers: retain the functional target, retain the locating context that tells the reader where it appears, and retain any comparison context needed to understand the rule or state. A crop is too tight if the reader cannot identify the page area, tab, section, or comparison that gives the target meaning; for example, a team-project crop may retain the adjacent personal-project area when that contrast explains the boundary. A crop is too broad when it retains unrelated global navigation, banners, feeds, blank canvas, or peripheral controls after the target and its context are already clear. Do not use a full-screen screenshot merely because it is available; use it only when the overall page layout or cross-surface relationship is the requirement. When no relevant visual evidence exists, write `无需补充图示。` instead of reusing an unrelated screenshot. Name and caption the figure to indicate the relevant area and state, such as `个人与团队项目区-已选择团队（局部截图）`.
+Use a screenshot only when it materially clarifies a user-visible surface. Use an actual rendered source and save the image under `assets/`. Select the first viable method for the available source: Playwright for a local or hosted preview, Chrome DevTools for an existing authenticated browser surface, then Computer Use for a surface that cannot be automated. Select its crop in three layers: retain the functional target, retain the locating context that tells the reader where it appears, and retain any comparison context needed to understand the rule or state. A crop is too tight if the reader cannot identify the page area, tab, section, or comparison that gives the target meaning; for example, a team-project crop may retain the adjacent personal-project area when that contrast explains the boundary. A crop is too broad when it retains unrelated global navigation, banners, feeds, blank canvas, or peripheral controls after the target and its context are already clear. Do not use a full-screen screenshot merely because it is available; use it only when the overall page layout or cross-surface relationship is the requirement. Name and caption a real figure to indicate the relevant area and state, such as `个人与团队项目区-已选择团队（局部截图）`.
 
-Do not add separate risk, pending-confirmation, acceptance-result, or technical-test fields to requirement details. Keep only confirmed product behavior in the detail; when an unresolved product decision genuinely blocks drafting, handle it before generation or state the assumption in `需求背景`.
-
-When a required visual is unavailable, place this exact-style block inside the affected requirement:
+If visual evidence is required but automation setup, authentication recovery, and manual capture all fail, retain the `图示` row with a controlled placeholder and record every failed path in `run-log.yaml`:
 
 ```markdown
-> 占位图：资料卡片-加载中.png
-> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
+| 图示 | 占位图：成员管理-高危角色确认.png<br><small>位置：成员管理页的角色编辑区域；用途：展示高危角色变更前的确认信息。</small> |
 ```
+
+The small caption is required for a placeholder and recommended for a real figure. It must identify the product location and the reason the figure belongs to this requirement; add `状态：...` when the image demonstrates a particular UI state.
+
+Do not add separate risk, pending-confirmation, acceptance-result, or technical-test fields to requirement details. Keep only confirmed product behavior in the detail; when an unresolved product decision genuinely blocks drafting, handle it before generation or state the assumption in `需求背景`.
 
 ## 六、多语言需求（可选）
 
@@ -104,6 +125,17 @@ Include only when new or changed user-facing copy requires localization. When th
 ## 七、埋点需求（可选）
 
 Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `名称`, `标识`, `时机`, `参数`, and `备注`; the values provide the Chinese event name and engineering event identifier. Label events as proposed when no approved taxonomy exists.
+
+Build the event set from the user journey and the decision it must support, not from an exhaustive list of controls:
+
+1. **访问**: record entry into a measurable page, tab, feed, or key flow so reach and funnel entry can be evaluated.
+2. **点击 / 操作**: record a user’s meaningful choice, submission, switch, or retry; omit decorative or duplicate clicks that cannot change a product decision.
+3. **结果**: record user-visible success, failure, cancellation, or completion for important creation, submission, payment, sharing, permission, or other business actions.
+4. **价值行为**: add depth, duration, exposure, completion, or retention signals when the feature’s value depends on sustained use. For example, a waterfall feed needs browsing duration and meaningful scroll/exposure depth in addition to visit and item click; creation flows need the final creation result, not only the create-button click.
+
+`参数` means **additional properties beyond the event itself**, not a restatement of “click” or “visit”. List only properties needed to explain the user, object, context, result, or value of that event. For example, `创建项目` can add `创建人标识、创建时间、项目名称`; `创建画布` can add `创建人标识、创建时间、关联项目名称`. When no additional property is needed, leave the cell empty; do not write `无`、`不涉及`、`-`、`N/A`, or a generic placeholder. Avoid raw sensitive personal data and record only the least specific property that supports the product decision.
+
+`时机` must state the observable moment, such as “用户进入项目列表并完成首屏展示”, “用户点击创建项目”, “项目创建结果返回且用户可见”, or “用户离开瀑布流/浏览达到阈值时汇总”. `备注` explains metric intent, de-duplication, threshold, taxonomy status, or a known limitation; it must not contain engineering implementation instructions.
 
 ## Product Boundary
 

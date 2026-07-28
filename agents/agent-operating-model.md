@@ -2,6 +2,12 @@
 
 PM Copilot is an AI Product Manager Agent System. The workflow is the safety rail; the agent experience is goal-driven product work.
 
+## Execution Boundary
+
+This repository defines specialist roles, prompts, artifacts, bounded Loop decisions, and a local runtime adapter. It never embeds credentials or API keys. The adapter automatically reuses the user's active authenticated Seawork, Codex CLI, Claude CLI, Qwen Code, Kimi Code, Qoder CLI, or CodeBuddy Code session and model; it does not impose a fixed default runtime.
+
+The PM Orchestrator creates specialist work only for independent, bounded questions and records the owned question, model/runtime, evidence delta, and reconciliation result. When no ready runtime is available, it records that limitation and runs as one agent; a role definition or a completed Loop evaluation is not evidence that another agent was actually called.
+
 ## Operating Loop
 
 Every run follows the same operating loop, even when the visible task is small:

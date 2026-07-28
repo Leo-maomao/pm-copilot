@@ -16,6 +16,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from agent_runtime import discover_runtimes, runtime_capabilities
+
 
 ROOT = Path(__file__).resolve().parents[1]
 STRICT_BLOCKING_STATUSES = {"unavailable", "setup_required", "skipped"}
@@ -193,6 +195,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     }
     network = network_info(args.check_network, args.timeout)
     research_required = bool(args.require_network)
+    agent_runtimes = discover_runtimes()
+    agent_runtime_capabilities = runtime_capabilities(ROOT)
 
     visual_status = "available"
     visual_evidence = "Playwright package and Playwright-managed browser are available"
@@ -247,6 +251,41 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "scripts/preflight_integrations.py and tools/external-tool-catalog.json",
             False,
             "python3 scripts/preflight_integrations.py --tier recommended",
+        ),
+        capability(
+            "execution.single_agent_auto",
+            str(agent_runtime_capabilities["single_agent_auto"]["status"]),
+            str(agent_runtime_capabilities["single_agent_auto"]["reason"]),
+            False,
+            "python3 scripts/agent_runtime.py discover --json",
+        ),
+        capability(
+            "execution.agent_runtime",
+            str(agent_runtime_capabilities["single_agent_auto"]["status"]),
+            str(agent_runtime_capabilities["single_agent_auto"]["reason"]),
+            False,
+            "python3 scripts/agent_runtime.py discover --json",
+        ),
+        capability(
+            "execution.multi_agent_loop",
+            str(agent_runtime_capabilities["multi_agent_loop"]["status"]),
+            str(agent_runtime_capabilities["multi_agent_loop"]["reason"]),
+            False,
+            "python3 scripts/agent_runtime.py loop --worker-prompt-file <prompt-file> --verify-prompt '<verifier scope>' --max-iterations 2",
+        ),
+        capability(
+            "control.agent_delegation_plan",
+            "available" if script_available("scripts/plan_agent_delegation.py") else "unavailable",
+            "role selection, cross-check, challenge, and conflict protocol",
+            False,
+            "python3 scripts/plan_agent_delegation.py --request '<user request>'",
+        ),
+        capability(
+            "execution.agent_delegation",
+            "available" if script_available("scripts/run_agent_delegation.py") else "unavailable",
+            "bounded specialist dispatch with review after evidence workers",
+            False,
+            "python3 scripts/run_agent_delegation.py --request '<user request>'",
         ),
         capability(
             "validation.repo",
@@ -353,6 +392,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         recommended.append("python3 scripts/validate_ui_preview.py <preview-url> --run-folder outputs/<run-id>")
     recommended.append("python3 scripts/validate_agent_trace.py outputs/<run-id>")
     recommended.append("python3 scripts/evaluate_agent_loop.py outputs/<run-id>")
+    if agent_runtime_capabilities["single_agent_auto"]["status"] == "available":
+        recommended.append("python3 scripts/agent_runtime.py discover --json")
     recommended.append("python3 scripts/agent_improvement_scorecard.py")
     recommended.append("python3 scripts/analyze_agent_run_evidence.py --json")
 
@@ -360,6 +401,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "repo_root": str(ROOT),
         "tool_registry": "tools/tool-registry.yaml",
+        "agent_runtimes": [
+            {
+                "provider": runtime.provider,
+                "status": runtime.status,
+                "supports_detached": runtime.supports_detached,
+                "supports_structured_output": runtime.supports_structured_output,
+                "supports_verifier": runtime.supports_verifier,
+                "detail": runtime.detail,
+            }
+            for runtime in agent_runtimes
+        ],
+        "agent_runtime_capabilities": agent_runtime_capabilities,
         "environment": {
             "python": python,
             "git": git,

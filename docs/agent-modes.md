@@ -61,6 +61,16 @@ Degrades when:
 - External research cannot run.
 - UI visual validation is blocked by environment limitations.
 
+### Delegated Execution
+
+PM Copilot includes a local runtime adapter for already authenticated command-line agents. It does not require users to add an API key or copy credentials into a PM Copilot configuration file. Run `python3 scripts/agent_runtime.py discover --json` to identify the active host runtime and model; automatic execution uses that session rather than a fixed runtime preference. Supported headless runtimes include Seawork, Codex CLI, Claude CLI, Qwen Code, Kimi Code, Qoder CLI, and CodeBuddy Code. A Seawork-backed session can run detached workers, structured output, and verifier loops; the other supported CLIs run direct single-worker work.
+
+When the host exposes agent delegation, `full-loop` and `self-iteration` runs must use it for two or more independent evidence, review, or validation tasks when delegation improves speed or quality. The PM Orchestrator records the selected model/runtime, each specialist's owned question, and the reconciliation result in `delegation_plan` and `agent_transitions`.
+
+When no ready runtime can create a specialist, the run remains single-agent and records `delegation_plan: unavailable` with the capability limitation. A detected IDE or unregistered CLI does not count as delegated execution. It must not claim multi-agent collaboration merely because the execution graph or Loop evaluator is present.
+
+For a qualifying request, PM Copilot uses `scripts/plan_agent_delegation.py` to select at most three independent evidence roles, then `scripts/run_agent_delegation.py` to dispatch them and run Review Agent after their outputs exist. `collaboration_protocol` records a targeted challenge only for a material conflict, unsupported claim, or High/Critical finding; PM Orchestrator performs the evidence-based arbitration or asks one minimal human question.
+
 ### `self-iteration`
 
 Use when the task is to improve PM Copilot itself.

@@ -69,12 +69,7 @@ python3 scripts/render_prd_html.py outputs/<run-id>
 
 When a screenshot is missing in a Chinese PRD, insert only this block at the exact requirement position:
 
-```markdown
-> 占位图：资料卡片-加载中.png
-> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
-```
-
-After the user saves the screenshot under `assets/`, replace the block with `![资料卡片-加载中](./assets/资料卡片-加载中.png)`. Name screenshots by content and concrete state, such as `资料卡片-加载中.png` or `资料卡片-加载失败.png`, not `资料卡片-状态.png`.
+Use a real local image only when it clarifies a requirement, for example `![资料卡片-加载中](./assets/资料卡片-加载中.png)`. Name screenshots by content and concrete state, such as `资料卡片-加载中.png` or `资料卡片-加载失败.png`, not `资料卡片-状态.png`. If no trusted rendered source exists, omit the figure row and record the limitation in the run trace.
 
 ## Direct Entry
 
@@ -165,6 +160,22 @@ python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
 For explicit self-iteration or benchmark runs where you ask the agent to choose recommended defaults, the agent should still generate the full `prd.md`, UI deliverable, and `run-log.yaml` for each round, record the default choices in the run log, and keep unresolved launch or sensitive approvals visible.
 
 If you ask for unattended development handoff, PM Copilot can generate issue-ready task candidates, but blocked work remains blocked. If you ask for unattended launch decision support, PM Copilot can generate a conservative gate result; it cannot approve launch-sensitive gates from defaults.
+
+## Upgrade Existing Outputs
+
+Use the release upgrader when local output folders need the current run-id convention and HTML renderer. It changes only mechanical metadata and rendered HTML; it does not invent missing product facts or rewrite historical requirements.
+
+```bash
+python3 scripts/upgrade_local_outputs.py --roots /Users/<you>/Desktop --apply
+```
+
+To refresh source files into embedded local copies while preserving each copy's `outputs/` and `context/*.local.yaml` files:
+
+```bash
+python3 scripts/sync_embedded_copies.py --roots /Users/<you>/Desktop --apply
+```
+
+Use `--force-dirty` only after reviewing intentionally modified Git copies.
 
 ## Example
 

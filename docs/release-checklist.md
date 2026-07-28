@@ -39,6 +39,9 @@ Run:
 python3 scripts/preflight_tools.py --strict
 python3 scripts/validate_repo.py
 python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
+python3 scripts/test_agent_collaboration_trace.py
+python3 scripts/test_upgrade_local_outputs.py
+python3 scripts/test_sync_embedded_copies.py
 ```
 
 When a release claim depends on external research or source-backed examples, run preflight with a concrete network check:

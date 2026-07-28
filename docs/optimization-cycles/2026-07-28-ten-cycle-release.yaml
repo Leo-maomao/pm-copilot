@@ -1,0 +1,61 @@
+cycle_id: ten-cycle-release-2026-07-28
+date: 2026-07-28
+scope: PM Copilot repository only
+goal: Complete ten evidence-backed self-improvement cycles without changing embedded host products.
+version_change: 4.6.0 -> 4.7.0
+remote_push_status: pending_release_validation
+embedded_copy_sync_targets:
+  - Desktop/ai-video/pm-copilot
+  - Desktop/ai-video/src/features/pm-copilot
+  - Desktop/my-fund-site/pm-copilot
+  - Desktop/qiki/pm-copilot
+  - Desktop/sea-craft-next-main/pm-copilot
+  - Desktop/seaart-video-editor/pm-copilot
+  - Desktop/需求文档/pm-copilot
+cycles:
+  - id: 1
+    focus: product-document boundary
+    evidence: PRD contracts and templates remove technical implementation content.
+    outcome: complete
+  - id: 2
+    focus: visual evidence quality
+    evidence: Screenshot and dual-flow rendering regressions pass.
+    outcome: complete
+  - id: 3
+    focus: input reliability
+    evidence: PRD content validation rejects template narration, vague filler, and unsupported inference.
+    outcome: complete
+  - id: 4
+    focus: local runtime discovery
+    evidence: Runtime adapter selects the active session before fallback.
+    outcome: complete
+  - id: 5
+    focus: domestic agent coverage
+    evidence: Runtime adapter discovers supported domestic CLI runtimes without misrepresenting IDE-only tools.
+    outcome: complete
+  - id: 6
+    focus: bounded delegation
+    evidence: Delegation planner selects only role-specific evidence work.
+    outcome: complete
+  - id: 7
+    focus: evidence-first review
+    evidence: Specialist handoffs complete before Review; final arbitration remains with PM Orchestrator.
+    outcome: complete
+  - id: 8
+    focus: collaboration trace integrity
+    evidence: Collaboration-trace tests cover missing evidence, invalid references, and valid arbitration.
+    outcome: complete
+  - id: 9
+    focus: output upgrade automation
+    evidence: Legacy output folders migrate deterministically and PRD HTML is regenerated.
+    outcome: complete
+  - id: 10
+    focus: local copy release safety
+    evidence: Embedded-copy synchronization protects outputs and local context while refreshing source files.
+    outcome: complete
+quality_gates:
+  - python3 scripts/test_agent_collaboration_trace.py
+  - python3 scripts/test_upgrade_local_outputs.py
+  - python3 scripts/test_sync_embedded_copies.py
+  - python3 scripts/validate_runtime_routing.py
+  - python3 scripts/validate_repo.py

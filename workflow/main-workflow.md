@@ -79,6 +79,8 @@ Goal framing -> Runtime evidence analysis -> Generalize defect
 
 The execution graph defines where work can move. `loop_policy`, `loop_state`, `iteration_trace`, and `scripts/evaluate_agent_loop.py` determine whether another pass is justified.
 
+For eligible `full-loop` and `self-iteration` work, first generate a bounded role plan with `python3 scripts/plan_agent_delegation.py --request '<user request>'`. Dispatch only the selected independent evidence tasks, then route their outputs to Review Agent for challenge. Material disagreement, unsupported claims, and High/Critical findings trigger evidence comparison and PM Orchestrator arbitration; they do not trigger an unbounded vote or debate. Next, inspect local authenticated runtimes with `python3 scripts/agent_runtime.py discover --json`. The controller selects the user's active host runtime and model rather than a fixed default. When that session is Seawork-backed, invoke `scripts/agent_runtime.py loop` for a bounded worker/verifier cycle and retain its active agent model; if the Seawork daemon is unavailable, use the ready CLI matching the active model family for a single-worker fallback. Record the selected provider/model and worker result in `delegation_plan` and `iteration_trace`, then run `scripts/evaluate_agent_loop.py` before another iteration. Detected IDE or CLI tools without a registered headless contract are not execution fallbacks.
+
 Review Agent evaluates progress and usefulness. PM Orchestrator owns the final continue or stop decision. Loop budgets are ceilings, not targets.
 
 ## Required Commands

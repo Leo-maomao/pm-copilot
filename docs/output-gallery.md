@@ -30,7 +30,7 @@ Useful signs:
 - Reviewers can read the whole PRD without opening Markdown.
 - Wide tables remain complete and legible.
 - Real screenshots are local and can be inspected.
-- Missing screenshots use inline `占位图` markers at the exact requirement position.
+- Requirement figures use real local screenshots at the exact requirement position only when they improve reviewability; requirements without useful visual evidence omit the figure row.
 
 ## UI Delivery
 

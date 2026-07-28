@@ -125,10 +125,9 @@ Every full delivery should include product judgment, confidence, blockers, valid
 For implemented-feature PRD delivery:
 
 - Use `templates/implemented-feature-prd-template.md`.
-- Use the decision-first numbered PRD structure from `artifacts/prd-contract.md`.
+- Use the user-driven numbered PRD structure from `artifacts/prd-contract.md`.
 - Make the H1 a one-sentence requirement plus date, for example `# 优化团队权限设置体验 - 2026-06-29`, not a topic list plus `PRD`.
-- Keep the decision-first sequence from `artifacts/prd-contract.md`: `产品决策摘要`, `背景与证据`, `目标与成功标准`, `范围与非目标`, `需求详情`, `交付设计`, `风险、决策与待确认`, and `验收与就绪度`. Implemented-feature PRDs append `实现证据与覆盖映射` and `验证结果`.
-- Put recommendation, confidence, separate readiness states, blockers, and the next checkpoint on the first rendered screen. Remove optional subsections and empty tables when they do not apply instead of preserving artificial not-applicable filler.
+- Keep the canonical sequence: `文档说明`, `需求背景`, optional `需求调研`, `需求清单`, `需求详情`, optional `多语言需求`, and optional `埋点需求`. Remove optional subsections and empty tables when they do not apply instead of preserving artificial not-applicable filler.
 - For frontend page, UI component, visual-state, or interactive-control changes, include UI specifications inside the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
 - Flow diagrams are optional and must appear inside the specific requirement detail they explain, not as fixed global `用户流程图` and `功能流程图` sections.
 - Generate `prd.html` with `scripts/render_prd_html.py` when HTML is requested.
@@ -136,13 +135,7 @@ For implemented-feature PRD delivery:
 - When a PRD needs a product image, attempt a real automated screenshot first. Discover the host project's runnable UI and available browser tooling; do not assume the current repository, a canvas product, a fixed port, or one automation framework.
 - If browser tooling or its plugin is missing, attempt the supported setup or installation flow and retry before falling back. If authentication is missing, ask the user to sign in in the selected browser or provide a task-scoped token through an approved secure channel, then continue automation without exposing the credential in artifacts or responses.
 - Validate screenshot clarity before embedding. Retry blurred, blank, clipped, or unreadably small captures with a larger viewport, higher device scale, focused zoom or crop, or a full-window screenshot with sufficient context.
-- Use manual capture only as a fallback. Use the exact `占位图` block only after automated capture, supported tool repair or setup, authentication recovery, and manual capture cannot produce the required image.
-- If an image is missing in a Chinese PRD, use only this inline block and avoid the marker words elsewhere:
-
-```markdown
-> 占位图：资料卡片-加载中.png
-> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
-```
+- Use manual capture only as a fallback. If automated capture, supported tool repair or setup, authentication recovery, and manual capture cannot produce a trusted image, omit the optional `图示` row unless visual evidence is necessary to review the requirement. For that narrow fallback, use `占位图：<name>.png<br><small>位置：...；用途：...</small>` inline and record failed paths in `run-log.yaml`.
 
 - Do not create a detached image, figure, or screenshot list.
 - Name screenshots by content. For multiple states of one object, use object plus concrete state, for example `资料卡片-加载中.png` or `资料卡片-加载失败.png`, not `资料卡片-状态.png`.

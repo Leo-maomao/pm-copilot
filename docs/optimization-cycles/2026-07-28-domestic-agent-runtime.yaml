@@ -1,0 +1,22 @@
+cycle:
+  id: domestic_agent_runtime_coverage
+  date: 2026-07-28
+  status: completed
+  task_mode: self_improvement
+  version: 4.4.0
+  trigger:
+    - "The local Agent Runtime adapter covered international mainstream Agent CLIs but omitted common domestic choices."
+  canonical_owners:
+    - scripts/agent_runtime.py
+    - scripts/test_agent_runtime.py
+    - tools/tool-registry.yaml
+    - docs/agent-modes.md
+  decisions:
+    - "Support stable headless CLI paths for Qwen Code, Kimi Code, Qoder CLI, and CodeBuddy Code without requiring PM Copilot API-key configuration."
+    - "Keep Trae and Baidu Comate as discovery-only integrations because an installed IDE is not evidence of a stable background worker contract."
+    - "Use current-session detection before automatic dispatch, including domestic CLI process signatures."
+  validations:
+    - python3 scripts/test_agent_runtime.py
+    - python3 scripts/validate_runtime_routing.py
+    - python3 scripts/validate_repo.py
+    - git diff --check

@@ -204,12 +204,14 @@ PRODUCTION_DECISIONS = {
 }
 RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?")
 IMAGE_PLACEHOLDER_RE = re.compile(
-    r"(?P<block>^>\s*占位图[:：]\s*(?P<block_name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$)"
+    r"(?P<block>^>\s*占位图[:：]\s*(?P<block_name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$"
+    r"\n>\s*<small>\s*位置[:：]\s*(?P<block_location>[^<\n；;]+)"
+    r"(?:[；;]\s*状态[:：]\s*[^<\n；;]+)?[；;]\s*用途[:：]\s*(?P<block_purpose>[^<\n]+)\s*</small>\s*$)"
     r"|(?P<inline>占位图[:：]\s*(?P<inline_name>[^`<>\n|]+?\.(?:png|jpg|jpeg|webp))"
-    r"\s*<br\s*/?>\s*用途[:：]\s*(?P<inline_purpose>[^|\n]+))",
+    r"\s*<br\s*/?>\s*<small>\s*位置[:：]\s*(?P<inline_location>[^<|；;]+)"
+    r"(?:[；;]\s*状态[:：]\s*[^<|；;]+)?[；;]\s*用途[:：]\s*(?P<inline_purpose>[^<|]+)\s*</small>)",
     re.IGNORECASE | re.MULTILINE,
 )
-IMAGE_PLACEHOLDER_PURPOSE_RE = re.compile(r"^>\s*用途[:：]\s*.+$", re.MULTILINE)
 FORBIDDEN_PLACEHOLDER_LABEL_RE = re.compile(r"待补真实图|待补图|真实图待补")
 DETACHED_IMAGE_SECTION_RE = re.compile(
     r"^#{2,4}\s*(?:\d+(?:\.\d+)?\s*[.、]?\s*)?"
@@ -279,15 +281,29 @@ REQUIREMENT_DETAIL_SECTION_REQUIRED_GROUPS = (
     ("entry", ("需求入口", "入口", "触发", "entry", "trigger")),
     ("detail", ("需求详情", "内容", "规则", "权限", "状态", "异常", "detail", "content")),
     ("design_and_interaction", ("设计与交互", "交互", "设计", "interaction", "design")),
-    ("figure", ("图示", "截图", "图片", "figure", "screenshot", "image")),
 )
 REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
     "用户与场景",
     "需求入口",
     "需求详情",
     "设计与交互",
-    "图示",
 )
+PRD_OPERATION_ONLY_VERSION_RE = re.compile(
+    r"(?:渲染|格式|模板|同步|校验|验证|截图|生成\s*HTML|文档整理|自动更新|脚本|工具)",
+    re.IGNORECASE,
+)
+PRD_DRAFT_GUIDANCE_RE = re.compile(
+    r"(?:<一句话需求>|<YYYY-MM-DD>|<用户角色|<说明目标用户|<必要时使用|"
+    r"<使用功能主体|<new or changed UI copy|Optional\.\s*Delete|按需在表格前|"
+    r"必要时使用\s*一、二、三|待补(?:充|全)|模型(?:臆测|推测)|AI(?:臆测|推测))",
+    re.IGNORECASE,
+)
+PRD_VAGUE_REQUIREMENT_RE = re.compile(
+    r"(?:帮助用户更清楚、更高效地完成当前任务|提供可理解的入口、主要操作和状态反馈|支持用户完成[^。|]{0,24}。)",
+    re.IGNORECASE,
+)
+PRD_TRACKING_PARAM_PLACEHOLDER_RE = re.compile(r"^(?:无|不涉及|-|—|n/?a|none|暂无)$", re.IGNORECASE)
+PRD_GENERIC_TRACKING_EVENT_RE = re.compile(r"^(?:访问|点击|提交|成功|失败|浏览)$")
 
 
 def fail(message: str) -> None:
@@ -598,10 +614,17 @@ def headers_match_requirement_detail_contract(headers: list[str] | set[str]) -> 
 
 
 def markdown_has_requirement_detail_table(text: str) -> bool:
-    return any(
-        headers_match_requirement_detail_contract(headers)
-        for headers in markdown_table_headers(text)
-    )
+    for table in markdown_table_blocks(text):
+        if headers_match_requirement_detail_contract(table.get("headers", [])):
+            return True
+        if table_is_field_value_requirement_detail(table):
+            required_labels = all(
+                re.search(rf"^\|\s*{re.escape(label)}\s*\|", str(table.get("text", "")), re.MULTILINE)
+                for label in REQUIREMENT_DETAIL_FIELD_LABELS_ZH
+            )
+            if required_labels:
+                return True
+    return False
 
 
 def markdown_image_count_in_tables(text: str) -> int:
@@ -678,8 +701,6 @@ def has_markdown_table(body: str) -> bool:
 
 
 def markdown_needs_assets_folder(text: str) -> bool:
-    if IMAGE_PLACEHOLDER_RE.search(text):
-        return True
     for image_ref in markdown_image_refs(text):
         normalized = image_ref.strip().split("#", 1)[0].split("?", 1)[0].replace("\\", "/")
         if normalized.startswith("./assets/") or normalized.startswith("assets/"):
@@ -1887,7 +1908,15 @@ def check_chinese_prd(path: Path) -> None:
     ]
     if missing_sections:
         fail("Chinese PRD missing expected numbered section(s): " + ", ".join(missing_sections))
-    known_sections = REQUIRED_PRD_SECTIONS_ZH + OPTIONAL_PRD_SECTIONS_ZH
+    known_sections = [
+        "文档说明",
+        "需求背景",
+        "需求调研",
+        "需求清单",
+        "需求详情",
+        "多语言需求",
+        "埋点需求",
+    ]
     last_position = -1
     for expected in known_sections:
         if expected not in h2_titles:
@@ -1912,6 +1941,19 @@ def check_chinese_prd(path: Path) -> None:
         fail("Chinese PRD 文档说明 must include 文档信息 and 版本记录")
     if PRD_EXPLANATORY_LABEL_RE.search(text):
         fail("Chinese PRD must not include explanatory copy-section labels or descriptive tracking headers")
+    if PRD_DRAFT_GUIDANCE_RE.search(text):
+        fail("Chinese PRD must not include template guidance, visual placeholders, or model-speculation text")
+    version_section = next(
+        (section for section in markdown_sections(text) if section.get("level") == 3 and section.get("raw_title") == "2. 版本记录"),
+        None,
+    )
+    if version_section:
+        for row in str(version_section.get("body", "")).splitlines():
+            if not re.match(r"^\|\s*v?\d", row, re.IGNORECASE):
+                continue
+            values = [value.strip() for value in row.strip().strip("|").split("|")]
+            if len(values) >= 3 and PRD_OPERATION_ONLY_VERSION_RE.search(values[2]):
+                fail("Chinese PRD version history must record a material requirement change, not a document operation")
     requirement_list = next(
         (section for section in markdown_sections(text) if section.get("level") == 2 and section.get("raw_title") == "四、需求清单"),
         None,
@@ -1923,6 +1965,8 @@ def check_chinese_prd(path: Path) -> None:
     requirement_ids = set(re.findall(r"^\|\s*(\d+\.\d+)\s*\|", requirement_list_body, re.MULTILINE))
     if not requirement_ids:
         fail("Chinese PRD requirement list must include at least one detail number")
+    if PRD_VAGUE_REQUIREMENT_RE.search(requirement_list_body):
+        fail("Chinese PRD requirement list must use requirement-specific user value and summary, not generic boilerplate")
     detail_titles = [
         str(section.get("raw_title", ""))
         for section in markdown_sections(text)
@@ -1970,22 +2014,30 @@ def check_chinese_prd(path: Path) -> None:
         fail("Chinese PRD contains raw English readiness/review status labels")
     if "Mini Program" in text:
         fail("Chinese PRD should localize platform label as 微信小程序")
-    ui_state_scope = bool(generated_prototypes(path)) or re.search(
-        r"(页面|界面|按钮|弹窗|表单|交互|前端|H5|微信小程序|App|Web UI)",
-        text,
-        re.IGNORECASE,
+    tracking_section = next(
+        (section for section in markdown_sections(text) if section.get("level") == 2 and section.get("raw_title") == "七、埋点需求"),
+        None,
     )
-    if ui_state_scope:
-        missing_state_markers = [marker for marker in ("加载", "空", "错误") if marker not in text]
-        if missing_state_markers:
-            fail("Chinese UI PRD missing applicable state coverage marker(s): " + ", ".join(missing_state_markers))
-        has_mini_program = (path / "prototype-mini-program.html").is_file()
-        state_markers = ("无家庭",) if has_mini_program else ("未登录", "游客", "无权限")
-        if not any(marker in text for marker in state_markers):
-            fail(
-                "Chinese UI PRD missing access/setup state marker: "
-                + " or ".join(state_markers)
-            )
+    if tracking_section:
+        rows = [
+            [value.strip() for value in row.strip().strip("|").split("|")]
+            for row in str(tracking_section.get("body", "")).splitlines()
+            if row.strip().startswith("|") and not re.match(r"^\|\s*:?-{3,}", row)
+        ]
+        if not rows or rows[0] != ["名称", "标识", "时机", "参数", "备注"]:
+            fail("Chinese PRD tracking table must keep the canonical 名称、标识、时机、参数、备注 columns")
+        for values in rows[1:]:
+            if len(values) != 5:
+                fail("Chinese PRD tracking rows must contain five columns")
+            name, identifier, timing, parameters, _ = values
+            if not name or PRD_GENERIC_TRACKING_EVENT_RE.fullmatch(name):
+                fail("Chinese PRD tracking event name must describe the measured user action or value")
+            if not re.fullmatch(r"[a-z][a-z0-9_]*", identifier):
+                fail("Chinese PRD tracking identifier must use a lowercase engineering event identifier")
+            if not timing:
+                fail("Chinese PRD tracking event must state its observable timing")
+            if PRD_TRACKING_PARAM_PLACEHOLDER_RE.fullmatch(parameters):
+                fail("Chinese PRD tracking 参数 must be blank when no extra property is needed, not a placeholder")
     prototype_refs = re.findall(r"`(prototype-[a-z-]+\.html)`", text)
     for ref in prototype_refs:
         if not (path / ref).is_file():
@@ -2077,29 +2129,20 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         fail(f"prd.md must contain exactly one top-level title, found {h1_count}")
 
     if DETACHED_IMAGE_SECTION_RE.search(text):
-        fail("prd.md must keep images and missing-image placeholders inline, not in a detached image list")
+        fail("prd.md must keep images inline, not in a detached image list")
 
     if FORBIDDEN_PLACEHOLDER_LABEL_RE.search(text):
-        fail("prd.md must call missing screenshots 占位图, not 待补真实图 or similar labels")
+        fail("prd.md must not use informal missing-image labels")
 
-    if markdown_needs_assets_folder(text) and not (path / "assets").is_dir():
-        fail("prd.md references screenshots/placeholders or local PRD runtimes, but assets/ is missing")
-
-    matched_placeholder_lines: list[tuple[int, int]] = []
     for match in IMAGE_PLACEHOLDER_RE.finditer(text):
         name = (match.group("block_name") or match.group("inline_name") or "").strip()
         check_image_asset_name(name, "PRD missing-image placeholder")
-        if match.group("block"):
-            next_lines = "\n".join(text[match.end():].splitlines()[:2])
-            if not IMAGE_PLACEHOLDER_PURPOSE_RE.search(next_lines):
-                fail(f"PRD missing-image placeholder must include a following 用途 line: {name}")
-        elif not (match.group("inline_purpose") or "").strip():
-            fail(f"PRD missing-image placeholder must include a 用途 description: {name}")
-        matched_placeholder_lines.append(match.span())
-
     placeholder_sanitized = IMAGE_PLACEHOLDER_RE.sub("", text)
     if "占位图" in placeholder_sanitized:
-        fail("prd.md may use 占位图 only in the exact missing-image placeholder block")
+        fail("PRD screenshot placeholders must include a small 位置 and 用途 caption")
+
+    if markdown_needs_assets_folder(text) and not (path / "assets").is_dir():
+        fail("prd.md references screenshots/placeholders or local PRD runtimes, but assets/ is missing")
 
     for image_ref in markdown_image_refs(text):
         src = image_ref.strip().split("#", 1)[0].split("?", 1)[0]
@@ -2122,12 +2165,8 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         if not asset_path.is_file():
             fail(f"PRD local image reference not found: {image_ref}")
 
-    if language == "zh" and re.search(
-        r"图片占位|截图占位|image placeholder|screenshot placeholder",
-        text,
-        re.IGNORECASE,
-    ):
-        fail("Chinese PRDs should use the exact 占位图 placeholder block for missing screenshots")
+    if re.search(r"图片占位|截图占位|image placeholder|screenshot placeholder", text, re.IGNORECASE):
+        fail("PRD screenshot placeholders must use the controlled 占位图 format")
 
     check_markdown_table_alignment(text, language)
     check_requirement_images_inline(text)
@@ -2160,11 +2199,9 @@ def check_requirement_images_inline(text: str) -> None:
         for row in table_text.splitlines()[2:]:
             if not IMAGE_REQUIREMENT_ROW_RE.search(row):
                 continue
-            if re.search(r"\|\s*图示\s*\|\s*(?:无需|无(?:\s|（|\())", row):
-                continue
-            if not INLINE_REQUIREMENT_IMAGE_RE.search(row):
+            if not INLINE_REQUIREMENT_IMAGE_RE.search(row) and not IMAGE_PLACEHOLDER_RE.search(row):
                 fail(
-                    "Requirement image rows must contain the real local image reference or exact 占位图 "
+                    "Requirement image rows must contain a real local image reference or controlled placeholder "
                     f"inline in the same row near line {table.get('start_line')}"
                 )
 

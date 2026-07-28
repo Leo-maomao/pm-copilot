@@ -22,7 +22,7 @@ This is the only delivery-check entry. It verifies that PM-facing deliverables a
 5. For implemented-feature PRD delivery, verify output files are under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, follow `templates/implemented-feature-prd-template.md`, include `prd.html`, and use `scripts/render_prd_html.py`.
 6. Verify `prd.html` exists when requested or when the run is implemented-feature PRD delivery, and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
 7. Verify `prd.html` preserves complete tables, renders Mermaid diagrams, uses local image paths, supports click-to-fullscreen for real images, and keeps images/placeholders inline at the relevant PRD position.
-8. Verify missing screenshots use only the inline `占位图` block, real images live under `assets/`, and state screenshot names use object plus concrete state such as `文件上传-上传中.png` instead of `文件上传-状态.png`.
+8. Verify real screenshots live under `assets/`; any remaining placeholder is needed by the affected requirement, is inline, and includes a small `位置` and `用途` caption; state screenshot names use object plus concrete state such as `文件上传-上传中.png` instead of `文件上传-状态.png`.
 9. When a requirement detail uses a field/value table, verify every real image or missing-image marker for that requirement is inside the same table row/cell, usually the `图示`/`截图` row. A blank table row plus a blockquote or image below the table is invalid.
 10. Verify the UI deliverable exists or is recorded when the requirement has user-facing UI.
 11. Verify PRD and UI deliverable agree on scope, states, logic, interaction rules, tracking, and blockers.

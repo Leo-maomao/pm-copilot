@@ -31,6 +31,7 @@ agent_strategy:
   rejected_alternatives:
   final_delivery_contract:
 delegation_plan:
+collaboration_protocol:
 resume_checkpoint:
 termination_condition:
 context:
@@ -125,6 +126,9 @@ action_closure:
 - Record `agent_strategy.task_mode`, `agent_strategy.autonomy_level`, success criteria, selected path, skipped path, and rejected alternatives before or during artifact generation.
 - Record `agent_strategy.effort_budget` as `fast-pass`, `standard-loop`, `deep-agentic`, `research-intensive`, or `release/self-iteration`.
 - Record `delegation_plan` when PM Orchestrator splits work across specialist agents or external worker loops.
+- When `delegation_plan.active: true`, record `collaboration_protocol`. It must either state `trigger: not_required` with a concrete reason, or retain the material claims, targeted cross-review, evidence comparison, and PM Orchestrator arbitration that resolved the conflict. Do not create a debate merely to satisfy the trace.
+- A cross-review may challenge only a named claim with an evidence gap, user conflict, scope conflict, or metric conflict. The response and arbitration must compare evidence and user impact; majority vote and silent overwrite are invalid.
+- An arbitration that escalates to a human blocks the affected engineering or launch decision until the named confirmation is received.
 - Record `resume_checkpoint` for long, resumed, interrupted, or self-iteration runs.
 - Record `termination_condition` before final response; do not treat reaching the last workflow state as completion by itself.
 - Record task mode values as one of `prd_delivery`, `implemented_feature_prd`, `ui_delivery`, `tracking_plan`, `launch_readiness`, `dev_handoff`, `structured_reference`, `product_review`, `self_improvement`, or `mixed_delivery`.

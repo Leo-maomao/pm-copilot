@@ -294,6 +294,53 @@ def mapping_item_blocks(text: str, first_field: str) -> list[str]:
     return blocks
 
 
+def validate_collaboration_protocol(
+    delegation_active: bool | None,
+    collaboration_body: str,
+    decision_ids: set[str],
+) -> list[str]:
+    """Return collaboration-protocol failures for an active delegation."""
+    failures: list[str] = []
+    if not delegation_active:
+        return failures
+    if not collaboration_body:
+        return ["active delegation_plan requires collaboration_protocol"]
+
+    trigger = scalar_value(collaboration_body, "trigger")
+    reason = scalar_value(collaboration_body, "reason")
+    if trigger not in {"not_required", "material_conflict"}:
+        return ["collaboration_protocol.trigger must be not_required or material_conflict"]
+    if trigger == "not_required":
+        if not reason:
+            failures.append("collaboration_protocol not_required requires reason")
+        return failures
+
+    claim_blocks = mapping_item_blocks(nested_section_text(collaboration_body, "claims"), "id")
+    review_blocks = mapping_item_blocks(nested_section_text(collaboration_body, "cross_reviews"), "id")
+    arbitration_blocks = mapping_item_blocks(nested_section_text(collaboration_body, "arbitrations"), "id")
+    claim_ids = {scalar_value(block, "id") for block in claim_blocks if scalar_value(block, "id")}
+    if not claim_ids or not review_blocks or not arbitration_blocks:
+        failures.append("material conflict requires claims, cross_reviews, and arbitrations")
+    for block in review_blocks:
+        target = scalar_value(block, "target_claim_id")
+        status = scalar_value(block, "status")
+        if target not in claim_ids:
+            failures.append("cross_review must target a known claim")
+        if status not in {"raised", "resolved", "accepted_risk", "escalated"}:
+            failures.append("cross_review has invalid status")
+    for block in arbitration_blocks:
+        decision_ref = scalar_value(block, "decision_ref")
+        outcome = scalar_value(block, "outcome")
+        owner = scalar_value(block, "owner")
+        if not list_field_values(block, "evidence_compared"):
+            failures.append("arbitration requires evidence_compared")
+        if decision_ref not in decision_ids:
+            failures.append("arbitration must reference a known decision_record id")
+        if outcome not in {"accepted", "rejected", "escalated_to_human"} or owner != "PM Orchestrator":
+            failures.append("arbitration requires valid outcome and PM Orchestrator owner")
+    return failures
+
+
 def validate_run_log(run_log: Path) -> dict[str, Any]:
     text = run_log.read_text(encoding="utf-8")
     failures: list[str] = []
@@ -346,6 +393,13 @@ def validate_run_log(run_log: Path) -> dict[str, Any]:
                 f"decision_record {decision_id} has invalid confidence: "
                 f"{confidence or '<empty>'}"
             )
+
+    delegation_body = section_text(text, "delegation_plan")
+    delegation_active = boolean_value(delegation_body, "active")
+    collaboration_body = section_text(text, "collaboration_protocol")
+    failures.extend(
+        validate_collaboration_protocol(delegation_active, collaboration_body, decision_ids)
+    )
 
     review_body = section_text(text, "review_loop")
     review_iterations = integer_value(review_body, "iterations")

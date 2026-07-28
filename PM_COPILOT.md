@@ -172,13 +172,13 @@ For implemented-feature PRDs:
 - Generate `prd.html` with `scripts/render_prd_html.py`.
 - Keep the PRD H1 as one concise requirement sentence plus date.
 - Use numbered top-level headings.
-- Include implementation evidence, code locations, and validation results.
+- Include only user-visible product behavior and its confidence; keep implementation evidence and validation results in the run trace.
 - Put real screenshots under `<run-folder>/assets/` and reference them inline.
 - When a PRD needs a product image, attempt a real automated screenshot first by discovering the host project's runnable surface and available browser tooling. Do not assume a specific project type, route, port, or automation framework.
 - If browser tooling or a required plugin is missing, attempt the supported installation or setup flow and retry. If authentication blocks the state, ask the user to sign in or provide a task-scoped token through an approved secure channel, then resume automation without persisting or echoing the credential.
 - Reject blurred, blank, clipped, or unreadably small captures. Retry with a larger viewport, higher device scale, focused target, or full-window context before embedding the image.
-- Use manual capture only after automation recovery fails. If a screenshot is still missing after automated capture, tool setup or repair, authentication recovery, and manual fallback, use only the inline `占位图` block at the relevant requirement position.
-- When a requirement detail is a field/value table, the image or `占位图：<file>.png<br>用途：<purpose>` marker belongs in the same `图示`/`截图` row value cell.
+- Use manual capture only after automation recovery fails. If a screenshot is still unavailable after automated capture, tool setup or repair, authentication recovery, and manual fallback, omit the optional `图示` row unless that requirement genuinely needs visual evidence. In that case, use the controlled inline placeholder with a small `位置` and `用途` caption, and record the failed paths in the run trace.
+- When a requirement detail is a field/value table, a real image or controlled missing-image marker belongs in the same `图示`/`截图` row value cell; omit the row when no image is needed.
 - Render Mermaid diagrams through local assets, not CDN.
 
 `prd.html` is a document rendering of the PRD, not a UI prototype.

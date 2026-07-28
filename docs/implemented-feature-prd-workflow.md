@@ -28,14 +28,14 @@ Before drafting:
 
 1. Inspect the available evidence needed to understand user-visible behavior, including relevant UI surfaces, analytics, screenshots, validation results, and existing documentation.
 2. Treat observed current-product behavior as evidence, not as guaranteed product intent.
-3. Record technical evidence, behavior evidence, screenshots/placeholders, validation evidence, and unresolved product intent in `run-log.yaml`; expose only product-facing behavior and evidence in the PRD.
+3. Record technical evidence, behavior evidence, screenshot evidence or gaps, validation evidence, and unresolved product intent in `run-log.yaml`; expose only product-facing behavior and real visual evidence in the PRD.
 4. Ask only for product intent, launch, legal/privacy/compliance, metrics, or screenshot gaps that cannot be recovered from the branch.
 
 ## PRD Structure
 
 Use `templates/implemented-feature-prd-template.md` as the default structure.
 
-The PRD should be complete enough for product review and downstream handoff except for intentionally missing screenshots.
+The PRD should be complete enough for product review and downstream handoff; omit optional figures that lack trusted visual evidence.
 
 The H1 must be one concise requirement sentence plus the requirement date, for example `# 优化团队权限设置体验 - 2026-06-29`. Do not use a loose topic-list title plus `PRD`.
 
@@ -57,7 +57,7 @@ Screenshot acquisition order:
 4. If login is required, ask the user to sign in in the selected browser or provide a task-scoped token through an approved secure channel, then resume the same automated flow.
 5. Validate that the image is readable at normal document width. Retry with a larger viewport, higher device scale, focused target, or full-window context when an element screenshot is too small or blurred.
 6. Use manual capture only when automated capture cannot reproduce the required state.
-7. Use the exact placeholder format only when automated setup, authentication recovery, and manual capture are all unavailable or unsuccessful.
+7. If automated setup, authentication recovery, and manual capture are all unavailable or unsuccessful, omit the figure unless it is required to review the behavior. For a required figure, use the controlled inline placeholder with a small location-and-purpose caption and record every failed path in `run-log.yaml`.
 
 Never copy credentials into generated artifacts, source-controlled environment files, logs, user-visible commands, or image metadata. Record only the authentication limitation and recovery status.
 
@@ -68,19 +68,11 @@ Real screenshots:
 - Name by screenshot content, not figure number.
 - If one screenshot object has multiple UI states, include both the screenshot object and the specific state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, `profile-card-loading.png`, or `profile-card-load-failed.png`. Do not use generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
 
-Missing screenshots in Chinese PRDs:
-
-```markdown
-> 占位图：<content-based-image-name>.png
-> 用途：<what this screenshot should show>
-```
-
 Rules:
 
-- Put the block exactly where the image belongs in the requirement.
-- Use `占位图` only in missing-image blocks.
-- Do not use labels such as `待补真实图`.
-- Include the exact file name the user should save under `assets/`.
+- Put a real image exactly where it belongs in the requirement.
+- Omit the optional figure row when no trusted rendered source exists and the figure is not necessary to review the behavior.
+- When the figure is necessary but unavailable, use only `占位图：<name>.png<br><small>位置：...；用途：...</small>` in the affected row or blockquote; add `状态：...` when relevant.
 - Do not add a standalone screenshot list, image list, figure list, appendix, or checklist by default.
 - Cover every independent changed page, window, panel, or dialog. Do not split micro-states into separate screenshots when a single screenshot captures the complete window or panel.
 
@@ -89,9 +81,9 @@ Replacement loop:
 1. First pass: attempt real automated screenshots and place successful captures inline.
 2. Recovery pass: install or configure supported browser tooling, or obtain login through user sign-in or a task-scoped token, then retry failed captures.
 3. Manual fallback: request a human capture only for states that automation still cannot reach.
-4. Final fallback: place the exact inline placeholder only for screenshots that remain unavailable after all prior stages.
+4. Final fallback: omit a nonessential figure, or use the controlled inline placeholder for an essential unavailable figure and record the failed capture paths in the run trace.
 5. Regenerate `prd.html` and verify every real image is clear, local, correctly positioned, and click-to-fullscreen capable.
-6. Verify no `占位图` marker remains unless the screenshot is intentionally unavailable and its failed recovery path is recorded.
+6. Verify every remaining screenshot placeholder is essential, inline, and includes a small location-and-purpose caption.
 
 ## HTML Rendering
 
@@ -118,7 +110,7 @@ The generated `prd.html` must:
 - keep Markdown and HTML table cells consistently left-aligned unless a special data table explicitly needs another alignment
 - merge empty trailing content cells for multi-column requirement image rows so a figure spans the relevant content area instead of widening one data column
 - use local images
-- keep images/placeholders inline
+- keep real images inline
 - support image lightbox/fullscreen viewing
 - render Mermaid flowcharts through the local `assets/mermaid.min.js` runtime, not CDN
 - allow normal external document links while avoiding remote scripts, stylesheets, images, and CDN runtimes
