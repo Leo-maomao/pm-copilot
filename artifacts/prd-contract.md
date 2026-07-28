@@ -2,197 +2,111 @@
 
 ## Purpose
 
-A PM Copilot PRD is a decision and execution artifact. It must help a reviewer answer, in order:
+A PM Copilot PRD is a user-driven product document. It explains what identified users need, why they need it, and what experience and business rules the product must provide. It is not an engineering design, implementation plan, or technical solution document.
 
-1. What product direction is recommended?
-2. Why is that direction credible?
-3. What is in scope and explicitly out of scope?
-4. What behavior must exist?
-5. What risks, decisions, or confirmations remain?
-6. Can product review, engineering handoff, or launch move forward now?
-
-Format completeness is not the objective. A shorter PRD that makes the product decision and execution boundary clear is better than a long PRD filled with empty or not-applicable tables.
+Every requirement must be traceable from a user, user scenario, or user-confirmed business problem in `需求清单` to a matching item in `需求详情`.
 
 ## Canonical Structure
 
-Planned PRDs use these numbered top-level sections in order:
+Use these top-level sections and titles in order:
 
 ```text
-## 1. 产品决策摘要
-## 2. 背景与证据
-## 3. 目标与成功标准
-## 4. 范围与非目标
-## 5. 需求详情
-## 6. 交付设计
-## 7. 风险、决策与待确认
-## 8. 验收与就绪度
+## 一、文档说明
+## 二、需求背景
+## 三、需求调研                 # optional
+## 四、需求清单
+## 五、需求详情
+## 六、多语言需求               # optional
+## 七、埋点需求                 # optional
 ```
 
-Implemented-feature PRDs append:
+`需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. When an optional section is omitted, retain the canonical Chinese numeral of the sections that follow.
 
-```text
-## 9. 实现证据与覆盖映射
-## 10. 验证结果
-```
-
-The H1 is one concise requirement sentence plus date, for example:
+The H1 is a concise requirement sentence plus date, for example:
 
 ```markdown
-# 优化团队权限变更的安全性与可追溯性 - 2026-07-10
+# 支持团队项目协作 - 2026-07-28
 ```
 
 Do not center the title on the word `PRD`.
 
-## Decision-First Opening
+## 一、文档说明
 
-The first rendered screen must show the current product judgment rather than document administration.
+This section starts with two required subsections:
 
-`1. 产品决策摘要` must include:
+1. `文档信息`: requirement source, target users, affected product surface, document owner/status, and current revision summary.
+2. `版本记录`: version, date, change summary, and owner for every material revision.
 
-- recommended direction, or reconstructed product definition for an implemented feature
-- confidence or implementation-intent alignment with evidence basis
-- separate PRD, engineering handoff, and launch statuses
-- key blocker or an explicit statement that none is known
-- next checkpoint with owner or phase and expected completion evidence
-- compact metadata such as source, date, affected modules/platform, and current revision summary
+Keep document administration compact. It must not replace the user problem, requirement list, or requirement details.
 
-Version history is not a mandatory top-level section. Record the current revision in the summary; add a compact revision subsection only when multiple artifact revisions materially affect review.
+## 二、需求背景
 
-## Evidence And Goals
+State the user problem before proposing product behavior. Include the relevant subset of:
 
-`2. 背景与证据` separates:
+- target users and their role or segment
+- current user journey, problem, and impact
+- business context and expected user or business result
+- confirmed scope boundary, assumptions, and open product questions
+- current-product evidence, clearly labeled as observed behavior rather than product truth
 
-- current problem and affected user scenario
-- repository/product evidence
-- external or authoritative evidence when relevant
-- assumptions, unknowns, source gaps, and their product impact
+Do not put repository files, technical architecture, or implementation options in this section.
 
-Do not present repository facts as competitor research. Do not manufacture external research when it is not needed or unavailable.
+## 三、需求调研（可选）
 
-`3. 目标与成功标准` connects each goal to a user or business result, an observable signal, direction or threshold, and validation window. Add guardrails when optimization can create abuse, fatigue, privacy, quality, support, compliance, or revenue risk.
+Use this section only for evidence that changes the product decision. For each finding, state its source, date or confidence, insight, and affected requirement IDs. Do not manufacture research or present implementation observations as external research.
 
-## Scope
+## 四、需求清单
 
-`4. 范围与非目标` must explicitly separate:
+`需求清单` is mandatory and is the user-to-requirement index. Use the matching detail subsection number, such as `5.1`, as the sole requirement identifier; contain one row per coherent user need.
 
-- MVP
-- optional or conditional scope
-- future scope
-- non-goals
+Each row must include:
 
-Do not put unconfirmed optional capabilities into MVP requirements or acceptance criteria. Scope partitions are product decisions, not labels added after drafting.
+- detail subsection number and concise requirement name
+- target user or role
+- user scenario, problem, or trigger
+- user value or expected outcome
+- requirement summary
+- priority and confirmation/source status
 
-## Requirement Details
+Do not list technical tasks, APIs, code components, data tables, or implementation phases as requirements. A requirement with no identifiable user, scenario, or user value is incomplete and must be clarified before it is treated as an MVP requirement.
 
-`5. 需求详情` is the behavioral source of truth. Do not create a separate top-level summary list that duplicates the same requirements.
+## 五、需求详情
 
-Use stable IDs such as `R1`, `R2`, `AC1`, and `EV1`. Each coherent requirement should include the relevant subset of:
+`需求详情` is the behavioral source of truth. Create one numbered subsection for every requirement-list row, such as `### 5.1 团队项目入口`. Do not add a second identifier such as `R1`.
 
-- product judgment and user value
-- scenario, entry point, and trigger
-- main flow and business rules
-- content and copy behavior
-- UI hierarchy, interaction, responsive and accessibility behavior when UI is in scope
-- data, states, persistence, sync, and consistency rules
-- permissions, eligibility, security, privacy, compliance, and operational boundaries
-- loading, empty, error, retry, recovery, partial-success, and unavailable states
-- dependencies, fallbacks, and degradation behavior
-- links to goals, evidence, tracking, and acceptance criteria
+Each detail starts from the affected user and uses the smallest applicable set of merged fields:
 
-Each requirement must remain reviewable without hunting through later sections. Keep only applicable rows; do not emit empty tables or repeated boilerplate.
+- `用户与场景`: target user, user story, scenario, problem, and value
+- `需求入口`: visible entry point, trigger, eligibility, and navigation context
+- `需求详情`: main flow, business rules, permissions, normal and exception states, empty/loading/error feedback, recovery, degradation, and other user-visible boundaries
+- `设计与交互`: information hierarchy, visible controls, interaction, accessibility, and feedback
+- `图示`: inline screenshot, figure, or exact missing-image placeholder when visual evidence is needed
 
-Flow diagrams are optional. Use Mermaid `flowchart` blocks only for requirements with meaningful branches, cross-role or cross-system movement, or complex state transitions. Place the diagram inside the requirement it explains.
+When a field contains more than one concern, use `一、`、`二、`、`三、` to group the concerns, then use `1.`、`2.`、`3.` for the detailed rules under each group. Apply this hierarchy to `需求入口`、`需求详情`、`设计与交互` and other fields when it improves reviewability; do not present every rule as one flat `1.`、`2.`、`3.` list. Do not split exception handling, permissions, or recovery behavior into repetitive standalone rows.
 
-## Delivery Design
+Flow diagrams are optional and have two distinct uses: a `用户流程图` shows the user's cross-surface path and decision points, while an `操作流程图` shows the operation, rules, permissions, states, and exceptions. Choose either diagram when it clarifies the requirement; use both only when both views add value. Place selected Mermaid diagrams immediately below the requirement title and above its detail table. When both are present, place `用户流程图` followed by `操作流程图`; the HTML delivery always renders the pair side by side, with each pane scrolling horizontally when needed. The affected detail table must follow the diagram(s). Do not add generic global flowchart sections.
 
-`6. 交付设计` contains only the cross-functional subsections that apply:
+Use a screenshot only when it materially clarifies a user-visible surface. Select its crop in three layers: retain the functional target, retain the locating context that tells the reader where it appears, and retain any comparison context needed to understand the rule or state. A crop is too tight if the reader cannot identify the page area, tab, section, or comparison that gives the target meaning; for example, a team-project crop may retain the adjacent personal-project area when that contrast explains the boundary. A crop is too broad when it retains unrelated global navigation, banners, feeds, blank canvas, or peripheral controls after the target and its context are already clear. Do not use a full-screen screenshot merely because it is available; use it only when the overall page layout or cross-surface relationship is the requirement. When no relevant visual evidence exists, write `无需补充图示。` instead of reusing an unrelated screenshot. Name and caption the figure to indicate the relevant area and state, such as `个人与团队项目区-已选择团队（局部截图）`.
 
-- data and tracking
-- copy and localization
-- UI and engineering handoff
-- focused test coverage
+Do not add separate risk, pending-confirmation, acceptance-result, or technical-test fields to requirement details. Keep only confirmed product behavior in the detail; when an unresolved product decision genuinely blocks drafting, handle it before generation or state the assumption in `需求背景`.
 
-Tracking is required when measurement, experiment evaluation, funnel behavior, or operational monitoring is part of the goal. If no approved taxonomy is found, label events as proposed and disclose the source gap.
-
-For new UI copy, provide a pure-text extraction block only for copy without an existing i18n key. Existing-key copy belongs in the usage/key mapping, not in the pure-text block. The block uses the current delivery language unless bilingual output was requested.
-
-Do not duplicate full `dev-tasks.yaml`, UI annotations, or launch decisions inside the PRD. Link or summarize their product-relevant implications.
-
-## Risks And Readiness
-
-`7. 风险、决策与待确认` must keep product decisions visible:
-
-- selected decision and evidence
-- strongest rejected alternative and why it was not selected
-- risks or blockers with severity, impact, mitigation, owner, and required-before phase
-- open questions with explicit default handling and whether work may continue
-
-Do not bury unresolved decisions in narrative prose.
-
-`8. 验收与就绪度` must include:
-
-- acceptance criteria linked to requirement IDs
-- observable verification method, preferably Given/When/Then or an equally testable result
-- separate product-review, engineering-handoff, and launch readiness
-- evidence already available, missing evidence with owner, and next action
-- actual validation results or a concrete limitation; never leave `待执行`, `should run`, or `to be verified`
-
-Engineering readiness does not imply launch readiness. Human approvals cannot be inferred from successful technical validation.
-
-## Implemented-Feature Mode
-
-Implemented-feature PRDs use implementation as primary evidence, not as automatic product truth.
-
-Before drafting, inspect the current branch, diff, changed files, entry points, UI surfaces, assets, analytics changes, tests, and existing documentation. Separate:
-
-- observed implementation behavior
-- inferred product intent
-- behavior that is not proven
-- product gaps or recommendations
-
-`9. 实现证据与覆盖映射` must map code, routes, tests, assets, configuration, and screenshots to requirements and show whether every observed behavior is represented and accepted.
-
-`10. 验证结果` records concrete commands, results, coverage, evidence, and limitations. Generate `prd.html` with `scripts/render_prd_html.py` for implemented-feature delivery.
-
-## Screenshots And Figures
-
-Place every image or missing-image placeholder exactly where the requirement needs it. Do not create a detached screenshot inventory or image appendix by default.
-
-Real product screenshots are the default when visual evidence is needed. Attempt automated capture against the host project's actual runnable UI before emitting a missing-image placeholder. Discover the route, runtime, browser capability, fixture or data state, and authentication path rather than assuming a canvas, fixed port, or named framework.
-
-Missing browser tooling triggers its supported setup or plugin installation plus retry. Missing authentication triggers a user sign-in or task-scoped-token checkpoint plus resume. Credentials must not enter generated artifacts, logs, source-controlled environment files, user-visible commands, or image metadata.
-
-Every embedded screenshot must be legible at normal document width and must not be unexpectedly blank, clipped, or blurred. Small element captures require target focus or zoom, sufficient device scale, or a larger contextual crop. Manual capture is a fallback. A placeholder is permitted only after automated capture, supported setup or repair, authentication recovery, and manual capture are unavailable or unsuccessful.
-
-For Chinese PRDs, a missing screenshot outside a table uses exactly:
+When a required visual is unavailable, place this exact-style block inside the affected requirement:
 
 ```markdown
 > 占位图：资料卡片-加载中.png
 > 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
 ```
 
-Inside a requirement detail table, keep it in the same value cell:
+## 六、多语言需求（可选）
 
-```markdown
-| 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
-```
+Include only when new or changed user-facing copy requires localization. When the section has one copy set, list the copy directly without a `6.1` subsection or explanatory lead-in; use a mapping table only when it adds real reuse or context value. Existing-key copy stays in the mapping table and does not belong in the direct copy list.
 
-Replace the same block or cell with a local image when available. Screenshot names must identify the surface and concrete state, not a generic word such as `状态`.
+## 七、埋点需求（可选）
 
-When motion, timing, transitions, or gesture feedback is material evidence, insert a local video link in the same requirement cell or nearby evidence block:
+Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `名称`, `标识`, `时机`, `参数`, and `备注`; the values provide the Chinese event name and engineering event identifier. Label events as proposed when no approved taxonomy exists.
 
-```markdown
-[快捷键面板显隐动效.mp4](./assets/快捷键面板显隐动效.mp4)
-```
+## Product Boundary
 
-`scripts/render_prd_html.py` converts local `.mp4`, `.webm`, `.mov`, `.m4v`, `.ogv`, and `.ogg` links into inline HTML video players. Prefer H.264 video with AAC audio in an `.mp4` container for broad browser compatibility. When `ffmpeg` is available, MOV and M4V evidence is automatically remuxed to a sibling `.browser.mp4` asset, with H.264/AAC transcoding as fallback; the original source link remains available. Without `ffmpeg`, the player keeps the original container and an explicit fallback link, so unsupported codecs remain visible as a delivery limitation. Record video evidence as `type: video`, not `type: image`, in `screenshots_and_placeholders`.
+Technical implementation, technical solution, architecture, code path, component/service inventory, API definition, database design, deployment plan, command, and engineering work breakdown do not belong in a PRD. Put them only in a separately requested engineering handoff or the run trace.
 
-## Output Rules
-
-- Use exactly one H1.
-- Localize human-facing headings, labels, statuses, and notes.
-- Keep machine IDs, event names, property names, paths, and Mermaid node IDs ASCII.
-- Remove optional subsections that do not apply; do not leave empty tables, placeholders, or artificial `Not applicable` rows merely to satisfy a format.
-- Prefer compact tables for comparable records and prose for product reasoning.
-- Render PRD HTML as a readable document with numbered-section navigation, stable anchors, complete tables, Mermaid rendering, inline figures, and controllable inline video for motion evidence.
-- Keep PRD status, engineering handoff status, and launch status separate everywhere.
+Implemented-feature PRDs use observed user-visible behavior as evidence. Keep code, routes, tests, assets, configuration, commands, and other technical evidence in the run trace; in the PRD, describe only the product implication, confidence, gap, and user-facing acceptance result.

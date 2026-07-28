@@ -1,6 +1,6 @@
 # Implemented Feature PRD Workflow
 
-Use this workflow when a feature is already implemented in the current branch and the user wants a PRD package reconstructed from actual code.
+Use this workflow when a feature is already available in the current product context and the user wants a PRD package reconstructed from observed behavior.
 
 ## Output Folder
 
@@ -20,39 +20,28 @@ Do not write PRD outputs to the host root, `docs/`, `zdocs/`, temporary folders,
 
 Implemented-feature PRD delivery is the exception to the general PRD rule where HTML is generated only when requested. Always render `prd.html` for this workflow.
 
-Avoid split Markdown files by default. The PRD should contain assumptions, questions, risks, metrics, tracking, flows, acceptance criteria, validation, and engineering/data/API notes.
+Avoid split Markdown files by default. The PRD should contain assumptions, questions, risks, metrics, tracking, flows, acceptance criteria, and product-facing validation. Keep engineering, data, API, and other technical notes in the run trace or a separately requested handoff.
 
 ## Evidence Pass
 
 Before drafting:
 
-1. Inspect branch status, diff, touched files, nearby modules, UI entry points, dialogs, menus, stores, hooks, API services, i18n, analytics, tests, and existing docs.
-2. Treat observed implementation as evidence, not as guaranteed product intent.
-3. Record changed files, behavior evidence, screenshots/placeholders, validation evidence, and unresolved product intent in `run-log.yaml`.
+1. Inspect the available evidence needed to understand user-visible behavior, including relevant UI surfaces, analytics, screenshots, validation results, and existing documentation.
+2. Treat observed current-product behavior as evidence, not as guaranteed product intent.
+3. Record technical evidence, behavior evidence, screenshots/placeholders, validation evidence, and unresolved product intent in `run-log.yaml`; expose only product-facing behavior and evidence in the PRD.
 4. Ask only for product intent, launch, legal/privacy/compliance, metrics, or screenshot gaps that cannot be recovered from the branch.
 
 ## PRD Structure
 
 Use `templates/implemented-feature-prd-template.md` as the default structure.
 
-The PRD should be complete enough for engineering review except for intentionally missing screenshots.
+The PRD should be complete enough for product review and downstream handoff except for intentionally missing screenshots.
 
 The H1 must be one concise requirement sentence plus the requirement date, for example `# 优化团队权限设置体验 - 2026-06-29`. Do not use a loose topic-list title plus `PRD`.
 
-Use the decision-first numbered structure:
+Use the user-driven numbered structure: `文档说明`, `需求背景`, optional `需求调研`, `需求清单`, `需求详情`, optional `多语言需求`, and optional `埋点需求`.
 
-1. 产品决策摘要
-2. 背景与证据
-3. 目标与成功标准
-4. 范围与非目标
-5. 需求详情
-6. 交付设计
-7. 风险、决策与待确认
-8. 验收与就绪度
-9. 实现证据与覆盖映射
-10. 验证结果
-
-The first screen must state the reconstructed product definition, implementation-intent alignment, blockers, and next checkpoint. Implementation evidence belongs next to the product behavior it proves, with sections 9-10 providing the complete auditable map and command results.
+The first screen must identify the document source, target users, status, and revision. Build `需求清单` from the observed user-visible behavior before expanding matching requirement details. Keep technical evidence and command results in `run-log.yaml`; the PRD contains only the user problem, product behavior, confidence, gap, and user-facing acceptance result.
 
 Remove optional subsections, diagrams, image blocks, and rows that have no real content. Do not preserve empty tables or artificial `不涉及` text solely to satisfy the template.
 

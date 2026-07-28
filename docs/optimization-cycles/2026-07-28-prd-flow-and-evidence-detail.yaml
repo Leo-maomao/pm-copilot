@@ -1,0 +1,116 @@
+practice_source:
+  source_type: "user_feedback"
+  source_name: "PRD flow and evidence review"
+  practice: "Use distinct flow diagrams, hierarchical details, and focused visual evidence"
+  applicability: "Chinese PRD requirement details, flow diagrams, and inline screenshots"
+  evidence: "The user clarified that user and operation flowcharts are different, required their detail table below, requested clearer hierarchical numbering, and asked for cropped screenshots instead of full-screen evidence by default."
+observed_corrections:
+  - correction: "The PRD used one undifferentiated flowchart, flat numbered detail cells, and full-screen screenshots even when focused evidence was sufficient."
+    affected_artifact: "Requirement-detail presentation and HTML rendering"
+    evidence: "User review of the team-projects PRD requested dual flowcharts, a visible table beneath them, nested grouping, and target-area screenshot crops."
+    severity: "Medium"
+generalized_failures:
+  - failure_code: "prd_flow_detail_and_evidence_ambiguity"
+    generalized_symptom: "A PRD is harder to review when user paths and operational rules share one diagram, detailed rules are a flat list, or screenshots contain unrelated page area."
+    host_specific_details_removed: true
+    reusable_rule: "Choose user and operation flowcharts independently; keep the matching detail table below them, group complex rules hierarchically, and prefer focused evidence crops."
+input_cases:
+  - eval_case: "Chinese PRD with paired flowcharts and component-level screenshot evidence"
+    run_id: ""
+    context_mode: "repo-backed"
+    output_folder: ""
+scenario_portfolio:
+  context_mode: "repo-backed"
+  product_type: "other"
+  pm_task_type: "self_improvement"
+  risk_profile: "operations"
+  platform: "cross_platform"
+  pm_user_maturity: "ai_product_manager"
+artifact_expectations:
+  prd: true
+  ui_delivery: false
+  tracking_plan: false
+  dev_tasks: false
+  launch_decision: false
+  pre_clarification_only: false
+generalization_boundary:
+  reference_projects_are_fixtures: true
+  host_specific_terms_allowed_only_in:
+    - "outputs/<run-id>/"
+    - "fixture-scoped eval case"
+  host_specific_terms_must_not_enter:
+    - "PM_COPILOT.md"
+    - "workflow/"
+    - "policies/"
+    - "indexes/"
+    - "agents/"
+    - "skills/"
+    - "templates/"
+    - "tools/"
+    - "artifacts/"
+    - "guardrails/"
+    - "docs/"
+baseline:
+  scorecard_report: "outputs/improvement-scorecard.json"
+  validation_pass_rate: null
+  high_severity_failures: []
+results:
+  generated_artifacts:
+    - "docs/optimization-cycles/2026-07-28-prd-flow-and-evidence-detail.yaml"
+  validation_commands:
+    - "python3 scripts/test_prd_flow_rendering.py"
+    - "python3 scripts/test_prd_contract.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+    - "python3 scripts/run_delivery_checks.py outputs/team-projects-prd-2026-07-28 --language zh"
+    - "git diff --check"
+  validation_reports:
+    - "outputs/team-projects-prd-2026-07-28/tool-results/delivery-check-report.json"
+  review_scores:
+    delivery: null
+    prd: null
+    metrics_tracking: null
+    ui_delivery: null
+    delivery_review: null
+failure_classification:
+  - failure_code: "prd_flow_detail_and_evidence_ambiguity"
+    severity: "Medium"
+    area: "PRD requirement-detail presentation"
+    symptom: "Flow types, detailed rules, and visual evidence did not provide enough review-focused separation."
+    evidence: "The user requested distinct diagram choices, table placement, hierarchical detail labels, and cropped screenshots."
+    first_surface_to_fix: "artifact contract"
+fixes:
+  - path: "artifacts/prd-contract.md, artifacts/artifact-contracts.md, agents/requirements-agent.md, skills/prd-writing/SKILL.md"
+    change: "Defined distinct flowchart roles, table placement, hierarchical detail labels, and focused-crop evidence guidance."
+    rationale: "The PRD stays readable when each artifact proves one kind of product behavior."
+    fix_surface: "contract"
+  - path: "scripts/render_prd_html.py, scripts/test_prd_flow_rendering.py"
+    change: "Rendered adjacent user and operation flowcharts as a responsive two-column group and tested the table requirement."
+    rationale: "The HTML presentation must make the two complementary diagrams easy to compare without removing the specification table."
+    fix_surface: "renderer"
+  - path: "templates/prd-template.md, templates/implemented-feature-prd-template.md"
+    change: "Added hierarchical numbering and focused-crop guidance to the detail-table fields."
+    rationale: "Templates must prompt readable detail structure and proportionate visual evidence."
+    fix_surface: "template"
+regression_updates:
+  evals_added_or_updated:
+    - "scripts/test_prd_flow_rendering.py paired_flowcharts_use_grid"
+    - "scripts/test_prd_flow_rendering.py flowchart_without_table_rejected"
+  validators_added_or_updated:
+    - "scripts/validate_outputs.py"
+versioning:
+  previous_version: "4.2.6"
+  new_version: "4.2.7"
+  changelog_updated: true
+sync:
+  embedded_copies_checked:
+    - "team-projects-prd-2026-07-28 output"
+  embedded_copies_updated:
+    - "team-projects-prd-2026-07-28 prd.md, prd.html, and focused screenshot assets"
+  skipped_targets:
+    - path: "other embedded copies"
+      reason: "The user requested only the team-projects PRD example."
+remote_push:
+  required: false
+  status: "not_requested"
+  target: ""

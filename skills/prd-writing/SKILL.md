@@ -1,88 +1,42 @@
 ---
 name: prd-writing
-description: Use when generating decision-first PRDs with evidence, scope, requirements, risks, readiness, and implementation traceability.
+description: Use when generating standardized, user-driven, product-only PRDs.
 ---
 
 # PRD Writing
 
 ## Goal
 
-Create `outputs/<run-id>/prd.md`, the primary product-manager handoff artifact that product, design, engineering, QA, and analytics can review directly.
+Create `outputs/<run-id>/prd.md` as a product document that starts from users and their problems, then makes every proposed behavior reviewable through a requirement list and matching requirement details.
 
 ## Workflow
 
-1. Load the PRD contract from `artifacts/prd-contract.md`.
-2. Use discovery output, user answers, current product context, and research findings as the source of truth.
-3. For implemented-feature PRD delivery, inspect branch/diff evidence before drafting. Record changed files, UI surfaces, business logic, data operations, permissions, screenshots/assets, tests, and unverified intent; then reconstruct the requirement from observed behavior instead of inventing product scope.
-4. Localize human-facing headings and prose to the user's language, while keeping machine-readable IDs, event names, property names, and file names ASCII.
-5. Make the H1 a one-sentence requirement plus date, for example `# 优化团队权限设置体验 - 2026-06-29`. Do not use a loose topic-list title plus `PRD`.
-6. Use the decision-first structure: `产品决策摘要`, `背景与证据`, `目标与成功标准`, `范围与非目标`, `需求详情`, `交付设计`, `风险、决策与待确认`, and `验收与就绪度`.
-7. For implemented-feature PRD delivery, append `实现证据与覆盖映射` and `验证结果`. Omit these sections when no implementation has been inspected.
-8. Put the recommendation, confidence, separate PRD/engineering/launch states, key blocker, and next checkpoint on the first rendered screen.
-9. Write concise background and evidence findings. Separate user/business evidence, current-product evidence, external evidence, assumptions, and unknowns.
-10. Mark source date, confidence, and limitation for external or time-sensitive facts.
-11. Define project goals and metrics.
-12. Separate confirmed MVP scope, optional or conditional scope, future scope, and non-goals in `范围与非目标`.
-13. Use `需求详情` as the single behavioral source of truth; do not duplicate it with a scan-only top-level requirement list.
-14. Write requirement details for each coherent product capability, including product judgment, scenario, entry/trigger, business logic, interaction, data, permissions, recovery states, dependencies, and goal/acceptance links where relevant.
-15. Place screenshots or image placeholders inline in the related requirement, flow, table row, or evidence position. Do not create a separate image list by default. If a requirement detail is a two-column field/value table, put the screenshot or placeholder in the same `Figures`/`图示` row value cell instead of placing it below the table.
-16. For frontend page, UI component, visual-state, or interactive-control changes, include UI specifications in the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
-17. Add flow diagrams only when they improve reviewability for a specific requirement. Place each Mermaid diagram inside that requirement's detail subsection, not as fixed global `用户流程图` and `功能流程图` sections.
-18. Add tracking only when measurement, experiment evaluation, funnel behavior, or operational monitoring is relevant; place it in the applicable `交付设计` subsection.
-19. Add new UI copy as a pure-text extraction block only when new copy without an existing i18n key exists. Search repo translation sources before adding it; keep existing-key copy only in the usage mapping.
-20. Make key decisions, the strongest rejected alternative, risks, owners, required-before phases, and open-question defaults explicit.
-21. For implemented-feature PRDs, map implementation evidence to requirement IDs and expose partial, unverified, or conflicting behavior.
-22. Remove optional subsections, diagrams, tables, and image blocks that have no real content; never ship empty placeholders, artificial `Not applicable` filler, or `待补充`.
+1. Load `artifacts/prd-contract.md` and use its seven-section structure.
+2. Identify target users, their scenario, problem, desired outcome, and the source or confirmation status before drafting requirements.
+3. Create `需求清单` before `需求详情`. Use the matching detail number, such as `5.1`, as the sole identifier for every coherent user need; include its user/role, scenario, user value, priority, and source status.
+4. Expand each requirement only in its matching `需求详情` subsection. Do not create requirements that cannot be traced back to a user problem or scenario.
+5. Structure each requirement detail as `用户与场景`, `需求入口`, `需求详情`, `设计与交互`, and `图示`. Put normal and exception states, permissions, empty/loading/error feedback, recovery, and boundaries in `需求详情`; group multi-part content with `一、`、`二、`、`三、`, then use `1.`、`2.`、`3.` for the rules under each group. Do not add risk, pending-confirmation, acceptance-result, technical-test, or standalone exception fields.
+6. Use `用户流程图` for a user's cross-surface path and `操作流程图` for operation rules, permissions, states, or exceptions. Add either or both Mermaid diagrams immediately above the matching detail table only when they improve reviewability; when both are present, list the user flow first and render the pair side by side at every viewport width. For each `图示`, retain the functional target, the locating page/section context, and any comparison context needed to understand the behavior; remove unrelated navigation, banners, feeds, blank canvas, and peripheral controls. Use a full-screen screenshot only when the whole-page layout is the requirement; do not reuse an unrelated image when no relevant evidence exists.
+7. Add `需求调研`, `多语言需求`, and `埋点需求` only when they have real, decision-relevant content. List a single copy set directly under `多语言需求` without a `6.1` subheading or lead-in. A tracking table uses only `名称`、`标识`、`时机`、`参数`、`备注`. Omit empty optional sections and explanatory labels.
+8. For implemented-feature reconstruction, use technical evidence only to infer and verify user-visible behavior. Record technical evidence in `run-log.yaml`, never in the PRD.
+9. Do not include technical implementation or solution content in a PRD, including code paths, routes, components, services, APIs, schemas, infrastructure, commands, or technical architecture. Create or link a separate engineering handoff only when the user explicitly requests one.
+10. Remove empty tables, artificial `不涉及` text, and detached implementation or testing plans.
+
+Use the exact missing-image placeholder format from the PRD contract when needed, for example `资料卡片-加载中.png` with a concrete purpose line inside the affected requirement.
 
 ## Output
 
 - `outputs/<run-id>/prd.md`
-- Optional machine-readable exports only when useful or requested
-
-## Screenshot And Placeholder Rules
-
-- In implemented-feature PRD delivery, use `templates/implemented-feature-prd-template.md` and keep screenshots attached to the requirement, flow step, table row, state, or evidence they explain.
-- Cover every independent changed page, window, panel, or dialog. Do not create separate screenshots for micro-states when one screenshot captures the complete window or panel.
-- When a PRD needs a product image, attempt a real automated screenshot before writing a placeholder. Discover the host project's runnable surface, supported browser tooling, route, fixture, and authentication method instead of assuming a specific product, canvas, port, or framework.
-- Prefer an existing browser or visual-validation integration exposed by the environment. If the required browser plugin or automation dependency is missing, attempt its supported installation or setup flow, then retry the screenshot. Do not mark the screenshot unavailable after only the first missing-tool error.
-- If authentication blocks the screenshot, ask the user to complete login in the selected browser or provide a task-scoped token through an approved secure channel. Resume automation after authentication is available. Never place credentials in the PRD, run log, screenshot name, source-controlled environment file, command output, or final response.
-- Treat manual user-operated capture as a fallback after automated browser setup or authentication recovery cannot complete the target state. Use the exact placeholder format only after automated capture, supported setup or repair, authentication collaboration, and manual capture have all failed or are unavailable.
-- Validate screenshot clarity before embedding it. Capture the target at a readable viewport and device scale, focus or zoom the relevant surface before element-level capture, include enough context to identify the state, and reject images that are visibly blurred, unexpectedly blank, clipped, or too small to read at normal PRD width. Retry with a larger viewport, higher device scale, closer crop, or full-window capture when needed.
-- Put real screenshots under `<run-folder>/assets/` and reference them inline, for example `![资料卡片-加载中](./assets/资料卡片-加载中.png)`.
-- If a Chinese PRD is missing a screenshot, use only the exact inline block below and avoid the marker words anywhere else:
-
-```markdown
-> 占位图：资料卡片-加载中.png
-> 用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。
-```
-
-- If the missing screenshot belongs in a Markdown table cell, do not use the blockquote form. Use the same-cell inline form instead:
-
-```markdown
-| 图示 | 占位图：资料卡片-加载中.png<br>用途：展示资料卡片加载过程中的骨架屏、按钮状态和错误兜底。 |
-```
-
-- When the real image exists for a table row, replace the same cell with `![资料卡片-加载中](./assets/资料卡片-加载中.png)`. Do not move the image above or below the table during replacement.
-- Name screenshots by content. If one object has multiple states, use object plus concrete state, for example `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; do not use generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
-- Do not create a standalone image list, figure list, screenshot appendix, or screenshot inventory unless the user explicitly asks for one.
-- Missing screenshots in Chinese PRDs are called `占位图`; do not use labels such as `待补真实图`.
-
-## Flow And Copy Rules
-
-- Functional flow sections, when present, must use Mermaid `flowchart` code blocks. Do not represent the primary flow as a table or a PNG.
-- Flow diagrams are not mandatory for every PRD or every requirement; include them only for complex user paths, cross-system processes, or state-heavy interactions.
-- Keep Mermaid node IDs ASCII and labels localized. Prefer simple unquoted labels and avoid custom `classDef` styling unless the renderer has been verified.
-- Copy/i18n sections should include a pure-text block only for newly added or changed UI copy that has no existing i18n key, so product managers can submit it directly for localization. Chinese PRDs should not list English/Chinese copy pairs in the pure-text block unless bilingual output was requested; put source-language notes, existing keys, and usage mapping in the table below instead.
+- `outputs/<run-id>/prd.html` when requested or when an implemented-feature PRD requires it
 
 ## Quality Bar
 
-- The PRD is detailed enough for design, engineering, QA, and analytics to proceed without guessing core intent.
-- Requirement, function, acceptance, metric, and tracking IDs are stable and cross-linked.
-- Requirement details contain concrete logic, content, rules, interactions, data behavior, permission behavior, edge states, tracking links, and acceptance links where relevant.
-- Implemented-feature PRDs cover every meaningful behavior visible in the implementation or mark the missing product intent as a gap with owner and impact.
-- Research and reference findings sit before requirements because they explain the solution direction.
-- UI delivery details are not a separate required top-level chapter in the fixed PRD template. Summarize UI implications inside requirement details or code implementation notes unless the user explicitly asks for a separate UI artifact reference.
-- Images and image placeholders appear inline where they support the requirement; reviewers should not need to cross-reference a detached screenshot list.
-- No unresolved decision is hidden inside prose.
-- Time-sensitive or external claims are sourced, dated, or explicitly marked unverified.
-- Readiness status does not imply engineering or launch approval without evidence.
+Before delivery, confirm that every requirement-list row answers all of these questions:
+
+- Which user has the need?
+- In what scenario or trigger does it occur?
+- What problem or desired outcome does the user have?
+- What product behavior addresses it?
+- Where is the corresponding product behavior detail?
+
+If any answer is unknown, mark the requirement as an assumption or open question instead of expanding it into speculative details.

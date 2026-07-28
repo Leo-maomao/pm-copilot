@@ -1,176 +1,80 @@
 # <一句话需求> - <YYYY-MM-DD>
 
-<!--
-This is PM Copilot's decision-first PRD template.
-Keep the eight numbered top-level sections in this order. Localize all human-facing text.
-Do not preserve empty optional subsections, empty tables, angle-bracket placeholders, or TBD text.
-The first screen must let a reviewer understand the recommendation, confidence, scope, blockers, and next checkpoint.
-Requirement details are the behavioral source of truth. Do not create a duplicate scan-only requirement list.
-Tracking, copy/i18n, UI handoff, engineering notes, and test suggestions are optional subsections inside section 6.
-Use implemented-feature-prd-template.md when reconstructing a PRD from implemented code.
-Remove this note from generated artifacts.
--->
+## 一、文档说明
 
-## 1. <产品决策摘要>
+### 1. 文档信息
 
-### 1.1 <建议与理由>
-
-<!-- State the recommended product direction in 2-4 sentences. Name the user outcome, key trade-off, and why this option is preferred over the strongest alternative. -->
-
-| <决策项> | <当前判断> |
+| 项目 | 内容 |
 | --- | --- |
-| <推荐方案> |  |
-| <置信度> | <高 / 中 / 低，并说明依据> |
-| <PRD 状态> |  |
-| <研发交接状态> |  |
-| <上线状态> |  |
-| <关键阻塞> |  |
-| <下一检查点> | <负责人 / 阶段 / 完成证据> |
+| 需求来源 | <用户反馈 / 产品确认 / 数据 / 调研> |
+| 目标用户 | <用户角色或分群> |
+| 影响范围 | <产品页面、平台或业务范围> |
+| 文档状态 | <草稿 / 可评审 / 已确认> |
+| 文档负责人 | <姓名或角色> |
+| 本次修订 | <本次变更摘要> |
 
-### 1.2 <文档元数据>
+### 2. 版本记录
 
-| <项目> | <内容> |
-| --- | --- |
-| <需求来源> |  |
-| <需求日期> |  |
-| <相关模块 / 平台> |  |
-| <本次变更> |  |
+| 版本 | 日期 | 变更内容 | 负责人 |
+| --- | --- | --- | --- |
+| v0.1 | <YYYY-MM-DD> | <首次创建> |  |
 
-## 2. <背景与证据>
+## 二、需求背景
 
-### 2.1 <问题与用户场景>
+### 2.1 用户问题与场景
 
-<!-- Describe the current behavior, user pain, affected role/scenario, frequency or severity, and why action is needed now. -->
+<说明目标用户在什么场景下遇到什么问题，以及不解决的影响。>
 
-### 2.2 <证据与限制>
+### 2.2 目标、边界与待确认项
 
-| ID | <来源 / 类型> | <已知事实或发现> | <可信状态> | <产品影响> |
-| --- | --- | --- | --- | --- |
-
-### 2.3 <假设与未知项>
-
-| ID | <假设 / 未知项> | <当前处理> | <确认时点> | <影响> |
-| --- | --- | --- | --- | --- |
-
-## 3. <目标与成功标准>
-
-| ID | <产品目标> | <用户 / 业务结果> | <指标或可观察信号> | <目标方向 / 阈值> | <验证窗口> |
-| --- | --- | --- | --- | --- | --- |
-
-<!-- Include guardrail metrics or failure signals when optimization could create abuse, fatigue, privacy, quality, support, or revenue risk. -->
-
-## 4. <范围与非目标>
-
-| <范围层级> | <内容> | <理由 / 进入条件> |
+| 类型 | 内容 | 状态 / 影响 |
 | --- | --- | --- |
-| MVP |  |  |
-| <可选> |  |  |
-| <未来> |  |  |
-| <非目标> |  |  |
+| 用户目标 |  |  |
+| 业务目标 |  |  |
+| 范围边界 / 非目标 |  |  |
+| 假设 / 待确认项 |  |  |
 
-## 5. <需求详情>
+## 三、需求调研
 
-<!--
-Create one subsection per coherent product capability or behavioral change.
-Each requirement must be independently reviewable and traceable to goals and acceptance criteria.
-Use prose, a compact table, or both. Keep only applicable rows.
-Flow diagrams are optional and belong inside the requirement they explain.
-Place screenshots or exact inline placeholders at the requirement position they support.
--->
+<!-- Optional. Delete this section unless research materially changes a requirement. -->
 
-### 5.1 <R1 需求名称>
+| ID | 来源与日期 | 发现 | 产品洞察 | 关联需求 |
+| --- | --- | --- | --- | --- |
 
-**产品判断：** <What behavior should exist and why this is the chosen behavior.>
+## 四、需求清单
 
-| <维度> | <需求说明> |
+| 详情编号 | 需求名称 | 目标用户 | 用户场景 / 触发 | 用户问题或价值 | 需求摘要 | 优先级 | 来源 / 确认状态 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 5.1 |  |  |  |  |  | P0 |  |
+
+## 五、需求详情
+
+### 5.1 <需求名称>
+
+| 维度 | 需求说明 |
 | --- | --- |
-| <用户场景与价值> |  |
-| <入口 / 触发> |  |
-| <主流程与业务规则> |  |
-| <内容 / 文案> |  |
-| <界面与交互> | <Only when UI is in scope: affected surface, hierarchy, states, responsive/accessibility behavior, and visual acceptance.> |
-| <数据与状态> |  |
-| <权限与边界> |  |
-| <加载 / 空 / 错误 / 恢复> |  |
-| <依赖与降级> |  |
-| <关联目标 / 验收> | <G1, AC1...> |
-| <图示> | <Real local image or exact inline placeholder when needed.> |
+| 用户与场景 |  |
+| 需求入口 | <必要时使用 一、二、三 分组入口，再用 1.、2.、3. 说明具体路径。> |
+| 需求详情 | <使用 一、二、三 分组描述主流程、规则、权限、加载/空/错误状态与恢复方式；每组内可用 1.、2.、3. 展开。> |
+| 设计与交互 | <必要时使用 一、二、三 分组信息布局、控件与反馈。> |
+| 图示 | <使用功能主体 + 定位上下文 + 必要对比关系的局部截图，移除无关导航、横幅、信息流和空白区域；仅在页面整体关系是需求时使用全屏截图。> |
 
-<!-- Optional complex flow:
-#### 5.1.1 <关键流程>
+<!-- 按需在表格前添加用户流程图、操作流程图或两者；两者连续时会在 HTML 中始终左右并列展示。 -->
 
-```mermaid
-flowchart TD
-  A[<进入场景>] --> B[<触发动作>]
-  B --> C{<关键判断>}
-  C -- <通过> --> D[<目标状态>]
-  C -- <不通过> --> E[<恢复或兜底>]
-```
--->
+## 六、多语言需求
 
-## 6. <交付设计>
-
-<!-- Keep only applicable subsections. This section connects product behavior to cross-functional execution without duplicating separate handoff artifacts. -->
-
-### 6.1 <数据与埋点>
-
-| <事件名> | <触发时机> | <主体> | <关键属性> | <成功 / 失败判定> | <隐私与验证说明> |
-| --- | --- | --- | --- | --- | --- |
-
-### 6.2 <文案与多语言>
-
-<!-- Include only brand-new user-facing copy without an existing i18n key. Put reusable keys and usage notes in the mapping table. -->
+<!-- Optional. Delete this section when there is no new or changed UI copy. -->
 
 ```text
-<new or changed UI copy line>
+<new or changed UI copy without an existing i18n key>
 ```
 
-| <文案 / Key> | <使用位置> | <复用或翻译说明> |
+| 文案 | 使用场景 | 备注 |
 | --- | --- | --- |
 
-### 6.3 <UI 与研发交接>
+## 七、埋点需求
 
-| <交付项> | <路径 / 位置> | <说明 / 边界> |
-| --- | --- | --- |
+<!-- Optional. Delete this section when no measurement is required. -->
 
-### 6.4 <测试重点>
-
-| <测试类型> | <高风险路径 / 状态> | <建议验证> |
-| --- | --- | --- |
-
-## 7. <风险、决策与待确认>
-
-### 7.1 <关键决策记录>
-
-| ID | <决策> | <依据> | <替代方案及未选原因> | <影响> |
+| 名称 | 标识 | 时机 | 参数 | 备注 |
 | --- | --- | --- | --- | --- |
-
-### 7.2 <风险与阻塞>
-
-| ID | <风险 / 阻塞> | <级别> | <影响> | <缓解方案> | <负责人> | <必须解决阶段> |
-| --- | --- | --- | --- | --- | --- | --- |
-
-### 7.3 <待确认问题>
-
-| ID | <问题> | <默认处理 / 是否可继续> | <负责人> | <确认时点> |
-| --- | --- | --- | --- | --- |
-
-## 8. <验收与就绪度>
-
-### 8.1 <验收标准>
-
-| ID | <关联需求> | <Given / When / Then 或可验证结果> | <验证方法> | <状态> |
-| --- | --- | --- | --- | --- |
-
-### 8.2 <推进就绪度>
-
-| <阶段> | <状态> | <已具备证据> | <缺口 / 负责人> | <下一动作> |
-| --- | --- | --- | --- | --- |
-| <产品评审> |  |  |  |  |
-| <研发交接> |  |  |  |  |
-| <上线决策> |  |  |  |  |
-
-### 8.3 <验证结果>
-
-| <检查项 / 命令> | <结果> | <证据 / 限制> |
-| --- | --- | --- |

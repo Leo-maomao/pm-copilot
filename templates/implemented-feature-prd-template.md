@@ -1,163 +1,77 @@
 # <一句话需求> - <YYYY-MM-DD>
 
-<!--
-Use this template to reconstruct product intent from an implemented feature.
-Sections 1-8 follow the decision-first PRD structure. Sections 9-10 are mandatory implementation evidence and verification appendices.
-Implementation is evidence, not automatically the correct product requirement. Separate observed behavior, inferred intent, gaps, and recommendations.
-Localize human-facing text. Keep IDs, paths, event names, and machine identifiers ASCII.
-Remove empty optional subsections and this note from generated artifacts.
--->
+## 一、文档说明
 
-## 1. <产品决策摘要>
+### 1. 文档信息
 
-### 1.1 <反向还原结论>
-
-<!-- State what product capability the implementation appears to deliver, whether it is coherent enough to document as intended behavior, and the most important gap or decision. -->
-
-| <决策项> | <当前判断> |
+| 项目 | 内容 |
 | --- | --- |
-| <还原后的推荐定义> |  |
-| <实现与产品意图一致度> | <高 / 中 / 低，并说明依据> |
-| <PRD 状态> |  |
-| <研发交接状态> |  |
-| <上线状态> |  |
-| <关键阻塞 / 偏差> |  |
-| <下一检查点> | <负责人 / 阶段 / 完成证据> |
+| 需求来源 | 已交付功能的产品行为还原 |
+| 目标用户 |  |
+| 影响范围 |  |
+| 文档状态 |  |
+| 文档负责人 |  |
+| 本次修订 |  |
 
-### 1.2 <文档元数据>
+### 2. 版本记录
 
-| <项目> | <内容> |
-| --- | --- |
-| <需求来源> | <已实现功能反向还原> |
-| <需求日期> |  |
-| <分支 / 版本> |  |
-| <相关模块 / 平台> |  |
-| <本次变更> |  |
+| 版本 | 日期 | 变更内容 | 负责人 |
+| --- | --- | --- |
+| v0.1 | <YYYY-MM-DD> | <首次还原> |  |
 
-## 2. <背景与证据>
+## 二、需求背景
 
-### 2.1 <问题与用户场景>
+### 2.1 用户问题与当前产品行为
 
-### 2.2 <实现侧证据摘要>
+### 2.2 目标、边界与待确认项
 
-| ID | <证据类型> | <文件 / 页面 / 测试 / 资源> | <观察到的行为> | <可信状态> | <产品含义> |
-| --- | --- | --- | --- | --- | --- |
+| 类型 | 内容 | 状态 / 影响 |
+| --- | --- | --- |
+| 用户目标 |  |  |
+| 业务目标 |  |  |
+| 范围边界 / 非目标 |  |  |
+| 假设 / 待确认项 |  |  |
 
-### 2.3 <推断、缺口与未知项>
+## 三、需求调研
 
-| ID | <推断 / 未知项> | <证据基础> | <当前处理> | <需要谁确认> | <影响> |
-| --- | --- | --- | --- | --- | --- |
+<!-- Optional. Delete this section unless product evidence or research materially changes a requirement. -->
 
-## 3. <目标与成功标准>
-
-| ID | <推断或已确认目标> | <用户 / 业务结果> | <指标或可观察信号> | <证据状态> | <验证窗口> |
-| --- | --- | --- | --- | --- | --- |
-
-## 4. <范围与非目标>
-
-| <范围层级> | <内容> | <实现覆盖> | <判断 / 理由> |
-| --- | --- | --- | --- |
-| MVP |  |  |  |
-| <可选> |  |  |  |
-| <未来> |  |  |  |
-| <非目标> |  |  |  |
-
-## 5. <需求详情>
-
-<!-- Create one subsection per implemented capability. Describe intended behavior first, then cite implementation evidence and discrepancies. -->
-<!-- Missing Chinese screenshot outside a table: `> 占位图：<surface>-<state>.png` followed by `> 用途：<what this proves>`. Inside the table below, keep the same text in the `图示` value cell. -->
-
-### 5.1 <R1 需求名称>
-
-**产品判断：** <What this behavior should mean for users and whether the implementation supports that interpretation.>
-
-| <维度> | <需求说明> |
-| --- | --- |
-| <用户场景与价值> |  |
-| <入口 / 触发> |  |
-| <主流程与业务规则> |  |
-| <内容 / 文案> |  |
-| <界面与交互> |  |
-| <数据与状态> |  |
-| <权限与边界> |  |
-| <加载 / 空 / 错误 / 恢复> |  |
-| <依赖与降级> |  |
-| <实现证据> | <EV1, file path, route, test, screenshot...> |
-| <实现偏差 / 未证明项> |  |
-| <关联目标 / 验收> | <G1, AC1...> |
-| <图示> | <Real local image or exact inline placeholder when needed.> |
-
-## 6. <交付设计>
-
-### 6.1 <数据与埋点>
-
-| <事件名> | <触发时机> | <关键属性> | <实现状态 / 位置> | <隐私与验证说明> |
+| ID | 来源与日期 | 发现 | 产品洞察 | 关联需求 |
 | --- | --- | --- | --- | --- |
 
-### 6.2 <文案与多语言>
+## 四、需求清单
+
+| 详情编号 | 需求名称 | 目标用户 | 用户场景 / 触发 | 用户问题或价值 | 需求摘要 | 优先级 | 来源 / 确认状态 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 5.1 |  |  |  |  |  | P0 | <观察到的产品行为 / 用户确认> |
+
+## 五、需求详情
+
+### 5.1 <需求名称>
+
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 |  |
+| 需求入口 | <必要时使用 一、二、三 分组入口，再用 1.、2.、3. 说明具体路径。> |
+| 需求详情 | <使用 一、二、三 分组描述主流程、规则、权限、加载/空/错误状态与恢复方式；每组内可用 1.、2.、3. 展开。> |
+| 设计与交互 | <必要时使用 一、二、三 分组信息布局、控件与反馈。> |
+| 当前产品证据 / 未证明项 |  |
+| 图示 | <优先使用功能主体 + 定位上下文 + 必要对比关系的局部截图；仅在页面整体关系是需求时使用全屏截图。> |
+
+## 六、多语言需求
+
+<!-- Optional. Delete this section when there is no new or changed UI copy. -->
 
 ```text
 <new or changed UI copy without an existing i18n key>
 ```
 
-| <文案 / Key> | <使用位置> | <实现位置> | <复用或翻译说明> |
-| --- | --- | --- | --- |
+| 文案 | 使用场景 | 备注 |
+| --- | --- | --- |
 
-### 6.3 <UI 与研发交接>
+## 七、埋点需求
 
-| <交付项> | <路径 / 位置> | <已实现 / 建议调整> | <说明 / 边界> |
-| --- | --- | --- | --- |
+<!-- Optional. Delete this section when no measurement is required. -->
 
-### 6.4 <测试重点>
-
-| <测试类型> | <现有覆盖> | <高风险缺口> | <建议验证> |
-| --- | --- | --- | --- |
-
-## 7. <风险、决策与待确认>
-
-### 7.1 <关键决策记录>
-
-| ID | <决策 / 推荐调整> | <实现证据> | <替代方案及未选原因> | <影响> |
+| 名称 | 标识 | 时机 | 参数 | 备注 |
 | --- | --- | --- | --- | --- |
-
-### 7.2 <风险、偏差与阻塞>
-
-| ID | <风险 / 偏差 / 阻塞> | <级别> | <影响> | <缓解方案> | <负责人> | <必须解决阶段> |
-| --- | --- | --- | --- | --- | --- | --- |
-
-### 7.3 <待确认问题>
-
-| ID | <问题> | <默认处理 / 是否可继续> | <负责人> | <确认时点> |
-| --- | --- | --- | --- | --- |
-
-## 8. <验收与就绪度>
-
-### 8.1 <验收标准>
-
-| ID | <关联需求> | <可验证结果> | <实现证据 / 验证方法> | <状态> |
-| --- | --- | --- | --- | --- |
-
-### 8.2 <推进就绪度>
-
-| <阶段> | <状态> | <已具备证据> | <缺口 / 负责人> | <下一动作> |
-| --- | --- | --- | --- | --- |
-| <产品评审> |  |  |  |  |
-| <研发交接> |  |  |  |  |
-| <上线决策> |  |  |  |  |
-
-## 9. <实现证据与覆盖映射>
-
-### 9.1 <代码与资源位置>
-
-| ID | <类型> | <路径 / 标识> | <证明的行为> | <关联需求> |
-| --- | --- | --- | --- | --- |
-
-### 9.2 <需求覆盖检查>
-
-| <实现行为> | <是否写入 PRD> | <是否有验收> | <未解决的产品意图> |
-| --- | --- | --- | --- |
-
-## 10. <验证结果>
-
-| <检查项 / 命令> | <结果> | <覆盖范围> | <证据 / 限制> |
-| --- | --- | --- | --- |

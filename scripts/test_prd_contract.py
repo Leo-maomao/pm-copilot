@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic regression tests for the decision-first Chinese PRD contract."""
+"""Deterministic regression tests for the user-driven Chinese PRD contract."""
 
 from __future__ import annotations
 
@@ -9,81 +9,61 @@ from pathlib import Path
 from validate_outputs import check_chinese_prd
 
 
-PASS_PRD = """# 优化团队权限变更的安全性与可追溯性 - 2026-07-10
+PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
 
-## 1. 产品决策摘要
+## 一、文档说明
 
-| 决策项 | 当前判断 |
+### 1. 文档信息
+
+| 项目 | 内容 |
 | --- | --- |
-| 推荐方案 | 预设角色、高危变更二次确认和全量审计 |
-| 置信度 | 中高；已有角色模型、成员页和审计接口证据 |
-| PRD 状态 | 可评审 |
-| 研发交接状态 | 有条件就绪 |
-| 上线状态 | 阻塞 |
-| 关键阻塞 | 安全负责人确认审计保留周期 |
-| 下一检查点 | 安全评审；完成证据为审批记录 |
+| 需求来源 | 管理员反馈 |
+| 目标用户 | 团队管理员 |
+| 影响范围 | 成员管理 |
+| 文档状态 | 可评审 |
 
-## 2. 背景与证据
+### 2. 版本记录
 
-管理员需要安全调整成员权限。当前产品已有成员页、角色模型和审计接口，但缺少高危操作确认。未登录和无权限用户必须被拦截。
+| 版本 | 日期 | 变更内容 | 负责人 |
+| --- | --- | --- | --- |
+| v0.1 | 2026-07-10 | 首次创建 | 产品 |
 
-## 3. 目标与成功标准
+## 二、需求背景
 
-| ID | 产品目标 | 可观察信号 |
-| --- | --- | --- |
-| G1 | 降低误操作 | 高危权限误变更率下降 |
+团队管理员调整成员角色时容易误操作，需要在关键变更前获得清晰反馈并能恢复。
 
-## 4. 范围与非目标
+## 四、需求清单
 
-| 范围层级 | 内容 |
-| --- | --- |
-| MVP | 邀请选角色、角色变更确认、审计记录 |
-| 可选 | 批量变更 |
-| 未来 | 组织继承规则 |
-| 非目标 | 自定义权限编辑器 |
+| 详情编号 | 需求名称 | 目标用户 | 用户场景 / 触发 | 用户问题或价值 | 需求摘要 | 优先级 | 来源 / 确认状态 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 5.1 | 角色变更确认 | 团队管理员 | 在成员页修改高危角色 | 降低误操作 | 高危角色变更需要确认与可恢复反馈 | P0 | 用户确认 |
 
-## 5. 需求详情
+## 五、需求详情
 
-### 5.1 R1 角色变更
+### 5.1 角色变更确认
 
 | 维度 | 需求说明 |
 | --- | --- |
-| 用户场景与价值 | 管理员安全调整成员角色 |
-| 入口 / 触发 | 成员页角色操作 |
-| 主流程与业务规则 | 展示变更前后权限，高危角色必须二次确认 |
-| 数据与状态 | 保存中显示加载，成员为空时显示空状态 |
-| 权限与边界 | 无权限用户不可操作，接口错误时保留原值 |
-| 加载 / 空 / 错误 / 恢复 | 支持重试并防止重复提交 |
-| 关联目标 / 验收 | G1, AC1, AC2 |
+| 用户与场景 | 作为团队管理员，我希望在成员页修改高危角色时确认影响，避免误操作。 |
+| 需求入口 | 团队管理员在成员页修改高危角色时触发。 |
+| 需求详情 | 1. 管理员修改高危角色。2. 系统展示确认信息。3. 管理员确认后完成变更。4. 保存中显示加载，无权限用户不可操作，保存错误时保留原角色并允许重试，成员为空时展示空状态。 |
+| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |
+| 图示 | 无需补充图示。 |
 
-## 6. 交付设计
+## 六、多语言需求
 
-### 6.1 测试重点
-
-覆盖权限校验、重复提交、接口错误和审计写入。
-
-## 7. 风险、决策与待确认
-
-| ID | 风险 / 阻塞 | 负责人 |
-| --- | --- | --- |
-| SEC-1 | 审计保留周期未确认 | Security Owner |
-
-## 8. 验收与就绪度
-
-| ID | 关联需求 | 可验证结果 | 验证方法 |
-| --- | --- | --- | --- |
-| AC1 | R1 | 高危角色变更必须二次确认 | UI 测试 |
-| AC2 | R1 | 保存期间按钮不可重复提交 | 集成测试 |
-| AC3 | R1 | 接口错误后保留原角色并可重试 | 错误注入 |
-| AC4 | R1 | 无权限用户无法提交变更 | 权限测试 |
+```text
+确认变更角色
+取消
+```
 """
 
 
-def run_case(name: str, prd: str, should_pass: bool) -> None:
+def run_case(name: str, prd: str, should_pass: bool, run_log: str = "source_mode: brief-only\n") -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         folder = Path(temp_dir)
         (folder / "prd.md").write_text(prd, encoding="utf-8")
-        (folder / "run-log.yaml").write_text("source_mode: brief-only\n", encoding="utf-8")
+        (folder / "run-log.yaml").write_text(run_log, encoding="utf-8")
         passed = True
         try:
             check_chinese_prd(folder)
@@ -96,25 +76,23 @@ def run_case(name: str, prd: str, should_pass: bool) -> None:
 
 
 def main() -> None:
-    run_case("decision_first_prd", PASS_PRD, True)
+    run_case("user_driven_prd", PASS_PRD, True)
     run_case(
-        "missing_confidence",
-        PASS_PRD.replace("| 置信度 | 中高；已有角色模型、成员页和审计接口证据 |\n", ""),
-        False,
+        "implemented_feature_product_only_prd",
+        PASS_PRD,
+        True,
+        "implemented_feature_prd:\n  active: true\n",
     )
+    run_case("missing_document_info", PASS_PRD.replace("### 1. 文档信息", "### 1. 说明"), False)
+    run_case("missing_user_requirement_field", PASS_PRD.replace("目标用户", "用户群体"), False)
+    run_case("missing_matching_detail", PASS_PRD.replace("### 5.1 角色变更确认", "### 5.2 角色变更确认"), False)
+    run_case("duplicate_requirement_id", PASS_PRD.replace("### 5.1 角色变更确认", "### 5.1 R1 角色变更确认"), False)
+    run_case("missing_detail_field", PASS_PRD.replace("| 需求入口 | 团队管理员在成员页修改高危角色时触发。 |\n", ""), False)
+    run_case("explanatory_copy_label", PASS_PRD.replace("## 六、多语言需求", "## 六、多语言需求\n\n### 6.1 新增文案（纯文本）"), False)
+    run_case("technical_section", PASS_PRD + "\n## 八、技术方案\n\n说明实现架构。\n", False)
     run_case(
-        "missing_next_checkpoint",
-        PASS_PRD.replace("| 下一检查点 | 安全评审；完成证据为审批记录 |\n", ""),
-        False,
-    )
-    run_case(
-        "duplicate_requirement_list",
-        PASS_PRD.replace("## 5. 需求详情", "## 5. 需求列表"),
-        False,
-    )
-    run_case(
-        "missing_acceptance",
-        PASS_PRD.replace("| AC1 |", "| X1 |").replace("| AC2 |", "| X2 |").replace("| AC3 |", "| X3 |").replace("| AC4 |", "| X4 |"),
+        "technical_field",
+        PASS_PRD.replace("| 详情编号 | 需求名称 |", "| 详情编号 | 文件路径 |"),
         False,
     )
 

@@ -37,20 +37,31 @@ CHINESE_STATUS_LEAK_RE = re.compile(
 )
 
 REQUIRED_PRD_SECTIONS_ZH = [
-    "产品决策摘要",
-    "背景与证据",
-    "目标与成功标准",
-    "范围与非目标",
+    "文档说明",
+    "需求背景",
+    "需求清单",
     "需求详情",
-    "交付设计",
-    "风险、决策与待确认",
-    "验收与就绪度",
 ]
 
-IMPLEMENTED_PRD_SECTIONS_ZH = [
-    "实现证据与覆盖映射",
-    "验证结果",
-]
+OPTIONAL_PRD_SECTIONS_ZH = ["需求调研", "多语言需求", "埋点需求"]
+PRD_SECTION_NUMERALS_ZH = {
+    "文档说明": "一",
+    "需求背景": "二",
+    "需求调研": "三",
+    "需求清单": "四",
+    "需求详情": "五",
+    "多语言需求": "六",
+    "埋点需求": "七",
+}
+
+PRD_TECHNICAL_SECTION_RE = re.compile(
+    r"(?im)^#{1,6}\s*(?:\d+(?:\.\d+)*\s*[.、]?\s*)?.*"
+    r"(?:技术(?:实现|方案|架构)|工程(?:实现|方案)|实现证据|代码与资源位置|"
+    r"接口(?:设计|定义)|数据库(?:设计|表结构)|部署方案|组件(?:清单|实现)|服务(?:清单|实现)).*$"
+)
+PRD_TECHNICAL_FIELD_RE = re.compile(
+    r"(?im)^\s*\|.*(?:文件路径|代码路径|组件路径|服务名|接口地址|数据库表|类名|函数名|命令).*\|\s*$"
+)
 
 PROTOTYPE_FILE_NAMES = (
     "index.html",
@@ -224,6 +235,10 @@ FLOW_SECTION_HEADING_RE = re.compile(
 COPY_I18N_SECTION_HEADING_RE = re.compile(r"(文案|多语言|国际化|i18n|copy)", re.IGNORECASE)
 NO_NEW_COPY_RE = re.compile(r"(无新增|不涉及|暂无新增|没有新增|not applicable|no new|none|n/a)", re.IGNORECASE)
 PLAIN_COPY_EXTRACT_RE = re.compile(r"(纯文本|可提取文案|新增文案|plain text|copy extraction)", re.IGNORECASE)
+PRD_EXPLANATORY_LABEL_RE = re.compile(
+    r"^###\s*6\.1\b|以下为可提取的新增文案|事件名（(?:中文|研发)）|复用或翻译说明",
+    re.MULTILINE,
+)
 KEY_VALUE_COPY_LINE_RE = re.compile(
     r"^\s*[A-Za-z][A-Za-z0-9_.-]{2,}\s*=\s*\S+",
     re.MULTILINE,
@@ -260,13 +275,18 @@ HTML_REQUIREMENT_IMAGE_CELL_RE = re.compile(
 REQUIREMENT_DETAIL_HEADING_RE = re.compile(r"(需求详情|functional requirements?|requirement details?)", re.IGNORECASE)
 REQUIREMENT_LIST_HEADING_RE = re.compile(r"(需求列表|requirement list)", re.IGNORECASE)
 REQUIREMENT_DETAIL_SECTION_REQUIRED_GROUPS = (
-    ("entry", ("入口", "触发", "tab", "按钮", "卡片", "页面", "entry", "trigger")),
-    ("business_logic", ("业务逻辑", "逻辑", "规则", "计算", "限制", "配置", "生效", "有效期", "续订", "退款", "business", "logic", "rule")),
-    ("interaction", ("交互", "操作", "interaction", "behavior")),
-    ("data", ("数据", "字段", "状态", "data", "state")),
-    ("edge_or_permission", ("权限", "边界", "异常", "错误", "空", "失败", "关闭", "未支付", "敏感", "降级", "最高等级", "不支持", "不可", "permission", "edge", "error", "empty")),
-    ("tracking", ("埋点", "event", "tracking")),
-    ("acceptance", ("验收", "acceptance", "AC")),
+    ("user_and_scenario", ("用户与场景", "用户场景", "scenario")),
+    ("entry", ("需求入口", "入口", "触发", "entry", "trigger")),
+    ("detail", ("需求详情", "内容", "规则", "权限", "状态", "异常", "detail", "content")),
+    ("design_and_interaction", ("设计与交互", "交互", "设计", "interaction", "design")),
+    ("figure", ("图示", "截图", "图片", "figure", "screenshot", "image")),
+)
+REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
+    "用户与场景",
+    "需求入口",
+    "需求详情",
+    "设计与交互",
+    "图示",
 )
 
 
@@ -1857,7 +1877,7 @@ def check_chinese_prd(path: Path) -> None:
         if int(section.get("level", 0)) == 2
     ]
     h2_titles = [
-        re.sub(r"^\d+(?:\.\d+)*\s*[.、]?\s*", "", title).strip()
+        re.sub(r"^(?:[一二三四五六七八九十]+[、.]|\d+(?:\.\d+)*\s*[.、]?)\s*", "", title).strip()
         for title in h2_sections
     ]
     missing_sections = [
@@ -1867,55 +1887,89 @@ def check_chinese_prd(path: Path) -> None:
     ]
     if missing_sections:
         fail("Chinese PRD missing expected numbered section(s): " + ", ".join(missing_sections))
-    for index, expected in enumerate(REQUIRED_PRD_SECTIONS_ZH, start=1):
-        expected_heading = f"{index}. {expected}"
-        if index - 1 >= len(h2_sections) or h2_sections[index - 1] != expected_heading:
-            fail(f"Chinese PRD section {index} must be numbered as `## {expected_heading}`")
-    run_log = read(path / "run-log.yaml")
-    is_implemented_prd = (
-        "implemented_feature_prd:" in run_log
-        and re.search(r"implemented_feature_prd:\s*\n(?:.*\n)*?\s+active:\s*true", run_log)
-    )
-    if is_implemented_prd:
-        for offset, expected in enumerate(IMPLEMENTED_PRD_SECTIONS_ZH, start=len(REQUIRED_PRD_SECTIONS_ZH) + 1):
-            expected_heading = f"{offset}. {expected}"
-            if offset - 1 >= len(h2_sections) or h2_sections[offset - 1] != expected_heading:
-                fail(f"Implemented Chinese PRD section {offset} must be numbered as `## {expected_heading}`")
-    else:
-        unexpected_code_sections = [
-            section
-            for section in IMPLEMENTED_PRD_SECTIONS_ZH
-            if section in h2_titles
-        ]
-        if unexpected_code_sections:
-            fail(
-                "Non-implemented Chinese PRD must hide code-related top-level section(s): "
-                + ", ".join(unexpected_code_sections)
-            )
-    summary_section = next(
-        (section for section in markdown_sections(text) if section.get("level") == 2 and section.get("raw_title") == "1. 产品决策摘要"),
+    known_sections = REQUIRED_PRD_SECTIONS_ZH + OPTIONAL_PRD_SECTIONS_ZH
+    last_position = -1
+    for expected in known_sections:
+        if expected not in h2_titles:
+            continue
+        position = h2_titles.index(expected)
+        if position <= last_position:
+            fail("Chinese PRD sections must follow the canonical user-driven order")
+        last_position = position
+        expected_heading = f"{PRD_SECTION_NUMERALS_ZH[expected]}、{expected}"
+        if h2_sections[position] != expected_heading:
+            fail(f"Chinese PRD section must use `## {expected_heading}`")
+    technical_sections = PRD_TECHNICAL_SECTION_RE.findall(text)
+    if technical_sections:
+        fail(
+            "Chinese PRD must not include technical implementation or solution section(s): "
+            + "; ".join(section.strip() for section in technical_sections)
+        )
+    technical_fields = PRD_TECHNICAL_FIELD_RE.findall(text)
+    if technical_fields:
+        fail("Chinese PRD must not include technical implementation field(s)")
+    if "文档信息" not in text or "版本记录" not in text:
+        fail("Chinese PRD 文档说明 must include 文档信息 and 版本记录")
+    if PRD_EXPLANATORY_LABEL_RE.search(text):
+        fail("Chinese PRD must not include explanatory copy-section labels or descriptive tracking headers")
+    requirement_list = next(
+        (section for section in markdown_sections(text) if section.get("level") == 2 and section.get("raw_title") == "四、需求清单"),
         None,
     )
-    summary_body = str(summary_section.get("body", "")) if summary_section else ""
-    summary_marker_groups = (
-        ("推荐方案", "还原后的推荐定义"),
-        ("置信度", "实现与产品意图一致度"),
-        ("PRD 状态",),
-        ("研发交接状态",),
-        ("上线状态",),
-        ("关键阻塞", "关键阻塞 / 偏差"),
-        ("下一检查点",),
-    )
-    for aliases in summary_marker_groups:
-        if not any(alias in summary_body for alias in aliases):
-            fail("Chinese PRD decision summary missing marker: " + " or ".join(aliases))
+    requirement_list_body = str(requirement_list.get("body", "")) if requirement_list else ""
+    for marker in ("详情编号", "目标用户", "用户场景", "用户问题", "优先级"):
+        if marker not in requirement_list_body:
+            fail(f"Chinese PRD requirement list missing user-driven field: {marker}")
+    requirement_ids = set(re.findall(r"^\|\s*(\d+\.\d+)\s*\|", requirement_list_body, re.MULTILINE))
+    if not requirement_ids:
+        fail("Chinese PRD requirement list must include at least one detail number")
+    detail_titles = [
+        str(section.get("raw_title", ""))
+        for section in markdown_sections(text)
+        if int(section.get("level", 0)) >= 3
+    ]
+    duplicate_requirement_ids = [
+        title
+        for title in detail_titles
+        if re.match(r"\d+\.\d+\s+R\d+\b", title)
+    ]
+    if duplicate_requirement_ids:
+        fail(
+            "Chinese PRD requirement detail titles must use the detail number as the only identifier: "
+            + "; ".join(duplicate_requirement_ids)
+        )
+    missing_requirement_details = [
+        requirement_id
+        for requirement_id in sorted(requirement_ids)
+        if not any(re.match(rf"{re.escape(requirement_id)}(?:\s|$)", title) for title in detail_titles)
+    ]
+    if missing_requirement_details:
+        fail(
+            "Chinese PRD requirement list item(s) missing matching detail subsection: "
+            + ", ".join(missing_requirement_details)
+        )
+    for section in markdown_sections(text):
+        if int(section.get("level", 0)) < 3:
+            continue
+        detail_title = str(section.get("raw_title", ""))
+        if not any(re.match(rf"{re.escape(requirement_id)}(?:\s|$)", detail_title) for requirement_id in requirement_ids):
+            continue
+        detail_body = str(section.get("body", ""))
+        missing_detail_fields = [
+            label
+            for label in REQUIREMENT_DETAIL_FIELD_LABELS_ZH
+            if not re.search(rf"^\|\s*{re.escape(label)}\s*\|", detail_body, re.MULTILINE)
+        ]
+        if missing_detail_fields:
+            fail(
+                "Chinese PRD requirement detail missing required field(s): "
+                + ", ".join(missing_detail_fields)
+                + f"; {detail_title}"
+            )
     if CHINESE_STATUS_LEAK_RE.search(text):
         fail("Chinese PRD contains raw English readiness/review status labels")
     if "Mini Program" in text:
         fail("Chinese PRD should localize platform label as 微信小程序")
-    for marker in ("MVP", "可选", "未来", "非目标"):
-        if marker not in text:
-            fail(f"Chinese PRD missing scope partition marker: {marker}")
     ui_state_scope = bool(generated_prototypes(path)) or re.search(
         r"(页面|界面|按钮|弹窗|表单|交互|前端|H5|微信小程序|App|Web UI)",
         text,
@@ -1932,12 +1986,6 @@ def check_chinese_prd(path: Path) -> None:
                 "Chinese UI PRD missing access/setup state marker: "
                 + " or ".join(state_markers)
             )
-    if "source_mode: repo-backed" in run_log and not is_implemented_prd:
-        if not any(marker in text for marker in ("工程", "研发", "技术", "实现", "代码")):
-            fail("Repo-backed planned Chinese PRD missing engineering notes inside requirement details or test suggestions")
-    ac_count = len(re.findall(r"\|\s*AC\d+\s*\|", text))
-    if ac_count < 1:
-        fail("PRD must include at least one traceable acceptance criterion")
     prototype_refs = re.findall(r"`(prototype-[a-z-]+\.html)`", text)
     for ref in prototype_refs:
         if not (path / ref).is_file():
@@ -2112,6 +2160,8 @@ def check_requirement_images_inline(text: str) -> None:
         for row in table_text.splitlines()[2:]:
             if not IMAGE_REQUIREMENT_ROW_RE.search(row):
                 continue
+            if re.search(r"\|\s*图示\s*\|\s*(?:无需|无(?:\s|（|\())", row):
+                continue
             if not INLINE_REQUIREMENT_IMAGE_RE.search(row):
                 fail(
                     "Requirement image rows must contain the real local image reference or exact 占位图 "
@@ -2149,7 +2199,7 @@ def table_is_field_value_requirement_detail(table: dict[str, object]) -> bool:
     table_text = str(table.get("text", ""))
     return bool(
         re.search(
-            r"\|\s*(?:用户场景|入口|触发|内容要求|前端界面规格|业务逻辑|交互规则|数据规则|权限|"
+            r"\|\s*(?:用户与场景|用户场景|需求入口|需求详情|设计与交互|入口|触发|内容要求|前端界面规格|业务逻辑|交互规则|数据规则|权限|"
             r"加载|空|错误|埋点|验收|图示|scenario|entry|trigger|content|business|interaction|data|"
             r"permission|edge|tracking|acceptance|figure|screenshot)",
             table_text,
@@ -2265,9 +2315,20 @@ def check_requirement_detail_structure(text: str) -> None:
     for section in subsections:
         raw_title = str(section.get("raw_title", section.get("title", "")))
         body = str(section.get("body", ""))
-        if not re.search(r"\bR\d+\b|\bF\d+\b", raw_title):
+        if not re.match(r"\d+\.\d+(?:\s|$)", raw_title):
             continue
         checked_subsections += 1
+        missing_fields = [
+            label
+            for label in REQUIREMENT_DETAIL_FIELD_LABELS_ZH
+            if not re.search(rf"^\|\s*{re.escape(label)}\s*\|", body, re.MULTILINE)
+        ]
+        if missing_fields:
+            fail(
+                "Chinese PRD requirement detail missing required field(s): "
+                + ", ".join(missing_fields)
+                + f"; {raw_title}"
+            )
         normalized_body = normalize_table_cell(body) + "\n" + body
         missing_groups = []
         matched_groups = 0
@@ -2276,26 +2337,34 @@ def check_requirement_detail_structure(text: str) -> None:
                 matched_groups += 1
             else:
                 missing_groups.append(group_id)
-        required_matches = 4 if re.search(r"(常见问题|协议|FAQ|copy|文案|说明)", raw_title + "\n" + body, re.IGNORECASE) else 5
+        required_matches = len(REQUIREMENT_DETAIL_SECTION_REQUIRED_GROUPS)
         if matched_groups < required_matches:
             fail(
                 "Requirement detail subsection is too thin for cross-functional review "
-                f"(matched {matched_groups}/7 groups, expected {required_matches}, missing {', '.join(missing_groups)}): {raw_title}"
+                f"(matched {matched_groups}/{len(REQUIREMENT_DETAIL_SECTION_REQUIRED_GROUPS)} groups, expected {required_matches}, missing {', '.join(missing_groups)}): {raw_title}"
             )
     if checked_subsections < 2:
         fail("Requirement details must include multiple per-function detail subsections when not using a complete detail table")
 
 
 def check_prd_flow_sections(text: str) -> None:
-    for section in sections_matching(text, FLOW_SECTION_HEADING_RE):
+    flow_sections = sections_matching(text, FLOW_SECTION_HEADING_RE)
+    for index, section in enumerate(flow_sections):
         body = str(section.get("body", ""))
         title = str(section.get("raw_title", section.get("title", "")))
-        if "```mermaid" not in body or not re.search(r"```mermaid\s+flowchart\b", body, re.IGNORECASE):
+        flowchart = re.search(r"```mermaid\s+flowchart\b.*?```", body, re.IGNORECASE | re.DOTALL)
+        if not flowchart:
             fail(f"PRD flow section must use a Mermaid flowchart code block, not a table or image: {title}")
-        if re.search(r"!\[[^\]]*\]\([^)]+\)|<img\b", body, re.IGNORECASE):
+        if re.search(r"!\[[^\]]*\]\([^)]+\)|<img\b", flowchart.group(0), re.IGNORECASE):
             fail(f"PRD flow section must not use a PNG/image as the primary flowchart: {title}")
-        if has_markdown_table(body):
-            fail(f"PRD flow section must not be represented as a table: {title}")
+        following_body = body[flowchart.end():]
+        if title == "用户流程图" and index + 1 < len(flow_sections):
+            next_section = flow_sections[index + 1]
+            next_title = str(next_section.get("raw_title", next_section.get("title", "")))
+            if next_title == "操作流程图":
+                following_body = str(next_section.get("body", ""))
+        if title in {"用户流程图", "操作流程图"} and not has_markdown_table(following_body):
+            fail(f"PRD {title} must be followed by the matching requirement detail table")
 
 
 def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None:
@@ -2309,34 +2378,30 @@ def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None
             match.group(1)
             for match in re.finditer(r"```(?:text|plain|txt)?\s*\n(.+?)\n```", body, re.DOTALL | re.IGNORECASE)
         ]
-        if PLAIN_COPY_EXTRACT_RE.search(body):
-            for block in pure_text_blocks:
-                duplicated_existing_key_copy = [
-                    line for line in pure_text_copy_lines(block) if line in existing_key_copies
-                ]
-                if duplicated_existing_key_copy:
+        for block in pure_text_blocks:
+            duplicated_existing_key_copy = [
+                line for line in pure_text_copy_lines(block) if line in existing_key_copies
+            ]
+            if duplicated_existing_key_copy:
+                fail(
+                    "PRD pure-text copy extraction must exclude copy that already has an i18n key; "
+                    "keep existing-key copy only in the usage/key mapping: "
+                    f"{title}: {', '.join(duplicated_existing_key_copy[:5])}"
+                )
+            if KEY_VALUE_COPY_LINE_RE.search(block):
+                fail(
+                    "PRD pure-text copy extraction must contain copy only, not `key = copy` lines: "
+                    f"{title}"
+                )
+            if language == "zh" and not BILINGUAL_COPY_REQUEST_RE.search(body):
+                english_only_lines = probable_english_copy_lines(block)
+                if len(english_only_lines) >= 3:
                     fail(
-                        "PRD pure-text copy extraction must exclude copy that already has an i18n key; "
-                        "keep existing-key copy only in the usage/key mapping: "
-                        f"{title}: {', '.join(duplicated_existing_key_copy[:5])}"
-                    )
-                if KEY_VALUE_COPY_LINE_RE.search(block):
-                    fail(
-                        "PRD pure-text copy extraction must contain copy only, not `key = copy` lines: "
+                        "Chinese PRD pure-text copy extraction must default to Chinese-only UI copy; "
+                        "do not include bilingual English/Chinese copy unless the user explicitly asks for it: "
                         f"{title}"
                     )
-                if language == "zh" and not BILINGUAL_COPY_REQUEST_RE.search(body):
-                    english_only_lines = probable_english_copy_lines(block)
-                    if len(english_only_lines) >= 3:
-                        fail(
-                            "Chinese PRD pure-text copy extraction must default to Chinese-only UI copy; "
-                            "do not include bilingual English/Chinese copy unless the user explicitly asks for it: "
-                            f"{title}"
-                        )
-        if PLAIN_COPY_EXTRACT_RE.search(body) and (
-            pure_text_blocks
-            or re.search(r"^\s*[-*]\s*[\"“][^\"”]+[\"”]", body, re.MULTILINE)
-        ):
+        if pure_text_blocks or re.search(r"^\s*[-*]\s*[\"“][^\"”]+[\"”]", body, re.MULTILINE):
             continue
         fail(f"PRD copy/i18n section must include a pure-text extraction block for new UI copy: {title}")
 

@@ -69,6 +69,26 @@ DOCUMENT_CSS = """
       margin-top: 28px;
       font-size: 18px;
     }
+    .prd-flow-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .prd-flow-pane {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--pm-doc-border);
+      background: var(--pm-doc-soft);
+    }
+    .prd-flow-pane h4 {
+      margin: 0 0 12px;
+      font-size: 15px;
+    }
+    .prd-flow-pane pre.mermaid {
+      margin: 0;
+      overflow: auto;
+    }
     h1[id],
     h2[id],
     h3[id],
@@ -154,6 +174,17 @@ DOCUMENT_CSS = """
       background: transparent;
       color: inherit;
       font: inherit;
+    }
+    @media (max-width: 900px) {
+      body {
+        padding: 32px 28px 64px;
+      }
+      #TOC {
+        position: static;
+        width: auto;
+        margin: 0 0 28px;
+        border: 1px solid var(--pm-doc-border);
+      }
     }
     table {
       display: table;
@@ -534,6 +565,34 @@ def convert_mermaid_blocks(html: str) -> str:
     return pattern.sub(replace, html)
 
 
+def group_adjacent_flowcharts(html: str) -> str:
+    mermaid_pre = r"<pre\b[^>]*\bclass=[\"'][^\"']*\bmermaid\b[^\"']*[\"'][^>]*>.*?</pre>"
+    heading = r"<h4\b[^>]*>.*?</h4>"
+    pattern = re.compile(
+        rf"(?P<user>{heading}\s*{mermaid_pre})\s*(?P<operation>{heading}\s*{mermaid_pre})",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def title_of(block: str) -> str:
+        match = re.search(r"<h4\b[^>]*>(.*?)</h4>", block, re.IGNORECASE | re.DOTALL)
+        return visible_text_from_html(match.group(1)) if match else ""
+
+    def replace(match: re.Match[str]) -> str:
+        user = match.group("user")
+        operation = match.group("operation")
+        titles = {title_of(user), title_of(operation)}
+        if titles != {"用户流程图", "操作流程图"}:
+            return match.group(0)
+        return (
+            '<div class="prd-flow-grid" role="group" aria-label="流程图">'
+            f'<div class="prd-flow-pane">{user}</div>'
+            f'<div class="prd-flow-pane">{operation}</div>'
+            "</div>"
+        )
+
+    return pattern.sub(replace, html)
+
+
 def remove_h1_from_toc(html: str) -> str:
     toc_match = re.search(
         r"<(?P<tag>nav|div)\b(?P<attrs>[^>]*)\bid=\"TOC\"(?P<attrs_after>[^>]*)>.*?</(?P=tag)>",
@@ -751,6 +810,7 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
         ensure_assets_dir(run_folder)
     html = normalize_html_shell(html)
     html = convert_mermaid_blocks(html)
+    html = group_adjacent_flowcharts(html)
     html = convert_video_links(html, run_folder)
     html = normalize_heading_anchors(html)
     html = remove_h1_from_toc(html)

@@ -6,6 +6,101 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.2.8] - 2026-07-28
+
+### Changed
+
+- Refined screenshot selection to retain the functional target, locating context, and any comparison context required to understand the requirement.
+- Updated the team-projects example so the first local crop shows both personal and team project areas, making the team-boundary behavior immediately understandable.
+
+### Validation
+
+- Re-rendered and validated the team-projects PRD with the revised contextual crop.
+
+## [4.2.7] - 2026-07-28
+
+### Changed
+
+- Distinguished user-flow and operation-flow diagrams; when both are adjacent, PRD HTML renders them side by side on wide screens and stacks them on narrow screens.
+- Required a requirement-detail table below either flow diagram, so the diagram cannot replace the detailed product specification.
+- Added hierarchical `一、二、三` and `1.、2.、3.` guidance for complex detail cells, and made focused component/state crops the default screenshot evidence.
+
+### Validation
+
+- Added paired-flow rendering and missing-detail-table regression coverage; regenerated the team-projects example with dual flowcharts and focused crops.
+
+## [4.2.6] - 2026-07-28
+
+### Changed
+
+- Removed the redundant `6.1` subsection and explanatory lead-in when a PRD has one multilingual-copy set.
+- Simplified tracking headers to `名称`、`标识`、`时机`、`参数`、`备注`, while retaining Chinese event names and engineering identifiers in table values.
+- Rejected explanatory copy-section labels and descriptive tracking headers in Chinese PRDs.
+
+### Validation
+
+- Updated templates, the team-projects example, and PRD contract regression coverage.
+
+## [4.2.5] - 2026-07-28
+
+### Changed
+
+- Standardized every PRD requirement detail as five fields: `用户与场景`、`需求入口`、`需求详情`、`设计与交互`、`图示`.
+- Merged normal flow, permissions, loading/empty/error feedback, recovery, and other boundaries into `需求详情`; removed the standalone state-and-exception field.
+- Required optional Mermaid flowcharts to appear above the matching detail table.
+
+### Validation
+
+- Added regression coverage for the five required detail fields and updated the team-projects example.
+
+## [4.2.4] - 2026-07-28
+
+### Changed
+
+- Made the `需求详情` section number, such as `5.1`, the sole identifier for each PRD requirement.
+- Removed redundant `R1`-style labels and the duplicate `关联详情` column from requirement lists, templates, and the team-projects example.
+
+### Validation
+
+- Added regression coverage that rejects requirement-detail headings which append an `R` identifier after the detail number.
+
+## [4.2.3] - 2026-07-28
+
+### Changed
+
+- Simplified requirement details into four default fields: user and scenario, operation flow and rules, UI and interaction, and states and exceptions.
+- Removed risk, pending-confirmation, and acceptance-result fields from requirement details; requirements now record confirmed product behavior only.
+- Reduced tracking requirements to Chinese event name, engineering event name, trigger timing, extra parameters, and notes.
+
+### Validation
+
+- Re-rendered and validated the team-projects PRD example with compact detail tables and the five-column tracking table.
+
+## [4.2.2] - 2026-07-28
+
+### Changed
+
+- Replaced the PRD's decision-first eight-section structure with a standardized seven-section, user-driven structure: document information, background, optional research, requirement list, requirement details, optional localization, and optional tracking.
+- Made `需求清单` mandatory and traceable: every requirement now identifies its target user, scenario, user value, priority, source status, and matching requirement detail.
+- Moved user flow, UI/interaction, state handling, risk, open questions, and acceptance results into the corresponding requirement detail so the document does not disperse user needs across unrelated sections.
+
+### Validation
+
+- Added regression coverage for the new Chinese PRD structure and user-to-detail traceability.
+- Re-rendered and validated the team-projects PRD example with the updated template.
+
+## [4.2.1] - 2026-07-28
+
+### Fixed
+
+- Made PRDs product-only documents: removed technical implementation maps, code evidence sections, and technical handoff fields from contracts, skills, templates, and implemented-feature reconstruction guidance.
+- Kept technical evidence in the run trace or a separately requested engineering handoff, while preserving product behavior, confidence, gaps, and acceptance results in the PRD.
+- Added output-contract regression checks that reject technical implementation sections and fields in Chinese PRDs.
+
+### Validation
+
+- Ran PRD contract regression tests, runtime-routing validation, and repository validation.
+
 ## [4.2.0] - 2026-07-24
 
 ### Added

@@ -54,41 +54,38 @@ Default readiness is `Ready for engineering` for the confirmed engineering scope
 
 ## PRD
 
-Required decision-first sections:
+Required user-driven sections:
 
 - H1 as one concise requirement sentence plus date, such as `# 优化团队权限设置体验 - 2026-06-29`
-- `## 1. 产品决策摘要`
-- `## 2. 背景与证据`
-- `## 3. 目标与成功标准`
-- `## 4. 范围与非目标`
-- `## 5. 需求详情`
-- `## 6. 交付设计`
-- `## 7. 风险、决策与待确认`
-- `## 8. 验收与就绪度`
-- `## 9. 实现证据与覆盖映射`, when reconstructed from a current branch or implementation
-- `## 10. 验证结果`, when reconstructed from a current branch or implementation
+- `## 一、文档说明` with `文档信息` and `版本记录`
+- `## 二、需求背景`
+- `## 三、需求调研`, only when it materially shapes a requirement
+- `## 四、需求清单`
+- `## 五、需求详情`
+- `## 六、多语言需求`, only when there is new or changed copy
+- `## 七、埋点需求`, only when measurement is in scope
 
-Implementation-evidence top-level sections must not appear in planned/non-implemented PRDs. Keep likely technical notes inside `需求详情` or the applicable `交付设计` subsection.
+Technical implementation sections must not appear in PRDs. Keep technical evidence in the run trace or a separately requested engineering handoff.
 
 Required formatting:
 
-- Use tables for comparable decisions, evidence, goals, scope, requirement details, tracking, risks, and acceptance criteria when there are multiple items.
-- Use stable IDs such as `R1`, `F1`, `AC1`, and `E1`.
+- Use tables for document information, version records, research, requirement lists, requirement details, localization, and tracking when there are multiple items.
+- Use a stable identifier only where it improves traceability. In PRDs, use the requirement-detail subsection number, such as `5.1`, as the sole requirement identifier; do not add a duplicate `R1` label.
 - Use short paragraphs for background, research conclusions, and rationale.
 - Avoid long undifferentiated unordered lists.
-- Keep confirmed MVP scope separate from optional, conditional, future, and non-goal scope in `范围与非目标`.
-- Flow diagrams are optional and must sit inside the specific requirement detail they explain. Do not add fixed global `用户流程图` and `功能流程图` subsections to every PRD.
+- Every requirement-list row identifies the matching detail number, target user, scenario, user problem or value, priority, and source status.
+- Flow diagrams are optional and must sit immediately above the specific requirement-detail table they explain. `用户流程图` and `操作流程图` are distinct and may be used separately or together; when together, place them consecutively so the HTML delivery can render them side by side. Do not add fixed global flowchart subsections to every PRD.
 - Remove optional diagrams, image blocks, API matrices, code evidence, or risk tables when they do not apply. Do not ship empty tables, angle-bracket placeholders, `TBD`, or `待补充`.
-- Acceptance criteria cover confirmed MVP requirements only.
-- PRD status, engineering handoff status, and launch status are separate and non-contradictory.
+- Requirement details contain confirmed user-facing behavior only. Include normal flow, permissions, empty/loading/error feedback, recovery, and other user-visible boundaries in `需求详情`; do not add separate risk, pending-confirmation, acceptance-result, technical-test, or exception rows.
 - Existing-product entry points, navigation visibility, permission or eligibility states, and fallback states are explicit when the feature adds or changes a surface.
 - Frontend page, UI component, visual-state, or interactive-control requirements include the relevant interface specification inside the affected requirement detail: component/surface, layout/alignment, dimensions, spacing, typography, color/token, icon/image rules, states, responsive behavior, accessibility/focus behavior when relevant, and visual acceptance notes.
-- Implemented-feature PRDs include a branch evidence map under `实现证据与覆盖映射` that links changed files, screenshots/assets, tests, and observed UI behavior to requirement IDs, plus any unverified product intent.
+- Implemented-feature PRDs describe observed product behavior, confidence, and unverified product intent without exposing technical evidence.
 - Implemented-feature PRDs keep screenshots and missing-image markers inline with the relevant requirement, table row, flow step, state, dialog, or evidence. Do not create a detached image list, figure list, or screenshot appendix by default.
+- Screenshot evidence uses the smallest useful crop, but it must retain three layers of evidence: the target control or state, the locating page/section context, and any comparison context required to understand the behavior. Full-screen captures are reserved for page-level layout or relationship requirements.
 - Missing screenshots in Chinese PRDs use the exact inline block only, for example `> 占位图：资料卡片-加载中.png` followed by a `> 用途：...` line. Do not use the marker words elsewhere.
 - Screenshot file names describe content. State screenshots use object plus concrete state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; generic names such as `资料卡片-状态.png` or `profile-card-state.png` are not acceptable.
 
-Requirement details must be implementation-grade. For each functional item, include the relevant subset of:
+Requirement details must be product-grade. For each functional item, include the relevant subset of:
 
 - Function ID and function name
 - User scenario
@@ -105,18 +102,15 @@ Requirement details must be implementation-grade. For each functional item, incl
 Minimum quality bar:
 
 - A PM, designer, engineer, QA, and analytics reviewer can understand the requirement from `prd.md` plus the UI deliverable.
-- Goals are measurable or tied to a measurement plan.
-- Research and reference findings explain why the solution is shaped this way using source-backed competitor, benchmark, comparable feature, user research, public docs, screenshots, or technical solution references.
-- Current implementation findings from the host repository are product context, not a substitute for external product research. Put them in background, current-state notes, or the engineering implementation map unless they are clearly labeled as implementation constraints.
+- User value is explicit in every requirement-list row and the corresponding detail.
+- Research and reference findings explain why the product direction is shaped this way using source-backed competitor, benchmark, comparable feature, user research, public docs, or screenshots.
+- Current-product findings from the host repository are product context, not a substitute for external product research. Describe only their user-visible product implications in the PRD; keep technical evidence in the run trace or a separately requested engineering handoff.
 - Requirements are testable.
 - Edge cases include error, empty, permission, payment, rollback, content-review, and launch-blocking cases where relevant.
-- Open questions and launch blockers are visible, not hidden inside prose.
-- Validation results list the exact command, pass/fail/skipped status, and limitation. The PRD must not conflict with `run-log.yaml` about what was validated.
+- Open questions and risks are visible in the affected requirement or background, not hidden inside prose.
 - Tool results follow `artifacts/tool-result-contract.md` and use capability IDs from `tools/tool-registry.yaml` where possible.
-- Validation results must be finalized after tools run. Do not leave placeholder statuses such as `pending`, `待执行`, `should run`, or `to be verified` in delivered artifacts once the corresponding command has already been executed or intentionally skipped.
-- UI visual validation should include browser screenshot and visual diff checks. If tooling is unavailable, PM Copilot should attempt or guide setup first. A skipped visual check must include the setup failure, environment restriction, or user-declined reason in `run-log.yaml` and the PRD validation section.
 - Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
-- Delivery review findings and risks belong in `风险、决策与待确认` and `验收与就绪度`, with implementation-specific evidence linked from `实现证据与覆盖映射` when applicable.
+- Delivery review findings and risks belong in `需求背景` or the affected `需求详情`; technical evidence stays outside the PRD.
 
 ## PRD HTML Document
 
