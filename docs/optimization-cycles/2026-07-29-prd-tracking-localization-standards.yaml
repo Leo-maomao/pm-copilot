@@ -19,5 +19,5 @@ validation:
   - python3 scripts/validate_repo.py
   - python3 scripts/prd_evidence_upgrade.py --roots Desktop --apply
 publish:
-  remote_push_status: pending
+  remote_push_status: pushed origin/main at commit 37482b3
   embedded_copy_sync_targets: Desktop local PM Copilot copies
