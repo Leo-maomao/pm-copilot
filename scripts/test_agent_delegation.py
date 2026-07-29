@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
+from agent_task_ledger import create_ledger, validate
 from plan_agent_delegation import build_plan
+from run_agent_delegation import run_plan, worker_prompt
 
 
 class AgentDelegationPlanTest(unittest.TestCase):
@@ -34,6 +38,33 @@ class AgentDelegationPlanTest(unittest.TestCase):
         plan = build_plan("需求和埋点")
         self.assertIn("not_allowed", plan["conflict_protocol"])
         self.assertIn("PM Orchestrator", plan["conflict_protocol"]["method"])
+
+    def test_embedded_workspace_is_recorded_and_scopes_worker_prompt(self) -> None:
+        with TemporaryDirectory() as temporary:
+            workspace = Path(temporary) / "host-project" / "pm-copilot"
+            workspace.mkdir(parents=True)
+            ledger = create_ledger("强化 Agent", "self_improvement", build_plan("强化 Agent", "self_improvement"), workspace)
+            self.assertEqual(ledger["workspace"]["kind"], "embedded_copy")
+            self.assertEqual(ledger["workspace"]["display_label"], "host-project/pm-copilot")
+            self.assertEqual(validate(ledger), [])
+            prompt = worker_prompt("Requirements Agent", "audit", "强化 Agent", ledger["workspace"])
+            self.assertIn("host-project/pm-copilot", prompt)
+            self.assertIn("same-named PM Copilot", prompt)
+
+    def test_resume_rejects_a_ledger_from_another_copy(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first = root / "first-project" / "pm-copilot"
+            second = root / "second-project" / "pm-copilot"
+            first.mkdir(parents=True)
+            second.mkdir(parents=True)
+            ledger_path = root / "agent-task-ledger.json"
+            from agent_task_ledger import write
+
+            write(ledger_path, create_ledger("强化 Agent", "self_improvement", build_plan("强化 Agent", "self_improvement"), first))
+            result = run_plan("强化 Agent", "self_improvement", second, lambda *_args, **_kwargs: {}, False, ledger_path, True)
+            self.assertEqual(result["status"], "blocked")
+            self.assertIn("another PM Copilot workspace", result["reason"])
 
 
 if __name__ == "__main__":

@@ -6,6 +6,17 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.8] - 2026-07-29
+
+### Fixed
+
+- Bound every multi-Agent self-improvement ledger to its exact PM Copilot workspace, preventing a resumable task from being reused in a different same-named embedded copy.
+- Added explicit embedded-copy identity and synchronization direction to specialist, review, and orchestration context so project-specific evidence cannot be conflated with a source repository or another host project's copy.
+
+### Validation
+
+- Added regression coverage for embedded-copy identity, workspace-scoped specialist prompts, and cross-copy resume rejection.
+
 ## [4.8.7] - 2026-07-29
 
 ### Fixed

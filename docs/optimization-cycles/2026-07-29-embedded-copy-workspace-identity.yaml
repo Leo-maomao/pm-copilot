@@ -1,0 +1,38 @@
+cycle: embedded-copy-workspace-identity
+date: 2026-07-29
+version_change: 4.8.7 -> 4.8.8
+source_run: >-
+  User review of a self-improvement run launched from a host-project PM Copilot copy,
+  where Seawork displayed the standalone source repository and embedded copy with the
+  same final directory name.
+generalized_failure: >-
+  The delegation ledger and specialist prompts recorded only a generic working directory,
+  so a resumable run had no durable identity for its host-project copy and could be
+  confused with another same-named PM Copilot repository.
+fix_surface:
+  - scripts/workspace_identity.py
+  - scripts/agent_task_ledger.py
+  - scripts/run_agent_delegation.py
+  - scripts/test_agent_delegation.py
+decisions:
+  execution_scope: >-
+    An embedded PM Copilot copy remains the valid execution target when its host project
+    owns the relevant records and evidence.
+  identity: >-
+    Every new ledger records execution root, host/copy display label, workspace kind, and
+    expected synchronization direction.
+  resume_guard: >-
+    A ledger cannot resume from a different execution root, even if both directories are
+    named pm-copilot.
+  ui_boundary: >-
+    Seawork owns project-sidebar labeling; PM Copilot supplies unambiguous task evidence
+    and cannot rename Seawork's project grouping.
+validation:
+  - python3 scripts/test_agent_delegation.py
+  - python3 scripts/test_sync_embedded_copies.py
+  - python3 -m unittest discover -s scripts -p 'test_*.py'
+  - python3 scripts/validate_runtime_routing.py
+  - python3 scripts/validate_repo.py
+publish:
+  remote_push_status: not pushed in this change set
+  embedded_copy_sync_targets: pending after review

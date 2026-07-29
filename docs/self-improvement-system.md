@@ -87,6 +87,12 @@ Use artifact expectations to avoid false confidence. An eval should say which ou
 - A memory candidate is valid only when its source and safe write recommendation are explicit. Product facts also require confidence and sensitivity; sensitive or private facts require user confirmation or must not be stored.
 - A reflection cycle is valid only when every Critical/High finding becomes a verified fix, an owned accepted risk, or a replan, and the final recommendation agrees with any unresolved findings.
 
+## Embedded Copy Runs
+
+When PM Copilot is embedded in a host project, that embedded copy may own the self-improvement run because its local records, outputs, and evidence are project-specific. The task ledger records the exact execution root and a human-readable host/copy label. A ledger cannot be resumed from another same-named PM Copilot copy.
+
+After an embedded-copy run passes its checks, the project owner may promote the approved PM Copilot changes to the source repository, push them, and synchronize the remaining embedded copies. This promotion is a separate action from the scoped self-improvement run.
+
 - `prd.md` proves requirement reasoning only when readiness, scope, risks, tracking, review findings, and validation evidence agree.
 - UI deliverables prove surface quality only when source-backed preview or portable HTML validation has screenshot or preview evidence.
 - `dev-tasks.yaml` proves handoff readiness only when tasks trace to PRD IDs, owners, validation commands, blockers, and `ready_for_issue` are machine-checkable.

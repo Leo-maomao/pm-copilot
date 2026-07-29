@@ -16,37 +16,39 @@ from typing import Any, Callable
 from agent_runtime import execute, runtime_capabilities
 from agent_task_ledger import complete_tasks, create_ledger, load as load_ledger, task as ledger_task, write as write_ledger
 from plan_agent_delegation import build_plan
+from workspace_identity import identify, scope_notice
 
 
-def worker_prompt(role: str, question: str, request: str) -> str:
+def worker_prompt(role: str, question: str, request: str, workspace: dict[str, Any]) -> str:
     return (
         f"You are the PM Copilot {role}. Answer only this owned question: {question}\n"
         f"User request: {request}\n"
+        f"{scope_notice(workspace)}\n"
         "Do not modify repository files. Return JSON only with keys claims, rejected_evidence, open_questions, "
         "risks, validation_delta. Every claim must include statement, kind (observed|user_confirmed|inferred|proposed|unknown), "
         "confidence, evidence_refs, and decision_impact."
     )
 
 
-def review_prompt(request: str, results: list[dict[str, Any]]) -> str:
+def review_prompt(request: str, results: list[dict[str, Any]], workspace: dict[str, Any]) -> str:
     evidence = json.dumps(results, ensure_ascii=False)[:12000]
     return (
         "You are the PM Copilot Review Agent. Challenge only material evidence gaps, user conflicts, "
         "scope conflicts, or metric conflicts in these specialist handoffs. Do not invent a debate. "
         "Return JSON only with keys cross_reviews, unresolved_findings, recommendation. "
         "Every cross review must identify target_claim_id, challenge_type, severity, evidence_refs, and disposition.\n"
-        f"User request: {request}\nSpecialist handoffs: {evidence}"
+        f"User request: {request}\n{scope_notice(workspace)}\nSpecialist handoffs: {evidence}"
     )
 
 
-def orchestration_prompt(request: str, results: list[dict[str, Any]]) -> str:
+def orchestration_prompt(request: str, results: list[dict[str, Any]], workspace: dict[str, Any]) -> str:
     evidence = json.dumps(results, ensure_ascii=False)[:14000]
     return (
         "You are the PM Copilot PM Orchestrator. Resolve only material conflicts identified by Review Agent. "
         "Do not vote or invent evidence. Return JSON with keys claims, cross_reviews, arbitrations, limitations. "
         "Each claim needs id, statement, evidence_refs, confidence. Each arbitration needs issue_ref, "
         "evidence_compared, outcome (accepted|rejected|escalated_to_human), and rationale. "
-        f"User request: {request}\nEvidence and review: {evidence}"
+        f"User request: {request}\n{scope_notice(workspace)}\nEvidence and review: {evidence}"
     )
 
 
@@ -195,12 +197,20 @@ def run_plan(
     max_attempts: int = 2,
 ) -> dict[str, Any]:
     plan = build_plan(request, task_mode)
+    workspace = identify(cwd)
     capabilities = runtime_capabilities(cwd)
     evidence_workers = plan["dispatch_groups"][0]["workers"]
     results: list[dict[str, Any]] = []
     ledger_lock = Lock()
     if ledger_path and resume and ledger_path.is_file():
         ledger = load_ledger(ledger_path)
+        recorded_workspace = ledger.get("workspace", {})
+        if recorded_workspace.get("execution_root") != workspace["execution_root"]:
+            message = (
+                "refusing to resume a ledger from another PM Copilot workspace: "
+                f"{recorded_workspace.get('execution_root', '<missing>')} != {workspace['execution_root']}"
+            )
+            return {"status": "blocked", "reason": message, "plan": plan, "workers": [], "ledger": ledger}
         ledger["resume"]["count"] = int(ledger["resume"].get("count", 0)) + 1
         ledger["resume"]["last_safe_phase"] = "resume"
     else:
@@ -220,20 +230,20 @@ def run_plan(
                 identifier = f"evidence-{index + 1}-{worker['role'].lower().replace(' ', '-')}"
                 futures.append(pool.submit(
                     execute_task, ledger, identifier,
-                    worker_prompt(worker["role"], worker["owned_question"], request), cwd,
+                    worker_prompt(worker["role"], worker["owned_question"], request, workspace), cwd,
                     execute_worker, ledger_path, max_attempts, ledger_lock,
                 ))
             results = [future.result() for future in futures]
         review_workers = plan["dispatch_groups"][1]["workers"]
         if review_workers and complete_tasks(ledger, "evidence"):
             review = execute_task(
-                ledger, "challenge-1-review-agent", review_prompt(request, results), cwd,
+                ledger, "challenge-1-review-agent", review_prompt(request, results, workspace), cwd,
                 execute_worker, ledger_path, max_attempts, ledger_lock,
             )
             results.append({"role": "Review Agent", **review})
             if complete_tasks(ledger, "challenge"):
                 arbitration = execute_task(
-                    ledger, "arbitration-1-pm-orchestrator", orchestration_prompt(request, results), cwd,
+                    ledger, "arbitration-1-pm-orchestrator", orchestration_prompt(request, results, workspace), cwd,
                     execute_worker, ledger_path, max_attempts, ledger_lock,
                 )
                 parsed = parse_json_output(str(arbitration.get("output", "")))

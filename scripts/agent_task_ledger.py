@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from workspace_identity import identify
+
 
 LEDGER_VERSION = "1.0"
 
@@ -67,7 +69,7 @@ def create_ledger(request: str, task_mode: str, plan: dict[str, Any], cwd: Path)
         "updated_at": now(),
         "request": request,
         "task_mode": task_mode,
-        "cwd": ".",
+        "workspace": identify(cwd),
         "status": "planned",
         "plan": plan,
         "tasks": tasks,
@@ -115,6 +117,13 @@ def validate(ledger: dict[str, Any], base_path: Path | None = None) -> list[str]
     failures: list[str] = []
     if ledger.get("schema_version") != LEDGER_VERSION:
         failures.append("unsupported ledger schema_version")
+    workspace = ledger.get("workspace")
+    if not isinstance(workspace, dict):
+        failures.append("ledger requires workspace identity")
+    else:
+        for field in ("execution_root", "display_label", "kind", "sync_direction"):
+            if not str(workspace.get(field, "")):
+                failures.append(f"workspace requires {field}")
     statuses = {"planned", "running", "complete", "needs_input", "blocked", "degraded", "failed", "skipped"}
     identifiers: set[str] = set()
     for item in ledger.get("tasks", []):
