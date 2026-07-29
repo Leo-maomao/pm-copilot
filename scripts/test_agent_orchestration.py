@@ -11,7 +11,12 @@ from run_agent_delegation import run_plan
 
 
 def fake_execute(*args: object) -> dict[str, object]:
-    return {"status": "complete", "provider": "test", "output": "evidence"}
+    prompt = str(args[1])
+    if "PM Orchestrator" in prompt:
+        return {"status": "complete", "provider": "test", "output": '{"claims":[{"id":"C1","statement":"verified"}],"cross_reviews":[],"arbitrations":[{"id":"A1"}],"limitations":[]}' }
+    if "Review Agent" in prompt:
+        return {"status": "complete", "provider": "test", "output": '{"cross_reviews":[],"unresolved_findings":[],"recommendation":"continue"}' }
+    return {"status": "complete", "provider": "test", "output": '{"claims":[],"rejected_evidence":[],"open_questions":[],"risks":[],"validation_delta":[]}' }
 
 
 class AgentOrchestrationTest(unittest.TestCase):
@@ -25,12 +30,13 @@ class AgentOrchestrationTest(unittest.TestCase):
         calls: list[str] = []
         def recording_execute(*args: object) -> dict[str, object]:
             calls.append(str(args[1]))
-            return fake_execute()
+            return fake_execute(*args)
         with patch("run_agent_delegation.runtime_capabilities", return_value=capabilities):
             report = run_plan("需求 PRD、UI、埋点和竞品调研", "auto", Path.cwd(), recording_execute, True)
         self.assertEqual(report["status"], "complete")
-        self.assertTrue(calls[-1].startswith("You are the PM Copilot Review Agent"))
-        self.assertGreaterEqual(len(calls), 5)
+        self.assertTrue(calls[-2].startswith("You are the PM Copilot Review Agent"))
+        self.assertTrue(calls[-1].startswith("You are the PM Copilot PM Orchestrator"))
+        self.assertGreaterEqual(len(calls), 6)
 
     def test_execution_blocks_without_auto_runtime(self) -> None:
         capabilities = {"single_agent_auto": {"status": "unavailable", "reason": "no session"}, "multi_agent_loop": {"status": "unavailable", "reason": "test"}}

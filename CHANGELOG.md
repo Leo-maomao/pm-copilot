@@ -6,6 +6,26 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.0] - 2026-07-29
+
+### Added
+
+- Added evidence-led historical PRD migration that writes per-output evidence and upgrade reports, adds optional multilingual and tracking sections only from source evidence, and selects only same-run real screenshot assets.
+- Added a historical-PRD validation mode that validates document structure, tracking quality, rendering, local assets, and evidence ledgers without fabricating missing legacy run traces.
+- Added a durable multi-Agent task ledger with atomic persistence, artifact hashes, phase state, retries, resumability, and explicit degradation when a worker has no usable structured result.
+
+### Changed
+
+- Hardened PRD figure insertion so generated figure rows remain inside the relevant requirement-detail table; legacy misplaced generated rows are repaired on the next migration.
+- Normalized legacy tracking identifiers to lowercase engineering identifiers without changing event names, timings, parameters, or notes.
+- Required real structured worker, review, and arbitration handoffs before multi-Agent execution can be marked complete; outer CLI success or an agent ID alone is no longer accepted as a result.
+- Added a recorded Seawork fallback path when the active model rejects structured execution; failed or timed-out runtime calls remain visible as degraded evidence rather than being claimed as collaboration success.
+
+### Validation
+
+- Added regression coverage for historical evidence artifacts, missing legacy run logs, tracking identifier normalization, durable ledger persistence, structured delegation ordering, and field/value requirement-detail HTML rendering.
+- Reprocessed every discoverable local PM Copilot output under `Desktop/`; 19 PRDs were evidence-upgraded and passed historical PRD validation, while outputs without a PRD were explicitly skipped.
+
 ## [4.7.0] - 2026-07-28
 
 ### Added

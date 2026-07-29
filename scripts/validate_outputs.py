@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import re
@@ -1048,6 +1049,9 @@ class PRDHTMLInspectionParser(HTMLParser):
         self._current_heading: dict[str, object] | None = None
         self._current_header_text: list[str] = []
         self._in_th = False
+        self._in_td = False
+        self._current_cell_text: list[str] = []
+        self._current_row_cells: list[str] = []
         self.mermaid_nodes = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -1076,10 +1080,15 @@ class PRDHTMLInspectionParser(HTMLParser):
         if tag == "link" and "stylesheet" in attr_map.get("rel", "").lower():
             self.stylesheets.append(attr_map.get("href", ""))
         if tag == "table":
-            self.tables.append({"headers": [], "image_count": 0})
+            self.tables.append({"headers": [], "field_values": [], "image_count": 0})
+        if tag == "tr":
+            self._current_row_cells = []
         if tag == "th":
             self._in_th = True
             self._current_header_text = []
+        if tag == "td":
+            self._in_td = True
+            self._current_cell_text = []
         if tag == "img":
             in_table = "table" in self.stack
             self.images.append({
@@ -1125,6 +1134,15 @@ class PRDHTMLInspectionParser(HTMLParser):
                     headers.append(normalize_table_cell(" ".join(self._current_header_text)))
             self._in_th = False
             self._current_header_text = []
+        if tag == "td" and self._in_td:
+            self._current_row_cells.append(normalize_table_cell(" ".join(self._current_cell_text)))
+            self._in_td = False
+            self._current_cell_text = []
+        if tag == "tr" and self.tables and self._current_row_cells:
+            field_values = self.tables[-1].setdefault("field_values", [])
+            if isinstance(field_values, list):
+                field_values.extend(self._current_row_cells[:1])
+            self._current_row_cells = []
         for index in range(len(self.stack) - 1, -1, -1):
             if self.stack[index] == tag:
                 del self.stack[index]
@@ -1137,6 +1155,8 @@ class PRDHTMLInspectionParser(HTMLParser):
                 parts.append(data)
         if self._in_th:
             self._current_header_text.append(data)
+        if self._in_td:
+            self._current_cell_text.append(data)
 
 
 def section_text(text: str, name: str) -> str:
@@ -1175,7 +1195,7 @@ def is_document_prototype_html(text: str) -> bool:
     )
 
 
-def check_folder(path: Path) -> None:
+def check_folder(path: Path, require_run_log: bool = True) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
     if path.parent.name != "outputs":
@@ -1194,7 +1214,7 @@ def check_folder(path: Path) -> None:
     if forbidden:
         fail(f"Forbidden default split files present: {', '.join(forbidden)}")
 
-    if not (path / "run-log.yaml").is_file():
+    if require_run_log and not (path / "run-log.yaml").is_file():
         fail("Missing run-log.yaml")
     allowed = {
         "prd.md",
@@ -1208,6 +1228,50 @@ def check_folder(path: Path) -> None:
     unexpected = sorted(item.name for item in path.iterdir() if item.is_file() and item.name not in allowed)
     if unexpected:
         fail(f"Unexpected output files present: {', '.join(unexpected)}")
+
+
+def check_historical_prd_upgrade_evidence(path: Path) -> None:
+    """Validate the durable, source-backed artifacts added by the PRD migrator.
+
+    Historical folders can predate the current run-log contract. This check does
+    not treat missing trace fields as a product-content defect, but it does
+    require every migration claim and selected local asset to remain auditable.
+    """
+    tool_results = path / "tool-results"
+    ledger_path = tool_results / "prd-evidence-ledger.json"
+    report_path = tool_results / "prd-upgrade-report.json"
+    for candidate in (ledger_path, report_path):
+        if not candidate.is_file():
+            fail(f"Historical PRD upgrade is missing evidence artifact: {candidate.relative_to(path)}")
+    try:
+        ledger = json.loads(read(ledger_path))
+        report = json.loads(read(report_path))
+    except json.JSONDecodeError as error:
+        fail(f"Historical PRD upgrade evidence artifact is not valid JSON: {error}")
+        return
+    if ledger.get("schema_version") != "1.0":
+        fail("Historical PRD evidence ledger must use schema_version 1.0")
+    if not isinstance(ledger.get("evidence"), list):
+        fail("Historical PRD evidence ledger must contain an evidence list")
+    if not isinstance(report.get("report"), dict):
+        fail("Historical PRD upgrade report must contain a report object")
+
+    evidence_by_id = {
+        str(item.get("id")): item
+        for item in ledger["evidence"]
+        if isinstance(item, dict) and item.get("id")
+    }
+    for evidence_id in ledger.get("selected_asset_evidence_ids", []):
+        item = evidence_by_id.get(str(evidence_id))
+        if not item or item.get("kind") != "same_run_visual_asset":
+            fail("Historical PRD selected asset must reference same-run visual evidence")
+        source = Path(str(item.get("source", ""))).resolve()
+        try:
+            source.relative_to((path / "assets").resolve())
+        except ValueError:
+            fail("Historical PRD selected asset evidence must remain inside assets/")
+        if not source.is_file():
+            fail(f"Historical PRD selected asset is missing: {source}")
 
 
 def check_pre_clarification(path: Path) -> None:
@@ -2914,7 +2978,15 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
             for header in table.get("headers", [])
             if isinstance(header, str)
         }
-        if headers_match_requirement_detail_contract(headers):
+        field_values = {
+            str(value)
+            for value in table.get("field_values", [])
+            if isinstance(value, str)
+        }
+        if headers_match_requirement_detail_contract(headers) or all(
+            any(label in value for value in field_values)
+            for label in REQUIREMENT_DETAIL_FIELD_LABELS_ZH
+        ):
             has_requirement_detail_table = True
             break
     if markdown_has_requirement_detail_table(markdown_text) and not has_requirement_detail_table:
@@ -3136,13 +3208,26 @@ def main() -> None:
     parser.add_argument("output_folder", type=Path)
     parser.add_argument("--language", choices=["zh", "en"], default=None)
     parser.add_argument("--pre-clarification", action="store_true")
+    parser.add_argument("--historical-prd-upgrade", action="store_true")
     args = parser.parse_args()
 
     folder = args.output_folder
-    check_folder(folder)
+    check_folder(folder, require_run_log=not args.historical_prd_upgrade)
     if args.pre_clarification:
         check_pre_clarification(folder)
         print(f"PM Copilot pre-clarification output validation passed: {folder}")
+        return
+
+    if args.historical_prd_upgrade:
+        check_stale_validation(folder)
+        check_prd_output_contract(folder, args.language)
+        if args.language == "zh":
+            check_chinese_prd(folder)
+        check_tracking_context(folder)
+        check_mermaid(folder)
+        check_prd_html_documents(folder)
+        check_historical_prd_upgrade_evidence(folder)
+        print(f"PM Copilot historical PRD upgrade validation passed: {folder}")
         return
 
     check_stale_validation(folder)

@@ -31,6 +31,7 @@ agent_strategy:
   rejected_alternatives:
   final_delivery_contract:
 delegation_plan:
+agent_task_ledger:
 collaboration_protocol:
 resume_checkpoint:
 termination_condition:
@@ -126,6 +127,7 @@ action_closure:
 - Record `agent_strategy.task_mode`, `agent_strategy.autonomy_level`, success criteria, selected path, skipped path, and rejected alternatives before or during artifact generation.
 - Record `agent_strategy.effort_budget` as `fast-pass`, `standard-loop`, `deep-agentic`, `research-intensive`, or `release/self-iteration`.
 - Record `delegation_plan` when PM Orchestrator splits work across specialist agents or external worker loops.
+- When delegated execution is used, retain an `agent_task_ledger` under the run folder. The ledger is the durable execution source; `delegation_plan` and `collaboration_protocol` are its readable trace projection. A completed ledger requires persisted worker outputs and a structured claim or arbitration result. Record whether worker isolation is provider-enforced or only prompt-restricted; do not overstate the boundary.
 - When `delegation_plan.active: true`, record `collaboration_protocol`. It must either state `trigger: not_required` with a concrete reason, or retain the material claims, targeted cross-review, evidence comparison, and PM Orchestrator arbitration that resolved the conflict. Do not create a debate merely to satisfy the trace.
 - A cross-review may challenge only a named claim with an evidence gap, user conflict, scope conflict, or metric conflict. The response and arbitration must compare evidence and user impact; majority vote and silent overwrite are invalid.
 - An arbitration that escalates to a human blocks the affected engineering or launch decision until the named confirmation is received.

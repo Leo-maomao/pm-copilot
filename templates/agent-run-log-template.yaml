@@ -57,6 +57,13 @@ delegation_plan:
       started_at: ""
       finished_at: ""
 
+agent_task_ledger:
+  path: "" # relative path under the run folder, for example tool-results/agent-task-ledger.json
+  status: "" # planned | running | complete | needs_input | blocked | degraded | failed
+  evidence_ledger_paths: []
+  resume_count: 0
+  execution_boundary: "" # provider-enforced | prompt-restricted | not_applicable
+
 collaboration_protocol:
   required: false
   trigger: not_required # not_required | material_conflict

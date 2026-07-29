@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -58,6 +59,15 @@ def _run(command: Sequence[str], cwd: Path | None = None, timeout: int = 15) -> 
 def _clean(value: str, limit: int = 600) -> str:
     value = SECRET_PATTERN.sub(r"\1=[REDACTED]", value.strip())
     return value[:limit]
+
+
+def _portable_command(command: Sequence[str], cwd: Path) -> list[str]:
+    home = str(Path.home())
+    workspace = str(cwd.resolve())
+    return [
+        str(part).replace(workspace, ".").replace(home, "$HOME")
+        for part in command
+    ]
 
 
 def _reject_credential_prompt(prompt: str) -> None:
@@ -319,6 +329,7 @@ def execute(
     model: str | None,
     schema_path: str | None,
     dry_run: bool,
+    output_limit: int = 4000,
 ) -> dict[str, Any]:
     _reject_credential_prompt(prompt)
     cwd = cwd.resolve()
@@ -348,9 +359,9 @@ def execute(
             else f"fallback from {context.runtime or 'unknown'} active runtime" if requested_provider == "auto"
             else "explicit provider request"
         ),
-        "cwd": str(cwd),
+        "cwd": ".",
         "dry_run": dry_run,
-        "command": command[:-1] + ["[PROMPT REDACTED]"],
+        "command": _portable_command(command[:-1], cwd) + ["[PROMPT REDACTED]"],
         "status": "planned" if dry_run else "failed",
         "output": "",
         "error": "",
@@ -360,12 +371,37 @@ def execute(
     try:
         completed = _run(command, cwd=cwd, timeout=timeout_minutes * 60)
         output = output_path.read_text(encoding="utf-8") if output_path and output_path.exists() else completed.stdout
+        fallback_used = False
+        if (
+            status.provider == "seawork"
+            and completed.returncode != 0
+            and selected_model
+            and selected_model != DEFAULT_SEAWORK_MODEL
+            and "OUTPUT_SCHEMA_FAILED" in (completed.stderr or "")
+        ):
+            fallback_command = build_command(
+                status.provider, status.executable or status.provider, prompt, cwd,
+                timeout_minutes, DEFAULT_SEAWORK_MODEL, schema_path, output_path,
+            )
+            fallback = _run(fallback_command, cwd=cwd, timeout=timeout_minutes * 60)
+            if fallback.returncode == 0:
+                completed = fallback
+                output = output_path.read_text(encoding="utf-8") if output_path and output_path.exists() else fallback.stdout
+                fallback_used = True
+                result["fallback_from_model"] = selected_model
+                result["fallback_model"] = DEFAULT_SEAWORK_MODEL
+                result["selection_reason"] += "; active Seawork model failed structured execution, fell back to verified default"
+                result["model"] = DEFAULT_SEAWORK_MODEL
         result.update({
             "status": "complete" if completed.returncode == 0 else "failed",
             "exit_code": completed.returncode,
-            "output": _clean(output, 4000),
+            "output": _clean(output, output_limit),
+            "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
+            "output_truncated": len(_clean(output, output_limit)) < len(SECRET_PATTERN.sub(r"\1=[REDACTED]", output.strip())),
             "error": _clean(completed.stderr, 2000),
         })
+        if fallback_used:
+            result["fallback_used"] = True
     except subprocess.TimeoutExpired:
         result.update({"status": "timed_out", "error": f"execution exceeded {timeout_minutes} minute(s)"})
     finally:

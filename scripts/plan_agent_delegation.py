@@ -42,7 +42,9 @@ def build_plan(request: str, task_mode: str = "auto") -> dict[str, object]:
     ]
     if task_mode == "self_improvement":
         workers = [
-            Worker("Review Agent", "Identify the smallest durable fix for the observed PM Copilot failure.", "Link every finding to a repository surface and regression."),
+            Worker("Requirements Agent", "Audit product-document quality failures and identify user-impacting regression cases.", "Link every finding to an artifact contract, source evidence, and regression."),
+            Worker("Analytics Agent", "Audit tracking-content quality and measurement evidence without inventing taxonomy.", "Identify only source-backed events, parameters, and validation gaps."),
+            Worker("UI Delivery Agent", "Audit PRD visual evidence and asset relevance, excluding runtimes and unrelated images.", "Link every acceptable figure to a same-run source and requirement."),
             Worker("Integration Governance Agent", "Verify runtime, tool, and delegation boundaries before automation changes.", "Reject unsupported execution claims and credential leakage."),
         ]
     elif not workers:
@@ -63,13 +65,31 @@ def build_plan(request: str, task_mode: str = "auto") -> dict[str, object]:
     if "Analytics Agent" in worker_roles and "Requirements Agent" in worker_roles:
         cross_checks.append("Analytics Agent checks that each required behavior has a measurable user-action boundary.")
 
+    evidence_payload = []
+    for index, worker in enumerate(workers):
+        evidence_payload.append({
+            **asdict(worker),
+            "task_id": f"evidence-{index + 1}-{worker.role.lower().replace(' ', '-')}",
+            "depends_on": [],
+            "input_evidence": ["user_request", "local_context"],
+            "output_contract": "structured handoff with source-backed claims, confidence, rejected evidence, and validation delta",
+            "max_attempts": 2,
+        })
+    review_payload = [{
+        **asdict(review_worker),
+        "task_id": "challenge-1-review-agent",
+        "depends_on": [item["task_id"] for item in evidence_payload],
+        "input_evidence": ["registered_claims", "worker_artifacts"],
+        "output_contract": "targeted cross-review only; each finding references known claim ids and evidence gaps",
+        "max_attempts": 2,
+    }] if requires_review else []
     return {
         "active": len(workers) > 1,
         "pattern": "parallel_specialists" if len(workers) > 1 else "orchestrator_worker",
         "coordinator": "PM Orchestrator",
         "dispatch_groups": [
-            {"phase": "evidence", "workers": [asdict(worker) for worker in workers]},
-            {"phase": "challenge", "workers": [asdict(review_worker)] if requires_review else []},
+            {"phase": "evidence", "workers": evidence_payload},
+            {"phase": "challenge", "workers": review_payload},
         ],
         "cross_checks": cross_checks,
         "conflict_protocol": {

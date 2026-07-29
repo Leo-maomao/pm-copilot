@@ -1,0 +1,509 @@
+#!/usr/bin/env python3
+"""Evidence-gated upgrades for historical PM Copilot PRDs.
+
+The upgrader never invents product facts. It records source-backed candidates in
+``tool-results/prd-evidence-ledger.json`` and writes only high-confidence
+localization copy, tracking events, and same-run visual assets.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import html
+import json
+import re
+import subprocess
+import sys
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Iterable
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MEDIA_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".mov", ".mp4", ".webm"}
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
+RUNTIME_ASSET_NAMES = {"mermaid.min.js"}
+ACTION_RE = re.compile(r"(点击|选择|提交|确认|保存|创建|启用|取消|删除|上传|下载|分享|重试)")
+RESULT_RE = re.compile(r"(成功|完成|结果|失败|部分完成)")
+VALUE_RE = re.compile(r"(浏览|瀑布流|阅读|时长|曝光|滚动|停留)")
+SECTION_RE = re.compile(r"(?m)^##\s+([一二三四五六七])、([^\n]+)\s*$")
+DETAIL_RE = re.compile(r"(?m)^###\s+(5\.\d+)\s+([^\n]+)\s*$")
+
+
+@dataclass
+class Evidence:
+    id: str
+    kind: str
+    source: str
+    excerpt: str
+    confidence: str
+    sha256: str
+
+
+@dataclass
+class OutputReport:
+    output: str
+    status: str
+    language: str = ""
+    evidence_count: int = 0
+    localization: str = "omitted"
+    tracking: str = "omitted"
+    figures: int = 0
+    limitations: list[str] = field(default_factory=list)
+    changed: bool = False
+    rendered: bool = False
+    validation: str = "not_run"
+    error: str = ""
+
+
+def digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def strip_markup(value: str) -> str:
+    value = re.sub(r"<br\s*/?>", "；", value, flags=re.IGNORECASE)
+    value = re.sub(r"<[^>]+>", "", value)
+    value = html.unescape(value)
+    value = re.sub(r"\s+", " ", value).strip(" -;；。")
+    return value.replace("|", "／")
+
+
+def output_language(folder: Path, prd: str) -> str:
+    inferred = "zh" if any(item in prd for item in ("文档说明", "需求背景", "需求详情")) else "en"
+    run_log = folder / "run-log.yaml"
+    if run_log.is_file():
+        match = re.search(r"(?m)^language:\s*[\"']?([^\s\"']+)", read(run_log))
+        if match and not (inferred == "zh" and match.group(1).lower() != "zh"):
+            return match.group(1).lower()
+    return inferred
+
+
+def add_evidence(records: list[Evidence], kind: str, source: Path, excerpt: str, confidence: str) -> str:
+    identifier = f"E{len(records) + 1:03d}"
+    records.append(Evidence(identifier, kind, str(source), excerpt[:500], confidence, digest(excerpt)))
+    return identifier
+
+
+def prototype_copy(folder: Path, language: str, records: list[Evidence]) -> list[tuple[str, str]]:
+    candidates: list[tuple[str, str]] = []
+    for prototype in sorted(folder.glob("prototype-*.html")):
+        text = read(prototype)
+        text = re.sub(r"<(script|style)\b.*?</\1>", " ", text, flags=re.IGNORECASE | re.DOTALL)
+        visible = [strip_markup(item) for item in re.findall(r">([^<>]{2,100})<", text)]
+        for item in visible:
+            if len(item) < 3 or item.lower() in {"notes", "back", "active"}:
+                continue
+            if language == "zh" and not re.search(r"[\u4e00-\u9fff]", item):
+                continue
+            evidence_id = add_evidence(records, "visible_copy", prototype, item, "high")
+            candidates.append((item, evidence_id))
+    return unique_pairs(candidates)[:12]
+
+
+def quoted_copy(prd: str, language: str, source: Path, records: list[Evidence]) -> list[tuple[str, str]]:
+    candidates: list[tuple[str, str]] = []
+    for value in re.findall(r"[“\"']([^”\"']{2,80})[”\"']", prd):
+        value = strip_markup(value)
+        if language == "zh" and not re.search(r"[\u4e00-\u9fff]", value):
+            continue
+        if value:
+            candidates.append((value, add_evidence(records, "quoted_copy", source, value, "medium")))
+    return unique_pairs(candidates)[:12]
+
+
+def unique_pairs(values: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    seen: set[str] = set()
+    result: list[tuple[str, str]] = []
+    for value, evidence_id in values:
+        key = value.casefold()
+        if key not in seen:
+            seen.add(key)
+            result.append((value, evidence_id))
+    return result
+
+
+def parse_table_field(section: str, field: str) -> str:
+    match = re.search(rf"(?m)^\|\s*{re.escape(field)}\s*\|\s*(.*?)\s*\|\s*$", section)
+    return strip_markup(match.group(1)) if match else ""
+
+
+def requirement_details(prd: str, source: Path, records: list[Evidence]) -> list[dict[str, str]]:
+    matches = list(DETAIL_RE.finditer(prd))
+    details: list[dict[str, str]] = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(prd)
+        body = prd[match.end() : end]
+        title = strip_markup(match.group(2))
+        entry = parse_table_field(body, "需求入口")
+        description = parse_table_field(body, "需求详情")
+        details.append({
+            "number": match.group(1),
+            "title": title,
+            "entry": entry,
+            "description": description,
+            "evidence_id": add_evidence(records, "requirement_detail", source, f"{match.group(1)} {title}\n{body[:700]}", "high"),
+            "body": body,
+        })
+    return details
+
+
+def tracking_rows_from_csv(path: Path, records: list[Evidence]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    with path.open(encoding="utf-8", newline="") as file:
+        for row in csv.DictReader(file):
+            name = strip_markup(row.get("description") or row.get("名称") or row.get("event_name") or "")
+            identifier = strip_markup(row.get("event_name") or row.get("标识") or "")
+            trigger = strip_markup(row.get("trigger") or row.get("时机") or "")
+            if not name or not identifier or not trigger:
+                continue
+            properties = strip_markup(row.get("required_properties") or row.get("参数") or "")
+            evidence_id = add_evidence(records, "tracking_plan", path, json.dumps(row, ensure_ascii=False), "high")
+            rows.append({"name": name, "id": identifier, "timing": trigger, "parameters": properties, "note": "来源于既有埋点方案。", "evidence_id": evidence_id})
+    return rows
+
+
+def tracking_rows_from_details(details: list[dict[str, str]]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for detail in details:
+        number, title, entry, description = (detail[key] for key in ("number", "title", "entry", "description"))
+        stem = f"prd_{number.replace('.', '_')}"
+        if entry:
+            rows.append({
+                "name": f"访问{title}", "id": f"{stem}_view", "timing": f"用户从{entry}进入并完成首屏展示",
+                "parameters": "", "note": "拟议，用于评估入口触达。", "evidence_id": detail["evidence_id"],
+            })
+        action = ACTION_RE.search(description)
+        if action:
+            rows.append({
+                "name": f"{action.group(1)}{title}", "id": f"{stem}_action", "timing": f"用户完成“{action.group(1)}”相关关键操作时",
+                "parameters": "", "note": "拟议，用于评估关键操作完成。", "evidence_id": detail["evidence_id"],
+            })
+        if RESULT_RE.search(description):
+            rows.append({
+                "name": f"{title}结果可见", "id": f"{stem}_result", "timing": "用户可见成功、失败或部分完成结果时",
+                "parameters": "", "note": "拟议，用于区分关键结果。", "evidence_id": detail["evidence_id"],
+            })
+        if VALUE_RE.search(description):
+            rows.append({
+                "name": f"{title}有效浏览", "id": f"{stem}_engagement", "timing": "用户离开页面或达到有效浏览阈值时汇总",
+                "parameters": "浏览时长、浏览深度", "note": "拟议，用于评估持续使用价值。", "evidence_id": detail["evidence_id"],
+            })
+    unique: dict[str, dict[str, str]] = {}
+    for row in rows:
+        unique.setdefault(row["id"], row)
+    return list(unique.values())
+
+
+def asset_tokens(value: str) -> set[str]:
+    normalized = re.sub(r"[^\w\u4e00-\u9fff]+", " ", value.lower())
+    tokens = set(re.findall(r"[a-z0-9]{2,}|[\u4e00-\u9fff]{2,}", normalized))
+    for run in re.findall(r"[\u4e00-\u9fff]{3,}", normalized):
+        tokens.update(run[index : index + 2] for index in range(len(run) - 1))
+    return tokens
+
+
+def real_assets(folder: Path, records: list[Evidence]) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
+    assets = folder / "assets"
+    if not assets.is_dir():
+        return result
+    for path in sorted(assets.rglob("*")):
+        if not path.is_file() or path.name in RUNTIME_ASSET_NAMES or path.suffix.lower() not in MEDIA_SUFFIXES:
+            continue
+        if path.suffix.lower() not in IMAGE_SUFFIXES:
+            continue
+        evidence_id = add_evidence(records, "same_run_visual_asset", path, path.name, "high")
+        result.append({"path": f"./assets/{path.relative_to(assets).as_posix()}", "name": path.name, "tokens": " ".join(asset_tokens(path.stem)), "evidence_id": evidence_id})
+    return result
+
+
+def best_asset(detail: dict[str, str], assets: list[dict[str, str]], used: set[str]) -> dict[str, str] | None:
+    keywords = asset_tokens(" ".join((detail["title"], detail["entry"], detail["description"])))
+    ranked: list[tuple[int, dict[str, str]]] = []
+    for asset in assets:
+        if asset["path"] in used:
+            continue
+        score = len(keywords & set(asset["tokens"].split()))
+        if score >= 2:
+            ranked.append((score, asset))
+    return max(ranked, key=lambda item: item[0])[1] if ranked else None
+
+
+def remove_migrator_figure_rows(prd: str) -> str:
+    """Remove only rows emitted by an earlier migrator before reinserting safely."""
+    return re.sub(
+        r"(?m)^\|\s*(?:图示|截图)\s*\|\s*!\[[^\]]*\]\([^\n]*\)<br><small>位置：[^\n]*</small>\s*\|\s*\n?",
+        "",
+        prd,
+    )
+
+
+def insert_figure_rows(prd: str, details: list[dict[str, str]], assets: list[dict[str, str]]) -> tuple[str, list[str]]:
+    prd = remove_migrator_figure_rows(prd)
+    selected: list[str] = []
+    used: set[str] = set()
+    detail_by_number = {item["number"]: item for item in details}
+    matches = list(DETAIL_RE.finditer(prd))
+    if not matches:
+        return prd, selected
+    parts: list[str] = []
+    cursor = 0
+    for index, match in enumerate(matches):
+        next_detail = matches[index + 1].start() if index + 1 < len(matches) else len(prd)
+        next_section = re.search(r"(?m)^##\s+", prd[match.end() :])
+        next_h2 = match.end() + next_section.start() if next_section else len(prd)
+        end = min(next_detail, next_h2)
+        section = prd[match.start() : end]
+        detail = detail_by_number.get(match.group(1))
+        if detail and "| 图示 |" not in section and "| 截图 |" not in section:
+            asset = best_asset(detail, assets, used)
+            table_match = re.search(
+                r"(?m)(^\|\s*维度\s*\|\s*(?:内容|需求说明)\s*\|\s*\n(?:^\|[^\n]*(?:\n|$))*)",
+                section,
+            )
+            if asset and table_match:
+                caption = f"位置：{Path(asset['name']).stem}；用途：支撑“{detail['title']}”的相关界面与状态。"
+                row = f"| 图示 | ![{Path(asset['name']).stem}]({asset['path']})<br><small>{caption}</small> |\n"
+                table = table_match.group(1)
+                if table.endswith("\n"):
+                    replacement = table + row
+                else:
+                    replacement = table + "\n" + row
+                section = section[:table_match.start()] + replacement + section[table_match.end():]
+                used.add(asset["path"])
+                selected.append(asset["evidence_id"])
+        parts.append(prd[cursor : match.start()])
+        parts.append(section)
+        cursor = end
+    parts.append(prd[cursor:])
+    return "".join(parts), selected
+
+
+def section_present(prd: str, title: str) -> bool:
+    return bool(re.search(rf"(?m)^##\s+[六七]、{re.escape(title)}\s*$", prd))
+
+
+def remove_unsupported_chinese_localization(prd: str, language: str) -> tuple[str, bool]:
+    """Omit English-only legacy copy from a Chinese PRD without inventing translation."""
+    if language != "zh":
+        return prd, False
+    heading = re.search(r"(?m)^##\s+六、多语言需求\s*$", prd)
+    if not heading:
+        return prd, False
+    next_heading = re.search(r"(?m)^##\s+", prd[heading.end() :])
+    end = heading.end() + next_heading.start() if next_heading else len(prd)
+    section = prd[heading.end() : end]
+    if re.search(r"[\u4e00-\u9fff]", section) or re.search(r"(?i)双语|bilingual", section):
+        return prd, False
+    return prd[: heading.start()].rstrip() + "\n\n" + prd[end:].lstrip(), True
+
+
+def normalize_optional_section_order(prd: str) -> str:
+    """Keep an existing section 六 immediately before section 七."""
+    localization_heading = re.search(r"(?m)^##\s+六、多语言需求\s*$", prd)
+    tracking_heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", prd)
+    if not localization_heading or not tracking_heading or localization_heading.start() < tracking_heading.start():
+        return prd
+    next_heading = re.search(r"(?m)^##\s+", prd[localization_heading.end() :])
+    localization_end = localization_heading.end() + next_heading.start() if next_heading else len(prd)
+    localization = prd[localization_heading.start() : localization_end].strip()
+    without_localization = prd[: localization_heading.start()].rstrip() + "\n\n" + prd[localization_end:].lstrip()
+    tracking_heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", without_localization)
+    if not tracking_heading:
+        return prd
+    return (
+        without_localization[: tracking_heading.start()].rstrip()
+        + "\n\n"
+        + localization
+        + "\n\n"
+        + without_localization[tracking_heading.start() :].lstrip()
+    )
+
+
+def normalize_tracking_identifier(value: str) -> str:
+    """Convert an existing identifier to the PRD contract's stable form only."""
+    value = value.strip().strip("`")
+    value = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", value)
+    value = re.sub(r"[^A-Za-z0-9_]+", "_", value).strip("_").lower()
+    if not value:
+        return "event"
+    if not value[0].isalpha() or not value[0].isascii():
+        value = f"event_{value}"
+    return value
+
+
+def normalize_existing_tracking_identifiers(prd: str) -> str:
+    """Repair only invalid existing tracking IDs without altering event meaning."""
+    heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", prd)
+    if not heading:
+        return prd
+    next_heading = re.search(r"(?m)^##\s+", prd[heading.end() :])
+    end = heading.end() + next_heading.start() if next_heading else len(prd)
+    section = prd[heading.start() : end]
+    lines: list[str] = []
+    for line in section.splitlines(keepends=True):
+        values = [item.strip() for item in line.strip().strip("|").split("|")]
+        if len(values) == 5 and values[0] not in {"名称", "---"}:
+            identifier = values[1]
+            if not re.fullmatch(r"[a-z][a-z0-9_]*", identifier):
+                values[1] = normalize_tracking_identifier(identifier)
+                suffix = "\n" if line.endswith("\n") else ""
+                line = "| " + " | ".join(values) + " |" + suffix
+        lines.append(line)
+    return prd[: heading.start()] + "".join(lines) + prd[end:]
+
+
+def append_optional_sections(prd: str, copies: list[tuple[str, str]], tracking: list[dict[str, str]], language: str) -> tuple[str, str, str]:
+    prd, localization_removed = remove_unsupported_chinese_localization(prd, language)
+    prd = normalize_optional_section_order(prd)
+    localization = "already_present" if section_present(prd, "多语言需求") else "omitted"
+    tracking_status = "already_present" if section_present(prd, "埋点需求") else "omitted"
+    localization_block = ""
+    tracking_block = ""
+    if copies and localization == "omitted":
+        localization_block = "\n".join(["## 六、多语言需求", "", "```text", *[item[0] for item in copies], "```"])
+        localization = "added"
+    if tracking and tracking_status == "omitted":
+        tracking_lines = ["## 七、埋点需求", "", "| 名称 | 标识 | 时机 | 参数 | 备注 |", "| --- | --- | --- | --- | --- |"]
+        tracking_lines.extend(
+            f"| {row['name']} | {row['id']} | {row['timing']} | {row['parameters']} | {row['note']} |"
+            for row in tracking
+        )
+        tracking_block = "\n".join(tracking_lines)
+        tracking_status = "added"
+    if localization_block:
+        tracking_heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", prd)
+        if tracking_heading:
+            prd = (
+                prd[: tracking_heading.start()].rstrip()
+                + "\n\n"
+                + localization_block
+                + "\n\n"
+                + prd[tracking_heading.start() :].lstrip()
+            )
+        else:
+            prd = prd.rstrip() + "\n\n" + localization_block + "\n"
+    if tracking_block:
+        prd = prd.rstrip() + "\n\n" + tracking_block + "\n"
+    if localization_removed and localization == "omitted":
+        localization = "removed_unsupported"
+    return normalize_existing_tracking_identifiers(prd), localization, tracking_status
+
+
+def run_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+
+def upgrade_output(folder: Path, renderer_root: Path, apply: bool, validate: bool) -> OutputReport:
+    prd_path = folder / "prd.md"
+    report = OutputReport(output=str(folder), status="skipped")
+    if not prd_path.is_file():
+        report.limitations.append("No prd.md; content upgrade is not applicable.")
+        return report
+    prd = read(prd_path)
+    report.language = output_language(folder, prd)
+    records: list[Evidence] = []
+    details = requirement_details(prd, prd_path, records)
+    copies = prototype_copy(folder, report.language, records) + quoted_copy(prd, report.language, prd_path, records)
+    copies = unique_pairs(copies)[:12]
+    tracking_source = next(iter(sorted(folder.glob("tracking-plan.csv"))), None)
+    tracking = tracking_rows_from_csv(tracking_source, records) if tracking_source else tracking_rows_from_details(details)
+    assets = real_assets(folder, records)
+    upgraded, selected_assets = insert_figure_rows(prd, details, assets)
+    upgraded, report.localization, report.tracking = append_optional_sections(upgraded, copies, tracking, report.language)
+    report.figures = len(selected_assets)
+    report.evidence_count = len(records)
+    if not copies:
+        report.limitations.append("No source-backed user-visible copy was found; localization section was omitted.")
+    if not tracking:
+        report.limitations.append("No measurable user journey evidence was found; tracking section was omitted.")
+    if assets and not selected_assets:
+        report.limitations.append("Same-run visual assets were found but none met the semantic match threshold; no figure was inserted.")
+    if not assets:
+        report.limitations.append("No same-run real visual asset was found; no figure was inserted.")
+    report.changed = upgraded != prd
+    payload = {
+        "schema_version": "1.0",
+        "output": str(folder),
+        "language": report.language,
+        "evidence": [asdict(item) for item in records],
+        "selected_asset_evidence_ids": selected_assets,
+        "localization_evidence_ids": [item[1] for item in copies],
+        "tracking_evidence_ids": [item["evidence_id"] for item in tracking],
+        "report": asdict(report),
+    }
+    if not apply:
+        report.status = "planned" if report.changed else "no_change"
+        return report
+    tool_results = folder / "tool-results"
+    tool_results.mkdir(exist_ok=True)
+    (tool_results / "prd-evidence-ledger.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if report.changed:
+        temporary = prd_path.with_suffix(".md.tmp")
+        temporary.write_text(upgraded, encoding="utf-8")
+        temporary.replace(prd_path)
+    rendered = run_command([sys.executable, str(renderer_root / "scripts" / "render_prd_html.py"), str(folder)], renderer_root)
+    if rendered.returncode:
+        report.status = "failed"
+        report.error = rendered.stdout.strip()
+    else:
+        report.rendered = True
+        report.status = "upgraded" if report.changed else "no_change"
+    if validate and report.status != "failed":
+        command = [
+            sys.executable,
+            str(renderer_root / "scripts" / "validate_outputs.py"),
+            str(folder),
+            "--historical-prd-upgrade",
+        ]
+        if report.language == "zh":
+            command.extend(["--language", "zh"])
+        validation = run_command(command, renderer_root)
+        report.validation = "passed" if validation.returncode == 0 else "failed"
+        if validation.returncode:
+            report.limitations.append("Full output validation remains blocked by historical trace or artifact debt.")
+    payload["report"] = asdict(report)
+    (tool_results / "prd-upgrade-report.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return report
+
+
+def discover_output_folders(roots: Iterable[Path]) -> list[Path]:
+    discovered: set[Path] = set()
+    for root in roots:
+        if not root.is_dir():
+            continue
+        direct = root / "outputs"
+        if direct.is_dir():
+            discovered.update(item for item in direct.iterdir() if item.is_dir())
+        for output_root in root.rglob("outputs"):
+            if output_root.is_dir() and output_root.parent.name == "pm-copilot":
+                discovered.update(item for item in output_root.iterdir() if item.is_dir())
+    return sorted(discovered)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--roots", type=Path, nargs="+", default=[ROOT])
+    parser.add_argument("--renderer-root", type=Path, default=ROOT)
+    parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--no-validate", action="store_true")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+    reports = [upgrade_output(folder, args.renderer_root.resolve(), args.apply, not args.no_validate) for folder in discover_output_folders(args.roots)]
+    payload = [asdict(report) for report in reports]
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        for report in reports:
+            print(f"{report.status}: {report.output}; localization={report.localization}; tracking={report.tracking}; figures={report.figures}")
+    return 1 if any(report.status == "failed" for report in reports) else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

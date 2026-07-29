@@ -40,6 +40,8 @@ python3 scripts/preflight_tools.py --strict
 python3 scripts/validate_repo.py
 python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
 python3 scripts/test_agent_collaboration_trace.py
+python3 scripts/test_agent_task_ledger.py
+python3 scripts/test_prd_evidence_upgrade.py
 python3 scripts/test_upgrade_local_outputs.py
 python3 scripts/test_sync_embedded_copies.py
 ```
@@ -54,6 +56,7 @@ Optional:
 
 ```bash
 python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
+python3 scripts/validate_outputs.py outputs/<historical-run-id> --historical-prd-upgrade --language zh
 tidy -errors -quiet -utf8 templates/prototype-template.html
 ```
 

@@ -96,4 +96,5 @@ For PM Copilot repository changes:
 python3 scripts/validate_repo.py
 python3 scripts/test_agent_loop.py
 python3 scripts/agent_improvement_scorecard.py
+python3 scripts/validate_agent_task_ledger.py outputs/<run-id>/tool-results/agent-task-ledger.json
 ```

@@ -1,0 +1,49 @@
+cycle: agentic-prd-evidence
+date: 2026-07-29
+version_change: 4.7.0 -> 4.8.0
+scope:
+  - durable multi-agent evidence, review, and arbitration control plane
+  - evidence-driven historical PRD migration
+  - historical PRD content validation
+  - same-run visual asset selection
+iterations:
+  - id: 1
+    change: Audited local PRDs, assets, traces, and available authenticated runtimes.
+  - id: 2
+    change: Persisted delegation task state, artifact paths, hashes, retries, and failures.
+  - id: 3
+    change: Sequenced independent evidence workers before review and arbitration.
+  - id: 4
+    change: Required structured evidence claims and recorded rejected or missing evidence.
+  - id: 5
+    change: Compiled tracking from existing plans or confirmed measurable journeys only.
+  - id: 6
+    change: Compiled multilingual content only from visible source copy.
+  - id: 7
+    change: Restricted figures to matching same-run image assets and inline captions.
+  - id: 8
+    change: Added historical validation without inventing legacy trace data.
+  - id: 9
+    change: Repaired legacy generated figure rows and tracking identifier contract drift.
+  - id: 10
+    change: Regressed output rendering, ledger integrity, migration idempotence, and repository routing.
+runtime_evidence:
+  selected_provider: seawork
+  selected_model: codex/gpt-5.6-sol
+  result: degraded
+  reason: Active model returned an upstream structured-output failure and a later retry timed out; the ledger records this as a runtime limitation rather than a successful collaboration claim.
+validation:
+  - python3 scripts/test_agent_runtime.py
+  - python3 scripts/test_agent_delegation.py
+  - python3 scripts/test_agent_orchestration.py
+  - python3 scripts/test_agent_task_ledger.py
+  - python3 scripts/test_prd_evidence_upgrade.py
+  - python3 scripts/validate_runtime_routing.py
+  - python3 scripts/validate_repo.py
+  - python3 scripts/prd_evidence_upgrade.py --roots Desktop --apply
+publish:
+  remote_push_status: pending
+  embedded_copy_sync_targets: Desktop local PM Copilot copies
+limitations:
+  - Legacy outputs without source-backed copy, tracking, or same-run screenshots retain omitted optional sections or explicit evidence limitations.
+  - Historical validation confirms PRD content and evidence quality only; it does not reconstruct missing historical run logs.

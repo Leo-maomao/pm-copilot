@@ -55,7 +55,12 @@ def is_text_file(path: Path) -> bool:
 
 def update_references(folder: Path, replacements: dict[str, str]) -> int:
     changed = 0
-    for path in folder.rglob("*"):
+    for path in [
+        folder / "run-log.yaml",
+        folder / "dev-tasks.yaml",
+        folder / "launch-decision.yaml",
+        *(sorted((folder / "tool-results").glob("*.json")) if (folder / "tool-results").is_dir() else []),
+    ]:
         if not is_text_file(path):
             continue
         try:
@@ -138,14 +143,17 @@ def upgrade_folder(
 
 
 def discover_output_folders(roots: Iterable[Path]) -> list[Path]:
-    folders: list[Path] = []
+    folders: set[Path] = set()
     for root in roots:
         if not root.is_dir():
             continue
+        direct = root / "outputs"
+        if direct.is_dir():
+            folders.update(item for item in direct.iterdir() if item.is_dir())
         for output_root in sorted(root.rglob("outputs")):
             if output_root.is_dir() and output_root.parent.name == "pm-copilot":
-                folders.extend(sorted(item for item in output_root.iterdir() if item.is_dir()))
-    return folders
+                folders.update(item for item in output_root.iterdir() if item.is_dir())
+    return sorted(folders)
 
 
 def main() -> int:
@@ -153,6 +161,7 @@ def main() -> int:
     parser.add_argument("--roots", type=Path, nargs="+", default=[ROOT])
     parser.add_argument("--renderer-root", type=Path, default=ROOT)
     parser.add_argument("--apply", action="store_true", help="perform migrations; default reports only")
+    parser.add_argument("--content", action="store_true", help="also run evidence-gated PRD content upgrade")
     parser.add_argument("--no-validate", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -161,6 +170,11 @@ def main() -> int:
         upgrade_folder(folder, args.renderer_root.resolve(), not args.no_validate, args.apply)
         for folder in discover_output_folders(args.roots)
     ]
+    if args.content:
+        from prd_evidence_upgrade import upgrade_output
+
+        for result in results:
+            upgrade_output(Path(result.target), args.renderer_root.resolve(), args.apply, not args.no_validate)
     payload = [asdict(result) for result in results]
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
