@@ -111,7 +111,7 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             prd = (folder / "prd.md").read_text(encoding="utf-8")
             self.assertEqual(report.figures, 1)
             self.assertIn("./assets/创建项目-命名弹窗.png", prd)
-            self.assertIn("位置：创建项目-命名弹窗", prd)
+            self.assertIn("<small>创建项目-命名弹窗</small>", prd)
 
     def test_ignores_runtime_only_assets(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

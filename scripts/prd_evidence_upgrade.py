@@ -396,8 +396,8 @@ def insert_figure_rows(prd: str, details: list[dict[str, str]], assets: list[dic
                 section,
             )
             if asset and table_match:
-                caption = f"位置：{Path(asset['name']).stem}；用途：支撑“{detail['title']}”的相关界面与状态。"
-                row = f"| 图示 | ![{Path(asset['name']).stem}]({asset['path']})<br><small>{caption}</small> |\n"
+                caption = Path(asset["name"]).stem
+                row = f"| 图示 | ![{Path(asset['name']).stem}]({asset['path']})<small>{caption}</small> |\n"
                 table = table_match.group(1)
                 if table.endswith("\n"):
                     replacement = table + row

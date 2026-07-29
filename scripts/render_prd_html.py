@@ -247,7 +247,16 @@ DOCUMENT_CSS = """
       cursor: default;
     }
     td img {
-      margin: 4px 0;
+      margin: 0;
+      max-height: none;
+      height: auto;
+    }
+    td img + small {
+      display: block;
+      margin-top: 2px;
+      color: var(--pm-doc-muted);
+      font-size: 12px;
+      line-height: 1.5;
     }
     figcaption {
       margin-top: 8px;

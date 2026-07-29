@@ -67,6 +67,9 @@ Real screenshots:
 - Reference inline from `prd.md`: `![<name>](./assets/<name>.png)`.
 - Name by screenshot content, not figure number.
 - If one screenshot object has multiple UI states, include both the screenshot object and the specific state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, `profile-card-loading.png`, or `profile-card-load-failed.png`. Do not use generic names such as `资料卡片-状态.png` or `profile-card-state.png`.
+- The Agent decides the capture range after inspecting the actual state. It must preserve the functional target, locating context, and any comparison context needed to understand the requirement; it may remove only irrelevant surroundings. No fixed crop percentage, source-image dimension, or filename can replace this judgment.
+- Record the `visual_capture_review` decision in internal evidence: retained regions, removed regions, crop decision, rationale, and normal-document-width readability result. Do not write this process record into the PRD.
+- When a focused crop supersedes a raw full-window capture, remove the raw asset unless it independently supports another requirement; `assets/` is the curated PRD evidence set, not a capture dump.
 
 Rules:
 

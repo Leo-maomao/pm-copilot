@@ -6,6 +6,38 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.7] - 2026-07-29
+
+### Fixed
+
+- Reduced spacing between consecutive requirement images to a single visual line break.
+
+## [4.8.6] - 2026-07-29
+
+### Changed
+
+- Made screenshot range an Agent visual-review decision: every capture must preserve the functional target plus the context required to locate and understand it, while removing only unrelated content.
+- Added internal crop-review evidence and curated-asset rules so superseded raw captures do not remain in PRD assets.
+
+## [4.8.5] - 2026-07-29
+
+### Fixed
+
+- Removed the descriptive `图示：` prefix from figure captions; captions now contain only the image name.
+- Removed the viewport-height cap from images inside requirement tables so the document preserves the full source image rather than visually constraining it.
+
+## [4.8.4] - 2026-07-29
+
+### Fixed
+
+- Required every real local image asset in a PRD output to be placed in the corresponding requirement detail; validation now rejects unreferenced images.
+- Standardized inline requirement figures so each image is immediately followed by a concise `图示：…` caption, with spacing only between separate figures.
+- Added a formatter that normalizes legacy figure rows without changing requirement content, then re-rendered local PRD HTML outputs.
+
+### Validation
+
+- Added regression coverage for per-image captions, multi-image spacing, and idempotent figure formatting.
+
 ## [4.8.3] - 2026-07-29
 
 ### Fixed

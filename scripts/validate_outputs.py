@@ -2265,6 +2265,28 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         if not asset_path.is_file():
             fail(f"PRD local image reference not found: {image_ref}")
 
+    if (path / "assets").is_dir():
+        image_assets = {
+            item.name
+            for item in (path / "assets").iterdir()
+            if item.is_file() and item.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+        }
+        referenced_images = {
+            Path(image_ref.strip().split("#", 1)[0].split("?", 1)[0]).name
+            for image_ref in markdown_image_refs(text)
+        }
+        unreferenced_images = sorted(image_assets - referenced_images)
+        if unreferenced_images:
+            fail(
+                "PRD must place every real local image asset in the corresponding requirement detail: "
+                + ", ".join(unreferenced_images)
+            )
+        for match in re.finditer(r"!\[([^\]]+)\]\((?:\.\/)?assets\/[^)]+\)", text):
+            caption_start = match.end()
+            caption = re.match(r"<small>([^<\n]+)</small>", text[caption_start:])
+            if not caption or caption.group(1).strip().startswith("图示："):
+                fail("Each PRD image must be immediately followed by its image name")
+
     if re.search(r"图片占位|截图占位|image placeholder|screenshot placeholder", text, re.IGNORECASE):
         fail("PRD screenshot placeholders must use the controlled 占位图 format")
 

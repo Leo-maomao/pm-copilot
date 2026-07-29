@@ -1,0 +1,18 @@
+cycle: prd-figure-single-gap
+date: 2026-07-29
+version_change: 4.8.6 -> 4.8.7
+source_run: user review of multi-image spacing in rendered PRD tables
+generalized_failure: >-
+  Two explicit line breaks combined with block-level image captions created more than one
+  visual empty line between consecutive requirement images.
+fix_surface:
+  - scripts/format_prd_figures.py
+  - scripts/test_prd_figure_format.py
+decisions:
+  spacing: Consecutive image-caption pairs use one line break only.
+validation:
+  - python3 scripts/test_prd_figure_format.py
+  - python3 scripts/validate_repo.py
+publish:
+  remote_push_status: not pushed in this change set
+  embedded_copy_sync_targets: pending after review
