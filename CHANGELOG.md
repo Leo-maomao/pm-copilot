@@ -6,6 +6,18 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.2] - 2026-07-29
+
+### Fixed
+
+- Recompiled automatically generated tracking IDs from the measured requirement context so generic or duplicated names such as `journey_view` and repeated `*_view` rows become unique feature-and-action identifiers.
+- Prioritized explicit result-display events over titles that happen to contain “结果”, preserving distinct view, operation, and result events in the same requirement flow.
+- Expanded the evidence-led vocabulary for common product contexts including connection, renewal settings, permissions, media assets, homepage creation, purchase, and image-processing flows.
+
+### Validation
+
+- Reprocessed all 19 local historical PRDs and verified each with historical PRD validation after the tracking migration.
+
 ## [4.8.1] - 2026-07-29
 
 ### Changed

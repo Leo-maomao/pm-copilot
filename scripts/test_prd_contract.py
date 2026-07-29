@@ -137,6 +137,12 @@ def main() -> None:
         False,
     )
     run_case("tracking_prd_position_identifier", PASS_PRD.replace("member_management_view", "prd_5_1_view"), False)
+    run_case("tracking_generic_journey_identifier", PASS_PRD.replace("member_management_view", "journey_view"), False)
+    run_case(
+        "tracking_duplicate_identifier",
+        PASS_PRD.replace("high_risk_role_change_click", "member_management_view"),
+        False,
+    )
     run_case(
         "missing_localization_usage_checklist",
         PASS_PRD.replace("| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |\n\n", ""),

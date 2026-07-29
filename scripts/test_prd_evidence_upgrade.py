@@ -11,6 +11,8 @@ from pathlib import Path
 from prd_evidence_upgrade import (
     discover_output_folders,
     normalize_tracking_identifier,
+    normalize_existing_tracking_rows,
+    tracking_rows_from_details,
     upgrade_output,
 )
 
@@ -118,6 +120,48 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
     def test_normalizes_invalid_existing_tracking_identifier(self) -> None:
         self.assertEqual(normalize_tracking_identifier("`ProjectCreated`"), "project_created")
         self.assertEqual(normalize_tracking_identifier("project-created"), "project_created")
+
+    def test_uses_requirement_context_for_generic_followup_events(self) -> None:
+        rows = tracking_rows_from_details([
+            {
+                "number": "5.1",
+                "title": "创建项目",
+                "entry": "项目列表入口",
+                "description": "用户点击创建项目并展示结果。",
+                "evidence_id": "E001",
+            },
+            {
+                "number": "5.2",
+                "title": "变更预览与确认",
+                "entry": "创建项目后进入预览",
+                "description": "用户确认变更后展示结果。",
+                "evidence_id": "E002",
+            },
+        ])
+        identifiers = {row["id"] for row in rows}
+        self.assertIn("project_change_preview_view", identifiers)
+        self.assertNotIn("journey_view", identifiers)
+
+    def test_expands_generated_generic_identifier_with_event_context(self) -> None:
+        prd = """## 七、埋点需求
+
+| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |
+| --- | --- | --- | --- | --- |
+| 查看框选节点批量连入目标输入点 | node_view | 页面完成首屏展示时 | / | / |
+"""
+        upgraded = normalize_existing_tracking_rows(prd)
+        self.assertIn("node_connection_bulk_input_view", upgraded)
+
+    def test_recompiles_generated_result_event_without_a_generic_action_suffix(self) -> None:
+        prd = """## 七、埋点需求
+
+| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |
+| --- | --- | --- | --- | --- |
+| 查看首页内容发现与创作入口结果展示 | result_action_result | 操作结果展示时 | / | / |
+"""
+        upgraded = normalize_existing_tracking_rows(prd)
+        self.assertIn("home_discovery_creation_result_display", upgraded)
+        self.assertNotIn("result_action_result", upgraded)
 
     def test_removes_english_only_legacy_localization_from_chinese_prd(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

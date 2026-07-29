@@ -2098,8 +2098,10 @@ def check_chinese_prd(path: Path) -> None:
                 fail("Chinese PRD tracking event name must describe the measured user action or value")
             if not re.fullmatch(r"[a-z][a-z0-9_]*", identifier):
                 fail("Chinese PRD tracking identifier must use a lowercase engineering event identifier")
-            if identifier.startswith("prd_") or identifier in {"event", "feature", "journey"}:
+            if identifier.startswith(("prd_", "journey_")) or identifier in {"event", "feature", "journey"}:
                 fail("Chinese PRD tracking event name must describe feature and action, not a PRD location or generic label")
+            if "_" not in identifier:
+                fail("Chinese PRD tracking event name must combine a feature and an action")
             if not timing:
                 fail("Chinese PRD tracking event must state its observable timing")
             if re.search(r"(?:^|；|。)\s*[一二三四五六七八九十]+、|\b\d+[.、]", timing):
@@ -2110,6 +2112,9 @@ def check_chinese_prd(path: Path) -> None:
                 fail("Chinese PRD tracking 附加参数 must use `/` when no extra property is needed")
             if not values[4]:
                 fail("Chinese PRD tracking 备注 must use `/` when no note is needed")
+        identifiers = [values[1] for values in rows[1:] if len(values) == 5]
+        if len(identifiers) != len(set(identifiers)):
+            fail("Chinese PRD tracking event names must be unique within one PRD")
     prototype_refs = re.findall(r"`(prototype-[a-z-]+\.html)`", text)
     for ref in prototype_refs:
         if not (path / ref).is_file():

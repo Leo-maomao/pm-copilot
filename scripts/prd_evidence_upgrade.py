@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MEDIA_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".mov", ".mp4", ".webm"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 RUNTIME_ASSET_NAMES = {"mermaid.min.js"}
-ACTION_RE = re.compile(r"(点击|选择|提交|确认|保存|创建|启用|取消|删除|上传|下载|分享|重试|展开|调整|管理|打开|关闭|恢复|设置|编辑)")
+ACTION_RE = re.compile(r"(点击|选择|提交|确认|保存|创建|启用|取消|删除|上传|下载|分享|重试|展开|调整|管理|打开|关闭|恢复|设置|编辑|连接)")
 RESULT_RE = re.compile(r"(成功|完成|结果|失败|部分完成)")
 VALUE_RE = re.compile(r"(浏览|瀑布流|阅读|时长|曝光|滚动|停留)")
 SECTION_RE = re.compile(r"(?m)^##\s+([一二三四五六七])、([^\n]+)\s*$")
@@ -35,7 +35,20 @@ FEATURE_TERMS = (
     ("模型", "model"), ("图像", "image"), ("图片", "image"), ("视频", "video"),
     ("节点", "node"), ("资产", "asset"), ("回收站", "trash"), ("菜单", "menu"),
     ("快捷键", "shortcut"), ("权限", "permission"), ("成员", "member"), ("续费", "renewal"),
-    ("支付", "payment"), ("订单", "order"), ("文件", "file"), ("任务", "task"),
+    ("角色", "role"), ("连接", "connection"), ("连入", "connection"), ("首页", "home"),
+    ("Flow Agent", "flow_agent"), ("助手", "assistant"), ("支付", "payment"), ("订单", "order"),
+    ("多媒体", "multimedia"), ("文件", "file"), ("任务", "task"),
+)
+FEATURE_QUALIFIERS = (
+    ("批量", "bulk"), ("变更", "change"), ("预览", "preview"), ("恢复", "recovery"),
+    ("状态", "status"), ("费用", "fee"), ("设置", "settings"), ("提醒", "reminder"),
+    ("失败", "failure"), ("处理", "handling"), ("可用", "availability"), ("授权", "authorization"),
+    ("撤销", "revocation"), ("拒绝", "rejection"), ("记录", "record"), ("浏览", "browse"),
+    ("搜索", "search"), ("筛选", "filter"), ("整理", "organize"), ("复用", "reuse"),
+    ("名称", "name"), ("输入", "input"), ("运行", "runtime"), ("素材", "media"),
+    ("发现", "discovery"), ("引导", "guidance"), ("像素", "pixels"), ("分组", "group"),
+    ("历史", "history"), ("不可用", "unavailable"), ("单图", "single"), ("购买", "purchase"),
+    ("创作", "creation"), ("完成", "completion"),
 )
 ACTION_SUFFIXES = {
     "点击": ("click", "点击"), "选择": ("select", "选择"), "提交": ("submit", "提交"),
@@ -45,6 +58,7 @@ ACTION_SUFFIXES = {
     "重试": ("retry", "重试"), "展开": ("expand", "展开"), "调整": ("adjust", "调整"),
     "管理": ("manage", "管理"), "打开": ("open", "打开"), "关闭": ("close", "关闭"),
     "恢复": ("restore", "恢复"), "设置": ("set", "设置"), "编辑": ("edit", "编辑"),
+    "连接": ("connect", "连接"),
 }
 
 
@@ -186,12 +200,24 @@ def tracking_rows_from_csv(path: Path, records: list[Evidence]) -> list[dict[str
     return rows
 
 
-def semantic_feature(value: str) -> str:
+def semantic_feature(value: str, fallback: str = "") -> str:
     words: list[str] = []
     for term, word in FEATURE_TERMS:
         if term in value and word not in words:
             words.append(word)
-    return "_".join(words[:3]) or "journey"
+    qualifiers = [word for term, word in FEATURE_QUALIFIERS if term in value and word not in words]
+    fallback_words = [word for word in fallback.split("_") if word]
+    if words:
+        return "_".join((words + qualifiers)[:4])
+    if fallback_words:
+        return "_".join((fallback_words[:2] + qualifiers)[:4])
+    return "_".join(qualifiers[:2]) or "journey"
+
+
+def tracking_context_feature(event_names: Iterable[str]) -> str:
+    combined = " ".join(event_names)
+    words = [word for term, word in FEATURE_TERMS if term in combined]
+    return "_".join(list(dict.fromkeys(words))[:2])
 
 
 def action_for(value: str) -> tuple[str, str]:
@@ -201,12 +227,13 @@ def action_for(value: str) -> tuple[str, str]:
     return "action", "操作"
 
 
-def semantic_event_identifier(name: str, timing: str, default_action: str = "") -> str:
-    feature = semantic_feature(name)
-    if "首屏" in timing or name.startswith(("访问", "查看", "进入")):
+def semantic_event_identifier(name: str, timing: str, default_action: str = "", fallback_feature: str = "") -> str:
+    feature = semantic_feature(name, fallback_feature)
+    if name.endswith(("结果展示", "结果可见")) or "结果" in timing or "成功" in timing or "失败" in timing:
+        action = default_action or action_for(name)[0]
+        suffix = f"{action}_result" if action != "action" else "result_display"
+    elif "首屏" in timing or name.startswith(("访问", "查看", "进入")):
         suffix = "view"
-    elif "结果" in name or "结果" in timing or "成功" in timing or "失败" in timing:
-        suffix = f"{default_action or action_for(name)[0]}_result"
     elif "浏览" in name or "时长" in name:
         suffix = "engagement"
     else:
@@ -233,12 +260,12 @@ def normalized_event_label(value: str) -> str:
     return value
 
 
-def canonical_event_identifier(identifier: str, event_name: str, timing: str) -> str:
+def canonical_event_identifier(identifier: str, event_name: str, timing: str, fallback_feature: str = "") -> str:
     identifier = normalize_tracking_identifier(identifier)
     action_id, _ = action_for(event_name)
     feature = semantic_feature(event_name)
-    if identifier.startswith("prd_") or identifier in {"event", "feature", "journey"}:
-        return semantic_event_identifier(event_name, timing, action_id)
+    if identifier.startswith("prd_") or identifier.startswith("journey_") or identifier in {"event", "feature", "journey"}:
+        return semantic_event_identifier(event_name, timing, action_id, fallback_feature)
     if identifier.endswith("_viewed"):
         return f"{feature}_view"
     if identifier.endswith("_created"):
@@ -269,9 +296,10 @@ def compact_timing(value: str, identifier: str = "", event_name: str = "") -> st
 
 def tracking_rows_from_details(details: list[dict[str, str]]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
+    context_feature = tracking_context_feature(detail["title"] for detail in details)
     for detail in details:
         number, title, entry, description = (detail[key] for key in ("number", "title", "entry", "description"))
-        feature = semantic_feature(title)
+        feature = semantic_feature(title, context_feature)
         if entry:
             rows.append({
                 "name": f"查看{title}", "id": f"{feature}_view", "timing": "页面完成首屏展示时",
@@ -447,6 +475,14 @@ def normalize_existing_tracking_rows(prd: str) -> str:
     next_heading = re.search(r"(?m)^##\s+", prd[heading.end() :])
     end = heading.end() + next_heading.start() if next_heading else len(prd)
     section = prd[heading.start() : end]
+    event_names = [
+        values[0]
+        for line in section.splitlines()
+        if line.strip().startswith("|")
+        for values in [[item.strip() for item in line.strip().strip("|").split("|")]]
+        if len(values) == 5 and values[0] not in {"事件", "名称", "---"}
+    ]
+    context_feature = tracking_context_feature(event_names)
     lines: list[str] = []
     for line in section.splitlines(keepends=True):
         values = [item.strip() for item in line.strip().strip("|").split("|")]
@@ -456,7 +492,10 @@ def normalize_existing_tracking_rows(prd: str) -> str:
         elif len(values) == 5 and values[0] not in {"事件", "名称", "---"}:
             name, identifier, timing, parameters, note = values
             name = normalized_event_label(name)
-            normalized_identifier = canonical_event_identifier(identifier, name, timing)
+            normalized_identifier = canonical_event_identifier(identifier, name, timing, context_feature)
+            generated_identifier = semantic_event_identifier(name, timing, action_for(name)[0], context_feature)
+            if note in {"", "/"} and generated_identifier != "journey_action":
+                normalized_identifier = generated_identifier
             values[0] = name
             values[1] = normalized_identifier
             values[2] = compact_timing(timing, normalized_identifier, name)

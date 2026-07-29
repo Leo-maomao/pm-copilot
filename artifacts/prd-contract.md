@@ -124,7 +124,7 @@ Include only when **new or changed** user-facing copy requires localization. Fir
 
 ## 七、埋点需求（可选）
 
-Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`. `事件名称` is a lowercase semantic identifier in `feature_action` form, for example `login_click`, `project_create`, `project_create_result`, or `feed_engagement`; it must not use PRD section numbers such as `prd_5_1_view`. Do not label rows as “拟议” solely because no taxonomy file was supplied.
+Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`. `事件名称` is a unique lowercase semantic identifier in `feature_action` form, for example `login_click`, `project_create`, `project_create_result`, or `feed_engagement`; it must carry the feature context and must not use PRD section numbers or generic prefixes such as `prd_5_1_view` or `journey_view`. Do not label rows as “拟议” solely because no taxonomy file was supplied.
 
 Build the event set from the user journey and the decision it must support, not from an exhaustive list of controls:
 
