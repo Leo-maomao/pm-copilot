@@ -374,7 +374,6 @@ def remove_migrator_figure_rows(prd: str) -> str:
 
 
 def insert_figure_rows(prd: str, details: list[dict[str, str]], assets: list[dict[str, str]]) -> tuple[str, list[str]]:
-    prd = remove_migrator_figure_rows(prd)
     selected: list[str] = []
     used: set[str] = set()
     detail_by_number = {item["number"]: item for item in details}
@@ -593,6 +592,33 @@ def run_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[st
     return subprocess.run(command, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 
+def source_backed_preservation_gaps(folder: Path, prd: str) -> list[str]:
+    """Return source-backed history that must be restored before automated mutation."""
+    run_log_path = folder / "run-log.yaml"
+    if not run_log_path.is_file():
+        return []
+    run_log = read(run_log_path)
+    source_requirement_ids = set(re.findall(r"\bR\d+\b", run_log))
+    detail_count = len(DETAIL_RE.findall(prd))
+    gaps: list[str] = []
+    if source_requirement_ids and detail_count < len(source_requirement_ids):
+        gaps.append(
+            "Source-backed requirement scope must be restored before automated upgrade "
+            f"({detail_count} detail sections for {len(source_requirement_ids)} requirements)."
+        )
+    source_versions = [
+        tuple(int(part) for part in value.split("."))
+        for value in re.findall(r"(?i)(?:PRD\s+v|prd\.md[^\n]{0,100}?\bv)(\d+\.\d+)", run_log)
+    ]
+    document_versions = [
+        tuple(int(part) for part in value.split("."))
+        for value in re.findall(r"(?m)^\|\s*v(\d+\.\d+)\s*\|", prd)
+    ]
+    if source_versions and (not document_versions or max(document_versions) < max(source_versions)):
+        gaps.append("Source-backed requirement-version history must be restored before automated upgrade.")
+    return gaps
+
+
 def upgrade_output(folder: Path, renderer_root: Path, apply: bool, validate: bool) -> OutputReport:
     prd_path = folder / "prd.md"
     report = OutputReport(output=str(folder), status="skipped")
@@ -601,6 +627,32 @@ def upgrade_output(folder: Path, renderer_root: Path, apply: bool, validate: boo
         return report
     prd = read(prd_path)
     report.language = output_language(folder, prd)
+    preservation_gaps = source_backed_preservation_gaps(folder, prd)
+    if preservation_gaps:
+        report.status = "blocked"
+        report.limitations.extend(preservation_gaps)
+        if apply:
+            tool_results = folder / "tool-results"
+            tool_results.mkdir(exist_ok=True)
+            payload = {
+                "schema_version": "1.0",
+                "output": str(folder),
+                "language": report.language,
+                "evidence": [],
+                "selected_asset_evidence_ids": [],
+                "localization_evidence_ids": [],
+                "tracking_evidence_ids": [],
+                "report": asdict(report),
+            }
+            (tool_results / "prd-evidence-ledger.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            (tool_results / "prd-upgrade-report.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        return report
     records: list[Evidence] = []
     details = requirement_details(prd, prd_path, records)
     copies = prototype_copy(folder, report.language, records) + quoted_copy(prd, report.language, prd_path, records)

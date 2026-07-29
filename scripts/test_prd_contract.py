@@ -6,7 +6,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from validate_outputs import check_chinese_prd, check_prd_output_contract
+from validate_outputs import check_chinese_prd, check_prd_output_contract, check_stale_validation
 
 
 PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
@@ -81,6 +81,7 @@ def run_case(name: str, prd: str, should_pass: bool, run_log: str = "source_mode
         try:
             check_chinese_prd(folder)
             check_prd_output_contract(folder, language="zh")
+            check_stale_validation(folder)
         except SystemExit:
             passed = False
         if passed != should_pass:
@@ -138,6 +139,20 @@ def main() -> None:
     )
     run_case("tracking_prd_position_identifier", PASS_PRD.replace("member_management_view", "prd_5_1_view"), False)
     run_case("tracking_generic_journey_identifier", PASS_PRD.replace("member_management_view", "journey_view"), False)
+    run_case(
+        "tracking_version_number_timing",
+        PASS_PRD.replace(
+            "| 点击高危角色变更 | high_risk_role_change_click | 用户点击确认变更角色时 |",
+            "| 选择 Seedance 2.5 | seedance_2_5_select | 用户选择 Seedance 2.5 时 |",
+        ),
+        True,
+    )
+    run_case(
+        "ordinary_waiting_phrase_is_not_a_stale_placeholder",
+        PASS_PRD.replace("降低误操作", "不必等待执行结束即可继续整理下一步操作"),
+        True,
+    )
+    run_case("standalone_stale_validation_placeholder", PASS_PRD + "\n待执行\n", False)
     run_case(
         "tracking_duplicate_identifier",
         PASS_PRD.replace("high_risk_role_change_click", "member_management_view"),

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from prd_evidence_upgrade import (
     discover_output_folders,
+    insert_figure_rows,
     normalize_tracking_identifier,
     normalize_existing_tracking_rows,
     tracking_rows_from_details,
@@ -84,6 +85,21 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             self.assertNotIn("prd_5_1", prd)
             self.assertIn("| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |", prd)
 
+    def test_blocks_automatic_mutation_when_source_scope_is_already_contracted(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = self.create_run(root)
+            original = (folder / "prd.md").read_text(encoding="utf-8")
+            (folder / "run-log.yaml").write_text(
+                'related_requirement_ids: [R1, R2, R3, R4]\n',
+                encoding="utf-8",
+            )
+            report = upgrade_output(folder, Path.cwd(), True, False)
+            self.assertEqual(report.status, "blocked")
+            self.assertFalse(report.changed)
+            self.assertEqual((folder / "prd.md").read_text(encoding="utf-8"), original)
+            self.assertTrue(any("scope must be restored" in item for item in report.limitations))
+
     def test_adds_same_run_matching_figure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -151,6 +167,27 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
 """
         upgraded = normalize_existing_tracking_rows(prd)
         self.assertIn("node_connection_bulk_input_view", upgraded)
+
+    def test_preserves_existing_figure_rows_during_migration(self) -> None:
+        prd = """# 示例
+
+## 五、需求详情
+
+### 5.1 创建项目
+
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 项目成员创建项目。 |
+| 需求入口 | 项目列表入口。 |
+| 需求详情 | 用户点击创建项目。 |
+| 设计与交互 | 展示创建入口。 |
+| 图示 | ![创建项目弹窗](./assets/创建项目弹窗.png)<br><small>位置：项目列表；用途：展示创建入口。</small> |
+"""
+        details = [{"number": "5.1", "title": "创建项目", "entry": "项目列表入口", "description": "用户点击创建项目", "evidence_id": "E001", "body": ""}]
+        assets = [{"path": "./assets/创建项目弹窗.png", "name": "创建项目弹窗.png", "tokens": "创建 项目", "evidence_id": "E002"}]
+        upgraded, selected = insert_figure_rows(prd, details, assets)
+        self.assertEqual(upgraded, prd)
+        self.assertEqual(selected, [])
 
     def test_recompiles_generated_result_event_without_a_generic_action_suffix(self) -> None:
         prd = """## 七、埋点需求

@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.3] - 2026-07-29
+
+### Fixed
+
+- Added historical PRD fidelity checks that compare source-backed requirement inventories and documented requirement-version changes against the current PRD, preventing silent scope contraction during migration.
+- Stopped the historical PRD upgrader from deleting existing figure rows before attempting evidence-backed additions.
+- Added a full local-output fidelity audit that separates mandatory restoration findings from visual-evidence reviews; restored all identified scope-contracted historical PRDs and completed the related semantic asset reviews.
+- Blocked automatic historical upgrades when the source log shows a requirement inventory or requirement-version history that the current PRD no longer preserves.
+
+### Validation
+
+- Added regression coverage for requirement-scope and version-history loss, automatic-upgrade blocking, existing-figure preservation, tracking timing false positives, and all reviewed historical outputs.
+
 ## [4.8.2] - 2026-07-29
 
 ### Fixed

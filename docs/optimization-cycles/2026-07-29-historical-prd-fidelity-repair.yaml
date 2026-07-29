@@ -1,0 +1,28 @@
+cycle: historical-prd-fidelity-repair
+date: 2026-07-29
+version_change: 4.8.2 -> 4.8.3
+source_run: local historical PRD review after user-reported scope and figure loss
+generalized_failure: >-
+  A prior historical PRD normalization allowed source-backed requirement scope and
+  version history to be replaced by a smaller standardized document, while figure
+  reinsertion removed existing figure rows before adding new evidence.
+fix_surface:
+  - scripts/prd_evidence_upgrade.py
+  - scripts/validate_outputs.py
+  - scripts/audit_historical_prd_fidelity.py
+  - scripts/test_prd_evidence_upgrade.py
+  - scripts/test_prd_fidelity_audit.py
+  - scripts/test_prd_contract.py
+decisions:
+  preservation: Existing requirement details, documented requirement versions, and figure rows are preservation-first evidence.
+  validation: A historical PRD fails when its detail-section count is lower than the source-backed R inventory or its version table omits a source-backed requirement change; automatic upgrades stop before mutation when either gap exists.
+  review: High unused-asset counts trigger visual review only; they do not automatically create requirements or force every asset into the PRD.
+validation:
+  - python3 scripts/test_prd_evidence_upgrade.py
+  - python3 scripts/test_prd_fidelity_audit.py
+  - python3 scripts/test_prd_contract.py
+  - python3 scripts/validate_runtime_routing.py
+  - python3 scripts/validate_repo.py
+publish:
+  remote_push_status: not pushed in this change set
+  embedded_copy_sync_targets: pending after review

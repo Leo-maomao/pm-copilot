@@ -28,8 +28,8 @@ FORBIDDEN_DEFAULT_FILES = {
 }
 
 STALE_VALIDATION_RE = re.compile(
-    r"\b(should run|to be verified)\b|待执行|待运行|应运行",
-    re.IGNORECASE,
+    r"\b(should run|to be verified)\b|^\s*(?:[-*>]\s*)?(?:待执行|待运行|应运行)\s*(?:[|。]?)\s*$",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 CHINESE_STATUS_LEAK_RE = re.compile(
@@ -1273,6 +1273,29 @@ def check_historical_prd_upgrade_evidence(path: Path) -> None:
         if not source.is_file():
             fail(f"Historical PRD selected asset is missing: {source}")
 
+    run_log_path = path / "run-log.yaml"
+    if not run_log_path.is_file():
+        return
+    run_log = read(run_log_path)
+    detail_count = len(re.findall(r"(?m)^###\s+5\.\d+\s+", read(path / "prd.md")))
+    historical_requirement_ids = set(re.findall(r"\bR\d+\b", run_log))
+    if historical_requirement_ids and detail_count < len(historical_requirement_ids):
+        fail(
+            "Historical PRD requirement scope is smaller than the source-backed requirement inventory "
+            f"({detail_count} detail sections for {len(historical_requirement_ids)} historical requirements)"
+        )
+
+    historical_versions = [
+        tuple(int(part) for part in value.split("."))
+        for value in re.findall(r"(?i)(?:PRD\s+v|prd\.md[^\n]{0,100}?\bv)(\d+\.\d+)", run_log)
+    ]
+    document_versions = [
+        tuple(int(part) for part in value.split("."))
+        for value in re.findall(r"(?m)^\|\s*v(\d+\.\d+)\s*\|", read(path / "prd.md"))
+    ]
+    if historical_versions and (not document_versions or max(document_versions) < max(historical_versions)):
+        fail("Historical PRD version record omits a source-backed requirement change")
+
 
 def check_pre_clarification(path: Path) -> None:
     allowed = {"run-log.yaml"}
@@ -2104,7 +2127,7 @@ def check_chinese_prd(path: Path) -> None:
                 fail("Chinese PRD tracking event name must combine a feature and an action")
             if not timing:
                 fail("Chinese PRD tracking event must state its observable timing")
-            if re.search(r"(?:^|；|。)\s*[一二三四五六七八九十]+、|\b\d+[.、]", timing):
+            if re.search(r"(?:^|[；。])\s*(?:[一二三四五六七八九十]+、|\d+[.、])\s+", timing):
                 fail("Chinese PRD tracking 上报时机 must be a concise observable sentence, not a numbered requirement excerpt")
             if not parameters:
                 fail("Chinese PRD tracking 附加参数 must use `/` when no extra property is needed")
