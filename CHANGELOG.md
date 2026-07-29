@@ -6,6 +6,18 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.1] - 2026-07-29
+
+### Changed
+
+- Renamed PRD tracking columns to `事件`、`事件名称`、`上报时机`、`附加参数`、`备注`, and standardized generated engineering identifiers as semantic `feature_action` names instead of PRD-position identifiers.
+- Simplified generated reporting moments to observable sentences, replaced empty tracking properties and notes with `/`, and removed default “拟议” filler from PRD tables.
+- Standardized multilingual requirements as a copyable new-copy text block followed by `文案`、`使用位置`、`参数` checklist rows; placeholders such as `{reason}` are now explicit and testable.
+
+### Validation
+
+- Migrated and historically validated all local PRDs after the new tracking and multilingual rules, including rendered HTML.
+
 ## [4.8.0] - 2026-07-29
 
 ### Added

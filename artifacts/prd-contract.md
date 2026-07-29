@@ -120,11 +120,11 @@ Do not add separate risk, pending-confirmation, acceptance-result, or technical-
 
 ## 六、多语言需求（可选）
 
-Include only when new or changed user-facing copy requires localization. When the section has one copy set, list the copy directly without a `6.1` subsection or explanatory lead-in; use a mapping table only when it adds real reuse or context value. Existing-key copy stays in the mapping table and does not belong in the direct copy list.
+Include only when **new or changed** user-facing copy requires localization. First provide one copyable pure-text block containing only the new text, without a `6.1` subsection or explanatory lead-in. Then provide a concise checklist with exactly `文案`、`使用位置`、`参数`: `使用位置` names the affected user-visible requirement or surface; `参数` lists placeholders such as `{reason}` or uses `/` when no placeholder is needed. Existing-key copy stays out of the pure-text block and must not be presented as new copy.
 
 ## 七、埋点需求（可选）
 
-Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `名称`, `标识`, `时机`, `参数`, and `备注`; the values provide the Chinese event name and engineering event identifier. Label events as proposed when no approved taxonomy exists.
+Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`. `事件名称` is a lowercase semantic identifier in `feature_action` form, for example `login_click`, `project_create`, `project_create_result`, or `feed_engagement`; it must not use PRD section numbers such as `prd_5_1_view`. Do not label rows as “拟议” solely because no taxonomy file was supplied.
 
 Build the event set from the user journey and the decision it must support, not from an exhaustive list of controls:
 
@@ -133,9 +133,9 @@ Build the event set from the user journey and the decision it must support, not 
 3. **结果**: record user-visible success, failure, cancellation, or completion for important creation, submission, payment, sharing, permission, or other business actions.
 4. **价值行为**: add depth, duration, exposure, completion, or retention signals when the feature’s value depends on sustained use. For example, a waterfall feed needs browsing duration and meaningful scroll/exposure depth in addition to visit and item click; creation flows need the final creation result, not only the create-button click.
 
-`参数` means **additional properties beyond the event itself**, not a restatement of “click” or “visit”. List only properties needed to explain the user, object, context, result, or value of that event. For example, `创建项目` can add `创建人标识、创建时间、项目名称`; `创建画布` can add `创建人标识、创建时间、关联项目名称`. When no additional property is needed, leave the cell empty; do not write `无`、`不涉及`、`-`、`N/A`, or a generic placeholder. Avoid raw sensitive personal data and record only the least specific property that supports the product decision.
+`附加参数` means **additional properties beyond the event itself**, not a restatement of “click” or “visit”. List only properties needed to explain the user, object, context, result, or value of that event. For example, `创建项目` can add `创建人标识、创建时间、项目名称`; `创建画布` can add `创建人标识、创建时间、关联项目名称`. Use `/` when no additional property is needed. Avoid raw sensitive personal data and record only the least specific property that supports the product decision.
 
-`时机` must state the observable moment, such as “用户进入项目列表并完成首屏展示”, “用户点击创建项目”, “项目创建结果返回且用户可见”, or “用户离开瀑布流/浏览达到阈值时汇总”. `备注` explains metric intent, de-duplication, threshold, taxonomy status, or a known limitation; it must not contain engineering implementation instructions.
+`上报时机` must state the observable moment in one short sentence, such as “页面完成首屏展示时”, “用户点击登录按钮时”, “项目创建结果展示时”, or “用户离开瀑布流或达到有效浏览阈值时”. `备注` is optional detail for metric intent, de-duplication, thresholds, or known limitations; use `/` when no note is needed and never place engineering implementation instructions in it.
 
 ## Product Boundary
 

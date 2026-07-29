@@ -1,0 +1,23 @@
+cycle: prd-tracking-localization-standards
+date: 2026-07-29
+version_change: 4.8.0 -> 4.8.1
+decisions:
+  tracking:
+    columns: [事件, 事件名称, 上报时机, 附加参数, 备注]
+    identifier_rule: lowercase feature_action identifiers; no PRD position identifiers
+    empty_cell_value: /
+    default_note: /
+  localization:
+    include_only: new or changed user-visible copy
+    copy_format: pure-text block followed by a usage checklist
+    checklist_columns: [文案, 使用位置, 参数]
+    placeholder_format: '{parameter_name}'
+validation:
+  - python3 scripts/test_prd_contract.py
+  - python3 scripts/test_prd_evidence_upgrade.py
+  - python3 scripts/validate_runtime_routing.py
+  - python3 scripts/validate_repo.py
+  - python3 scripts/prd_evidence_upgrade.py --roots Desktop --apply
+publish:
+  remote_push_status: pending
+  embedded_copy_sync_targets: Desktop local PM Copilot copies

@@ -25,11 +25,27 @@ ROOT = Path(__file__).resolve().parents[1]
 MEDIA_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".mov", ".mp4", ".webm"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 RUNTIME_ASSET_NAMES = {"mermaid.min.js"}
-ACTION_RE = re.compile(r"(点击|选择|提交|确认|保存|创建|启用|取消|删除|上传|下载|分享|重试)")
+ACTION_RE = re.compile(r"(点击|选择|提交|确认|保存|创建|启用|取消|删除|上传|下载|分享|重试|展开|调整|管理|打开|关闭|恢复|设置|编辑)")
 RESULT_RE = re.compile(r"(成功|完成|结果|失败|部分完成)")
 VALUE_RE = re.compile(r"(浏览|瀑布流|阅读|时长|曝光|滚动|停留)")
 SECTION_RE = re.compile(r"(?m)^##\s+([一二三四五六七])、([^\n]+)\s*$")
 DETAIL_RE = re.compile(r"(?m)^###\s+(5\.\d+)\s+([^\n]+)\s*$")
+FEATURE_TERMS = (
+    ("登录", "login"), ("项目", "project"), ("画布", "canvas"), ("团队", "team"),
+    ("模型", "model"), ("图像", "image"), ("图片", "image"), ("视频", "video"),
+    ("节点", "node"), ("资产", "asset"), ("回收站", "trash"), ("菜单", "menu"),
+    ("快捷键", "shortcut"), ("权限", "permission"), ("成员", "member"), ("续费", "renewal"),
+    ("支付", "payment"), ("订单", "order"), ("文件", "file"), ("任务", "task"),
+)
+ACTION_SUFFIXES = {
+    "点击": ("click", "点击"), "选择": ("select", "选择"), "提交": ("submit", "提交"),
+    "确认": ("confirm", "确认"), "保存": ("save", "保存"), "创建": ("create", "创建"),
+    "启用": ("enable", "启用"), "取消": ("cancel", "取消"), "删除": ("delete", "删除"),
+    "上传": ("upload", "上传"), "下载": ("download", "下载"), "分享": ("share", "分享"),
+    "重试": ("retry", "重试"), "展开": ("expand", "展开"), "调整": ("adjust", "调整"),
+    "管理": ("manage", "管理"), "打开": ("open", "打开"), "关闭": ("close", "关闭"),
+    "恢复": ("restore", "恢复"), "设置": ("set", "设置"), "编辑": ("edit", "编辑"),
+}
 
 
 @dataclass
@@ -162,37 +178,122 @@ def tracking_rows_from_csv(path: Path, records: list[Evidence]) -> list[dict[str
             trigger = strip_markup(row.get("trigger") or row.get("时机") or "")
             if not name or not identifier or not trigger:
                 continue
-            properties = strip_markup(row.get("required_properties") or row.get("参数") or "")
+            properties = strip_markup(row.get("required_properties") or row.get("附加参数") or row.get("参数") or "") or "/"
             evidence_id = add_evidence(records, "tracking_plan", path, json.dumps(row, ensure_ascii=False), "high")
-            rows.append({"name": name, "id": identifier, "timing": trigger, "parameters": properties, "note": "来源于既有埋点方案。", "evidence_id": evidence_id})
+            name = normalized_event_label(name)
+            event_id = canonical_event_identifier(identifier, name, trigger)
+            rows.append({"name": name, "id": event_id, "timing": compact_timing(trigger, event_id, name), "parameters": properties, "note": "来源于既有埋点方案。", "evidence_id": evidence_id})
     return rows
+
+
+def semantic_feature(value: str) -> str:
+    words: list[str] = []
+    for term, word in FEATURE_TERMS:
+        if term in value and word not in words:
+            words.append(word)
+    return "_".join(words[:3]) or "journey"
+
+
+def action_for(value: str) -> tuple[str, str]:
+    match = ACTION_RE.search(value)
+    if match and match.group(1) in ACTION_SUFFIXES:
+        return ACTION_SUFFIXES[match.group(1)]
+    return "action", "操作"
+
+
+def semantic_event_identifier(name: str, timing: str, default_action: str = "") -> str:
+    feature = semantic_feature(name)
+    if "首屏" in timing or name.startswith(("访问", "查看", "进入")):
+        suffix = "view"
+    elif "结果" in name or "结果" in timing or "成功" in timing or "失败" in timing:
+        suffix = f"{default_action or action_for(name)[0]}_result"
+    elif "浏览" in name or "时长" in name:
+        suffix = "engagement"
+    else:
+        suffix = default_action or action_for(name)[0]
+    return f"{feature}_{suffix}"
+
+
+def normalized_event_label(value: str) -> str:
+    value = value.strip()
+    if value.startswith("访问"):
+        value = "查看" + value[2:]
+    if value.startswith("查看"):
+        for action in ACTION_SUFFIXES:
+            prefix = "查看" + action
+            if value.startswith(prefix):
+                value = "查看" + value[len(prefix):]
+                break
+    for action in ACTION_SUFFIXES:
+        doubled = action + action
+        if value.startswith(doubled):
+            value = action + value[len(doubled):]
+    if value.endswith("结果可见"):
+        value = value[:-4] + "结果展示"
+    return value
+
+
+def canonical_event_identifier(identifier: str, event_name: str, timing: str) -> str:
+    identifier = normalize_tracking_identifier(identifier)
+    action_id, _ = action_for(event_name)
+    feature = semantic_feature(event_name)
+    if identifier.startswith("prd_") or identifier in {"event", "feature", "journey"}:
+        return semantic_event_identifier(event_name, timing, action_id)
+    if identifier.endswith("_viewed"):
+        return f"{feature}_view"
+    if identifier.endswith("_created"):
+        return f"{feature}_create_result"
+    if "_action_result" in identifier:
+        return f"{feature}_{action_id}_result"
+    if identifier.endswith("_action"):
+        return f"{feature}_{action_id}"
+    return identifier
+
+
+def compact_timing(value: str, identifier: str = "", event_name: str = "") -> str:
+    if "首屏展示" in value:
+        return "页面完成首屏展示时"
+    if "离开" in value or "浏览达到" in value or "浏览时长" in value:
+        return "用户离开页面或达到有效浏览阈值时"
+    if "结果" in value or "成功" in value or "失败" in value:
+        return "操作结果展示时"
+    suffix = identifier.rsplit("_", 1)[-1]
+    action = next((label for event_id, label in ACTION_SUFFIXES.values() if event_id == suffix), "")
+    if action:
+        target = normalized_event_label(event_name)
+        if target.startswith(action):
+            target = target[len(action):]
+        return f"用户{action}{target}时"
+    return value.strip() or "用户完成对应操作时"
 
 
 def tracking_rows_from_details(details: list[dict[str, str]]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for detail in details:
         number, title, entry, description = (detail[key] for key in ("number", "title", "entry", "description"))
-        stem = f"prd_{number.replace('.', '_')}"
+        feature = semantic_feature(title)
         if entry:
             rows.append({
-                "name": f"访问{title}", "id": f"{stem}_view", "timing": f"用户从{entry}进入并完成首屏展示",
-                "parameters": "", "note": "拟议，用于评估入口触达。", "evidence_id": detail["evidence_id"],
+                "name": f"查看{title}", "id": f"{feature}_view", "timing": "页面完成首屏展示时",
+                "parameters": "/", "note": "/", "evidence_id": detail["evidence_id"],
             })
         action = ACTION_RE.search(description)
         if action:
+            action_id, action_label = ACTION_SUFFIXES.get(action.group(1), ("action", action.group(1)))
             rows.append({
-                "name": f"{action.group(1)}{title}", "id": f"{stem}_action", "timing": f"用户完成“{action.group(1)}”相关关键操作时",
-                "parameters": "", "note": "拟议，用于评估关键操作完成。", "evidence_id": detail["evidence_id"],
+                "name": f"{action_label}{title}", "id": f"{feature}_{action_id}", "timing": f"用户{action_label}{title}时",
+                "parameters": "/", "note": "/", "evidence_id": detail["evidence_id"],
             })
         if RESULT_RE.search(description):
+            action_id, _ = action_for(description)
             rows.append({
-                "name": f"{title}结果可见", "id": f"{stem}_result", "timing": "用户可见成功、失败或部分完成结果时",
-                "parameters": "", "note": "拟议，用于区分关键结果。", "evidence_id": detail["evidence_id"],
+                "name": f"{title}结果展示", "id": f"{feature}_{action_id}_result", "timing": "操作结果展示时",
+                "parameters": "/", "note": "/", "evidence_id": detail["evidence_id"],
             })
         if VALUE_RE.search(description):
             rows.append({
-                "name": f"{title}有效浏览", "id": f"{stem}_engagement", "timing": "用户离开页面或达到有效浏览阈值时汇总",
-                "parameters": "浏览时长、浏览深度", "note": "拟议，用于评估持续使用价值。", "evidence_id": detail["evidence_id"],
+                "name": f"{title}有效浏览", "id": f"{feature}_engagement", "timing": "用户离开页面或达到有效浏览阈值时",
+                "parameters": "浏览时长、浏览深度", "note": "/", "evidence_id": detail["evidence_id"],
             })
     unique: dict[str, dict[str, str]] = {}
     for row in rows:
@@ -338,8 +439,8 @@ def normalize_tracking_identifier(value: str) -> str:
     return value
 
 
-def normalize_existing_tracking_identifiers(prd: str) -> str:
-    """Repair only invalid existing tracking IDs without altering event meaning."""
+def normalize_existing_tracking_rows(prd: str) -> str:
+    """Migrate legacy tracking labels and generated IDs to the current PRD standard."""
     heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", prd)
     if not heading:
         return prd
@@ -349,17 +450,64 @@ def normalize_existing_tracking_identifiers(prd: str) -> str:
     lines: list[str] = []
     for line in section.splitlines(keepends=True):
         values = [item.strip() for item in line.strip().strip("|").split("|")]
-        if len(values) == 5 and values[0] not in {"名称", "---"}:
-            identifier = values[1]
-            if not re.fullmatch(r"[a-z][a-z0-9_]*", identifier):
-                values[1] = normalize_tracking_identifier(identifier)
-                suffix = "\n" if line.endswith("\n") else ""
-                line = "| " + " | ".join(values) + " |" + suffix
+        if values == ["名称", "标识", "时机", "参数", "备注"]:
+            suffix = "\n" if line.endswith("\n") else ""
+            line = "| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |" + suffix
+        elif len(values) == 5 and values[0] not in {"事件", "名称", "---"}:
+            name, identifier, timing, parameters, note = values
+            name = normalized_event_label(name)
+            normalized_identifier = canonical_event_identifier(identifier, name, timing)
+            values[0] = name
+            values[1] = normalized_identifier
+            values[2] = compact_timing(timing, normalized_identifier, name)
+            values[3] = parameters or "/"
+            values[4] = "/" if not note or "拟议" in note else note
+            suffix = "\n" if line.endswith("\n") else ""
+            line = "| " + " | ".join(values) + " |" + suffix
         lines.append(line)
     return prd[: heading.start()] + "".join(lines) + prd[end:]
 
 
-def append_optional_sections(prd: str, copies: list[tuple[str, str]], tracking: list[dict[str, str]], language: str) -> tuple[str, str, str]:
+def copy_usage(copy: str, details: list[dict[str, str]]) -> str:
+    for detail in details:
+        if copy in detail["body"]:
+            return f"{detail['number']} {detail['title']}"
+    return "相关需求"
+
+
+def copy_parameters(copy: str) -> str:
+    parameters = re.findall(r"\{([A-Za-z][A-Za-z0-9_]*)\}", copy)
+    return "、".join(f"{{{item}}}" for item in parameters) or "/"
+
+
+def normalize_localization_section(prd: str, details: list[dict[str, str]]) -> str:
+    heading = re.search(r"(?m)^##\s+六、多语言需求\s*$", prd)
+    if not heading:
+        return prd
+    next_heading = re.search(r"(?m)^##\s+", prd[heading.end() :])
+    end = heading.end() + next_heading.start() if next_heading else len(prd)
+    section = prd[heading.end() : end]
+    blocks = re.findall(r"```(?:text|plain|txt)?\s*\n(.+?)\n```", section, re.DOTALL | re.IGNORECASE)
+    copies = [line.strip() for block in blocks for line in block.splitlines() if line.strip()]
+    if not copies:
+        for line in section.splitlines():
+            if not line.strip().startswith("|") or re.match(r"^\|\s*:?-{3,}", line):
+                continue
+            values = [value.strip() for value in line.strip().strip("|").split("|")]
+            if values and values[0] not in {"文案", "---"}:
+                copies.append(values[0])
+    copies = list(dict.fromkeys(copies))
+    if not copies:
+        return prd
+    canonical = "\n".join([
+        "## 六、多语言需求", "", "```text", *copies, "```", "",
+        "| 文案 | 使用位置 | 参数 |", "| --- | --- | --- |",
+        *[f"| {copy} | {copy_usage(copy, details)} | {copy_parameters(copy)} |" for copy in copies],
+    ])
+    return prd[: heading.start()].rstrip() + "\n\n" + canonical + "\n\n" + prd[end:].lstrip()
+
+
+def append_optional_sections(prd: str, copies: list[tuple[str, str]], tracking: list[dict[str, str]], language: str, details: list[dict[str, str]]) -> tuple[str, str, str]:
     prd, localization_removed = remove_unsupported_chinese_localization(prd, language)
     prd = normalize_optional_section_order(prd)
     localization = "already_present" if section_present(prd, "多语言需求") else "omitted"
@@ -367,10 +515,15 @@ def append_optional_sections(prd: str, copies: list[tuple[str, str]], tracking: 
     localization_block = ""
     tracking_block = ""
     if copies and localization == "omitted":
-        localization_block = "\n".join(["## 六、多语言需求", "", "```text", *[item[0] for item in copies], "```"])
+        copy_lines = [item[0] for item in copies]
+        localization_block = "\n".join([
+            "## 六、多语言需求", "", "```text", *copy_lines, "```", "",
+            "| 文案 | 使用位置 | 参数 |", "| --- | --- | --- |",
+            *[f"| {copy} | {copy_usage(copy, details)} | {copy_parameters(copy)} |" for copy in copy_lines],
+        ])
         localization = "added"
     if tracking and tracking_status == "omitted":
-        tracking_lines = ["## 七、埋点需求", "", "| 名称 | 标识 | 时机 | 参数 | 备注 |", "| --- | --- | --- | --- | --- |"]
+        tracking_lines = ["## 七、埋点需求", "", "| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |", "| --- | --- | --- | --- | --- |"]
         tracking_lines.extend(
             f"| {row['name']} | {row['id']} | {row['timing']} | {row['parameters']} | {row['note']} |"
             for row in tracking
@@ -393,7 +546,8 @@ def append_optional_sections(prd: str, copies: list[tuple[str, str]], tracking: 
         prd = prd.rstrip() + "\n\n" + tracking_block + "\n"
     if localization_removed and localization == "omitted":
         localization = "removed_unsupported"
-    return normalize_existing_tracking_identifiers(prd), localization, tracking_status
+    prd = normalize_localization_section(prd, details)
+    return normalize_existing_tracking_rows(prd), localization, tracking_status
 
 
 def run_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -416,7 +570,7 @@ def upgrade_output(folder: Path, renderer_root: Path, apply: bool, validate: boo
     tracking = tracking_rows_from_csv(tracking_source, records) if tracking_source else tracking_rows_from_details(details)
     assets = real_assets(folder, records)
     upgraded, selected_assets = insert_figure_rows(prd, details, assets)
-    upgraded, report.localization, report.tracking = append_optional_sections(upgraded, copies, tracking, report.language)
+    upgraded, report.localization, report.tracking = append_optional_sections(upgraded, copies, tracking, report.language, details)
     report.figures = len(selected_assets)
     report.evidence_count = len(records)
     if not copies:

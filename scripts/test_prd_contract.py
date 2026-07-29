@@ -56,14 +56,19 @@ PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
 取消
 ```
 
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 确认变更角色 | 5.1 角色变更确认 | / |
+| 取消 | 5.1 角色变更确认 | / |
+
 ## 七、埋点需求
 
-| 名称 | 标识 | 时机 | 参数 | 备注 |
+| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |
 | --- | --- | --- | --- | --- |
-| 成员管理访问 | member_management_view | 团队管理员进入成员管理页并完成首屏展示 |  | 评估入口访问与后续角色变更转化。 |
-| 高危角色变更点击 | high_risk_role_change_click | 团队管理员点击确认变更角色 | 变更前角色、变更后角色、成员标识 | 评估高危角色变更意图。 |
-| 高危角色变更结果 | high_risk_role_change_result | 角色变更结果对用户可见时 | 变更结果、失败原因类型 | 区分成功与可恢复失败。 |
-| 成员列表浏览时长 | member_list_browse_duration | 用户离开成员管理页或浏览达到阈值时汇总 | 浏览时长、最大滚动深度、有效成员曝光数量 | 评估成员信息浏览深度。 |
+| 查看成员管理页 | member_management_view | 页面完成首屏展示时 | / | 评估入口访问与后续角色变更转化。 |
+| 点击高危角色变更 | high_risk_role_change_click | 用户点击确认变更角色时 | 变更前角色、变更后角色、成员标识 | 评估高危角色变更意图。 |
+| 高危角色变更结果展示 | high_risk_role_change_result | 操作结果展示时 | 变更结果、失败原因类型 | 区分成功与可恢复失败。 |
+| 成员列表有效浏览 | member_list_engagement | 用户离开页面或达到有效浏览阈值时 | 浏览时长、最大滚动深度、有效成员曝光数量 | 评估成员信息浏览深度。 |
 """
 
 
@@ -122,14 +127,27 @@ def main() -> None:
     run_case("operation_only_version", PASS_PRD.replace("首次创建", "重新渲染文档"), False)
     run_case("template_guidance", PASS_PRD.replace("降低误操作", "<说明目标用户的问题>"), False)
     run_case("vague_requirement_summary", PASS_PRD.replace("降低误操作", "帮助用户更清楚、更高效地完成当前任务"), False)
-    run_case("generic_tracking_event", PASS_PRD.replace("成员管理访问", "访问"), False)
+    run_case("generic_tracking_event", PASS_PRD.replace("查看成员管理页", "访问"), False)
     run_case(
         "tracking_param_placeholder",
         PASS_PRD.replace(
-            "| 成员管理访问 | member_management_view | 团队管理员进入成员管理页并完成首屏展示 |  |",
-            "| 成员管理访问 | member_management_view | 团队管理员进入成员管理页并完成首屏展示 | 无 |",
+            "| 查看成员管理页 | member_management_view | 页面完成首屏展示时 | / |",
+            "| 查看成员管理页 | member_management_view | 页面完成首屏展示时 | 无 |",
         ),
         False,
+    )
+    run_case("tracking_prd_position_identifier", PASS_PRD.replace("member_management_view", "prd_5_1_view"), False)
+    run_case(
+        "missing_localization_usage_checklist",
+        PASS_PRD.replace("| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |\n\n", ""),
+        False,
+    )
+    run_case(
+        "localization_placeholder_parameter",
+        PASS_PRD.replace("取消\n```", "操作失败：{reason}\n```").replace(
+            "| 取消 | 5.1 角色变更确认 | / |", "| 操作失败：{reason} | 5.1 角色变更确认 | {reason} |"
+        ),
+        True,
     )
 
 

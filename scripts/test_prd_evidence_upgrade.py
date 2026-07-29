@@ -76,8 +76,11 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             prd = (folder / "prd.md").read_text(encoding="utf-8")
             self.assertEqual(report.tracking, "added")
             self.assertIn("## 七、埋点需求", prd)
-            self.assertIn("访问创建项目", prd)
-            self.assertIn("创建项目结果可见", prd)
+            self.assertIn("查看项目", prd)
+            self.assertIn("project_view", prd)
+            self.assertIn("创建项目结果展示", prd)
+            self.assertNotIn("prd_5_1", prd)
+            self.assertIn("| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |", prd)
 
     def test_adds_same_run_matching_figure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

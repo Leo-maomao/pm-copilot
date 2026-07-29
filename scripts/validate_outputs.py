@@ -2088,8 +2088,8 @@ def check_chinese_prd(path: Path) -> None:
             for row in str(tracking_section.get("body", "")).splitlines()
             if row.strip().startswith("|") and not re.match(r"^\|\s*:?-{3,}", row)
         ]
-        if not rows or rows[0] != ["名称", "标识", "时机", "参数", "备注"]:
-            fail("Chinese PRD tracking table must keep the canonical 名称、标识、时机、参数、备注 columns")
+        if not rows or rows[0] != ["事件", "事件名称", "上报时机", "附加参数", "备注"]:
+            fail("Chinese PRD tracking table must keep the canonical 事件、事件名称、上报时机、附加参数、备注 columns")
         for values in rows[1:]:
             if len(values) != 5:
                 fail("Chinese PRD tracking rows must contain five columns")
@@ -2098,10 +2098,18 @@ def check_chinese_prd(path: Path) -> None:
                 fail("Chinese PRD tracking event name must describe the measured user action or value")
             if not re.fullmatch(r"[a-z][a-z0-9_]*", identifier):
                 fail("Chinese PRD tracking identifier must use a lowercase engineering event identifier")
+            if identifier.startswith("prd_") or identifier in {"event", "feature", "journey"}:
+                fail("Chinese PRD tracking event name must describe feature and action, not a PRD location or generic label")
             if not timing:
                 fail("Chinese PRD tracking event must state its observable timing")
+            if re.search(r"(?:^|；|。)\s*[一二三四五六七八九十]+、|\b\d+[.、]", timing):
+                fail("Chinese PRD tracking 上报时机 must be a concise observable sentence, not a numbered requirement excerpt")
+            if not parameters:
+                fail("Chinese PRD tracking 附加参数 must use `/` when no extra property is needed")
             if PRD_TRACKING_PARAM_PLACEHOLDER_RE.fullmatch(parameters):
-                fail("Chinese PRD tracking 参数 must be blank when no extra property is needed, not a placeholder")
+                fail("Chinese PRD tracking 附加参数 must use `/` when no extra property is needed")
+            if not values[4]:
+                fail("Chinese PRD tracking 备注 must use `/` when no note is needed")
     prototype_refs = re.findall(r"`(prototype-[a-z-]+\.html)`", text)
     for ref in prototype_refs:
         if not (path / ref).is_file():
@@ -2503,6 +2511,26 @@ def check_prd_copy_i18n_sections(text: str, language: str | None = None) -> None
                         f"{title}"
                     )
         if pure_text_blocks or re.search(r"^\s*[-*]\s*[\"“][^\"”]+[\"”]", body, re.MULTILINE):
+            if "多语言需求" in title:
+                tables = markdown_table_blocks(body)
+                usage_table = next(
+                    (table for table in tables if table.get("headers") == ["文案", "使用位置", "参数"]),
+                    None,
+                )
+                if not usage_table:
+                    fail("Chinese PRD 多语言需求 must include 文案、使用位置、参数 checklist after the pure-text block")
+                copy_lines = {line for block in pure_text_blocks for line in pure_text_copy_lines(block)}
+                table_rows = [
+                    [normalize_copy_text(cell) for cell in row.strip().strip("|").split("|")]
+                    for row in str(usage_table.get("text", "")).splitlines()[2:]
+                    if row.strip().startswith("|")
+                ]
+                mapped_copy = {row[0] for row in table_rows if len(row) == 3}
+                if copy_lines - mapped_copy:
+                    fail("Chinese PRD 多语言需求 checklist must cover every pure-text copy item")
+                for row in table_rows:
+                    if len(row) != 3 or not row[1] or not row[2]:
+                        fail("Chinese PRD 多语言需求 checklist rows require 文案、使用位置、参数 values")
             continue
         fail(f"PRD copy/i18n section must include a pure-text extraction block for new UI copy: {title}")
 
