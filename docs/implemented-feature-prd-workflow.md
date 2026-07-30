@@ -20,7 +20,7 @@ Do not write PRD outputs to the host root, `docs/`, `zdocs/`, temporary folders,
 
 Implemented-feature PRD delivery is the exception to the general PRD rule where HTML is generated only when requested. Always render `prd.html` for this workflow.
 
-Avoid split Markdown files by default. The PRD should contain assumptions, questions, risks, metrics, tracking, flows, acceptance criteria, and product-facing validation. Keep engineering, data, API, and other technical notes in the run trace or a separately requested handoff.
+Avoid split Markdown files by default. The PRD should contain confirmed user problems, product behavior, applicable tracking, flows, and product-facing UI requirements. Keep assumptions, questions, risks, acceptance criteria, validation, engineering, data, API, and other technical notes in the run trace or a separately requested handoff.
 
 ## Evidence Pass
 
@@ -41,7 +41,7 @@ The H1 must be one concise requirement sentence plus the requirement date, for e
 
 Use the user-driven numbered structure: `文档说明`, `需求背景`, optional `需求调研`, `需求清单`, `需求详情`, optional `多语言需求`, and optional `埋点需求`.
 
-The first screen must identify the document source, target users, status, and revision. Build `需求清单` from the observed user-visible behavior before expanding matching requirement details. Keep technical evidence and command results in `run-log.yaml`; the PRD contains only the user problem, product behavior, confidence, gap, and user-facing acceptance result.
+The first screen must identify the document source, target users, status, and revision. Build `需求清单` from the observed user-visible behavior before expanding matching requirement details. Keep technical evidence and command results in `run-log.yaml`; the PRD contains only the user problem, confirmed product behavior, and user-facing UI/interaction requirements.
 
 Remove optional subsections, diagrams, image blocks, and rows that have no real content. Do not preserve empty tables or artificial `不涉及` text solely to satisfy the template.
 

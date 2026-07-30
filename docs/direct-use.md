@@ -25,7 +25,7 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
 - Generate `prd.md`, a UI deliverable when relevant, optional exports when useful, and an internal run log.
 - Generate `prd.html` when you ask for a browser-readable or externally deliverable PRD document, and always when turning an already implemented branch/current diff into a PRD.
-- Keep requirement input, clarified answers, assumptions, source-backed research/reference findings, metrics, tracking plan tables, flow diagrams, risks, acceptance criteria, and validation results inside `prd.md` by default.
+- Keep confirmed requirement input, clarified answers, source-backed research/reference findings, concise tracking rows, and flow diagrams inside `prd.md`. Keep assumptions, risks, acceptance criteria, validation results, and technical evidence in the run trace or an explicitly requested handoff.
 - For document-class handoffs such as parameter references, API capability catalogs, vendor tables, payment/risk rules, data dictionaries, SOPs/runbooks, or migration inventories, generate `catalog.md` or `reference.md` and optional browser-readable HTML instead of forcing the request into a PRD. Include source facts, product decisions, source/review status, owner, access date, attention points, change log, completeness check, and engineering notes.
 - Treat repository files as current-product context, not as competitor or benchmark research. When external research is unavailable, mark recommendations as assumption-based.
 - For repo-backed UI delivery, read the real host frontend code, component library, styles, icons, assets, route/page/screen files, and render entry before drafting; pass the requirement or target surface into frontend inventory when available; keep host production flows read-only by default.
@@ -59,7 +59,7 @@ outputs/<feature-slug>-YYYY-MM-DD/assets/        # only when local images/script
 outputs/<feature-slug>-YYYY-MM-DD/run-log.yaml
 ```
 
-The agent should treat implementation evidence as observed truth and product intent as unverified unless the code, docs, or user confirms it. The PRD should include an evidence/coverage map that links changed files, screenshots, tests, or observed UI behavior to requirement IDs. `prd.html` should read like a normal document with a left table of contents if useful; it should not use decorative cards, mixed module blocks, unusual background colors, or nested scroll containers. Images and placeholders belong inline at the relevant requirement or table row, and Mermaid diagrams should render correctly.
+The agent should treat implementation evidence as observed truth and product intent as unverified unless the code, docs, or user confirms it. Keep the evidence/coverage map that links changed files, screenshots, tests, or observed UI behavior to requirement details in `run-log.yaml`, not in the PRD. `prd.html` should read like a normal document with a left table of contents if useful; it should not use decorative cards, mixed module blocks, unusual background colors, or nested scroll containers. Images and placeholders belong inline at the relevant requirement or table row, and Mermaid diagrams should render correctly.
 
 Use `templates/implemented-feature-prd-template.md` as the default structure and generate or refresh HTML with:
 

@@ -18,21 +18,21 @@ This is the only delivery-check entry. It verifies that PM-facing deliverables a
 1. Verify the selected `task_mode`, `autonomy_level`, success criteria, selected path, skipped path, and rejected alternatives are recorded.
 2. Verify `prd.md` exists and follows the PRD contract when PRD is in scope. If the user explicitly requested no PRD, verify the structured reference or document prototype is the primary delivery.
 3. Verify the final delivery contains product judgment, confidence, blockers, next actions, and memory candidates when the run produced durable learning.
-4. For implemented-feature PRD delivery, verify implementation evidence exists in the run log and PRD, and that visible branch behavior is represented as requirements, acceptance criteria, or explicit gaps.
+4. For implemented-feature PRD delivery, verify implementation evidence exists in the run log and that visible branch behavior is represented as confirmed requirements or recorded internal evidence gaps.
 5. For implemented-feature PRD delivery, verify output files are under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, follow `templates/implemented-feature-prd-template.md`, include `prd.html`, and use `scripts/render_prd_html.py`.
 6. Verify `prd.html` exists when requested or when the run is implemented-feature PRD delivery, and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
 7. Verify `prd.html` preserves complete tables, renders Mermaid diagrams, uses local image paths, supports click-to-fullscreen for real images, and keeps images/placeholders inline at the relevant PRD position.
-8. Verify real screenshots live under `assets/`; any remaining placeholder is needed by the affected requirement, is inline, and includes a small `位置` and `用途` caption; state screenshot names use object plus concrete state such as `文件上传-上传中.png` instead of `文件上传-状态.png`.
+8. Verify real screenshots live under `assets/`; any remaining placeholder is needed by the affected requirement and is inline as `占位图：图片名称`; state screenshot names use object plus concrete state such as `文件上传-上传中.png` instead of `文件上传-状态.png`.
 9. When a requirement detail uses a field/value table, verify every real image or missing-image marker for that requirement is inside the same table row/cell, usually the `图示`/`截图` row. A blank table row plus a blockquote or image below the table is invalid.
 10. Verify the UI deliverable exists or is recorded when the requirement has user-facing UI.
-11. Verify PRD and UI deliverable agree on scope, states, logic, interaction rules, tracking, and blockers.
+11. Verify PRD and UI deliverable agree on scope, states, logic, interaction rules, and tracking; keep blockers in internal evidence or an explicitly requested handoff.
 12. Verify the PRD links the UI deliverable and says that detailed page-level design and interaction annotations live inside it.
 13. For document-class delivery, verify the structured reference or document prototype includes source facts, product decisions, source/review status, typed attention points, change log, and completeness check.
 14. Verify optional exports are genuinely useful or explicitly requested.
 15. Verify readiness fields are separate: PRD status, engineering handoff status, and launch status.
 16. Verify content source, review status, disclaimer status, and launch impact are recorded when relevant.
-17. Verify structured review findings are reflected in the PRD with artifact, evidence, owner, required-before phase, and status.
-18. Verify validation commands and limitations are recorded consistently in PRD and run log.
+17. Verify structured review findings are recorded in the run log with artifact, evidence, owner, required-before phase, and status; only confirmed product changes belong in the PRD.
+18. Verify validation commands and limitations are recorded in the run log, not as PRD content.
 19. Verify tool preflight was run for final/full-loop delivery, or that an explicit reason is recorded.
 20. Run or verify `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` and inspect `tool-results/delivery-check-report.json`.
 21. For UI deliverables, verify browser screenshot/visual validation ran, or that setup was attempted/guided before a skipped status was recorded with the exact tooling limitation.
@@ -44,7 +44,7 @@ The delivery check must answer:
 
 - Can a PM use this artifact to lead the next review, design decision, engineering handoff, analytics alignment, or launch decision?
 - Is the recommended path explicit enough to act on?
-- Are open risks assigned to owner, phase, and next action?
+- Are open risks assigned to owner, phase, and next action in internal evidence or the requested handoff?
 - Are alternatives and rejected routes visible where they affect product judgment?
 - Are validation results concrete rather than stale placeholders?
 

@@ -13,7 +13,7 @@ Use this taxonomy to classify PM Copilot failures before making changes.
 | F5 | Tool failure | Tool unavailable, misused, or unverifiable | Claims competitor research without source |
 | F6 | Memory failure | Agent used stale or irrelevant facts | Applies old pricing rule to new product area |
 | F7 | Guardrail failure | Agent hides uncertainty or mishandles sensitive risk | Collects raw phone in tracking properties |
-| F8 | Artifact failure | Output shape or content fails contract | PRD lacks non-goals or acceptance criteria |
+| F8 | Artifact failure | Output shape or content fails contract | PRD omits a required user-driven section or mismatches a requirement-list item and its detail |
 | F9 | Review failure | Review Agent misses obvious defects | Marks PRD ready despite missing metrics |
 | F10 | Runtime failure | Agent platform cannot follow files, write outputs, or preserve state | Partial files created or context lost |
 | F11 | Readiness failure | PRD collapses review, engineering, and launch readiness into one misleading status | Says ready for engineering while launch blockers are hidden |

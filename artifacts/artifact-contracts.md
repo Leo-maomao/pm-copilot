@@ -38,7 +38,7 @@ When the user asks for engineering handoff, issue planning, unattended task plan
 
 These are controlled handoff artifacts. They must follow `artifacts/dev-task-contract.md` and `artifacts/launch-decision-contract.md`.
 
-The original request, clarified answers, assumptions, scope decisions, metrics, applicable tracking, flows, risks, and validation results belong in the decision-first PRD structure when a PRD is in scope. Document-class requests keep source facts, product decisions, field dictionary, source status, review status, attention points, object-level changes, completeness checks, and engineering handoff notes in the structured reference artifact instead. If the user explicitly says no PRD is needed, do not create `prd.md`.
+The PRD contains only confirmed user problems, product behavior, user-facing flows, UI/interaction requirements, applicable new copy, and concise tracking requirements. Assumptions, unresolved questions, risks, validation results, technical evidence, and delivery-review findings belong in `run-log.yaml` or an explicitly requested handoff. Document-class requests keep source facts, product decisions, field dictionary, source status, review status, attention points, object-level changes, completeness checks, and engineering handoff notes in the structured reference artifact instead. If the user explicitly says no PRD is needed, do not create `prd.md`.
 
 ## Clarification Gate
 
@@ -65,6 +65,8 @@ Required user-driven sections:
 - `## 六、多语言需求`, only when there is new or changed copy
 - `## 七、埋点需求`, only when measurement is in scope
 
+Omit empty optional sections and renumber visible H2 sections consecutively. When localization is omitted but tracking remains, tracking is `## 六、埋点需求`.
+
 Technical implementation sections must not appear in PRDs. Keep technical evidence in the run trace or a separately requested engineering handoff.
 
 Required formatting:
@@ -82,12 +84,12 @@ Required formatting:
 - Implemented-feature PRDs describe observed product behavior, confidence, and unverified product intent without exposing technical evidence.
 - Implemented-feature PRDs keep screenshots and missing-image markers inline with the relevant requirement, table row, flow step, state, dialog, or evidence. Do not create a detached image list, figure list, or screenshot appendix by default.
 - Screenshot evidence uses the smallest useful crop, but it must retain three layers of evidence: the target control or state, the locating page/section context, and any comparison context required to understand the behavior. Full-screen captures are reserved for page-level layout or relationship requirements.
-- PRD screenshots are real local evidence by default. Omit the optional figure row when the image would not improve reviewability; use a controlled inline placeholder with a small `位置` and `用途` caption only when an essential visual cannot be captured after all available recovery paths fail.
+- PRD screenshots are real local evidence by default. Omit the optional figure row when the image would not improve reviewability; use only the controlled inline `占位图：图片名称` marker when an essential visual cannot be captured after all available recovery paths fail. Keep capture failures and rationale in internal evidence.
 - Screenshot file names describe content. State screenshots use object plus concrete state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; generic names such as `资料卡片-状态.png` or `profile-card-state.png` are not acceptable.
 
 Requirement details must be product-grade. For each functional item, include the relevant subset of:
 
-- Function ID and function name
+- Requirement-detail number and requirement name
 - User scenario
 - Entry point or trigger
 - Page or content requirements
@@ -107,10 +109,10 @@ Minimum quality bar:
 - Current-product findings from the host repository are product context, not a substitute for external product research. Describe only their user-visible product implications in the PRD; keep technical evidence in the run trace or a separately requested engineering handoff.
 - Requirements are testable.
 - Edge cases include error, empty, permission, payment, rollback, content-review, and launch-blocking cases where relevant.
-- Open questions and risks are visible in the affected requirement or background, not hidden inside prose.
+- Product behavior in the PRD is confirmed and reviewable. Open questions, risks, and ownership stay in internal evidence or an explicitly requested handoff.
 - Tool results follow `artifacts/tool-result-contract.md` and use capability IDs from `tools/tool-registry.yaml` where possible.
 - Content source, review owner, review status, and disclaimer status are visible when the requirement includes reference, policy, medical, legal, financial, safety, or operational content. Unreviewed content is labeled as placeholder or draft and blocks launch.
-- Delivery review findings and risks belong in `需求背景` or the affected `需求详情`; technical evidence stays outside the PRD.
+- Delivery review findings, risks, validation, and technical evidence stay outside the PRD in internal evidence or an explicitly requested handoff.
 
 ## PRD HTML Document
 
@@ -118,10 +120,10 @@ Use `prd.html` when a PRD must be opened directly in a browser, delivered as a p
 
 Required elements:
 
-- Renders the same product requirement content as `prd.md`; it must not omit requirement rows, acceptance criteria, risks, validation results, or images/placeholders that appear in the Markdown.
+- Renders the same product requirement content as `prd.md`; it must not omit requirement rows, user-facing behavior, flow diagrams, tracking rows, or inline images/placeholders that appear in the Markdown.
 - Uses a readable document layout with optional left table of contents and a normal content area. Do not create a card-heavy, module-heavy, marketing-style, or prototype-style page.
 - Uses neutral document styling. Avoid unusual background colors, gradients, shadows, nested scrolling content containers, and mixed decorative modules.
-- Preserves full table readability. Wide tables must keep all semantic columns present, including acceptance criteria, and use wrapping, fixed layout, or horizontal overflow when needed.
+- Preserves full table readability. Wide tables must keep all PRD semantic columns present and use wrapping, fixed layout, or horizontal overflow when needed.
 - Renders Mermaid diagrams as diagrams. Final HTML must not leave raw Mermaid code blocks visible when Markdown contains Mermaid.
 - Uses local relative paths or data URIs for images. Runtime scripts/styles needed for rendering should be local, except ordinary external reference links in document text.
 - Places images and image placeholders inline at the relevant requirement, flow, or evidence position. If the Markdown has images inside table cells, the HTML must keep them inside the corresponding table cells.
@@ -259,7 +261,7 @@ Minimum quality bar:
 
 Minimum quality bar:
 
-- Development tasks trace to PRD requirement IDs, function IDs, or acceptance criteria IDs.
+- Development tasks trace to PRD requirement-detail IDs and, when present, acceptance IDs from the requested handoff.
 - Blocked tasks are not marked issue-ready.
 - Launch decisions separate evidence-backed gates from missing approvals.
 - Unattended launch decisions cannot mark `ready_to_launch` unless explicit human approval evidence is present.

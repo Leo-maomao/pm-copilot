@@ -101,7 +101,7 @@ If the provided documents do not include an analytics taxonomy, record that gap 
 
 When the user has no repository and no product documents, do not block forever. Ask only the minimum must-answer questions needed to avoid a misleading PRD/UI delivery. Common must-answer fields are product goal, target user, platform, scope boundary, success metric, and major risk area.
 
-After the user answers or explicitly asks for a draft with assumption or confirmation risk, generate a useful first PRD/UI delivery with visible assumptions, open questions, and non-ready status.
+After the user answers or explicitly accepts draft risk, generate a useful first PRD/UI delivery. Record the accepted assumption or unresolved decision in the run trace and document status; do not add pending-confirmation, risk, or acceptance-result fields to the PRD.
 
 If current behavior, affected module, platform, data ownership, rollout constraints, or historical product decisions remain unclear and materially affect the solution, classify the missing information as `must answer before generation` and stop at the clarification gate.
 

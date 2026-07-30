@@ -4,13 +4,13 @@ The tracking plan must be reviewable by product, analytics, engineering, and QA.
 
 ## Required Outputs
 
-- Markdown event and property tables as the primary human-readable artifact. By default, place them in `prd.md`.
-- Create `tracking-plan.md` only when a separate analytics or engineering handoff file is useful or requested.
+- The PRD uses only the concise event table defined by `artifacts/prd-contract.md`: `事件`、`事件名称`、`上报时机`、`附加参数`、`备注`.
+- Create `tracking-plan.md` only when the user explicitly requests a separate analytics or engineering handoff. A detailed event/property dictionary belongs there, not in `prd.md`.
 - Create `tracking-plan.csv` only when a machine-readable export is useful or requested.
 
 ## Event Table Columns
 
-The Markdown plan must include a complete event table. Localize reviewer-facing labels, and keep these machine names visible in code formatting when the artifact is not a CSV export:
+For an explicitly requested detailed tracking handoff, the Markdown plan may include a complete event table with these machine names:
 
 ```csv
 event_name,description,trigger,platform,actor,required_properties,optional_properties,success_criteria,validation_notes,privacy_notes
@@ -18,7 +18,7 @@ event_name,description,trigger,platform,actor,required_properties,optional_prope
 
 ## Property Dictionary Columns
 
-The Markdown plan must include a property dictionary. Localize reviewer-facing labels, and keep these machine names visible in code formatting when the artifact is not a CSV export:
+For an explicitly requested detailed tracking handoff, the Markdown plan may include a property dictionary with these machine names:
 
 ```csv
 property_name,type,required,example,description,allowed_values,privacy_level,source
@@ -27,12 +27,11 @@ property_name,type,required,example,description,allowed_values,privacy_level,sou
 ## Rules
 
 - Use snake_case event names unless context overrides the taxonomy.
-- Record the taxonomy source. If no existing analytics taxonomy or event naming convention was found, label the table as a proposed taxonomy and state that analytics/engineering must approve it before implementation.
+- Use the existing taxonomy when it is available. When no taxonomy is available, use semantic `feature_action` event names without adding “拟议” or approval narration to the PRD; record uncertainty only in the internal trace or detailed handoff.
 - Use one event per observable user or system action.
 - Do not describe events as loose bullet points. Use tables.
-- Each event must include trigger timing, actor, platform, required properties, optional properties, validation notes, and privacy notes.
-- Every property used by any event must be defined in the property dictionary.
-- Include validation notes for QA and analytics verification.
+- In a PRD, each event includes only its concise observable timing, event-external additional properties, and an optional useful note. Actor, platform, property dictionaries, validation notes, and privacy notes belong only in an explicitly requested detailed handoff.
+- Every property used by a detailed handoff event must be defined in that handoff's property dictionary.
 - Do not collect raw payment cards, passwords, government IDs, or unredacted personal identifiers.
-- Mark inferred events as assumptions.
+- Do not present unsupported events in the PRD; omit them or record the evidence gap internally.
 - If an event only applies to optional scope, mark it as conditional and do not present it as required MVP instrumentation.

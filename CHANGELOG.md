@@ -6,6 +6,17 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.11] - 2026-07-30
+
+### Fixed
+
+- Made `artifacts/prd-contract.md` the single product-content standard for PRDs and removed conflicting guidance that reintroduced risk, acceptance, validation, technical evidence, duplicate function IDs, fixed optional-section numbering, or descriptive placeholder captions.
+- Restricted PRD tracking to the five canonical columns; detailed event dictionaries, privacy notes, validation material, and taxonomy approval narration now require an explicitly requested analytics/engineering handoff.
+
+### Validation
+
+- Added active-guidance consistency tests covering placeholder display, requirement identifiers, optional-section numbering, concise tracking, and PRD/internal-evidence boundaries.
+
 ## [4.8.10] - 2026-07-30
 
 ### Fixed

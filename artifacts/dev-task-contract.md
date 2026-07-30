@@ -37,7 +37,7 @@ release_notes:
 
 ## Rules
 
-- Tasks must trace back to PRD requirement IDs, function IDs, or acceptance criteria IDs.
+- Tasks must trace back to PRD requirement-detail IDs and, when present, acceptance IDs from the requested handoff.
 - Do not create implementation tasks for optional or future scope unless the task is explicitly marked blocked or future.
 - If engineering-blocking confirmations remain open, `handoff_status` must be `blocked` or `draft`, and each affected task must list `blocked_by`.
 - A task is `ready_for_issue: true` only when it has source requirements, acceptance criteria, dependencies, likely surface/files, validation commands, and no unresolved blocker.

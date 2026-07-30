@@ -10,7 +10,7 @@ Every requirement must be traceable from a user, user scenario, or user-confirme
 
 Write only product facts that are user-confirmed, directly observed, or supported by cited research. Before drafting, clean the input into facts, decisions, unknowns, and discarded description; do not copy instructional prose, template notes, process logs, or technical evidence into the PRD.
 
-When a product rule is proposed rather than confirmed, mark it as `待确认` at the affected requirement or stop for a user decision when it would change scope, user rights, pricing, compliance, or a core flow. Do not silently fill gaps with model assumptions, inferred user intent, invented limits, fabricated research, or guessed existing behavior.
+When a product rule is proposed rather than confirmed, obtain a user decision before generation when it would change scope, user rights, pricing, compliance, or a core flow. Do not create a `待确认` item, risk field, or acceptance-result field in the PRD to paper over missing decisions. Do not silently fill gaps with model assumptions, inferred user intent, invented limits, fabricated research, or guessed existing behavior.
 
 ## Canonical Structure
 
@@ -56,7 +56,7 @@ State the user problem before proposing product behavior. Include the relevant s
 - target users and their role or segment
 - current user journey, problem, and impact
 - business context and expected user or business result
-- confirmed scope boundary, assumptions, and open product questions
+- confirmed scope boundary
 - current-product evidence, clearly labeled as observed behavior rather than product truth
 
 Do not put repository files, technical architecture, or implementation options in this section.
@@ -143,4 +143,4 @@ Build the event set from the user journey and the decision it must support, not 
 
 Technical implementation, technical solution, architecture, code path, component/service inventory, API definition, database design, deployment plan, command, and engineering work breakdown do not belong in a PRD. Put them only in a separately requested engineering handoff or the run trace.
 
-Implemented-feature PRDs use observed user-visible behavior as evidence. Keep code, routes, tests, assets, configuration, commands, and other technical evidence in the run trace; in the PRD, describe only the product implication, confidence, gap, and user-facing acceptance result.
+Implemented-feature PRDs use observed user-visible behavior as evidence. Keep code, routes, tests, assets, configuration, commands, validation, confidence, gaps, and other technical evidence in the run trace; in the PRD, describe only the confirmed user-facing product implication.

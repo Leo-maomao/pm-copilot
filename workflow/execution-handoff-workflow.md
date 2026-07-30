@@ -19,10 +19,10 @@ It is intentionally gated. PM Copilot may generate tasks and a launch recommenda
 
 ## Development Task Generation
 
-1. Read PRD requirement IDs, function IDs, acceptance criteria, engineering map, risks, and validation results.
+1. Read PRD requirement-detail IDs and the relevant run-log or requested handoff evidence for acceptance criteria, engineering mapping, risks, and validation.
 2. Create tasks only for confirmed MVP scope unless optional or future work is explicitly requested.
 3. Split tasks by ownership boundary: frontend, backend, data, analytics, QA, docs, release, and design.
-4. Trace each task back to PRD IDs.
+4. Trace each task back to PRD detail IDs and, when present, the requested handoff acceptance IDs.
 5. Add likely files/modules in repo-backed mode.
 6. Add validation commands or manual checks for each task.
 7. Mark a task `ready_for_issue: false` if it depends on an unanswered engineering, privacy, security, legal, compliance, analytics, content, or launch decision.

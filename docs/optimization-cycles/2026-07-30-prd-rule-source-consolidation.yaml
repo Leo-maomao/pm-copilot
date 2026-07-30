@@ -1,0 +1,35 @@
+cycle: prd-rule-source-consolidation
+date: 2026-07-30
+version_change: 4.8.10 -> 4.8.11
+source_run: user-requested audit after repeated PRD output conflicts across templates, skills, contracts, and validators
+generalized_failure: >-
+  Active guidance duplicated PRD rules across several sources, allowing retired requirements for
+  descriptive placeholders, detailed tracking dictionaries, risks, acceptance criteria, validation,
+  technical evidence, and duplicate function identifiers to re-enter generated PRDs.
+fix_surface:
+  - artifacts/artifact-contracts.md
+  - artifacts/tracking-plan-contract.md
+  - skills/tracking-plan/SKILL.md
+  - skills/artifact-packaging/SKILL.md
+  - docs/implemented-feature-prd-workflow.md
+  - docs/direct-use.md
+  - workflow/delivery-check-workflow.md
+  - scripts/test_prd_rule_consistency.py
+decisions:
+  canonical_prd_rule: artifacts/prd-contract.md is the authoritative content contract for PRDs.
+  prd_boundary: >-
+    Only confirmed user-facing product requirements, new copy, concise tracking, flows, and inline
+    visual evidence belong in the PRD.
+  internal_boundary: >-
+    Assumptions, unresolved questions, risks, acceptance criteria, validation, delivery review, and
+    technical evidence belong in the run trace or an explicitly requested handoff.
+  tracking_boundary: >-
+    Detailed dictionaries and analytics governance material require an explicitly requested companion handoff.
+validation:
+  - python3 scripts/test_prd_rule_consistency.py
+  - python3 scripts/validate_runtime_routing.py
+  - python3 scripts/validate_repo.py
+  - python3 -m unittest discover -s scripts -p 'test_*.py'
+publish:
+  remote_push_status: pending
+  embedded_copy_sync_targets: pending after validation
