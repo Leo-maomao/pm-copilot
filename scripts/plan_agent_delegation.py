@@ -43,7 +43,6 @@ def build_plan(request: str, task_mode: str = "auto") -> dict[str, object]:
     if task_mode == "self_improvement":
         workers = [
             Worker("Requirements Agent", "Audit product-document quality failures and identify user-impacting regression cases.", "Link every finding to an artifact contract, source evidence, and regression."),
-            Worker("Analytics Agent", "Audit tracking-content quality and measurement evidence without inventing taxonomy.", "Identify only source-backed events, parameters, and validation gaps."),
             Worker("UI Delivery Agent", "Audit PRD visual evidence and asset relevance, excluding runtimes and unrelated images.", "Link every acceptable figure to a same-run source and requirement."),
             Worker("Integration Governance Agent", "Verify runtime, tool, and delegation boundaries before automation changes.", "Reject unsupported execution claims and credential leakage."),
         ]

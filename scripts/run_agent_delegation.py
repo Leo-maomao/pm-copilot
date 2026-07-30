@@ -106,6 +106,31 @@ def valid_structured_output(phase: str, parsed: dict[str, Any] | None) -> bool:
     return True
 
 
+def deterministic_runtime_startup_failure(result: dict[str, Any]) -> bool:
+    """Return true when a local runtime failure makes further dispatch predictably futile."""
+    detail = " ".join(
+        str(result.get(key, ""))
+        for key in ("status", "error", "output")
+    ).lower()
+    markers = (
+        "output_schema_failed",
+        "failed to load configuration",
+        "configuration error",
+        "duplicate key",
+        "runtime initialization failed",
+    )
+    return result.get("status") != "complete" and any(marker in detail for marker in markers)
+
+
+def skip_unstarted_tasks(ledger: dict[str, Any], reason: str) -> None:
+    for item in ledger.get("tasks", []):
+        if item.get("status") != "planned":
+            continue
+        item["status"] = "skipped"
+        item["error"] = reason
+        item["finished_at"] = timestamp()
+
+
 def persist_worker_output(ledger_path: Path, identifier: str, result: dict[str, Any]) -> str:
     output_path = ledger_path.parent / f"{identifier}.json"
     output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -154,6 +179,8 @@ def execute_task(
                 break
             item["status"] = "failed"
             item["error"] = str(result.get("error") or "worker did not return the required structured output")
+            if deterministic_runtime_startup_failure(result):
+                break
     with ledger_lock:
         item["finished_at"] = timestamp()
         if ledger_path:
@@ -224,16 +251,40 @@ def run_plan(
             write_ledger(ledger_path, ledger)
         return {"status": "blocked", "reason": capabilities["single_agent_auto"]["reason"], "plan": plan, "workers": [], "ledger": ledger}
     if dispatch:
-        with ThreadPoolExecutor(max_workers=min(3, len(evidence_workers))) as pool:
+        first_worker = evidence_workers[0]
+        first_identifier = f"evidence-1-{first_worker['role'].lower().replace(' ', '-')}"
+        first_result = execute_task(
+            ledger, first_identifier,
+            worker_prompt(first_worker["role"], first_worker["owned_question"], request, workspace), cwd,
+            execute_worker, ledger_path, max_attempts, ledger_lock,
+        )
+        results.append({"role": first_worker["role"], **first_result})
+        if deterministic_runtime_startup_failure(first_result):
+            reason = "Specialist dispatch stopped after deterministic runtime startup failure."
+            skip_unstarted_tasks(ledger, reason)
+            ledger["status"] = "degraded"
+            ledger["limitations"].append(reason)
+            if ledger_path:
+                write_ledger(ledger_path, ledger)
+            return {
+                "status": "degraded",
+                "plan": plan,
+                "runtime": capabilities,
+                "workers": results,
+                "ledger": ledger,
+                "next_step": "Repair the local runtime before resuming the persisted ledger; no specialist review or arbitration was completed.",
+            }
+        remaining_workers = evidence_workers[1:]
+        with ThreadPoolExecutor(max_workers=min(3, len(remaining_workers))) as pool:
             futures = []
-            for index, worker in enumerate(evidence_workers):
-                identifier = f"evidence-{index + 1}-{worker['role'].lower().replace(' ', '-')}"
+            for index, worker in enumerate(remaining_workers, start=2):
+                identifier = f"evidence-{index}-{worker['role'].lower().replace(' ', '-')}"
                 futures.append(pool.submit(
                     execute_task, ledger, identifier,
                     worker_prompt(worker["role"], worker["owned_question"], request, workspace), cwd,
                     execute_worker, ledger_path, max_attempts, ledger_lock,
                 ))
-            results = [future.result() for future in futures]
+            results.extend({"role": worker["role"], **future.result()} for worker, future in zip(remaining_workers, futures))
         review_workers = plan["dispatch_groups"][1]["workers"]
         if review_workers and complete_tasks(ledger, "evidence"):
             review = execute_task(

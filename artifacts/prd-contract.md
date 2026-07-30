@@ -26,7 +26,7 @@ Use these top-level sections and titles in order:
 ## 七、埋点需求                 # optional
 ```
 
-`需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. When an optional section is omitted, retain the canonical Chinese numeral of the sections that follow.
+`需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. Omit empty optional sections and keep the visible H2 numerals consecutive: when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`.
 
 The H1 is a concise requirement sentence plus date, for example:
 
@@ -98,7 +98,9 @@ Each detail starts from the affected user and uses the smallest applicable set o
 - `设计与交互`: information hierarchy, visible controls, interaction, accessibility, and feedback
 - `图示`: a real, local screenshot or figure when visual evidence is needed; a controlled missing-image placeholder only when the required capture cannot be recovered
 
-`用户与场景`、`需求入口`、`需求详情`、`设计与交互` are required for every detail. `图示` is optional: omit the row when a screenshot would not clarify the behavior. When a requirement genuinely needs visual evidence but every trusted capture path is unavailable, use the controlled placeholder format below; do not use it for decoration or as a substitute for trying the available tools.
+`用户与场景`、`需求入口`、`需求详情`、`设计与交互` are required for every detail. For an implemented-feature PRD, record one visual-coverage decision for every independently reviewable user-facing page, panel, dialog, or decisive state: `real_figure`, `required_placeholder`, or `not_required`. A user-facing surface that materially affects review must not silently omit this decision.
+
+Use `real_figure` when a trusted rendered surface is available. Use `required_placeholder` only after capture recovery fails and visual evidence is still needed for review; record the failed capture paths. Use `not_required` only for a non-visual requirement or a declared non-essential visual state, with a rationale. Keep a required figure or controlled placeholder inline with its matching requirement.
 
 When a field contains more than one concern, use `一、`、`二、`、`三、` to group the concerns, then use `1.`、`2.`、`3.` for the detailed rules under each group. Apply this hierarchy to `需求入口`、`需求详情`、`设计与交互` and other fields when it improves reviewability; do not present every rule as one flat `1.`、`2.`、`3.` list. Do not split exception handling, permissions, or recovery behavior into repetitive standalone rows.
 

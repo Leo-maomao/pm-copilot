@@ -30,6 +30,13 @@ class AgentTaskLedgerTest(unittest.TestCase):
             self.assertEqual(load(path)["schema_version"], "1.0")
             self.assertIn("completed task", " ".join(validate({**ledger, "tasks": [{"id": "T1", "status": "complete", "attempts": 0, "output_ref": ""}]})))
 
+    def test_terminal_ledger_cannot_retain_running_task(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            ledger = create_ledger("需求 PRD", "auto", build_plan("需求 PRD"), Path(temporary))
+            ledger["status"] = "degraded"
+            ledger["tasks"][0]["status"] = "running"
+            self.assertIn("terminal ledger cannot retain running tasks", " ".join(validate(ledger)))
+
     def test_resume_skips_completed_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "ledger.json"

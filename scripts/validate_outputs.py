@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import subprocess
@@ -1585,6 +1586,46 @@ def check_implemented_feature_prd_trace(path: Path) -> None:
     if not (path / "prd.html").is_file():
         fail("implemented-feature PRD delivery requires prd.html; run scripts/render_prd_html.py")
 
+    surfaces = extract_yaml_block(section, "ui_surfaces")
+    visual_coverage = extract_yaml_block(section, "screenshots_and_placeholders")
+    if yaml_list_item_blocks(surfaces) and not yaml_list_item_blocks(visual_coverage):
+        fail("implemented_feature_prd user-facing surfaces require screenshots_and_placeholders coverage decisions")
+    if not yaml_list_item_blocks(visual_coverage):
+        return
+
+    prd_text = read(path / "prd.md")
+    for item in yaml_list_item_blocks(visual_coverage):
+        target_ref = yaml_field_value(item, "target_ref")
+        coverage_decision = yaml_field_value(item, "coverage_decision")
+        rationale = yaml_field_value(item, "rationale")
+        if not target_ref or not coverage_decision or not rationale:
+            fail("implemented_feature_prd visual coverage requires target_ref, coverage_decision, and rationale")
+        if coverage_decision not in {"real_figure", "required_placeholder", "not_required"}:
+            fail("implemented_feature_prd visual coverage has an invalid coverage_decision")
+        if coverage_decision == "not_required":
+            continue
+        detail = re.search(
+            rf"^###\s+{re.escape(target_ref)}(?:\s+.+)?$([\s\S]*?)(?=^###\s+|^##\s+|\Z)",
+            prd_text,
+            re.MULTILINE,
+        )
+        if not detail:
+            fail(f"implemented_feature_prd visual coverage target does not match a requirement detail: {target_ref}")
+        detail_text = detail.group(1)
+        if coverage_decision == "real_figure":
+            asset_path = yaml_field_value(item, "path")
+            source_ref = yaml_field_value(item, "capture_source")
+            asset_sha256 = yaml_field_value(item, "asset_sha256")
+            if not asset_path or not source_ref or not asset_sha256:
+                fail("implemented_feature_prd real_figure coverage requires path, capture_source, and asset_sha256")
+            asset = path / asset_path
+            if not asset.is_file() or hashlib.sha256(asset.read_bytes()).hexdigest() != asset_sha256:
+                fail("implemented_feature_prd real_figure asset_sha256 does not match the referenced asset")
+            if Path(asset_path).name not in detail_text:
+                fail(f"implemented_feature_prd real_figure is not inline with requirement detail {target_ref}")
+        elif "占位图" not in detail_text:
+            fail(f"implemented_feature_prd required_placeholder is not inline with requirement detail {target_ref}")
+
 
 def check_visual_validation_trace(path: Path) -> None:
     run_log = read(path / "run-log.yaml")
@@ -2012,7 +2053,10 @@ def check_chinese_prd(path: Path) -> None:
         if position <= last_position:
             fail("Chinese PRD sections must follow the canonical user-driven order")
         last_position = position
-        expected_heading = f"{PRD_SECTION_NUMERALS_ZH[expected]}、{expected}"
+        numeral = PRD_SECTION_NUMERALS_ZH[expected]
+        if expected == "埋点需求" and "多语言需求" not in h2_titles:
+            numeral = "六"
+        expected_heading = f"{numeral}、{expected}"
         if h2_sections[position] != expected_heading:
             fail(f"Chinese PRD section must use `## {expected_heading}`")
     technical_sections = PRD_TECHNICAL_SECTION_RE.findall(text)

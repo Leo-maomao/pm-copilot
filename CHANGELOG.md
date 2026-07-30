@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.9] - 2026-07-30
+
+### Fixed
+
+- Made implemented-feature PRDs declare requirement-level visual coverage and verify that real figures are local, hash-matched, and inline with their mapped requirement.
+- Kept optional localization/tracking headings readable by requiring `埋点需求` to become `六` when `多语言需求` is omitted.
+- Limited self-improvement delegation to three independent evidence roles and stopped dispatch immediately when the first worker reports a deterministic local runtime startup failure.
+- Prevented terminal task ledgers from retaining running workers; historical failed dispatch evidence is now recorded as degraded rather than planned.
+
+### Validation
+
+- Added regression coverage for visual-coverage omission, valid real-figure mapping, optional-section numbering, bounded self-improvement roles, deterministic startup failure, and terminal ledger closure.
+
 ## [4.8.8] - 2026-07-29
 
 ### Fixed

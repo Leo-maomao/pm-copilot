@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import tempfile
 from pathlib import Path
 
-from validate_outputs import check_chinese_prd, check_prd_output_contract, check_stale_validation
+from validate_outputs import check_chinese_prd, check_implemented_feature_prd_trace, check_prd_output_contract, check_stale_validation
 
 
 PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
@@ -72,16 +73,31 @@ PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
 """
 
 
-def run_case(name: str, prd: str, should_pass: bool, run_log: str = "source_mode: brief-only\n") -> None:
+def run_case(
+    name: str,
+    prd: str,
+    should_pass: bool,
+    run_log: str = "source_mode: brief-only\n",
+    check_implemented_trace: bool = False,
+    assets: dict[str, bytes] | None = None,
+) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         folder = Path(temp_dir)
         (folder / "prd.md").write_text(prd, encoding="utf-8")
         (folder / "run-log.yaml").write_text(run_log, encoding="utf-8")
+        for asset_path, content in (assets or {}).items():
+            destination = folder / asset_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+        if check_implemented_trace:
+            (folder / "prd.html").write_text("<html></html>", encoding="utf-8")
         passed = True
         try:
             check_chinese_prd(folder)
             check_prd_output_contract(folder, language="zh")
             check_stale_validation(folder)
+            if check_implemented_trace:
+                check_implemented_feature_prd_trace(folder)
         except SystemExit:
             passed = False
         if passed != should_pass:
@@ -102,6 +118,63 @@ def main() -> None:
         PASS_PRD,
         True,
         "implemented_feature_prd:\n  active: true\n",
+    )
+    run_case(
+        "tracking_renumbered_when_localization_omitted",
+        PASS_PRD.replace("## 六、多语言需求\n\n```text\n确认变更角色\n取消\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |\n\n## 七、埋点需求", "## 六、埋点需求"),
+        True,
+    )
+    run_case(
+        "tracking_number_jump_when_localization_omitted",
+        PASS_PRD.replace("## 六、多语言需求\n\n```text\n确认变更角色\n取消\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |\n\n", ""),
+        False,
+    )
+    run_case(
+        "implemented_feature_ui_surfaces_need_visual_coverage",
+        PASS_PRD,
+        False,
+        "implemented_feature_prd:\n  active: true\n  ui_surfaces:\n    - surface: 登录弹窗\n",
+        True,
+    )
+    fixture_asset = b"fixture-image"
+    fixture_hash = hashlib.sha256(fixture_asset).hexdigest()
+    implemented_trace = f"""implemented_feature_prd:
+  active: true
+  diff_commands:
+    - git diff --stat
+  changed_files:
+    - app/ui.tsx
+  ui_surfaces:
+    - surface: 确认弹窗
+  behavior_evidence:
+    - evidence_id: E1
+      observed_behavior: 用户确认关键变更。
+      related_requirement_ids:
+        - 5.1
+      coverage_status: covered
+  screenshots_and_placeholders:
+    - target_ref: 5.1
+      coverage_decision: real_figure
+      rationale: 确认操作需要可视评审。
+      path: assets/role-confirmation.png
+      capture_source: fixture
+      asset_sha256: {fixture_hash}
+  validation_evidence: []
+  completeness_check:
+    implementation_behaviors_checked:
+      - 确认操作
+    represented_in_prd:
+      - 5.1
+    unresolved_product_intent:
+      - 无
+"""
+    run_case(
+        "implemented_feature_real_figure_matches_requirement_and_asset",
+        PASS_PRD.replace("| 设计与交互 |", "| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>role-confirmation.png；位置：角色变更确认弹窗；用途：展示确认操作。</small> |\n| 设计与交互 |"),
+        True,
+        implemented_trace,
+        True,
+        {"assets/role-confirmation.png": fixture_asset},
     )
     run_case("missing_document_info", PASS_PRD.replace("### 1. 文档信息", "### 1. 说明"), False)
     run_case("missing_user_requirement_field", PASS_PRD.replace("目标用户", "用户群体"), False)

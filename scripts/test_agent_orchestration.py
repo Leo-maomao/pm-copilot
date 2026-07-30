@@ -44,6 +44,20 @@ class AgentOrchestrationTest(unittest.TestCase):
             report = run_plan("需求 PRD", "auto", Path.cwd(), fake_execute, True)
         self.assertEqual(report["status"], "blocked")
 
+    def test_deterministic_startup_failure_stops_remaining_dispatch(self) -> None:
+        capabilities = {"single_agent_auto": {"status": "available", "reason": "test"}, "multi_agent_loop": {"status": "available", "reason": "test"}}
+        calls: list[str] = []
+
+        def failing_execute(*args: object) -> dict[str, object]:
+            calls.append(str(args[1]))
+            return {"status": "failed", "provider": "test", "error": "OUTPUT_SCHEMA_FAILED: failed to load configuration: duplicate key"}
+
+        with patch("run_agent_delegation.runtime_capabilities", return_value=capabilities):
+            report = run_plan("需求 PRD、UI、埋点和竞品调研", "auto", Path.cwd(), failing_execute, True)
+        self.assertEqual(report["status"], "degraded")
+        self.assertEqual(len(calls), 1)
+        self.assertIn("stopped after deterministic runtime startup failure", report["ledger"]["limitations"][-1])
+
 
 if __name__ == "__main__":
     unittest.main()

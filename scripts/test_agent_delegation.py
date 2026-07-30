@@ -32,7 +32,8 @@ class AgentDelegationPlanTest(unittest.TestCase):
         plan = build_plan("强化 Agent", "self_improvement")
         roles = {worker["role"] for worker in plan["dispatch_groups"][0]["workers"]}
         self.assertTrue(plan["active"])
-        self.assertEqual(roles, {"Requirements Agent", "Analytics Agent", "UI Delivery Agent", "Integration Governance Agent"})
+        self.assertEqual(roles, {"Requirements Agent", "UI Delivery Agent", "Integration Governance Agent"})
+        self.assertLessEqual(len(roles), 3)
 
     def test_conflict_protocol_rejects_unbounded_battle(self) -> None:
         plan = build_plan("需求和埋点")

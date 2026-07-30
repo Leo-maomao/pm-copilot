@@ -153,4 +153,8 @@ def validate(ledger: dict[str, Any], base_path: Path | None = None) -> list[str]
                 failures.append(f"artifact {artifact_id} hash mismatch")
     if ledger.get("status") == "complete" and not (ledger.get("claims") or ledger.get("arbitrations")):
         failures.append("complete ledger requires claims or arbitrations")
+    if ledger.get("status") in {"complete", "blocked", "degraded", "failed"}:
+        unfinished = [str(item.get("id", "<empty>")) for item in ledger.get("tasks", []) if item.get("status") == "running"]
+        if unfinished:
+            failures.append("terminal ledger cannot retain running tasks: " + ", ".join(unfinished))
     return failures

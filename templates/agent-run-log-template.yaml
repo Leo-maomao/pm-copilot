@@ -341,8 +341,13 @@ implemented_feature_prd:
       gap_or_risk: ""
   screenshots_and_placeholders:
     - target_ref: "" # requirement id, evidence id, flow step, or table row
+      surface: "" # independently reviewable user-facing page, panel, dialog, or decisive state
+      coverage_decision: "" # real_figure | required_placeholder | not_required
+      rationale: "" # why this evidence is needed or why it is not needed
       type: "" # image | video | placeholder
       path: ""
+      capture_source: "" # trusted rendered surface, user-provided capture, or failed recovery record
+      asset_sha256: "" # required for real_figure
       recommended_file_name: ""
       inline_marker: ""
       replacement_status: "" # missing | provided | replaced | not_needed
