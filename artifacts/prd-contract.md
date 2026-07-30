@@ -116,7 +116,7 @@ If visual evidence is required but automation setup, authentication recovery, an
 | 图示 | 占位图：成员管理-高危角色确认.png |
 ```
 
-Each real image is immediately followed by the same displayed image name in a small caption. Use the name alone; do not append location, purpose, status, source, or capture explanations. Multiple image-caption pairs use one line break between pairs. A placeholder uses only `占位图：图片名称`; record failed capture paths and the reason for the placeholder only in internal evidence.
+Each real image is immediately followed by the same displayed image name in a small caption. Use the name alone; do not append location, purpose, status, source, or capture explanations. When multiple image-caption pairs belong to the same requirement, the HTML renderer groups them adaptively: wide screenshots remain full-width, while small or vertical screenshots may share a row. A placeholder uses only `占位图：图片名称`; record failed capture paths and the reason for the placeholder only in internal evidence.
 
 Do not add separate risk, pending-confirmation, acceptance-result, or technical-test fields to requirement details. Keep only confirmed product behavior in the detail; when an unresolved product decision genuinely blocks drafting, handle it before generation or state the assumption in `需求背景`.
 
@@ -126,7 +126,7 @@ Include only when **new or changed** user-facing copy requires localization. Fir
 
 ## 七、埋点需求（可选）
 
-Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`. `事件名称` is a unique lowercase semantic identifier in `feature_action` form, for example `login_click`, `project_create`, `project_create_result`, or `feed_engagement`; it must carry the feature context and must not use PRD section numbers or generic prefixes such as `prd_5_1_view` or `journey_view`. Do not label rows as “拟议” solely because no taxonomy file was supplied.
+Include only when product measurement, experiments, funnel evaluation, or operational monitoring is in scope. Use exactly these concise columns: `事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`. `事件名称` is a unique lowercase semantic identifier in `feature_action` form, for example `login_click`, `project_create`, `project_create_result`, or `feed_engagement`; it must carry the feature context and must not use PRD section numbers or generic prefixes such as `prd_5_1_view` or `journey_view`. Never show “拟议”, taxonomy-source narration, approval narration, or other explanatory labels in the PRD; retain those details only in internal evidence or an explicitly requested detailed handoff.
 
 Build the event set from the user journey and the decision it must support, not from an exhaustive list of controls:
 

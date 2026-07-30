@@ -10,12 +10,14 @@ from pathlib import Path
 
 from prd_evidence_upgrade import (
     discover_output_folders,
+    duplicate_requirement_numbers,
     insert_figure_rows,
     normalize_tracking_identifier,
     normalize_existing_tracking_rows,
     tracking_rows_from_details,
     upgrade_output,
 )
+from validate_outputs import check_chinese_prd
 
 
 PRD = """# 示例需求 - 2026-07-29
@@ -84,6 +86,7 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             self.assertIn("创建项目结果展示", prd)
             self.assertNotIn("prd_5_1", prd)
             self.assertIn("| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |", prd)
+            check_chinese_prd(folder)
 
     def test_blocks_automatic_mutation_when_source_scope_is_already_contracted(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -99,6 +102,21 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             self.assertFalse(report.changed)
             self.assertEqual((folder / "prd.md").read_text(encoding="utf-8"), original)
             self.assertTrue(any("scope must be restored" in item for item in report.limitations))
+
+    def test_blocks_automatic_mutation_for_duplicate_requirement_numbers(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = self.create_run(root)
+            duplicate = (folder / "prd.md").read_text(encoding="utf-8").replace(
+                "\n## 五、需求详情",
+                "\n| 5.1 | 重复创建项目 | 项目成员 | 重复触发 | 重复问题 | 重复摘要 | P1 | 已确认 |\n\n## 五、需求详情",
+            )
+            (folder / "prd.md").write_text(duplicate, encoding="utf-8")
+            report = upgrade_output(folder, Path.cwd(), True, False)
+            self.assertEqual(report.status, "blocked")
+            self.assertFalse(report.changed)
+            self.assertTrue(any("Duplicate requirement number" in item for item in report.limitations))
+            self.assertEqual(duplicate_requirement_numbers(duplicate, []), ["5.1"])
 
     def test_adds_same_run_matching_figure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -131,11 +149,37 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             (folder / "prd.md").write_text(PRD.replace('“创建项目”', "创建项目"), encoding="utf-8")
             report = upgrade_output(folder, Path.cwd(), True, False)
             self.assertEqual(report.localization, "omitted")
-            self.assertNotIn("## 六、多语言需求", (folder / "prd.md").read_text(encoding="utf-8"))
+            prd = (folder / "prd.md").read_text(encoding="utf-8")
+            self.assertNotIn("## 六、多语言需求", prd)
+            self.assertIn("## 六、埋点需求", prd)
+            self.assertNotIn("## 七、埋点需求", prd)
+            check_chinese_prd(folder)
 
     def test_normalizes_invalid_existing_tracking_identifier(self) -> None:
         self.assertEqual(normalize_tracking_identifier("`ProjectCreated`"), "project_created")
         self.assertEqual(normalize_tracking_identifier("project-created"), "project_created")
+
+    def test_normalizes_legacy_six_tracking_to_seven_when_localization_exists(self) -> None:
+        prd = PRD + """
+## 六、多语言需求
+
+```text
+创建项目
+```
+
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 创建项目 | 5.1 创建项目 | / |
+
+## 六、埋点需求
+
+| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |
+| --- | --- | --- | --- | --- |
+| 查看项目 | project_view | 页面完成首屏展示时 | / | / |
+"""
+        upgraded = normalize_existing_tracking_rows(prd)
+        self.assertIn("## 七、埋点需求", upgraded)
+        self.assertNotIn("## 六、埋点需求", upgraded)
 
     def test_uses_requirement_context_for_generic_followup_events(self) -> None:
         rows = tracking_rows_from_details([
@@ -167,6 +211,20 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
 """
         upgraded = normalize_existing_tracking_rows(prd)
         self.assertIn("node_connection_bulk_input_view", upgraded)
+
+    def test_recompiles_duplicate_tracking_events_into_semantic_identifiers(self) -> None:
+        prd = """## 七、埋点需求
+
+| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |
+| --- | --- | --- | --- | --- |
+| 选择 Seedream 5.0 Pro | node_select | 用户选择 Seedream 5.0 Pro时 | / | / |
+| 选择 Seedance 2.5 | node_select | 用户选择 Seedance 2.5时 | / | / |
+| 选择 Seedance 2.0 4K | node_select | 用户选择 Seedance 2.0 4K时 | / | / |
+"""
+        upgraded = normalize_existing_tracking_rows(prd)
+        self.assertIn("seedream_select", upgraded)
+        self.assertIn("seedance_select", upgraded)
+        self.assertIn("seedance_4k_select", upgraded)
 
     def test_preserves_existing_figure_rows_during_migration(self) -> None:
         prd = """# 示例

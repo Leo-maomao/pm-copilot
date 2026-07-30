@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import tempfile
+import shutil
+import subprocess
 from pathlib import Path
 
 from render_prd_html import convert_video_links
@@ -50,6 +52,29 @@ def main() -> None:
             run_folder,
         )
         require("failed_conversion_keeps_source", 'type="video/quicktime"' in unconverted)
+
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        print("SKIP successful_conversion_requires_ffmpeg")
+        return
+    with tempfile.TemporaryDirectory() as directory:
+        run_folder = Path(directory)
+        assets = run_folder / "assets"
+        assets.mkdir()
+        source = assets / "sample.mov"
+        result = subprocess.run(
+            [
+                ffmpeg, "-y", "-f", "lavfi", "-i", "testsrc=size=16x16:rate=1", "-t", "1",
+                "-c:v", "mpeg4", str(source),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        require("creates_valid_mov_fixture", result.returncode == 0 and source.is_file())
+        converted = convert_video_links('<a href="./assets/sample.mov">Sample</a>', run_folder)
+        require("successful_conversion_creates_browser_mp4", (assets / "sample.browser.mp4").is_file())
+        require("successful_conversion_uses_mp4_source", 'src="./assets/sample.browser.mp4" type="video/mp4"' in converted)
 
 
 if __name__ == "__main__":

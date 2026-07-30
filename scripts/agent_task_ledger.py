@@ -7,6 +7,7 @@ import json
 import hashlib
 import os
 import tempfile
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,7 @@ def create_ledger(request: str, task_mode: str, plan: dict[str, Any], cwd: Path)
     })
     return {
         "schema_version": LEDGER_VERSION,
+        "run_id": str(uuid.uuid4()),
         "created_at": now(),
         "updated_at": now(),
         "request": request,
@@ -117,6 +119,8 @@ def validate(ledger: dict[str, Any], base_path: Path | None = None) -> list[str]
     failures: list[str] = []
     if ledger.get("schema_version") != LEDGER_VERSION:
         failures.append("unsupported ledger schema_version")
+    if not str(ledger.get("run_id", "")).strip():
+        failures.append("ledger requires run_id")
     workspace = ledger.get("workspace")
     if not isinstance(workspace, dict):
         failures.append("ledger requires workspace identity")

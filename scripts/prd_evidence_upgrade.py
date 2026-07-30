@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MEDIA_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".mov", ".mp4", ".webm"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 RUNTIME_ASSET_NAMES = {"mermaid.min.js"}
-ACTION_RE = re.compile(r"(点击|选择|提交|确认|保存|创建|启用|取消|删除|上传|下载|分享|重试|展开|调整|管理|打开|关闭|恢复|设置|编辑|连接)")
+ACTION_RE = re.compile(r"(点击|选择|提交|确认|保存|创建|启用|取消|删除|上传|下载|分享|重试|展开|收起|调整|管理|打开|关闭|恢复|设置|编辑|连接|添加|切换|刷新|发起)")
 RESULT_RE = re.compile(r"(成功|完成|结果|失败|部分完成)")
 VALUE_RE = re.compile(r"(浏览|瀑布流|阅读|时长|曝光|滚动|停留)")
 SECTION_RE = re.compile(r"(?m)^##\s+([一二三四五六七])、([^\n]+)\s*$")
@@ -38,6 +38,7 @@ FEATURE_TERMS = (
     ("角色", "role"), ("连接", "connection"), ("连入", "connection"), ("首页", "home"),
     ("Flow Agent", "flow_agent"), ("助手", "assistant"), ("支付", "payment"), ("订单", "order"),
     ("多媒体", "multimedia"), ("文件", "file"), ("任务", "task"),
+    ("Seedream", "seedream"), ("Seedance", "seedance"), ("微信", "wechat"),
 )
 FEATURE_QUALIFIERS = (
     ("批量", "bulk"), ("变更", "change"), ("预览", "preview"), ("恢复", "recovery"),
@@ -48,7 +49,8 @@ FEATURE_QUALIFIERS = (
     ("名称", "name"), ("输入", "input"), ("运行", "runtime"), ("素材", "media"),
     ("发现", "discovery"), ("引导", "guidance"), ("像素", "pixels"), ("分组", "group"),
     ("历史", "history"), ("不可用", "unavailable"), ("单图", "single"), ("购买", "purchase"),
-    ("创作", "creation"), ("完成", "completion"),
+    ("创作", "creation"), ("完成", "completion"), ("参考图", "reference"),
+    ("登录方式", "mode"), ("二维码", "qrcode"), ("4K", "4k"),
 )
 ACTION_SUFFIXES = {
     "点击": ("click", "点击"), "选择": ("select", "选择"), "提交": ("submit", "提交"),
@@ -58,7 +60,8 @@ ACTION_SUFFIXES = {
     "重试": ("retry", "重试"), "展开": ("expand", "展开"), "调整": ("adjust", "调整"),
     "管理": ("manage", "管理"), "打开": ("open", "打开"), "关闭": ("close", "关闭"),
     "恢复": ("restore", "恢复"), "设置": ("set", "设置"), "编辑": ("edit", "编辑"),
-    "连接": ("connect", "连接"),
+    "连接": ("connect", "连接"), "添加": ("add", "添加"), "收起": ("collapse", "收起"),
+    "切换": ("switch", "切换"), "刷新": ("refresh", "刷新"), "发起": ("start", "发起"),
 }
 
 
@@ -181,6 +184,18 @@ def requirement_details(prd: str, source: Path, records: list[Evidence]) -> list
             "body": body,
         })
     return details
+
+
+def duplicate_requirement_numbers(prd: str, details: list[dict[str, str]]) -> list[str]:
+    """Return duplicate user-visible requirement identifiers before an automatic upgrade mutates content."""
+    duplicates: set[str] = set()
+    list_match = re.search(r"(?ms)^##\s+四、需求清单\s*$\n(?P<body>.*?)(?=^##\s+|\Z)", prd)
+    if list_match:
+        list_numbers = re.findall(r"^\|\s*(\d+\.\d+)\s*\|", list_match.group("body"), re.MULTILINE)
+        duplicates.update(number for number in list_numbers if list_numbers.count(number) > 1)
+    detail_numbers = [detail["number"] for detail in details]
+    duplicates.update(number for number in detail_numbers if detail_numbers.count(number) > 1)
+    return sorted(duplicates)
 
 
 def tracking_rows_from_csv(path: Path, records: list[Evidence]) -> list[dict[str, str]]:
@@ -433,16 +448,16 @@ def remove_unsupported_chinese_localization(prd: str, language: str) -> tuple[st
 
 
 def normalize_optional_section_order(prd: str) -> str:
-    """Keep an existing section 六 immediately before section 七."""
+    """Keep localization immediately before tracking regardless of a legacy tracking numeral."""
     localization_heading = re.search(r"(?m)^##\s+六、多语言需求\s*$", prd)
-    tracking_heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", prd)
+    tracking_heading = re.search(r"(?m)^##\s+(?:六|七)、埋点需求\s*$", prd)
     if not localization_heading or not tracking_heading or localization_heading.start() < tracking_heading.start():
         return prd
     next_heading = re.search(r"(?m)^##\s+", prd[localization_heading.end() :])
     localization_end = localization_heading.end() + next_heading.start() if next_heading else len(prd)
     localization = prd[localization_heading.start() : localization_end].strip()
     without_localization = prd[: localization_heading.start()].rstrip() + "\n\n" + prd[localization_end:].lstrip()
-    tracking_heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", without_localization)
+    tracking_heading = re.search(r"(?m)^##\s+(?:六|七)、埋点需求\s*$", without_localization)
     if not tracking_heading:
         return prd
     return (
@@ -468,7 +483,7 @@ def normalize_tracking_identifier(value: str) -> str:
 
 def normalize_existing_tracking_rows(prd: str) -> str:
     """Migrate legacy tracking labels and generated IDs to the current PRD standard."""
-    heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", prd)
+    heading = re.search(r"(?m)^##\s+(?:六|七)、埋点需求\s*$", prd)
     if not heading:
         return prd
     next_heading = re.search(r"(?m)^##\s+", prd[heading.end() :])
@@ -483,6 +498,7 @@ def normalize_existing_tracking_rows(prd: str) -> str:
     ]
     context_feature = tracking_context_feature(event_names)
     lines: list[str] = []
+    used_identifiers: set[str] = set()
     for line in section.splitlines(keepends=True):
         values = [item.strip() for item in line.strip().strip("|").split("|")]
         if values == ["名称", "标识", "时机", "参数", "备注"]:
@@ -495,6 +511,15 @@ def normalize_existing_tracking_rows(prd: str) -> str:
             generated_identifier = semantic_event_identifier(name, timing, action_for(name)[0], context_feature)
             if note in {"", "/"} and generated_identifier != "journey_action":
                 normalized_identifier = generated_identifier
+            if normalized_identifier in used_identifiers:
+                feature = semantic_feature(name, context_feature)
+                action = action_for(name)[0]
+                normalized_identifier = f"{feature}_{action}"
+                suffix = 2
+                while normalized_identifier in used_identifiers:
+                    normalized_identifier = f"{feature}_{action}_{suffix}"
+                    suffix += 1
+            used_identifiers.add(normalized_identifier)
             values[0] = name
             values[1] = normalized_identifier
             values[2] = compact_timing(timing, normalized_identifier, name)
@@ -503,7 +528,14 @@ def normalize_existing_tracking_rows(prd: str) -> str:
             suffix = "\n" if line.endswith("\n") else ""
             line = "| " + " | ".join(values) + " |" + suffix
         lines.append(line)
-    return prd[: heading.start()] + "".join(lines) + prd[end:]
+    canonical_heading = "七、埋点需求" if section_present(prd, "多语言需求") else "六、埋点需求"
+    normalized_section = re.sub(
+        r"(?m)^##\s+(?:六|七)、埋点需求\s*$",
+        f"## {canonical_heading}",
+        "".join(lines),
+        count=1,
+    )
+    return prd[: heading.start()] + normalized_section + prd[end:]
 
 
 def copy_usage(copy: str, details: list[dict[str, str]]) -> str:
@@ -561,7 +593,8 @@ def append_optional_sections(prd: str, copies: list[tuple[str, str]], tracking: 
         ])
         localization = "added"
     if tracking and tracking_status == "omitted":
-        tracking_lines = ["## 七、埋点需求", "", "| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |", "| --- | --- | --- | --- | --- |"]
+        tracking_heading = "七、埋点需求" if localization != "omitted" or localization_block else "六、埋点需求"
+        tracking_lines = [f"## {tracking_heading}", "", "| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |", "| --- | --- | --- | --- | --- |"]
         tracking_lines.extend(
             f"| {row['name']} | {row['id']} | {row['timing']} | {row['parameters']} | {row['note']} |"
             for row in tracking
@@ -569,7 +602,7 @@ def append_optional_sections(prd: str, copies: list[tuple[str, str]], tracking: 
         tracking_block = "\n".join(tracking_lines)
         tracking_status = "added"
     if localization_block:
-        tracking_heading = re.search(r"(?m)^##\s+七、埋点需求\s*$", prd)
+        tracking_heading = re.search(r"(?m)^##\s+(?:六|七)、埋点需求\s*$", prd)
         if tracking_heading:
             prd = (
                 prd[: tracking_heading.start()].rstrip()
@@ -655,6 +688,14 @@ def upgrade_output(folder: Path, renderer_root: Path, apply: bool, validate: boo
         return report
     records: list[Evidence] = []
     details = requirement_details(prd, prd_path, records)
+    duplicate_numbers = duplicate_requirement_numbers(prd, details)
+    if duplicate_numbers:
+        report.status = "blocked"
+        report.limitations.append(
+            "Duplicate requirement number(s) must be resolved before automated upgrade: "
+            + ", ".join(duplicate_numbers)
+        )
+        return report
     copies = prototype_copy(folder, report.language, records) + quoted_copy(prd, report.language, prd_path, records)
     copies = unique_pairs(copies)[:12]
     tracking_source = next(iter(sorted(folder.glob("tracking-plan.csv"))), None)

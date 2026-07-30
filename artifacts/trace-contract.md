@@ -125,6 +125,7 @@ action_closure:
 - Record assumptions separately from confirmed facts.
 - Record whether the raw request came from conversation, a file, a pasted brief, or another source.
 - Record `agent_strategy.task_mode`, `agent_strategy.autonomy_level`, success criteria, selected path, skipped path, and rejected alternatives before or during artifact generation.
+- `scripts/run_agent_delegation.py --execute` automatically writes `tool-results/agent-events.jsonl` beside its durable task ledger. External adapters and other auditable multi-Agent runs must write the same format with `scripts/agent_event_ledger.py`. Each event records a stable event id, timestamp, run id, workspace, event type, and non-sensitive data. This event ledger is the vendor-neutral source for trace export and replay; `run-log.yaml` remains the human-readable summary.
 - Record `agent_strategy.effort_budget` as `fast-pass`, `standard-loop`, `deep-agentic`, `research-intensive`, or `release/self-iteration`.
 - Record `delegation_plan` when PM Orchestrator splits work across specialist agents or external worker loops.
 - When delegated execution is used, retain an `agent_task_ledger` under the run folder. The ledger is the durable execution source; `delegation_plan` and `collaboration_protocol` are its readable trace projection. A completed ledger requires persisted worker outputs and a structured claim or arbitration result. Record whether worker isolation is provider-enforced or only prompt-restricted; do not overstate the boundary.

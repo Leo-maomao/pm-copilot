@@ -6,6 +6,50 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.9.0] - 2026-07-30
+
+### Added
+
+- Added a browser-backed CI smoke test and a source-controlled PRD benchmark harness that checks required and forbidden product-document content without claiming model-quality judgment.
+- Added a durable vendor-neutral `agent-events.jsonl` trace for delegated execution, including task lifecycle, worker, tool, evidence, review, and terminal events.
+- Added a local task-envelope adapter with an explicit non-network A2A interoperability boundary and a versioned PM Copilot capability card.
+- Added global PM Copilot installation, a Seawork-compatible Skill bundle, an installable Codex plugin bundle, and project-local output resolution for both embedded and global use.
+
+### Improved
+
+- Made global runtime replacement atomic, excluded project artifacts and local state from the installed runtime, and constrained project output overrides to remain inside the active project.
+- Recompiled duplicate legacy tracking identifiers into distinct feature-and-action names, preventing repeated generic events from surviving evidence-led PRD migration.
+
+### Validation
+
+- Added regression coverage for global workspace resolution, isolated installation, PRD benchmark cases, event-ledger persistence, A2A envelope validation, and browser-rendered visual smoke checks.
+
+## [4.8.13] - 2026-07-30
+
+### Fixed
+
+- Removed the legacy tracking rule that required explanatory “拟议” or taxonomy-source copy in PRDs; tracking validation now rejects raw sensitive values in `附加参数` instead.
+- Rejected duplicate requirement identifiers in both PRD validation and historical-upgrade automation, and prevented the upgrader from mutating ambiguous documents.
+- Unified optional tracking numbering: `埋点需求` is `六` when no localization section exists and `七` when it does.
+- Rejected technical API, code-path, component, command, and implementation details when embedded in ordinary PRD content rather than only in dedicated technical headings.
+- Made multi-figure layout deterministic at render time instead of relying on browser JavaScript, preserving wide figures and compact side-by-side evidence in static output.
+- Added document language metadata and keyboard-accessible image-preview behavior; fixed macOS real-path handling in successful MOV-to-MP4 conversion.
+
+### Validation
+
+- Added regression coverage for tracking-copy boundaries, sensitive tracking parameters, duplicate requirements, optional tracking numbering, static figure layout, document language, image-preview accessibility, Mermaid integration, and successful media conversion.
+
+## [4.8.12] - 2026-07-30
+
+### Improved
+
+- Rendered multiple figures in the same requirement-detail cell as an adaptive figure group: wide screenshots keep the full row while compact or vertical figures share a row when their rendered dimensions allow it.
+- Kept each image name attached directly to its own image so parallel figures remain unambiguous and visual evidence stays readable.
+
+### Validation
+
+- Added regression coverage for adaptive figure grouping and retained figure-caption and media-rendering checks.
+
 ## [4.8.11] - 2026-07-30
 
 ### Fixed

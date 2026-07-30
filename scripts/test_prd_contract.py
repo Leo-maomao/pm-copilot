@@ -180,12 +180,27 @@ def main() -> None:
     run_case("missing_user_requirement_field", PASS_PRD.replace("目标用户", "用户群体"), False)
     run_case("missing_matching_detail", PASS_PRD.replace("### 5.1 角色变更确认", "### 5.2 角色变更确认"), False)
     run_case("duplicate_requirement_id", PASS_PRD.replace("### 5.1 角色变更确认", "### 5.1 R1 角色变更确认"), False)
+    run_case(
+        "duplicate_requirement_list_number",
+        PASS_PRD.replace("\n## 五、需求详情", "\n| 5.1 | 重复需求 | 团队管理员 | 重复触发 | 重复问题 | 重复摘要 | P1 | 用户确认 |\n\n## 五、需求详情"),
+        False,
+    )
+    run_case(
+        "duplicate_requirement_detail_number",
+        PASS_PRD.replace("\n## 六、多语言需求", "\n### 5.1 重复详情\n\n| 维度 | 需求说明 |\n| --- | --- |\n| 用户与场景 | 团队管理员需要处理重复详情。 |\n| 需求入口 | 成员页。 |\n| 需求详情 | 展示重复详情。 |\n| 设计与交互 | 保持可读。 |\n\n## 六、多语言需求"),
+        False,
+    )
     run_case("missing_detail_field", PASS_PRD.replace("| 需求入口 | 团队管理员在成员页修改高危角色时触发。 |\n", ""), False)
     run_case("explanatory_copy_label", PASS_PRD.replace("## 六、多语言需求", "## 六、多语言需求\n\n### 6.1 新增文案（纯文本）"), False)
     run_case("technical_section", PASS_PRD + "\n## 八、技术方案\n\n说明实现架构。\n", False)
     run_case(
         "technical_field",
         PASS_PRD.replace("| 详情编号 | 需求名称 |", "| 详情编号 | 文件路径 |"),
+        False,
+    )
+    run_case(
+        "technical_detail_content",
+        PASS_PRD.replace("管理员修改高危角色。2.", "前端 RoleDialog 调用 POST /api/members/role。2."),
         False,
     )
     run_case(
@@ -222,6 +237,7 @@ def main() -> None:
     )
     run_case("operation_only_version", PASS_PRD.replace("首次创建", "重新渲染文档"), False)
     run_case("template_guidance", PASS_PRD.replace("降低误操作", "<说明目标用户的问题>"), False)
+    run_case("proposed_prd_copy", PASS_PRD.replace("用户确认", "拟议"), False)
     run_case("vague_requirement_summary", PASS_PRD.replace("降低误操作", "帮助用户更清楚、更高效地完成当前任务"), False)
     run_case("generic_tracking_event", PASS_PRD.replace("查看成员管理页", "访问"), False)
     run_case(

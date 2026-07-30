@@ -1,0 +1,18 @@
+{
+  "name": "pm-copilot",
+  "version": "4.9.0",
+  "description": "Evidence-backed PM Copilot runtime for PRDs, product reviews, tracking, and delivery handoffs.",
+  "author": {
+    "name": "PM Copilot"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PM Copilot",
+    "shortDescription": "Evidence-backed product-manager workflows in the current project.",
+    "longDescription": "Use a shared PM Copilot runtime for user-driven PRDs, product reviews, tracking, and delivery handoffs. Outputs always remain in the active project.",
+    "developerName": "PM Copilot",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Use PM Copilot to create an evidence-backed product deliverable for this project."
+  }
+}

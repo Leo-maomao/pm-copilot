@@ -34,6 +34,14 @@ Activate PM Copilot when the user asks for:
 The user should not need to remember the project name.
 If the task is clearly product-manager work, run PM Copilot.
 
+## Global Installation
+
+PM Copilot may run as an embedded project directory or as a globally installed Skill. A global runtime stores only reusable rules and scripts under `~/.agents/pm-copilot`; it never stores business-project outputs there. Before generating an artifact, resolve the current project workspace with `scripts/project_workspace.py --cwd "$PWD" --ensure`:
+
+- legacy embedded projects continue to write to `pm-copilot/outputs/<run-id>/`;
+- globally installed PM Copilot writes to `.pm-copilot/outputs/<run-id>/` in the current project root;
+- `.pm-copilot/config.yaml` may set a project-relative `output_root` when the project needs a different artifact location.
+
 ## Required Bootstrap Reads
 
 Read only these files before classifying a serious PM task:

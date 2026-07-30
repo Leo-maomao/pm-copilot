@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from agent_event_ledger import validate_file as validate_event_ledger
+
 
 TASK_MODES = {
     "prd_delivery",
@@ -852,6 +854,13 @@ def main() -> None:
         }
     else:
         result = validate_run_log(run_log)
+
+    event_ledger = args.run_folder / "tool-results" / "agent-events.jsonl"
+    if event_ledger.is_file():
+        event_failures = validate_event_ledger(event_ledger)
+        if event_failures:
+            result["failures"].extend(f"agent event ledger: {failure}" for failure in event_failures)
+            result["status"] = "failed"
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

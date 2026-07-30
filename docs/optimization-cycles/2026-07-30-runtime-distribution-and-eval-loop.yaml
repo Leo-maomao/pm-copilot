@@ -1,0 +1,39 @@
+cycle_id: "2026-07-30-runtime-distribution-and-eval-loop"
+date: "2026-07-30"
+version_change: "4.8.13 -> 4.9.0"
+source_run: "user-approved P0/P1/P2 capability delivery"
+generalized_failure: >-
+  PM Copilot had strong local product-document validation but lacked a browser-backed CI proof,
+  a repeatable PRD benchmark, portable delegation telemetry, and a clean global installation path
+  that kept business artifacts in the active project.
+fix_surface:
+  - ".github/workflows/validate.yml"
+  - "scripts/validate_prototype_visual.py"
+  - "scripts/evaluate_prd_benchmark.py"
+  - "scripts/agent_event_ledger.py"
+  - "scripts/run_agent_delegation.py"
+  - "scripts/a2a_adapter.py"
+  - "scripts/project_workspace.py"
+  - "scripts/install_pm_copilot.py"
+  - "distribution/seawork-skill/SKILL.md"
+  - "plugins/pm-copilot"
+decisions:
+  browser_ci: "Use Playwright Chromium in CI and verify both desktop and narrow viewports with a portable smoke fixture."
+  benchmark_boundary: "Keep the first PRD benchmark deterministic and source-controlled; it verifies content contract compliance rather than claiming an automated semantic quality judge."
+  collaboration_trace: "Delegated execution emits a durable JSONL event stream beside the task ledger; external integrations may use the same contract."
+  interoperability_boundary: "Expose a local normalized task envelope and capability card, but do not represent it as a remote A2A server."
+  global_output_rule: "The reusable runtime is global while every business artifact remains in embedded outputs or the active project's .pm-copilot workspace."
+  tracking_identifier_recovery: "When a legacy table repeats a generic event identifier, recompile each row from its observed feature and action rather than retaining duplicate IDs."
+validation:
+  - "python3 scripts/test_project_workspace.py"
+  - "python3 scripts/test_install_pm_copilot.py"
+  - "python3 scripts/test_agent_event_ledger.py"
+  - "python3 scripts/test_agent_orchestration.py"
+  - "python3 scripts/test_a2a_adapter.py"
+  - "python3 scripts/test_prd_benchmark.py"
+  - "python3 scripts/evaluate_prd_benchmark.py --candidate-root evals/prd-benchmark/candidates"
+  - "python3 scripts/validate_prototype_visual.py evals/visual-fixtures/prototype-smoke --no-auto-setup --browser-channel chrome --viewport desktop=1440x960 --viewport narrow=390x844"
+  - "python3 -m unittest discover -s scripts -p 'test_*.py'"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+status: "validated"

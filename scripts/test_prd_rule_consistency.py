@@ -20,6 +20,7 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("`事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`", contract)
         self.assertIn("占位图：图片名称", contract)
         self.assertIn("Do not create a `待确认` item, risk field, or acceptance-result field", contract)
+        self.assertIn("Never show “拟议”", contract)
 
     def test_active_guidance_excludes_retired_placeholder_and_duplicate_id_rules(self) -> None:
         text = self.read("artifacts/artifact-contracts.md")

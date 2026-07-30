@@ -29,21 +29,26 @@ jobs:
         run: |
           python3 scripts/preflight_tools.py --json
 
+      - name: Install visual validation runtime
+        run: |
+          python3 -m pip install -r requirements-dev.txt
+          python3 -m playwright install --with-deps chromium
+
       - name: Validate repository
         run: |
           python3 scripts/validate_repo.py
 
-      - name: Test bounded Agent Loop
+      - name: Run Python regression suite
         run: |
-          python3 scripts/test_agent_loop.py
+          python3 -m unittest discover -s scripts -p 'test_*.py'
 
-      - name: Test decision-first PRD contract
+      - name: Run browser visual smoke test
         run: |
-          python3 scripts/test_prd_contract.py
+          python3 scripts/validate_prototype_visual.py evals/visual-fixtures/prototype-smoke --no-auto-setup --viewport desktop=1440x960 --viewport narrow=390x844
 
-      - name: Test PRD media rendering
+      - name: Run PRD benchmark fixture
         run: |
-          python3 scripts/test_prd_media_rendering.py
+          python3 scripts/evaluate_prd_benchmark.py --candidate-root evals/prd-benchmark/candidates
 
       - name: Test reflection and learning trace
         run: |

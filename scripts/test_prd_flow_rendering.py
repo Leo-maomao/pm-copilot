@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
 
-from render_prd_html import group_adjacent_flowcharts
+from render_prd_html import group_adjacent_flowcharts, inject_defaults
 from validate_outputs import check_prd_flow_sections
 
 
@@ -68,6 +69,16 @@ flowchart TD
 """
     check_prd_flow_sections(paired_flow_with_table)
     require("paired_flowcharts_with_table_accepted", True)
+
+    with tempfile.TemporaryDirectory() as directory:
+        rendered_document = inject_defaults(
+            '<html><head></head><body><h4>用户流程图</h4><pre class="mermaid"><code>flowchart TD\nA --&gt; B</code></pre>'
+            '<h4>操作流程图</h4><pre class="mermaid"><code>flowchart TD\nC --&gt; D</code></pre></body></html>',
+            "# 流程测试 - 2026-07-30",
+            Path(directory),
+        )
+    require("inject_defaults_converts_and_groups_flowcharts", 'class="prd-flow-grid"' in rendered_document)
+    require("inject_defaults_keeps_mermaid_fallback", '<pre class="mermaid">' in rendered_document)
 
     try:
         check_prd_flow_sections(flow_with_table.split("\n\n| 维度", 1)[0])

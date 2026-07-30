@@ -1,0 +1,29 @@
+cycle_id: "2026-07-30-prd-adaptive-figure-layout"
+date: "2026-07-30"
+version_change: "4.8.11 -> 4.8.12"
+source_run: "user-requested PRD readability improvement for compact requirement figures"
+generalized_failure: >-
+  The HTML renderer treated every image in a requirement-detail cell as a block-level figure,
+  forcing compact related evidence into a long vertical stack even when it could be reviewed together.
+fix_surface:
+  - "scripts/render_prd_html.py"
+  - "scripts/test_prd_figure_layout.py"
+  - "artifacts/prd-contract.md"
+  - "skills/prd-writing/SKILL.md"
+decisions:
+  figure_grouping: >-
+    Group only contiguous image-name pairs that are the sole content of a figure cell, preserving
+    mixed text-and-figure cells unchanged.
+  wide_figure_rule: >-
+    A wide or large screenshot stays full-width; smaller or vertical figures may share a two-column row.
+  caption_binding: "Each image name remains directly below its own image within the same figure item."
+validation:
+  - "python3 scripts/test_prd_figure_layout.py"
+  - "python3 scripts/test_prd_figure_format.py"
+  - "python3 scripts/test_prd_media_rendering.py"
+  - "python3 scripts/test_prd_contract.py"
+  - "python3 scripts/test_prd_evidence_upgrade.py"
+  - "python3 -m unittest discover -s scripts -p 'test_*.py'"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+status: "validated"

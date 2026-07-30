@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
+import json
 import unittest
+from tempfile import TemporaryDirectory
 from pathlib import Path
 from unittest.mock import patch
 
 from run_agent_delegation import run_plan
+from agent_event_ledger import validate_file
 
 
 def fake_execute(*args: object) -> dict[str, object]:
@@ -57,6 +60,17 @@ class AgentOrchestrationTest(unittest.TestCase):
         self.assertEqual(report["status"], "degraded")
         self.assertEqual(len(calls), 1)
         self.assertIn("stopped after deterministic runtime startup failure", report["ledger"]["limitations"][-1])
+
+    def test_execution_persists_a_valid_event_ledger(self) -> None:
+        capabilities = {"single_agent_auto": {"status": "available", "reason": "test"}, "multi_agent_loop": {"status": "available", "reason": "test"}}
+        with TemporaryDirectory() as temporary, patch("run_agent_delegation.runtime_capabilities", return_value=capabilities):
+            ledger_path = Path(temporary) / "tool-results" / "agent-task-ledger.json"
+            report = run_plan("需求 PRD、UI、埋点", "auto", Path(temporary), fake_execute, True, ledger_path)
+            events = ledger_path.parent / "agent-events.jsonl"
+            self.assertEqual(report["status"], "complete")
+            self.assertEqual(validate_file(events), [])
+            event_types = {json.loads(line)["type"] for line in events.read_text(encoding="utf-8").splitlines()}
+            self.assertTrue({"task_started", "agent_started", "tool_called", "evidence_recorded", "review_completed", "task_completed"} <= event_types)
 
 
 if __name__ == "__main__":

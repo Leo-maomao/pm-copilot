@@ -1,0 +1,35 @@
+cycle_id: "2026-07-30-prd-validation-and-rendering-hardening"
+date: "2026-07-30"
+version_change: "4.8.12 -> 4.8.13"
+source_run: "user-requested repository health check and multi-agent deep review"
+generalized_failure: >-
+  Contracts, validators, migration utilities, and rendering tests had drifted independently,
+  allowing forbidden explanatory copy, technical implementation detail, duplicate requirement IDs,
+  optional-section numbering conflicts, runtime-dependent layouts, and platform-specific media failures.
+fix_surface:
+  - "artifacts/prd-contract.md"
+  - "scripts/validate_outputs.py"
+  - "scripts/prd_evidence_upgrade.py"
+  - "scripts/render_prd_html.py"
+  - "scripts/test_prd_contract.py"
+  - "scripts/test_prd_evidence_upgrade.py"
+  - "scripts/test_tracking_context.py"
+  - "scripts/test_prd_figure_layout.py"
+  - "scripts/test_prd_flow_rendering.py"
+  - "scripts/test_prd_media_rendering.py"
+decisions:
+  prd_copy_boundary: "Explanatory labels such as 拟议 remain internal and never appear in a PRD."
+  upgrade_safety: "Historical migration blocks instead of mutating a document with duplicate requirement identifiers."
+  layout_resilience: "Figure layout is encoded in generated HTML and does not depend on JavaScript image-load timing."
+  accessibility: "Rendered documents declare language and expose image preview through keyboard-accessible dialog behavior."
+validation:
+  - "python3 scripts/test_prd_contract.py"
+  - "python3 scripts/test_prd_evidence_upgrade.py"
+  - "python3 scripts/test_tracking_context.py"
+  - "python3 scripts/test_prd_figure_layout.py"
+  - "python3 scripts/test_prd_flow_rendering.py"
+  - "python3 scripts/test_prd_media_rendering.py"
+  - "python3 -m unittest discover -s scripts -p 'test_*.py'"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+status: "validated"

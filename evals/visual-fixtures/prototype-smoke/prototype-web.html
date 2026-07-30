@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>PM Copilot Visual Smoke</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #182230; background: #edf2fb; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(135deg, #eef4ff, #f8faff 52%, #ecfff8); }
+    main { width: min(900px, calc(100vw - 48px)); margin: 72px auto; padding: 42px; box-sizing: border-box; border: 1px solid #d8e1f0; border-radius: 20px; background: #fff; box-shadow: 0 20px 55px rgba(33, 62, 104, .12); }
+    .eyebrow { color: #3568d4; font-weight: 700; letter-spacing: .08em; }
+    h1 { margin: 12px 0 14px; font-size: clamp(32px, 5vw, 52px); line-height: 1.15; }
+    p { max-width: 650px; color: #526171; font-size: 18px; line-height: 1.7; }
+    .panel { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; margin-top: 30px; padding: 24px; border-radius: 14px; background: #f0f5ff; }
+    button { border: 0; border-radius: 9px; padding: 8px 18px; background: #2f66dc; color: #fff; font-size: 16px; font-weight: 700; line-height: 28px; white-space: nowrap; cursor: pointer; }
+    a { color: #285bc7; font-weight: 700; }
+    @media (max-width: 600px) { main { width: calc(100vw - 32px); margin: 28px auto; padding: 26px; } .panel { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">项目管理</div>
+    <h1>项目创建确认</h1>
+    <p>确认项目名称后创建项目。提交失败时保留输入内容，并允许用户直接重试。</p>
+    <section class="panel" aria-label="创建项目">
+      <div><strong>创建前检查</strong><br><span>项目名称符合规则后可继续。</span></div>
+      <button type="button">创建项目</button>
+    </section>
+    <p id="detail"><a href="#detail">查看规则</a>　项目创建结果会在当前页面展示。</p>
+  </main>
+  <script>var annotationConfig = { notes: [] };</script>
+</body>
+</html>

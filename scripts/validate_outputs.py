@@ -64,6 +64,14 @@ PRD_TECHNICAL_SECTION_RE = re.compile(
 PRD_TECHNICAL_FIELD_RE = re.compile(
     r"(?im)^\s*\|.*(?:文件路径|代码路径|组件路径|服务名|接口地址|数据库表|类名|函数名|命令).*\|\s*$"
 )
+PRD_TECHNICAL_CONTENT_RE = re.compile(
+    r"(?:\b(?:GET|POST|PUT|PATCH|DELETE)\s+/[\w./?=&{}:-]+|"
+    r"\b(?:React|Vue(?:\.js)?|TypeScript|JavaScript|Node\.?js|Python|SQL|GraphQL|REST(?:ful)?|HTTP|API)\b|"
+    r"\b(?:src|components|services|api)/[\w./-]+|"
+    r"\b[\w-]+\.(?:tsx?|jsx?|py|java|go|sql|json|ya?ml|css|scss)\b|"
+    r"(?:前端|后端|客户端|服务端)?(?:组件|接口|服务|数据库|数据表|类|函数|命令|脚本)\s*(?:为|是|调用|使用|实现|路径|地址|名称|[:：]))",
+    re.IGNORECASE,
+)
 
 PROTOTYPE_FILE_NAMES = (
     "index.html",
@@ -293,7 +301,7 @@ PRD_OPERATION_ONLY_VERSION_RE = re.compile(
 PRD_DRAFT_GUIDANCE_RE = re.compile(
     r"(?:<一句话需求>|<YYYY-MM-DD>|<用户角色|<说明目标用户|<必要时使用|"
     r"<使用功能主体|<new or changed UI copy|Optional\.\s*Delete|按需在表格前|"
-    r"必要时使用\s*一、二、三|待补(?:充|全)|模型(?:臆测|推测)|AI(?:臆测|推测))",
+    r"必要时使用\s*一、二、三|待补(?:充|全)|拟议|模型(?:臆测|推测)|AI(?:臆测|推测))",
     re.IGNORECASE,
 )
 PRD_VAGUE_REQUIREMENT_RE = re.compile(
@@ -2064,6 +2072,8 @@ def check_chinese_prd(path: Path) -> None:
     technical_fields = PRD_TECHNICAL_FIELD_RE.findall(text)
     if technical_fields:
         fail("Chinese PRD must not include technical implementation field(s)")
+    if PRD_TECHNICAL_CONTENT_RE.search(text):
+        fail("Chinese PRD must not include technical implementation details in product content")
     if "文档信息" not in text or "版本记录" not in text:
         fail("Chinese PRD 文档说明 must include 文档信息 and 版本记录")
     if PRD_EXPLANATORY_LABEL_RE.search(text):
@@ -2089,9 +2099,12 @@ def check_chinese_prd(path: Path) -> None:
     for marker in ("详情编号", "目标用户", "用户场景", "用户问题", "优先级"):
         if marker not in requirement_list_body:
             fail(f"Chinese PRD requirement list missing user-driven field: {marker}")
-    requirement_ids = set(re.findall(r"^\|\s*(\d+\.\d+)\s*\|", requirement_list_body, re.MULTILINE))
+    requirement_id_values = re.findall(r"^\|\s*(\d+\.\d+)\s*\|", requirement_list_body, re.MULTILINE)
+    requirement_ids = set(requirement_id_values)
     if not requirement_ids:
         fail("Chinese PRD requirement list must include at least one detail number")
+    if len(requirement_id_values) != len(requirement_ids):
+        fail("Chinese PRD requirement list detail numbers must be unique")
     if PRD_VAGUE_REQUIREMENT_RE.search(requirement_list_body):
         fail("Chinese PRD requirement list must use requirement-specific user value and summary, not generic boilerplate")
     detail_titles = [
@@ -2109,6 +2122,13 @@ def check_chinese_prd(path: Path) -> None:
             "Chinese PRD requirement detail titles must use the detail number as the only identifier: "
             + "; ".join(duplicate_requirement_ids)
         )
+    matching_detail_ids = [
+        match.group(1)
+        for title in detail_titles
+        if (match := re.match(r"(\d+\.\d+)(?:\s|$)", title)) and match.group(1) in requirement_ids
+    ]
+    if len(matching_detail_ids) != len(set(matching_detail_ids)):
+        fail("Chinese PRD requirement detail numbers must be unique")
     missing_requirement_details = [
         requirement_id
         for requirement_id in sorted(requirement_ids)
@@ -2141,8 +2161,9 @@ def check_chinese_prd(path: Path) -> None:
         fail("Chinese PRD contains raw English readiness/review status labels")
     if "Mini Program" in text:
         fail("Chinese PRD should localize platform label as 微信小程序")
+    tracking_heading = "七、埋点需求" if "多语言需求" in h2_titles else "六、埋点需求"
     tracking_section = next(
-        (section for section in markdown_sections(text) if section.get("level") == 2 and section.get("raw_title") == "七、埋点需求"),
+        (section for section in markdown_sections(text) if section.get("level") == 2 and section.get("raw_title") == tracking_heading),
         None,
     )
     if tracking_section:
@@ -2190,12 +2211,18 @@ def check_tracking_context(path: Path) -> None:
         return
 
     text = read(prd_path)
-    if "event_name" not in text:
-        return
-    if "proposed taxonomy" not in text and "拟议" not in text and "未发现既有" not in text:
-        fail("Tracking section missing proposed-taxonomy or taxonomy-source disclosure")
-
     sensitive_terms = ("预产期", "孕周", "医院", "病历", "身份证号", "手机号")
+    tracking_heading = re.search(r"(?m)^##\s+[一二三四五六七八九十]+、埋点需求\s*$", text)
+    if tracking_heading:
+        next_heading = re.search(r"(?m)^##\s+", text[tracking_heading.end() :])
+        end = tracking_heading.end() + next_heading.start() if next_heading else len(text)
+        for line in text[tracking_heading.end() : end].splitlines():
+            values = [value.strip() for value in line.strip().strip("|").split("|")]
+            if len(values) != 5 or values[0] in {"事件", "---"}:
+                continue
+            if any(term in values[3] for term in sensitive_terms):
+                fail("Chinese PRD tracking 附加参数 must not include raw sensitive personal data")
+
     event_lines = [line for line in text.splitlines() if line.startswith("| public_")]
     property_row_re = re.compile(r"^\|\s*[a-z][a-z0-9_]*\s*\|")
     property_lines = [

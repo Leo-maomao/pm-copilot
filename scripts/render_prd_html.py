@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 from pathlib import Path
 
 
@@ -258,6 +258,33 @@ DOCUMENT_CSS = """
       font-size: 12px;
       line-height: 1.5;
     }
+    .prd-figure-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0;
+    }
+    .prd-figure-item {
+      min-width: 0;
+    }
+    .prd-figure-item.is-wide {
+      grid-column: 1 / -1;
+    }
+    .prd-figure-item img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      margin: 0;
+      max-height: none;
+    }
+    .prd-figure-item small {
+      display: block;
+      margin-top: 2px;
+      color: var(--pm-doc-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
     figcaption {
       margin-top: 8px;
       color: var(--pm-doc-muted);
@@ -332,12 +359,15 @@ DOCUMENT_CSS = """
         table-layout: auto;
         white-space: normal;
       }
+      .prd-figure-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
 """
 
 
 LIGHTBOX_HTML_TEMPLATE = """
-<div class="image-lightbox" id="image-lightbox" aria-hidden="true">
+<div class="image-lightbox" id="image-lightbox" role="dialog" aria-modal="true" aria-label="__DIALOG_LABEL__" aria-hidden="true">
 <button type="button">__CLOSE_LABEL__</button>
 <img src="__INITIAL_SRC__" data-initial-src="__INITIAL_SRC__" alt="" />
 </div>
@@ -347,20 +377,37 @@ LIGHTBOX_HTML_TEMPLATE = """
   if (!lightbox) return;
   const lightboxImage = lightbox.querySelector('img');
   const closeButton = lightbox.querySelector('button');
+  let triggerImage = null;
 
   const close = () => {
+    if (!lightbox.classList.contains('is-open')) return;
     lightbox.classList.remove('is-open');
     lightbox.setAttribute('aria-hidden', 'true');
     lightboxImage.src = lightboxImage.dataset.initialSrc || '';
     lightboxImage.setAttribute('alt', '');
+    triggerImage?.focus({ preventScroll: true });
+    triggerImage = null;
   };
 
   Array.from(document.querySelectorAll('figure img, td img')).forEach((image) => {
-    image.addEventListener('click', () => {
+    const open = () => {
+      triggerImage = image;
       lightboxImage.src = image.src;
       lightboxImage.alt = image.alt || '';
       lightbox.classList.add('is-open');
       lightbox.setAttribute('aria-hidden', 'false');
+      closeButton.focus({ preventScroll: true });
+    };
+    image.setAttribute('tabindex', '0');
+    image.setAttribute('role', 'button');
+    image.setAttribute('aria-haspopup', 'dialog');
+    image.setAttribute('aria-label', image.alt || '__OPEN_IMAGE_LABEL__');
+    image.addEventListener('click', open);
+    image.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open();
+      }
     });
   });
 
@@ -369,7 +416,12 @@ LIGHTBOX_HTML_TEMPLATE = """
     if (event.target === lightbox) close();
   });
   document.addEventListener('keydown', (event) => {
+    if (!lightbox.classList.contains('is-open')) return;
     if (event.key === 'Escape') close();
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      closeButton.focus({ preventScroll: true });
+    }
   });
 })();
 </script>
@@ -445,6 +497,12 @@ def infer_close_label(markdown: str) -> str:
     return "关闭" if chinese_chars >= latin_words else "Close"
 
 
+def infer_document_language(markdown: str) -> str:
+    chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", markdown))
+    latin_words = len(re.findall(r"\b[A-Za-z]{3,}\b", markdown))
+    return "zh-CN" if chinese_chars >= latin_words else "en"
+
+
 def html_contains_images(html: str) -> bool:
     return bool(re.search(r"<img\b", html, re.IGNORECASE))
 
@@ -514,7 +572,7 @@ def browser_video_target(target: str, run_folder: Path | None) -> tuple[str, str
                 output_path.unlink(missing_ok=True)
                 return target, mime_type
 
-    relative_output = output_path.relative_to(run_folder).as_posix()
+    relative_output = output_path.relative_to(run_folder.resolve()).as_posix()
     if clean_target.startswith("./"):
         relative_output = f"./{relative_output}"
     return relative_output, "video/mp4"
@@ -624,8 +682,8 @@ def remove_h1_from_toc(html: str) -> str:
     return html[:toc_match.start()] + cleaned_toc + html[toc_match.end():]
 
 
-def normalize_html_shell(html: str) -> str:
-    html = html.replace('<html xmlns="http://www.w3.org/1999/xhtml">', "<html>", 1)
+def normalize_html_shell(html: str, language: str) -> str:
+    html = re.sub(r"<html\b[^>]*>", f'<html lang="{language}">', html, count=1, flags=re.IGNORECASE)
     html = html.replace("<body>", '<body data-pm-copilot-prd-doc="true">', 1)
     html = re.sub(
         r"<nav\b([^>]*)\bid=\"TOC\"([^>]*)>",
@@ -672,6 +730,13 @@ REQUIREMENT_IMAGE_CELL_RE = re.compile(
     r"<img\b|占位图|图片占位|截图占位|image placeholder|screenshot placeholder",
     re.IGNORECASE,
 )
+FIGURE_PAIR_RE = re.compile(
+    r"(?P<image><img\b[^>]*>)\s*(?P<caption><small>.*?</small>)",
+    re.IGNORECASE | re.DOTALL,
+)
+IMAGE_SRC_RE = re.compile(r"\bsrc\s*=\s*([\"'])(?P<src>.*?)\1", re.IGNORECASE | re.DOTALL)
+WIDE_FIGURE_MIN_WIDTH = 1000
+WIDE_FIGURE_MIN_RATIO = 1.45
 
 
 def html_cell_is_empty(body: str) -> bool:
@@ -725,6 +790,108 @@ def merge_requirement_image_table_cells(html: str) -> str:
         return row[:image_cell.start()] + merged_cell + row[cells[-1].end():]
 
     return TABLE_ROW_RE.sub(replace_row, html)
+
+
+def local_image_dimensions(path: Path) -> tuple[int, int] | None:
+    """Read common raster dimensions without optional image-processing dependencies."""
+    try:
+        header = path.read_bytes()[:64]
+    except OSError:
+        return None
+
+    if header.startswith(b"\x89PNG\r\n\x1a\n") and len(header) >= 24:
+        return int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
+    if header.startswith((b"GIF87a", b"GIF89a")) and len(header) >= 10:
+        return int.from_bytes(header[6:8], "little"), int.from_bytes(header[8:10], "little")
+    if header.startswith(b"RIFF") and header[8:12] == b"WEBP" and len(header) >= 30:
+        chunk_type = header[12:16]
+        if chunk_type == b"VP8X":
+            return (
+                int.from_bytes(header[24:27], "little") + 1,
+                int.from_bytes(header[27:30], "little") + 1,
+            )
+        if chunk_type == b"VP8 ":
+            return (
+                int.from_bytes(header[26:28], "little") & 0x3FFF,
+                int.from_bytes(header[28:30], "little") & 0x3FFF,
+            )
+        if chunk_type == b"VP8L" and len(header) >= 25:
+            bits = int.from_bytes(header[21:25], "little")
+            return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+    if header.startswith(b"\xff\xd8"):
+        try:
+            with path.open("rb") as image_file:
+                image_file.read(2)
+                while True:
+                    marker_prefix = image_file.read(1)
+                    while marker_prefix == b"\xff":
+                        marker_prefix = image_file.read(1)
+                    if not marker_prefix:
+                        return None
+                    marker = marker_prefix[0]
+                    if marker in {0xD8, 0xD9}:
+                        continue
+                    size = int.from_bytes(image_file.read(2), "big")
+                    if size < 2:
+                        return None
+                    if 0xC0 <= marker <= 0xC3 or 0xC5 <= marker <= 0xC7 or 0xC9 <= marker <= 0xCB or 0xCD <= marker <= 0xCF:
+                        data = image_file.read(5)
+                        if len(data) != 5:
+                            return None
+                        return int.from_bytes(data[3:5], "big"), int.from_bytes(data[1:3], "big")
+                    image_file.seek(size - 2, 1)
+        except OSError:
+            return None
+    return None
+
+
+def figure_item_class(image_html: str, run_folder: Path | None) -> str:
+    """Keep unreadable or unknown images full-width; group compact evidence side by side."""
+    if run_folder is None:
+        return "prd-figure-item"
+    src_match = IMAGE_SRC_RE.search(image_html)
+    if src_match is None:
+        return "prd-figure-item is-wide"
+    parsed = urlparse(html_lib.unescape(src_match.group("src")))
+    if parsed.scheme or parsed.netloc:
+        return "prd-figure-item is-wide"
+    source = unquote(parsed.path)
+    image_path = (run_folder / source).resolve()
+    try:
+        image_path.relative_to(run_folder.resolve())
+    except ValueError:
+        return "prd-figure-item is-wide"
+    dimensions = local_image_dimensions(image_path)
+    if dimensions is None:
+        return "prd-figure-item is-wide"
+    width, height = dimensions
+    ratio = width / max(height, 1)
+    if width >= WIDE_FIGURE_MIN_WIDTH or ratio >= WIDE_FIGURE_MIN_RATIO:
+        return "prd-figure-item is-wide"
+    return "prd-figure-item"
+
+
+def group_requirement_figure_pairs(html: str, run_folder: Path | None = None) -> str:
+    """Render multiple image-caption pairs in one detail cell as an adaptive figure grid."""
+
+    def replace_cell(match: re.Match[str]) -> str:
+        body = match.group("body")
+        pairs = list(FIGURE_PAIR_RE.finditer(body))
+        if len(pairs) < 2:
+            return match.group(0)
+        remainder = FIGURE_PAIR_RE.sub("", body)
+        remainder = re.sub(r"<br\s*/?>", "", remainder, flags=re.IGNORECASE)
+        if visible_text_from_html(remainder).replace("\xa0", "").strip():
+            return match.group(0)
+        items = "".join(
+            f'<div class="{figure_item_class(pair.group("image"), run_folder)}">'
+            f'{pair.group("image")}{pair.group("caption")}'
+            "</div>"
+            for pair in pairs
+        )
+        return f'<td{match.group("attrs")}><div class="prd-figure-grid">{items}</div></td>'
+
+    return TABLE_CELL_RE.sub(replace_cell, html)
 
 
 def stable_heading_id(level: int, text: str, counters: dict[int, int], used_ids: set[str]) -> str:
@@ -815,13 +982,14 @@ def copy_mermaid_runtime(run_folder: Path) -> None:
 def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     if markdown_needs_assets_folder(markdown):
         ensure_assets_dir(run_folder)
-    html = normalize_html_shell(html)
+    html = normalize_html_shell(html, infer_document_language(markdown))
     html = convert_mermaid_blocks(html)
     html = group_adjacent_flowcharts(html)
     html = convert_video_links(html, run_folder)
     html = normalize_heading_anchors(html)
     html = remove_h1_from_toc(html)
     html = merge_requirement_image_table_cells(html)
+    html = group_requirement_figure_pairs(html, run_folder)
     html = replace_document_styles(html)
     if html_contains_images(html) and 'id="image-lightbox"' not in html:
         initial_src = html_lib.escape(first_image_src(html), quote=True)
@@ -829,6 +997,8 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
         lightbox_html = (
             LIGHTBOX_HTML_TEMPLATE
             .replace("__CLOSE_LABEL__", close_label)
+            .replace("__DIALOG_LABEL__", "图片预览" if close_label == "关闭" else "Image preview")
+            .replace("__OPEN_IMAGE_LABEL__", "打开图片预览" if close_label == "关闭" else "Open image preview")
             .replace("__INITIAL_SRC__", initial_src)
         )
         html = html.replace("</body>", lightbox_html + "\n</body>", 1)

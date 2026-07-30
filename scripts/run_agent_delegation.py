@@ -14,6 +14,7 @@ from threading import Lock
 from typing import Any, Callable
 
 from agent_runtime import execute, runtime_capabilities
+from agent_event_ledger import append_event
 from agent_task_ledger import complete_tasks, create_ledger, load as load_ledger, task as ledger_task, write as write_ledger
 from plan_agent_delegation import build_plan
 from workspace_identity import identify, scope_notice
@@ -137,6 +138,18 @@ def persist_worker_output(ledger_path: Path, identifier: str, result: dict[str, 
     return output_path.name
 
 
+def record_event(ledger_path: Path | None, ledger: dict[str, Any], event_type: str, data: dict[str, object]) -> None:
+    if not ledger_path:
+        return
+    append_event(
+        ledger_path.parent / "agent-events.jsonl",
+        str(ledger.get("run_id") or ledger_path.parent.name),
+        str(ledger.get("workspace", {}).get("execution_root") or ledger_path.parent),
+        event_type,
+        data,
+    )
+
+
 def execute_task(
     ledger: dict[str, Any],
     identifier: str,
@@ -153,6 +166,7 @@ def execute_task(
             return {"status": "complete", "resumed": True, "output_ref": item.get("output_ref", "")}
         item["status"] = "running"
         item["started_at"] = timestamp()
+        record_event(ledger_path, ledger, "agent_started", {"task_id": identifier, "role": str(item["role"]), "phase": str(item["phase"])})
         if ledger_path:
             write_ledger(ledger_path, ledger)
     last_result: dict[str, Any] = {}
@@ -170,6 +184,7 @@ def execute_task(
             Path(schema_path).unlink(missing_ok=True)
         last_result = result
         with ledger_lock:
+            record_event(ledger_path, ledger, "tool_called", {"task_id": identifier, "tool": "agent_runtime", "provider": str(result.get("provider", "")), "status": str(result.get("status", ""))})
             item["runtime"] = str(result.get("provider", ""))
             item["model"] = str(result.get("model", ""))
             parsed = parse_json_output(str(result.get("output", "")))
@@ -194,6 +209,9 @@ def execute_task(
                 "redaction_status": "runtime_redacted",
             }
             item["evidence_refs"] = [artifact_id]
+            record_event(ledger_path, ledger, "evidence_recorded", {"task_id": identifier, "artifact_id": artifact_id, "status": str(item["status"])})
+            if item["phase"] == "challenge":
+                record_event(ledger_path, ledger, "review_completed", {"task_id": identifier, "status": str(item["status"])})
             parsed_worker = parse_json_output(str(last_result.get("output", "")))
             if parsed_worker and isinstance(parsed_worker.get("claims"), list):
                 for index, claim in enumerate(parsed_worker["claims"]):
@@ -244,11 +262,13 @@ def run_plan(
         ledger = create_ledger(request, task_mode, plan, cwd)
     if ledger_path:
         write_ledger(ledger_path, ledger)
+        record_event(ledger_path, ledger, "task_started", {"task_mode": task_mode, "dispatch": dispatch})
     if dispatch and capabilities["single_agent_auto"]["status"] != "available":
         ledger["status"] = "blocked"
         ledger["limitations"].append(str(capabilities["single_agent_auto"]["reason"]))
         if ledger_path:
             write_ledger(ledger_path, ledger)
+            record_event(ledger_path, ledger, "task_failed", {"status": "blocked", "limitations": ledger["limitations"]})
         return {"status": "blocked", "reason": capabilities["single_agent_auto"]["reason"], "plan": plan, "workers": [], "ledger": ledger}
     if dispatch:
         first_worker = evidence_workers[0]
@@ -266,6 +286,7 @@ def run_plan(
             ledger["limitations"].append(reason)
             if ledger_path:
                 write_ledger(ledger_path, ledger)
+                record_event(ledger_path, ledger, "task_failed", {"status": "degraded", "limitations": ledger["limitations"]})
             return {
                 "status": "degraded",
                 "plan": plan,
@@ -315,6 +336,9 @@ def run_plan(
     )
     if ledger_path:
         write_ledger(ledger_path, ledger)
+        if ledger["status"] in {"complete", "degraded", "blocked", "failed"}:
+            terminal_event = "task_completed" if ledger["status"] == "complete" else "task_failed"
+            record_event(ledger_path, ledger, terminal_event, {"status": ledger["status"], "limitations": ledger["limitations"]})
     return {
         "status": ledger["status"],
         "plan": plan,
