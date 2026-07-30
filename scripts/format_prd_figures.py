@@ -12,6 +12,20 @@ from prd_evidence_upgrade import discover_output_folders
 
 FIGURE_ROW_RE = re.compile(r"(?m)^(\|\s*(?:图示|截图|需求图|图片)\s*\|\s*)(.*?)(\|\s*)$")
 IMAGE_RE = re.compile(r"!\[([^\]]+)\]\(([^)]+)\)")
+IMAGE_EXTENSION_RE = re.compile(r"\.(?:png|jpe?g|webp)$", re.IGNORECASE)
+CAPTION_NOISE_RE = re.compile(
+    r"\s*(?:[；;].*|[（(](?:局部|全屏|原始)?截图[）)])\s*",
+    re.IGNORECASE,
+)
+
+
+def figure_name(value: str, source: str) -> str:
+    """Return the product-facing figure name without capture metadata."""
+    candidate = value.strip() or Path(source).stem
+    candidate = IMAGE_EXTENSION_RE.sub("", candidate)
+    candidate = re.sub(r"^(?:图示|截图|图片)\s*[:：]\s*", "", candidate)
+    candidate = CAPTION_NOISE_RE.sub("", candidate).strip()
+    return candidate or Path(source).stem
 
 
 def normalize_row(match: re.Match[str]) -> str:
@@ -22,7 +36,8 @@ def normalize_row(match: re.Match[str]) -> str:
 
     def caption(image: re.Match[str]) -> str:
         alt, source = image.groups()
-        return f"![{alt}]({source})<small>{alt}</small>"
+        name = figure_name(alt, source)
+        return f"![{name}]({source})<small>{name}</small>"
 
     content = IMAGE_RE.sub(caption, content)
     content = re.sub(r"</small>(?:\s*<br>)+\s*(?=!\[)", "</small><br>", content)

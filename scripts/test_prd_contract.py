@@ -170,7 +170,7 @@ def main() -> None:
 """
     run_case(
         "implemented_feature_real_figure_matches_requirement_and_asset",
-        PASS_PRD.replace("| 设计与交互 |", "| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>role-confirmation.png；位置：角色变更确认弹窗；用途：展示确认操作。</small> |\n| 设计与交互 |"),
+        PASS_PRD.replace("| 设计与交互 |", "| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>角色变更确认</small> |\n| 设计与交互 |"),
         True,
         implemented_trace,
         True,
@@ -190,13 +190,35 @@ def main() -> None:
     )
     run_case(
         "controlled_screenshot_placeholder",
-        PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更.png<br><small>位置：成员管理页的角色编辑区域；用途：展示高危角色变更前的确认信息。</small> |\n| 设计与交互 |"),
+        PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更.png |\n| 设计与交互 |"),
         True,
     )
     run_case(
         "invalid_screenshot_placeholder",
-        PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更.png |\n| 设计与交互 |"),
+        PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更 |\n| 设计与交互 |"),
         False,
+    )
+    run_case(
+        "descriptive_figure_caption",
+        PASS_PRD.replace(
+            "| 设计与交互 |",
+            "| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>角色变更确认.png；本地 Demo 实测截图。</small> |\n| 设计与交互 |",
+        ),
+        False,
+        implemented_trace,
+        True,
+        {"assets/role-confirmation.png": fixture_asset},
+    )
+    run_case(
+        "double_figure_gap",
+        PASS_PRD.replace(
+            "| 设计与交互 |",
+            "| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>角色变更确认</small><br><br>![角色变更结果](./assets/role-confirmation.png)<small>角色变更结果</small> |\n| 设计与交互 |",
+        ),
+        False,
+        implemented_trace,
+        True,
+        {"assets/role-confirmation.png": fixture_asset},
     )
     run_case("operation_only_version", PASS_PRD.replace("首次创建", "重新渲染文档"), False)
     run_case("template_guidance", PASS_PRD.replace("降低误操作", "<说明目标用户的问题>"), False)

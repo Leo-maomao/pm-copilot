@@ -57,7 +57,7 @@ Screenshot acquisition order:
 4. If login is required, ask the user to sign in in the selected browser or provide a task-scoped token through an approved secure channel, then resume the same automated flow.
 5. Validate that the image is readable at normal document width. Retry with a larger viewport, higher device scale, focused target, or full-window context when an element screenshot is too small or blurred.
 6. Use manual capture only when automated capture cannot reproduce the required state.
-7. If automated setup, authentication recovery, and manual capture are all unavailable or unsuccessful, omit the figure unless it is required to review the behavior. For a required figure, use the controlled inline placeholder with a small location-and-purpose caption and record every failed path in `run-log.yaml`.
+7. If automated setup, authentication recovery, and manual capture are all unavailable or unsuccessful, omit the figure unless it is required to review the behavior. For a required figure, use the controlled inline placeholder `占位图：图片名称` and record every failed path in `run-log.yaml`.
 
 Never copy credentials into generated artifacts, source-controlled environment files, logs, user-visible commands, or image metadata. Record only the authentication limitation and recovery status.
 
@@ -75,7 +75,7 @@ Rules:
 
 - Put a real image exactly where it belongs in the requirement.
 - Omit the optional figure row when no trusted rendered source exists and the figure is not necessary to review the behavior.
-- When the figure is necessary but unavailable, use only `占位图：<name>.png<br><small>位置：...；用途：...</small>` in the affected row or blockquote; add `状态：...` when relevant.
+- When the figure is necessary but unavailable, use only `占位图：<name>.png` in the affected row or blockquote. Keep location, purpose, state, and capture failures in the run log rather than the PRD.
 - Do not add a standalone screenshot list, image list, figure list, appendix, or checklist by default.
 - Cover every independent changed page, window, panel, or dialog. Do not split micro-states into separate screenshots when a single screenshot captures the complete window or panel.
 
@@ -86,7 +86,7 @@ Replacement loop:
 3. Manual fallback: request a human capture only for states that automation still cannot reach.
 4. Final fallback: omit a nonessential figure, or use the controlled inline placeholder for an essential unavailable figure and record the failed capture paths in the run trace.
 5. Regenerate `prd.html` and verify every real image is clear, local, correctly positioned, and click-to-fullscreen capable.
-6. Verify every remaining screenshot placeholder is essential, inline, and includes a small location-and-purpose caption.
+6. Verify every remaining screenshot placeholder is essential and inline; its displayed name must identify the relevant functional area and state.
 
 ## HTML Rendering
 

@@ -13,7 +13,7 @@ class PRDFigureFormatTest(unittest.TestCase):
         source = (
             "| 图示 | ![项目列表](./assets/项目列表.png)<br>"
             "![创建项目弹窗](./assets/创建项目弹窗.png)<br>"
-            "<small>位置：项目列表；用途：展示创建入口。</small> |"
+            "<small>项目列表.png；本地 Demo 实测截图。</small> |"
         )
         match = __import__("re").compile(r"(?m)^(\|\s*(?:图示|截图|需求图|图片)\s*\|\s*)(.*?)(\|\s*)$").match(source)
         self.assertIsNotNone(match)
@@ -26,6 +26,12 @@ class PRDFigureFormatTest(unittest.TestCase):
         source = "| 图示 | ![项目列表](./assets/项目列表.png)<small>项目列表</small> |"
         match = __import__("re").compile(r"(?m)^(\|\s*(?:图示|截图|需求图|图片)\s*\|\s*)(.*?)(\|\s*)$").match(source)
         self.assertEqual(normalize_row(match), source)
+
+    def test_removes_capture_metadata_from_display_name(self) -> None:
+        source = "| 图示 | ![登录弹窗-默认（局部截图）](./assets/登录弹窗-默认（局部截图）.png)<small>登录弹窗-默认（局部截图）.png；本地 Demo 实测截图。</small> |"
+        match = __import__("re").compile(r"(?m)^(\|\s*(?:图示|截图|需求图|图片)\s*\|\s*)(.*?)(\|\s*)$").match(source)
+        normalized = normalize_row(match)
+        self.assertEqual(normalized, "| 图示 | ![登录弹窗-默认](./assets/登录弹窗-默认（局部截图）.png)<small>登录弹窗-默认</small> |")
 
 
 if __name__ == "__main__":

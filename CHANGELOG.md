@@ -6,6 +6,18 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.8.10] - 2026-07-30
+
+### Fixed
+
+- Unified PRD figure names to the relevant functional area and key state only, removing file extensions, capture markers, `图示：`, Demo-source notes, and other explanatory caption text.
+- Required each real figure to repeat that exact display name immediately below the image and rejected double line breaks between consecutive figures.
+- Simplified controlled figure placeholders to `占位图：图片名称`; capture rationale and location details remain in internal evidence rather than the PRD.
+
+### Validation
+
+- Added regression coverage for descriptive figure captions and double figure gaps, then normalized all local PRD figure rows.
+
 ## [4.8.9] - 2026-07-30
 
 ### Fixed

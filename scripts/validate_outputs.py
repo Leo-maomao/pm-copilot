@@ -206,12 +206,8 @@ PRODUCTION_DECISIONS = {
 }
 RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?")
 IMAGE_PLACEHOLDER_RE = re.compile(
-    r"(?P<block>^>\s*占位图[:：]\s*(?P<block_name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$"
-    r"\n>\s*<small>\s*位置[:：]\s*(?P<block_location>[^<\n；;]+)"
-    r"(?:[；;]\s*状态[:：]\s*[^<\n；;]+)?[；;]\s*用途[:：]\s*(?P<block_purpose>[^<\n]+)\s*</small>\s*$)"
-    r"|(?P<inline>占位图[:：]\s*(?P<inline_name>[^`<>\n|]+?\.(?:png|jpg|jpeg|webp))"
-    r"\s*<br\s*/?>\s*<small>\s*位置[:：]\s*(?P<inline_location>[^<|；;]+)"
-    r"(?:[；;]\s*状态[:：]\s*[^<|；;]+)?[；;]\s*用途[:：]\s*(?P<inline_purpose>[^<|]+)\s*</small>)",
+    r"(?P<block>^>\s*占位图[:：]\s*(?P<block_name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$)"
+    r"|(?P<inline>占位图[:：]\s*(?P<inline_name>[^`<>\n|]+?\.(?:png|jpg|jpeg|webp)))",
     re.IGNORECASE | re.MULTILINE,
 )
 FORBIDDEN_PLACEHOLDER_LABEL_RE = re.compile(r"待补真实图|待补图|真实图待补")
@@ -2283,7 +2279,7 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         check_image_asset_name(name, "PRD missing-image placeholder")
     placeholder_sanitized = IMAGE_PLACEHOLDER_RE.sub("", text)
     if "占位图" in placeholder_sanitized:
-        fail("PRD screenshot placeholders must include a small 位置 and 用途 caption")
+        fail("PRD screenshot placeholders must use the controlled 占位图：图片名称 format")
 
     if markdown_needs_assets_folder(text) and not (path / "assets").is_dir():
         fail("prd.md references screenshots/placeholders or local PRD runtimes, but assets/ is missing")
@@ -2326,10 +2322,19 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
                 + ", ".join(unreferenced_images)
             )
         for match in re.finditer(r"!\[([^\]]+)\]\((?:\.\/)?assets\/[^)]+\)", text):
+            image_name = match.group(1).strip()
             caption_start = match.end()
             caption = re.match(r"<small>([^<\n]+)</small>", text[caption_start:])
-            if not caption or caption.group(1).strip().startswith("图示："):
-                fail("Each PRD image must be immediately followed by its image name")
+            caption_name = caption.group(1).strip() if caption else ""
+            if not caption or caption_name != image_name:
+                fail("Each PRD image must be immediately followed by the same image name")
+            if (
+                Path(caption_name).suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+                or re.search(r"(?:图示\s*[:：]|本地\s*demo|[（(](?:局部|全屏|原始)?截图[）)]|[；;])", caption_name, re.IGNORECASE)
+            ):
+                fail("PRD image names must not include file extensions, capture metadata, or explanatory text")
+        if re.search(r"</small>\s*(?:<br\s*/?>\s*){2,}(?=!\[)", text, re.IGNORECASE):
+            fail("Consecutive PRD figures must use one visual line break only")
 
     if re.search(r"图片占位|截图占位|image placeholder|screenshot placeholder", text, re.IGNORECASE):
         fail("PRD screenshot placeholders must use the controlled 占位图 format")
