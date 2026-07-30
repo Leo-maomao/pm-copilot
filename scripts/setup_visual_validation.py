@@ -104,7 +104,7 @@ def main() -> None:
         if channel:
             print(
                 "Playwright-managed browser install failed. A system browser is available only as an explicit fallback: "
-                f"`PLAYWRIGHT_BROWSER_CHANNEL={channel} python3 scripts/validate_prototype_visual.py outputs/<run-id>`."
+                f"`PLAYWRIGHT_BROWSER_CHANNEL={channel} python3 scripts/validate_prototype_visual.py <output-root>/<run-id>`."
             )
         sys.exit(result)
     print("Visual validation is ready with Playwright Chromium headless shell.")

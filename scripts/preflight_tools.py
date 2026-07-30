@@ -299,14 +299,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "available" if script_available("scripts/validate_outputs.py") else "unavailable",
             "scripts/validate_outputs.py",
             True,
-            "python3 scripts/validate_outputs.py outputs/<run-id> --language <zh|en>",
+            "python3 scripts/validate_outputs.py <output-root>/<run-id> --language <zh|en>",
         ),
         capability(
             "validation.visual",
             visual_status,
             visual_evidence,
             True,
-            "python3 scripts/validate_prototype_visual.py outputs/<run-id>; python3 scripts/validate_ui_preview.py <preview-url> --run-folder outputs/<run-id>",
+            "python3 scripts/validate_prototype_visual.py <output-root>/<run-id>; python3 scripts/validate_ui_preview.py <preview-url> --run-folder <output-root>/<run-id>",
             "python3 scripts/setup_visual_validation.py",
         ),
         capability(
@@ -314,7 +314,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "available" if script_available("scripts/extract_ui_region.py") else "unavailable",
             "scripts/extract_ui_region.py",
             False,
-            "python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output outputs/<run-id>/prototype-<platform>.html --run-folder outputs/<run-id>",
+            "python3 scripts/extract_ui_region.py --target <preview-url-or-file> --selector '<css-selector>' --output <output-root>/<run-id>/prototype-<platform>.html --run-folder <output-root>/<run-id>",
             "python3 scripts/setup_visual_validation.py",
         ),
         capability(
@@ -322,28 +322,28 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "available",
             f"html.parser available; tidy={'available' if tidy['available'] else 'not found'}",
             True,
-            "python3 scripts/run_delivery_checks.py outputs/<run-id>",
+            "python3 scripts/run_delivery_checks.py <output-root>/<run-id>",
         ),
         capability(
             "validation.delivery_orchestrator",
             "available" if script_available("scripts/run_delivery_checks.py") else "unavailable",
             "scripts/run_delivery_checks.py",
             True,
-            "python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>",
+            "python3 scripts/run_delivery_checks.py <output-root>/<run-id> --language <zh|en>",
         ),
         capability(
             "validation.agent_trace",
             "available" if script_available("scripts/validate_agent_trace.py") else "unavailable",
             "scripts/validate_agent_trace.py",
             True,
-            "python3 scripts/validate_agent_trace.py outputs/<run-id>",
+            "python3 scripts/validate_agent_trace.py <output-root>/<run-id>",
         ),
         capability(
             "control.agent_loop",
             "available" if script_available("scripts/evaluate_agent_loop.py") else "unavailable",
             "scripts/evaluate_agent_loop.py",
             True,
-            "python3 scripts/evaluate_agent_loop.py outputs/<run-id>",
+            "python3 scripts/evaluate_agent_loop.py <output-root>/<run-id>",
         ),
         capability(
             "analysis.agent_runs",
@@ -364,14 +364,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "available" if script_available("templates/dev-tasks-template.yaml") else "unavailable",
             "templates/dev-tasks-template.yaml",
             False,
-            "Generate outputs/<run-id>/dev-tasks.yaml",
+            "Generate <output-root>/<run-id>/dev-tasks.yaml",
         ),
         capability(
             "launch.decision_support",
             "available" if script_available("templates/launch-decision-template.yaml") else "unavailable",
             "templates/launch-decision-template.yaml",
             False,
-            "Generate outputs/<run-id>/launch-decision.yaml",
+            "Generate <output-root>/<run-id>/launch-decision.yaml",
         ),
     ]
 
@@ -388,10 +388,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if visual_status == "setup_required":
         recommended.insert(0, "python3 scripts/setup_visual_validation.py")
     if visual_status == "available":
-        recommended.append("python3 scripts/validate_prototype_visual.py outputs/<run-id>")
-        recommended.append("python3 scripts/validate_ui_preview.py <preview-url> --run-folder outputs/<run-id>")
-    recommended.append("python3 scripts/validate_agent_trace.py outputs/<run-id>")
-    recommended.append("python3 scripts/evaluate_agent_loop.py outputs/<run-id>")
+        recommended.append("python3 scripts/validate_prototype_visual.py <output-root>/<run-id>")
+        recommended.append("python3 scripts/validate_ui_preview.py <preview-url> --run-folder <output-root>/<run-id>")
+    recommended.append("python3 scripts/validate_agent_trace.py <output-root>/<run-id>")
+    recommended.append("python3 scripts/evaluate_agent_loop.py <output-root>/<run-id>")
     if agent_runtime_capabilities["single_agent_auto"]["status"] == "available":
         recommended.append("python3 scripts/agent_runtime.py discover --json")
     recommended.append("python3 scripts/agent_improvement_scorecard.py")

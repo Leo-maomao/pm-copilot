@@ -39,8 +39,8 @@ If the task is clearly product-manager work, run PM Copilot.
 PM Copilot may run as an embedded project directory or as a globally installed Skill. A global runtime stores only reusable rules and scripts under `~/.agents/pm-copilot`; it never stores business-project outputs there. Before generating an artifact, resolve the current project workspace with `scripts/project_workspace.py --cwd "$PWD" --ensure`:
 
 - legacy embedded projects continue to write to `pm-copilot/outputs/<run-id>/`;
-- globally installed PM Copilot writes to `.pm-copilot/outputs/<run-id>/` in the current project root;
-- `.pm-copilot/config.yaml` may set a project-relative `output_root` when the project needs a different artifact location.
+- globally installed PM Copilot writes to `pm-copilot-outputs/<run-id>/` in the current project root;
+- legacy `.pm-copilot/config.yaml` may set a project-relative `output_root` when a project needs a different artifact location; new projects do not create this hidden directory.
 
 ## Required Bootstrap Reads
 
@@ -150,8 +150,8 @@ If the user explicitly requests a draft with risk, downgrade readiness and keep 
 
 ## Delivery Defaults
 
-Generated runtime artifacts live under `outputs/<run-id>/`.
-In embedded repositories they live under `pm-copilot/outputs/<run-id>/`.
+Generated runtime artifacts live under the active project's resolved output root.
+In embedded repositories they live under `pm-copilot/outputs/<run-id>/`; globally installed PM Copilot uses `pm-copilot-outputs/<run-id>/`.
 Use a dated ASCII run id such as `checkout-coupon-2026-07-09`; append `-2`, `-3`, and so on for same-day collisions.
 
 Default artifacts by task:
@@ -195,7 +195,7 @@ Avoid decorative cards, gradients, unusual backgrounds, nested scroll containers
 
 ## UI Delivery Rule
 
-For repo-backed UI work, inspect source, screenshots, routes, and design-system evidence in read-only mode. Produce an evidence-based prototype or specification under `outputs/<run-id>/`; do not create preview/delta files in the host project.
+For repo-backed UI work, inspect source, screenshots, routes, and design-system evidence in read-only mode. Produce an evidence-based prototype or specification under the resolved output root; do not create preview/delta files in the host project.
 When an existing rendered surface is available, `scripts/extract_ui_region.py` may create a read-only evidence extract under the run folder. It must not be used to implement a requested feature.
 Use portable `prototype-<platform>.html` as the standard review artifact and label any fidelity limitation or unverified behavior.
 
@@ -207,14 +207,14 @@ Use these tools when their task applies:
 
 ```bash
 python3 scripts/preflight_tools.py
-python3 scripts/validate_outputs.py outputs/<run-id>
-python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>
-python3 scripts/validate_agent_trace.py outputs/<run-id>
+python3 scripts/validate_outputs.py <output-root>/<run-id>
+python3 scripts/run_delivery_checks.py <output-root>/<run-id> --language <zh|en>
+python3 scripts/validate_agent_trace.py <output-root>/<run-id>
 python3 scripts/analyze_agent_run_evidence.py --json
 python3 scripts/setup_visual_validation.py
-python3 scripts/validate_prototype_visual.py outputs/<run-id>
-python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder outputs/<run-id>
-python3 scripts/render_prd_html.py outputs/<run-id>
+python3 scripts/validate_prototype_visual.py <output-root>/<run-id>
+python3 scripts/validate_ui_preview.py <preview-url-or-file> --run-folder <output-root>/<run-id>
+python3 scripts/render_prd_html.py <output-root>/<run-id>
 python3 scripts/agent_improvement_scorecard.py
 ```
 

@@ -73,6 +73,13 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             folder = self.create_run(root)
             self.assertEqual(discover_output_folders([root]), [folder])
 
+    def test_discovers_visible_global_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "pm-copilot-outputs" / "sample-2026-07-29"
+            folder.mkdir(parents=True)
+            self.assertEqual(discover_output_folders([root]), [folder])
+
     def test_adds_tracking_from_confirmed_flow(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

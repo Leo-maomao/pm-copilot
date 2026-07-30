@@ -28,6 +28,8 @@ FORBIDDEN_DEFAULT_FILES = {
     "final-package-summary.md",
 }
 
+OUTPUT_PARENT_DIRECTORIES = {"outputs", "pm-copilot-outputs"}
+
 STALE_VALIDATION_RE = re.compile(
     r"\b(should run|to be verified)\b|^\s*(?:[-*>]\s*)?(?:待执行|待运行|应运行)\s*(?:[|。]?)\s*$",
     re.IGNORECASE | re.MULTILINE,
@@ -1203,11 +1205,14 @@ def is_document_prototype_html(text: str) -> bool:
 def check_folder(path: Path, require_run_log: bool = True) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
-    if path.parent.name != "outputs":
-        fail("Output folder must be a direct child of outputs/: outputs/<run-id>")
+    if path.parent.name not in OUTPUT_PARENT_DIRECTORIES:
+        fail(
+            "Output folder must be a direct child of outputs/ or pm-copilot-outputs/: "
+            "<output-root>/<run-id>"
+        )
     if not RUN_ID_RE.fullmatch(path.name):
         fail(
-            "Output folder names under outputs/ must use "
+            "Output folder names under the output root must use "
             "requirement-slug-YYYY-MM-DD with an optional numeric collision suffix"
         )
 

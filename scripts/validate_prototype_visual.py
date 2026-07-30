@@ -11,7 +11,7 @@ System Chrome, Edge, or Chromium can still be selected explicitly with
 `--browser-channel` or `PLAYWRIGHT_BROWSER_CHANNEL`.
 
 It writes screenshots plus a JSON report under
-`outputs/<run-id>/visual-review/` by default. If a baseline directory is
+`<output-root>/<run-id>/visual-review/` by default. If a baseline directory is
 provided, screenshots are compared at pixel level using a small stdlib PNG
 decoder that supports the PNG format produced by Chromium screenshots.
 """

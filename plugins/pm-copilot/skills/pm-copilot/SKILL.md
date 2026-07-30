@@ -13,4 +13,4 @@ Read the runtime's `PM_COPILOT.md`, then resolve the project workspace before cr
 python3 "${PM_COPILOT_HOME:-$HOME/.agents/pm-copilot}/scripts/project_workspace.py" --cwd "$PWD" --ensure
 ```
 
-Never place product outputs in the plugin or global runtime directory. Use `pm-copilot/outputs/<run-id>/` for embedded projects and `.pm-copilot/outputs/<run-id>/` for global use.
+Never place product outputs in the plugin or global runtime directory. Use `pm-copilot/outputs/<run-id>/` for embedded projects and `pm-copilot-outputs/<run-id>/` for global use.

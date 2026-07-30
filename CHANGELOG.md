@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.9.2] - 2026-07-30
+
+### Changed
+
+- Changed the global project output default from the hidden `.pm-copilot/outputs/<run-id>/` path to the visible `pm-copilot-outputs/<run-id>/` path.
+- Automatically migrate legacy hidden global outputs to the visible directory when PM Copilot next resolves the project workspace, while preserving embedded-project output compatibility and explicit project overrides.
+- Made output validation recognize both embedded `outputs/` and visible global `pm-copilot-outputs/` run directories.
+- Updated runtime tool guidance to use the resolved output root rather than hard-coding the embedded `outputs/` path.
+
+### Validation
+
+- Added regression coverage for visible global output creation, legacy-output migration, and visible-directory historical-output discovery.
+
 ## [4.9.1] - 2026-07-30
 
 ### Fixed

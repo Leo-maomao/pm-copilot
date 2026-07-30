@@ -14,6 +14,6 @@ python3 "${PM_COPILOT_HOME:-$HOME/.agents/pm-copilot}/scripts/project_workspace.
 ```
 
 - In a legacy embedded project, use `pm-copilot/outputs/<run-id>/`.
-- In a project without an embedded PM Copilot directory, use `.pm-copilot/outputs/<run-id>/`.
+- In a project without an embedded PM Copilot directory, use `pm-copilot-outputs/<run-id>/`.
 - Never write project outputs into the global runtime directory.
 - Treat `@pm-copilot` and natural PM requests as activation signals; use the current project only as evidence.

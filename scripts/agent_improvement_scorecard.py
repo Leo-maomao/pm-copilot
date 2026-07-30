@@ -882,7 +882,7 @@ def prioritize_actions(
     risk_areas = {risk["area"] for risk in risks}
     if "runtime_evidence" in risk_areas:
         actions.append(
-            "Run 3 to 5 real product tasks end to end and keep outputs/<run-id>/prd.md, run-log.yaml, delivery-check-report.json, and visual evidence."
+            "Run 3 to 5 real product tasks end to end and keep <output-root>/<run-id>/prd.md, run-log.yaml, delivery-check-report.json, and visual evidence."
         )
     if "eval_execution" in risk_areas:
         actions.append(

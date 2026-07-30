@@ -150,6 +150,9 @@ def discover_output_folders(roots: Iterable[Path]) -> list[Path]:
         direct = root / "outputs"
         if direct.is_dir():
             folders.update(item for item in direct.iterdir() if item.is_dir())
+        global_output_root = root / "pm-copilot-outputs"
+        if global_output_root.is_dir():
+            folders.update(item for item in global_output_root.iterdir() if item.is_dir())
         for output_root in sorted(root.rglob("outputs")):
             if output_root.is_dir() and output_root.parent.name == "pm-copilot":
                 folders.update(item for item in output_root.iterdir() if item.is_dir())

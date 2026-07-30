@@ -13,7 +13,7 @@ The repository also contains the Codex plugin bundle at `plugins/pm-copilot`. It
 Before any delivery, PM Copilot resolves the active project workspace:
 
 - embedded project: `pm-copilot/outputs/<run-id>/`;
-- global runtime: `.pm-copilot/outputs/<run-id>/`.
+- global runtime: `pm-copilot-outputs/<run-id>/`.
 
 The global runtime never stores product outputs. A project may set a project-relative override in `.pm-copilot/config.yaml`:
 

@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Resolve PM Copilot's per-project workspace for embedded and global installations."""
+"""Resolve PM Copilot's per-project output workspace for embedded and global installations."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 from pathlib import Path
+
+
+GLOBAL_OUTPUT_DIRECTORY = "pm-copilot-outputs"
+LEGACY_GLOBAL_WORKSPACE_DIRECTORY = ".pm-copilot"
+DEFAULT_LEGACY_CONFIG = "# Optional: output_root: docs/prd\n"
 
 
 def git_root(start: Path) -> Path | None:
@@ -30,9 +36,41 @@ def configured_output_root(workspace: Path) -> Path | None:
             if value:
                 configured = Path(value).expanduser()
                 if configured.is_absolute():
-                    raise ValueError(".pm-copilot/config.yaml output_root must be project-relative.")
+                    raise ValueError("PM Copilot output_root must be project-relative.")
                 return configured
     return None
+
+
+def migrate_legacy_global_outputs(project_root: Path, workspace: Path) -> None:
+    """Move legacy hidden global outputs into the visible default directory."""
+    legacy_output_root = workspace / "outputs"
+    visible_output_root = project_root / GLOBAL_OUTPUT_DIRECTORY
+    if not legacy_output_root.is_dir():
+        return
+    visible_output_root.mkdir(parents=True, exist_ok=True)
+    for source in legacy_output_root.iterdir():
+        target = visible_output_root / source.name
+        if target.exists():
+            raise FileExistsError(
+                f"Cannot migrate legacy PM Copilot output because {target} already exists."
+            )
+        shutil.move(str(source), str(target))
+    for artifact in visible_output_root.rglob("*"):
+        if not artifact.is_file():
+            continue
+        try:
+            contents = artifact.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        updated = contents.replace(str(legacy_output_root), str(visible_output_root))
+        if updated != contents:
+            artifact.write_text(updated, encoding="utf-8")
+    legacy_output_root.rmdir()
+    config = workspace / "config.yaml"
+    if config.is_file() and config.read_text(encoding="utf-8") == DEFAULT_LEGACY_CONFIG:
+        config.unlink()
+    if workspace.is_dir() and not any(workspace.iterdir()):
+        workspace.rmdir()
 
 
 def resolve(start: Path, ensure: bool = False) -> dict[str, str]:
@@ -42,23 +80,22 @@ def resolve(start: Path, ensure: bool = False) -> dict[str, str]:
         workspace = embedded
         mode = "embedded"
     else:
-        workspace = project_root / ".pm-copilot"
+        workspace = project_root / LEGACY_GLOBAL_WORKSPACE_DIRECTORY
         mode = "global"
     configured = configured_output_root(workspace)
     output_root = (project_root / configured).resolve() if configured else None
     if output_root and project_root not in output_root.parents and output_root != project_root:
-        raise ValueError(".pm-copilot/config.yaml output_root must remain inside the project root.")
-    output_root = output_root or workspace / "outputs"
+        raise ValueError("PM Copilot output_root must remain inside the project root.")
+    output_root = output_root or (
+        workspace / "outputs" if mode == "embedded" else project_root / GLOBAL_OUTPUT_DIRECTORY
+    )
     if ensure:
+        if mode == "global" and not configured:
+            migrate_legacy_global_outputs(project_root, workspace)
         output_root.mkdir(parents=True, exist_ok=True)
-        if mode == "global":
-            workspace.mkdir(parents=True, exist_ok=True)
-            config = workspace / "config.yaml"
-            if not config.exists():
-                config.write_text("# Optional: output_root: docs/prd\n", encoding="utf-8")
     return {
         "project_root": str(project_root),
-        "workspace": str(workspace),
+        "workspace": str(workspace if mode == "embedded" else output_root),
         "output_root": str(output_root),
         "mode": mode,
     }
