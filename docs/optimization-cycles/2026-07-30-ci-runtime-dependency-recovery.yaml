@@ -1,0 +1,20 @@
+cycle_id: "2026-07-30-ci-runtime-dependency-recovery"
+date: "2026-07-30"
+version_change: "4.9.0 -> 4.9.1"
+source_run: "GitHub Actions run 30524129094 regression-suite failure"
+generalized_failure: >-
+  Two tests relied on local-machine conditions that were absent in the hosted runner:
+  an auto-selected Agent provider required an active session, and historical PRD rendering required pandoc.
+fix_surface:
+  - "scripts/test_agent_runtime.py"
+  - ".github/workflows/validate.yml"
+decisions:
+  explicit_test_provider: "A unit test for one provider's command contract selects that provider explicitly rather than testing session discovery indirectly."
+  renderer_dependency: "The CI workflow installs pandoc before any test that renders prd.md into prd.html."
+validation:
+  - "python3 scripts/test_agent_runtime.py"
+  - "python3 scripts/test_prd_evidence_upgrade.py"
+  - "python3 -m unittest discover -s scripts -p 'test_*.py'"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+status: "validated"

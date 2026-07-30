@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.9.1] - 2026-07-30
+
+### Fixed
+
+- Made the Seawork dry-run regression test select its declared provider explicitly, so it verifies the worker contract without requiring an authenticated local Agent session in CI.
+- Installed `pandoc` in GitHub Actions before historical PRD upgrade tests and browser rendering checks, matching the renderer's required runtime dependency.
+
 ## [4.9.0] - 2026-07-30
 
 ### Added

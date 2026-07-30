@@ -29,10 +29,13 @@ jobs:
         run: |
           python3 scripts/preflight_tools.py --json
 
-      - name: Install visual validation runtime
+      - name: Install document and visual validation runtimes
         run: |
+          sudo apt-get update
+          sudo apt-get install --yes pandoc
           python3 -m pip install -r requirements-dev.txt
           python3 -m playwright install --with-deps chromium
+          pandoc --version
 
       - name: Validate repository
         run: |

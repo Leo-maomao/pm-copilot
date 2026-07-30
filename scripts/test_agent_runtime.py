@@ -80,7 +80,7 @@ class AgentRuntimeTest(unittest.TestCase):
         statuses = [runtime("seawork")]
         with patch("agent_runtime.discover_runtimes", return_value=statuses):
             result = agent_runtime.execute(
-                "auto", "inspect only", Path.cwd(), 2, None, None, True
+                "seawork", "inspect only", Path.cwd(), 2, None, None, True
             )
         self.assertEqual(result["status"], "planned")
         self.assertEqual(result["provider"], "seawork")
