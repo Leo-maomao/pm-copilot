@@ -24,4 +24,5 @@ versioning:
   changelog_updated: true
 decision:
   status: "improved"
-  next_action: "Validate the next generated PRD includes readable grouped detail cells."
+  correction: "Keep adjacent detail groups continuous with one explicit line break; blank-line gaps apply only to separate figure assets."
+  next_action: "Validate the next generated PRD includes readable, continuously grouped detail cells."

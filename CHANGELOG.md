@@ -6,6 +6,28 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.9.12] - 2026-08-03
+
+### Fixed
+
+- Corrected requirement-detail group spacing: adjacent `一、` / `二、` groups now use one continuous line break, while the blank-line gap remains exclusive to separate figure assets.
+- Added validation that rejects blank separators between multi-rule requirement-detail groups.
+
+### Validation
+
+- Added a regression for rejecting a doubled line break between requirement-detail groups.
+
+## [4.9.11] - 2026-08-03
+
+### Fixed
+
+- Unified image and video figure rendering so both use the same `功能-状态` caption typography.
+- Made multi-asset figure rows render as a vertical media list with a blank-line-height gap between assets, rather than a compact mixed-media grid.
+
+### Validation
+
+- Added a mixed image/video figure regression covering shared captions and vertical spacing.
+
 ## [4.9.10] - 2026-08-03
 
 ### Fixed

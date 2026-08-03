@@ -2728,6 +2728,11 @@ def check_requirement_detail_rule_layout(detail_body: str, detail_title: str) ->
             rule_count = len(re.findall(r"(?<!\d)\d+\.\s+", rule_cell))
             if rule_count < 2:
                 continue
+            if re.search(r"<br\s*/?>\s*<br\s*/?>", rule_cell, re.IGNORECASE):
+                fail(
+                    "Chinese PRD 需求详情 groups must use one continuous `<br>` line, not a blank separator: "
+                    f"{detail_title}"
+                )
             lines = [line.strip() for line in re.split(r"<br\s*/?>", rule_cell, flags=re.IGNORECASE)]
             group_count = sum(
                 bool(re.match(r"^[一二三四五六七八九十]+、\S", line))

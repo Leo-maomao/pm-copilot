@@ -251,7 +251,8 @@ DOCUMENT_CSS = """
       max-height: none;
       height: auto;
     }
-    td img + small {
+    td img + small,
+    td video + small {
       display: block;
       margin-top: 2px;
       color: var(--pm-doc-muted);
@@ -259,9 +260,9 @@ DOCUMENT_CSS = """
       line-height: 1.5;
     }
     .prd-figure-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
       margin: 0;
     }
     .prd-figure-item {
@@ -270,7 +271,8 @@ DOCUMENT_CSS = """
     .prd-figure-item.is-wide {
       grid-column: 1 / -1;
     }
-    .prd-figure-item img {
+    .prd-figure-item img,
+    .prd-figure-item video {
       display: block;
       width: 100%;
       max-width: 100%;
@@ -358,9 +360,6 @@ DOCUMENT_CSS = """
         overflow-x: auto;
         table-layout: auto;
         white-space: normal;
-      }
-      .prd-figure-grid {
-        grid-template-columns: minmax(0, 1fr);
       }
     }
 """
@@ -746,11 +745,11 @@ REQUIREMENT_IMAGE_LABEL_RE = re.compile(
 TABLE_ROW_RE = re.compile(r"<tr\b[^>]*>.*?</tr>", re.IGNORECASE | re.DOTALL)
 TABLE_CELL_RE = re.compile(r"<td(?P<attrs>[^>]*)>(?P<body>.*?)</td>", re.IGNORECASE | re.DOTALL)
 REQUIREMENT_IMAGE_CELL_RE = re.compile(
-    r"<img\b|占位图|图片占位|截图占位|image placeholder|screenshot placeholder",
+    r"<img\b|<video\b|占位图|图片占位|截图占位|image placeholder|screenshot placeholder",
     re.IGNORECASE,
 )
 FIGURE_PAIR_RE = re.compile(
-    r"(?P<image><img\b[^>]*>)\s*(?P<caption><small>.*?</small>)",
+    r"(?P<image><(?:img\b[^>]*>|video\b[^>]*>.*?</video>))\s*(?P<caption><small>.*?</small>)",
     re.IGNORECASE | re.DOTALL,
 )
 IMAGE_SRC_RE = re.compile(r"\bsrc\s*=\s*([\"'])(?P<src>.*?)\1", re.IGNORECASE | re.DOTALL)

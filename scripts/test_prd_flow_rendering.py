@@ -93,6 +93,24 @@ flowchart TD
         and 'img src="assets/拖拽演示.mp4"' not in rendered_video,
     )
 
+    with tempfile.TemporaryDirectory() as directory:
+        rendered_mixed_media = inject_defaults(
+            '<html><head></head><body><table><tr><td>图示</td><td>'
+            '<video controls playsinline src="assets/分组框-拖拽演示.mp4"></video><small>分组框-拖拽演示</small><br>'
+            '<img src="assets/分组框-颜色翻译.png" alt="分组框-颜色翻译" /><small>分组框-颜色翻译</small>'
+            '</td></tr></table></body></html>',
+            "# 混合图示测试 - 2026-08-03",
+            Path(directory),
+        )
+    require(
+        "mixed_media_uses_shared_caption_and_spacing",
+        rendered_mixed_media.count('<div class="prd-figure-item is-wide">') == 2
+        and "td video + small" in rendered_mixed_media
+        and "flex-direction: column;" in rendered_mixed_media
+        and "gap: 16px;" in rendered_mixed_media
+        and ".prd-figure-item video" in rendered_mixed_media,
+    )
+
     try:
         check_prd_flow_sections(flow_with_table.split("\n\n| 维度", 1)[0])
     except SystemExit:
