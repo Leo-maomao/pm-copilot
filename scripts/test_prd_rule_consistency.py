@@ -19,6 +19,8 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("Do not add separate risk, pending-confirmation, acceptance-result", contract)
         self.assertIn("`事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`", contract)
         self.assertIn("占位图：功能-状态.png", contract)
+        self.assertIn("every group heading and every numbered rule on its own explicit `<br>` line", contract)
+        self.assertIn("A user-provided video is playback evidence", contract)
         self.assertIn("Do not create a `待确认` item, risk field, or acceptance-result field", contract)
         self.assertIn("Never show “拟议”", contract)
 
@@ -35,6 +37,7 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("#### 用户流程图", template)
         self.assertIn("#### 操作流程图", template)
         self.assertIn("占位图：[功能]-[状态].png", template)
+        self.assertIn("一、主流程<br>1.", template)
         self.assertIn("## 六、多语言需求", template)
         self.assertIn("## 七、埋点需求", template)
 

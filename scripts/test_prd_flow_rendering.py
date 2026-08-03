@@ -80,6 +80,19 @@ flowchart TD
     require("inject_defaults_converts_and_groups_flowcharts", 'class="prd-flow-grid"' in rendered_document)
     require("inject_defaults_keeps_mermaid_fallback", '<pre class="mermaid">' in rendered_document)
 
+    with tempfile.TemporaryDirectory() as directory:
+        rendered_video = inject_defaults(
+            '<html><head></head><body><img src="assets/拖拽演示.mp4" alt="分组框-拖拽演示" /></body></html>',
+            "# 视频图示测试 - 2026-08-03",
+            Path(directory),
+        )
+    require(
+        "image_syntax_video_becomes_player",
+        '<video class="prd-video" controls preload="metadata" playsinline ' in rendered_video
+        and '<source src="assets/拖拽演示.mp4" type="video/mp4" />' in rendered_video
+        and 'img src="assets/拖拽演示.mp4"' not in rendered_video,
+    )
+
     try:
         check_prd_flow_sections(flow_with_table.split("\n\n| 维度", 1)[0])
     except SystemExit:

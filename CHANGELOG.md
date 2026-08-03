@@ -6,6 +6,28 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.9.10] - 2026-08-03
+
+### Fixed
+
+- Made user-provided video figures render as original local inline videos with browser playback controls even when the source was inserted with image syntax; they can no longer fall back to a static first-frame image.
+- Made output validation reject video files rendered as `<img>` elements and require every referenced local video to have an inline player.
+
+### Validation
+
+- Added a renderer regression for image-syntax video input becoming a playable video element.
+
+## [4.9.9] - 2026-08-03
+
+### Fixed
+
+- Made multi-rule `需求详情` cells use a readable, render-stable hierarchy: Chinese-numbered group headings and Arabic-numbered rules now require explicit `<br>` lines, with a blank `<br><br>` separator between groups.
+- Rejected flat, paragraph-style numbered rules in requirement-detail tables so generated PRDs cannot silently lose visual separation in HTML rendering.
+
+### Validation
+
+- Added contract and guidance regressions for grouped requirement-detail line layout.
+
 ## [4.9.8] - 2026-08-03
 
 ### Fixed

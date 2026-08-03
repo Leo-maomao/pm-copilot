@@ -29,6 +29,7 @@ FORBIDDEN_DEFAULT_FILES = {
 }
 
 OUTPUT_PARENT_DIRECTORIES = {"outputs", "pm-copilot-outputs"}
+VIDEO_FILE_EXTENSIONS = {".mp4", ".webm", ".mov", ".m4v", ".ogv", ".ogg"}
 
 STALE_VALIDATION_RE = re.compile(
     r"\b(should run|to be verified)\b|^\s*(?:[-*>]\s*)?(?:待执行|待运行|应运行)\s*(?:[|。]?)\s*$",
@@ -648,7 +649,9 @@ def markdown_image_count_in_tables(text: str) -> int:
     for line in text.splitlines():
         if line.lstrip().startswith("|"):
             in_table = True
-            count += len(re.findall(r"!\[[^\]]*\]\([^)]+\)|<img\b", line, re.IGNORECASE))
+            refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", line)
+            refs.extend(re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", line, re.IGNORECASE))
+            count += sum(not is_video_reference(ref) for ref in refs)
             continue
         if in_table and line.strip():
             in_table = False
@@ -659,6 +662,11 @@ def markdown_image_refs(text: str) -> list[str]:
     refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
     html_refs = re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", text, re.IGNORECASE)
     return [*refs, *html_refs]
+
+
+def is_video_reference(reference: str) -> bool:
+    clean_reference = unquote(reference).split("#", 1)[0].split("?", 1)[0]
+    return Path(clean_reference).suffix.lower() in VIDEO_FILE_EXTENSIONS
 
 
 def markdown_image_or_placeholder_spans(text: str) -> list[tuple[int, int, str]]:
@@ -2210,6 +2218,7 @@ def check_chinese_prd(path: Path) -> None:
                 + ", ".join(missing_detail_fields)
                 + f"; {detail_title}"
             )
+        check_requirement_detail_rule_layout(detail_body, detail_title)
         forbidden_detail_fields = [
             label
             for label in FORBIDDEN_REQUIREMENT_DETAIL_FIELD_LABELS_ZH
@@ -2707,6 +2716,34 @@ def check_requirement_detail_structure(text: str) -> None:
         fail("Requirement details must include multiple per-function detail subsections when not using a complete detail table")
 
 
+def check_requirement_detail_rule_layout(detail_body: str, detail_title: str) -> None:
+    for table in markdown_table_blocks(detail_body):
+        if not table_is_field_value_requirement_detail(table):
+            continue
+        for row in str(table.get("text", "")).splitlines()[2:]:
+            cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+            if len(cells) < 2 or normalize_table_cell(cells[0]) != normalize_table_cell("需求详情"):
+                continue
+            rule_cell = cells[1]
+            rule_count = len(re.findall(r"(?<!\d)\d+\.\s+", rule_cell))
+            if rule_count < 2:
+                continue
+            lines = [line.strip() for line in re.split(r"<br\s*/?>", rule_cell, flags=re.IGNORECASE)]
+            group_count = sum(
+                bool(re.match(r"^[一二三四五六七八九十]+、\S", line))
+                for line in lines
+            )
+            numbered_line_count = sum(
+                bool(re.match(r"^\d+\.\s+\S", line))
+                for line in lines
+            )
+            if group_count == 0 or numbered_line_count != rule_count:
+                fail(
+                    "Chinese PRD 需求详情 with multiple rules must use grouped explicit `<br>` lines: "
+                    f"{detail_title}"
+                )
+
+
 def check_prd_flow_sections(text: str) -> None:
     flow_sections = sections_matching(text, FLOW_SECTION_HEADING_RE)
     for index, section in enumerate(flow_sections):
@@ -3157,12 +3194,14 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
         if not video_path.is_file():
             fail(f"{prd_html_path.name} video path not found: {src}")
 
-    markdown_image_count = len(re.findall(r"!\[[^\]]*\]\([^)]+\)|<img\b", markdown_text, re.IGNORECASE))
-    markdown_video_refs = re.findall(
+    markdown_images = markdown_image_refs(markdown_text)
+    markdown_image_count = sum(not is_video_reference(reference) for reference in markdown_images)
+    markdown_video_refs = [reference for reference in markdown_images if is_video_reference(reference)]
+    markdown_video_refs.extend(re.findall(
         r"(?<!!)\[[^\]]+\]\(([^)]+\.(?:mp4|webm|mov|m4v|ogv|ogg)(?:[?#][^)]*)?)\)",
         markdown_text,
         re.IGNORECASE,
-    )
+    ))
     markdown_table_image_count = markdown_image_count_in_tables(markdown_text)
     html_table_image_count = sum(1 for item in parser.images if bool(item.get("in_table")))
     placeholder_count = len(IMAGE_PLACEHOLDER_RE.findall(markdown_text)) + len(
@@ -3172,6 +3211,8 @@ def check_prd_html_document(prd_html_path: Path, output_folder: Path) -> None:
         fail(f"{prd_html_path.name} missing images referenced by prd.md")
     if markdown_video_refs and len(parser.videos) < len(markdown_video_refs):
         fail(f"{prd_html_path.name} must render local video links as inline video players")
+    if any(is_video_reference(str(image.get("src") or "")) for image in parser.images):
+        fail(f"{prd_html_path.name} must render user-provided video as an inline video player, not an image frame")
     if parser.images:
         if markdown_table_image_count and html_table_image_count < markdown_table_image_count:
             fail(f"{prd_html_path.name} must keep table images inside the corresponding table cells")

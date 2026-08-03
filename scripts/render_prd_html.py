@@ -579,20 +579,15 @@ def browser_video_target(target: str, run_folder: Path | None) -> tuple[str, str
 
 
 def convert_video_links(html: str, run_folder: Path | None = None) -> str:
-    pattern = re.compile(
+    link_pattern = re.compile(
         r"<a(?P<attrs>[^>]*?)\bhref=(?P<quote>[\"'])(?P<href>[^\"']+)(?P=quote)(?P<tail>[^>]*)>"
         r"(?P<label>.*?)</a>",
         re.IGNORECASE | re.DOTALL,
     )
 
-    def replace(match: re.Match[str]) -> str:
-        href = match.group("href")
-        mime_type = video_mime_type(href)
-        if not mime_type:
-            return match.group(0)
-        playback_href, playback_mime_type = browser_video_target(href, run_folder)
-        label_text = visible_text_from_html(match.group("label")) or Path(unquote(href)).name
-        escaped_href = html_lib.escape(html_lib.unescape(href), quote=True)
+    def player(target: str, label_text: str) -> str:
+        playback_href, playback_mime_type = browser_video_target(target, run_folder)
+        escaped_href = html_lib.escape(html_lib.unescape(target), quote=True)
         escaped_playback_href = html_lib.escape(html_lib.unescape(playback_href), quote=True)
         escaped_label = html_lib.escape(label_text, quote=False)
         return (
@@ -604,7 +599,31 @@ def convert_video_links(html: str, run_folder: Path | None = None) -> str:
             f'</video>'
         )
 
-    return pattern.sub(replace, html)
+    def replace_link(match: re.Match[str]) -> str:
+        href = match.group("href")
+        if not video_mime_type(href):
+            return match.group(0)
+        label_text = visible_text_from_html(match.group("label")) or Path(unquote(href)).name
+        return player(href, label_text)
+
+    image_pattern = re.compile(
+        r"<img(?P<attrs>[^>]*?)\bsrc=(?P<quote>[\"'])(?P<src>[^\"']+)(?P=quote)(?P<tail>[^>]*)/?>",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def replace_image(match: re.Match[str]) -> str:
+        src = match.group("src")
+        if not video_mime_type(src):
+            return match.group(0)
+        alt_match = re.search(
+            r"\balt=(?P<quote>[\"'])(?P<alt>[^\"']*)(?P=quote)",
+            match.group(0),
+            re.IGNORECASE,
+        )
+        label_text = html_lib.unescape(alt_match.group("alt")) if alt_match else Path(unquote(src)).name
+        return player(src, label_text or Path(unquote(src)).name)
+
+    return image_pattern.sub(replace_image, link_pattern.sub(replace_link, html))
 
 
 def ensure_assets_dir(run_folder: Path) -> Path:
