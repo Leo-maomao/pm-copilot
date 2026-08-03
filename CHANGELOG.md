@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.9.13] - 2026-08-03
+
+### Fixed
+
+- Closed the implemented-feature PRD trace bypass: every reconstructed requirement now needs exactly one auditable visual decision, and a user-facing requirement cannot claim `not_required` merely by omitting `ui_surfaces`.
+- Limited requirement-detail tables to their canonical fields. Boundary, state, exception, and permission rules must stay in `需求详情` or `设计与交互`; ad-hoc rows such as `边界规则` now fail validation.
+- Bound `pm_copilot_version` in implemented-feature run logs to the active runtime `VERSION`, preventing stale or Agent-invented provenance from passing as a fresh plugin run.
+- Made `validate_outputs.py` infer `zh` or `en` from `run-log.yaml` when callers omit `--language`, so Chinese artifact gates cannot be bypassed by a shortened validation command.
+
+### Validation
+
+- Added regressions for an omitted visual surface inventory, non-canonical detail-table fields, and evidence-backed placeholder capture paths.
+
 ## [4.9.12] - 2026-08-03
 
 ### Fixed

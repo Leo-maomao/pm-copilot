@@ -21,6 +21,7 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("占位图：功能-状态.png", contract)
         self.assertIn("every group heading and every numbered rule on its own explicit `<br>` line", contract)
         self.assertIn("Keep adjacent groups continuous with exactly one `<br>`", contract)
+        self.assertIn("The detail table may use only", contract)
         self.assertIn("A user-provided video is playback evidence", contract)
         self.assertIn("one blank-line-height gap before the next pair", contract)
         self.assertIn("Do not create a `待确认` item, risk field, or acceptance-result field", contract)

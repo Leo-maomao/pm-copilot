@@ -4,8 +4,8 @@ scenario: ""
 language: ""
 agent_platform: ""
 model: ""
-pm_copilot_version: ""
-pm_copilot_revision: ""
+pm_copilot_version: "" # required for implemented_feature_prd: exact value from the active runtime VERSION file
+pm_copilot_revision: "" # actual loaded plugin/runtime revision; never copy from a prior run
 
 task:
   request_source: "" # conversation | file | example task brief | other

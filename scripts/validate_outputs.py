@@ -297,6 +297,10 @@ REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
     "需求详情",
     "设计与交互",
 )
+ALLOWED_REQUIREMENT_DETAIL_FIELD_LABELS_ZH = {
+    *REQUIREMENT_DETAIL_FIELD_LABELS_ZH,
+    "图示",
+}
 FORBIDDEN_REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
     "验收标准",
     "验收结果",
@@ -2218,6 +2222,7 @@ def check_chinese_prd(path: Path) -> None:
                 + ", ".join(missing_detail_fields)
                 + f"; {detail_title}"
             )
+        check_requirement_detail_field_labels(detail_body, detail_title)
         check_requirement_detail_rule_layout(detail_body, detail_title)
         forbidden_detail_fields = [
             label
@@ -2746,6 +2751,25 @@ def check_requirement_detail_rule_layout(detail_body: str, detail_title: str) ->
                 fail(
                     "Chinese PRD 需求详情 with multiple rules must use grouped explicit `<br>` lines: "
                     f"{detail_title}"
+                )
+
+
+def check_requirement_detail_field_labels(detail_body: str, detail_title: str) -> None:
+    allowed_labels = {
+        normalize_table_cell(label) for label in ALLOWED_REQUIREMENT_DETAIL_FIELD_LABELS_ZH
+    }
+    for table in markdown_table_blocks(detail_body):
+        if not table_is_field_value_requirement_detail(table):
+            continue
+        for row in str(table.get("text", "")).splitlines()[2:]:
+            cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+            if not cells:
+                continue
+            label = normalize_table_cell(cells[0])
+            if label and label not in allowed_labels:
+                fail(
+                    "Chinese PRD requirement detail must use only canonical field(s): "
+                    f"{cells[0]}; {detail_title}"
                 )
 
 
@@ -3528,6 +3552,20 @@ def check_launch_decision_contract(text: str) -> None:
                 fail(f"launch-decision.yaml production-facing decision requires rollback_plan.{field}")
 
 
+def resolve_output_language(folder: Path, explicit_language: str | None) -> str | None:
+    if explicit_language:
+        return explicit_language
+    run_log = folder / "run-log.yaml"
+    if not run_log.is_file():
+        return None
+    match = re.search(
+        r"^language:\s*['\"]?(zh|en)['\"]?\s*(?:#.*)?$",
+        read(run_log),
+        re.IGNORECASE | re.MULTILINE,
+    )
+    return match.group(1).lower() if match else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output_folder", type=Path)
@@ -3538,6 +3576,7 @@ def main() -> None:
 
     folder = args.output_folder
     check_folder(folder, require_run_log=not args.historical_prd_upgrade)
+    language = resolve_output_language(folder, args.language)
     if args.pre_clarification:
         check_pre_clarification(folder)
         print(f"PM Copilot pre-clarification output validation passed: {folder}")
@@ -3545,8 +3584,8 @@ def main() -> None:
 
     if args.historical_prd_upgrade:
         check_stale_validation(folder)
-        check_prd_output_contract(folder, args.language)
-        if args.language == "zh":
+        check_prd_output_contract(folder, language)
+        if language == "zh":
             check_chinese_prd(folder)
         check_tracking_context(folder)
         check_mermaid(folder)
@@ -3563,14 +3602,14 @@ def main() -> None:
     check_scope_and_surface_trace(folder)
     check_implemented_feature_prd_trace(folder)
     check_visual_validation_trace(folder)
-    check_prototype_agent_and_style_trace(folder, args.language)
-    check_prd_output_contract(folder, args.language)
-    if args.language == "zh":
+    check_prototype_agent_and_style_trace(folder, language)
+    check_prd_output_contract(folder, language)
+    if language == "zh":
         check_chinese_prd(folder)
     check_tracking_context(folder)
     check_content_source(folder)
-    check_mini_program_prototype(folder, args.language)
-    check_web_prototype(folder, args.language)
+    check_mini_program_prototype(folder, language)
+    check_web_prototype(folder, language)
     check_mermaid(folder)
     check_prd_html_documents(folder)
     check_structured_catalog(folder)

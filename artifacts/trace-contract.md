@@ -135,6 +135,7 @@ action_closure:
 - Record `resume_checkpoint` for long, resumed, interrupted, or self-iteration runs.
 - Record `termination_condition` before final response; do not treat reaching the last workflow state as completion by itself.
 - Record task mode values as one of `prd_delivery`, `implemented_feature_prd`, `ui_delivery`, `tracking_plan`, `launch_readiness`, `dev_handoff`, `structured_reference`, `product_review`, `self_improvement`, or `mixed_delivery`.
+- For `implemented_feature_prd`, read the active runtime's `VERSION` file immediately before writing `run-log.yaml`; `pm_copilot_version` must equal that value. It is runtime provenance, not an Agent estimate, a template default, or a value copied from a prior run.
 - Record autonomy level as `clarify-first`, `draft-with-risk`, `full-loop`, or `self-iteration`.
 - Record `tool_plan` before high-impact tool use when the run needs validation, research, repo inspection, UI rendering, or release checks.
 - Record `decision_record` for product judgments, selected paths, rejected alternatives, `high|medium|low` confidence, and the evidence that shaped the choice.

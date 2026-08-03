@@ -9,6 +9,14 @@ from pathlib import Path
 
 from validate_agent_trace import validate_implemented_feature_prd_integrity
 
+DEFAULT_IMPLEMENTED_FEATURE = """implemented_feature_prd:
+  active: true
+  mode: implemented_feature_prd
+  screenshots_and_placeholders:
+    - target_ref: 5.1
+      coverage_decision: not_required
+      rationale: 当前需求不涉及用户可见表面。"""
+
 
 def make_run_log(run_name: str, *, active: bool = True, self_reference: bool = False) -> str:
     reference = f"pm-copilot-outputs/{run_name}/prd.md" if self_reference else "inputs/old-prd.md"
@@ -28,10 +36,14 @@ artifact_lineage:
 implemented_feature_prd:
   active: {str(active).lower()}
   mode: implemented_feature_prd
+  screenshots_and_placeholders:
+    - target_ref: 5.1
+      coverage_decision: not_required
+      rationale: 当前需求不涉及用户可见表面。
 requirement_coverage_review:
   - requirement_id: 5.1
-    visual_decision: required_placeholder
-    visual_rationale: 裁剪编辑态需要可视审阅。
+    visual_decision: not_required
+    visual_rationale: 当前需求不涉及用户可见表面。
     localization_decision: not_needed
     localization_rationale: 当前 locale diff 未变更该状态文案。
     changed_copy_items: []
@@ -83,7 +95,7 @@ class PrdGenerationIntegrityTest(unittest.TestCase):
             log = folder / "run-log.yaml"
             log.write_text(
                 make_run_log("old-run").replace(
-                    "implemented_feature_prd:\n  active: true\n  mode: implemented_feature_prd",
+                    DEFAULT_IMPLEMENTED_FEATURE,
                     """implemented_feature_prd:
   active: true
   mode: implemented_feature_prd
@@ -123,7 +135,7 @@ class PrdGenerationIntegrityTest(unittest.TestCase):
             log = folder / "run-log.yaml"
             log.write_text(
                 make_run_log("old-run").replace(
-                    "implemented_feature_prd:\n  active: true\n  mode: implemented_feature_prd",
+                    DEFAULT_IMPLEMENTED_FEATURE,
                     """implemented_feature_prd:
   active: true
   mode: implemented_feature_prd
@@ -140,7 +152,7 @@ class PrdGenerationIntegrityTest(unittest.TestCase):
     - attempt_id: visual-computer-use
       method: computer_use
       status: skipped""",
-                ),
+                ).replace("visual_decision: not_required", "visual_decision: required_placeholder"),
                 encoding="utf-8",
             )
             failures = validate_implemented_feature_prd_integrity(
@@ -164,13 +176,14 @@ class PrdGenerationIntegrityTest(unittest.TestCase):
             log = folder / "run-log.yaml"
             log.write_text(
                 make_run_log("old-run").replace(
-                    "implemented_feature_prd:\n  active: true\n  mode: implemented_feature_prd",
+                    DEFAULT_IMPLEMENTED_FEATURE,
                     """implemented_feature_prd:
   active: true
   mode: implemented_feature_prd
   screenshots_and_placeholders:
     - target_ref: 5.1
       coverage_decision: required_placeholder
+      rationale: 裁剪编辑态需要可视审阅。
   visual_runtime_capability:
     runtime_discovery:
       - capability: existing_preview_discovery
@@ -207,7 +220,7 @@ class PrdGenerationIntegrityTest(unittest.TestCase):
       action: 尝试手动进入可复现页面。
       evidence: 无可访问运行态。
       result_ref: tool-results/visual-capture/computer-use.txt""",
-                ),
+                ).replace("visual_decision: not_required", "visual_decision: required_placeholder"),
                 encoding="utf-8",
             )
             self.assertEqual(
@@ -216,6 +229,21 @@ class PrdGenerationIntegrityTest(unittest.TestCase):
                 ),
                 [],
             )
+
+    def test_rejects_empty_surface_inventory_for_visual_requirement(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "pm-copilot-outputs" / "new-run"
+            folder.mkdir(parents=True)
+            (folder / "prd.md").write_text(
+                """| 5.1 | 节点连线开关 |\n\n### 5.1 节点连线开关\n\n| 维度 | 需求说明 |\n| --- | --- |\n| 用户与场景 | 用户编辑画布。 |\n| 需求入口 | 画布工具栏中的节点连线图标。 |\n| 需求详情 | 一、状态<br>1. 用户可切换连线显示。 |\n| 设计与交互 | 图标清晰可见。 |\n\n## 六、埋点需求\n""",
+                encoding="utf-8",
+            )
+            log = folder / "run-log.yaml"
+            log.write_text(make_run_log("old-run"), encoding="utf-8")
+            failures = validate_implemented_feature_prd_integrity(
+                log, log.read_text(encoding="utf-8"), "implemented_feature_prd"
+            )
+            self.assertTrue(any("cannot omit a figure for a user-facing requirement" in failure for failure in failures))
 
 
 if __name__ == "__main__":

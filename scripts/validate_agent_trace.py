@@ -12,6 +12,9 @@ from typing import Any
 
 from agent_event_ledger import validate_file as validate_event_ledger
 
+ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+
 
 TASK_MODES = {
     "prd_delivery",
@@ -182,6 +185,10 @@ VISUAL_RUNTIME_CAPABILITIES = {
 VISUAL_RUNTIME_STATUSES = {"passed", "failed", "blocked", "not_available", "not_required"}
 VISUAL_CAPTURE_METHODS = {"playwright", "chrome_devtools", "computer_use"}
 VISUAL_CAPTURE_STATUSES = {"passed", "failed", "blocked", "not_available"}
+USER_FACING_SURFACE_RE = re.compile(
+    r"(?:页面|画布|面板|弹窗|对话框|节点|工具栏|按钮|图标|控件|列表|菜单|提示|浮层|标签页|连线|media|canvas|panel|dialog|toolbar)",
+    re.IGNORECASE,
+)
 
 
 def scalar_value(text: str, field: str) -> str:
@@ -406,10 +413,17 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
 
     prd_path = run_log.parent / "prd.md"
     requirement_ids = set()
+    requirement_bodies: dict[str, str] = {}
     if prd_path.is_file():
-        requirement_ids = set(
-            re.findall(r"(?m)^\|\s*(\d+\.\d+)\s*\|", prd_path.read_text(encoding="utf-8"))
-        )
+        prd_text = prd_path.read_text(encoding="utf-8")
+        requirement_ids = set(re.findall(r"(?m)^\|\s*(\d+\.\d+)\s*\|", prd_text))
+        for requirement_id in requirement_ids:
+            match = re.search(
+                rf"(?ms)^###\s+{re.escape(requirement_id)}(?:\s|$).*?\n(?P<body>.*?)(?=^###\s+|^##\s+|\Z)",
+                prd_text,
+            )
+            if match:
+                requirement_bodies[requirement_id] = match.group("body")
     coverage = section_text(text, "requirement_coverage_review")
     coverage_blocks = mapping_item_blocks(coverage, "requirement_id")
     coverage_ids = [scalar_value(block, "requirement_id") for block in coverage_blocks]
@@ -422,11 +436,10 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
         nested_section_text(implemented, "screenshots_and_placeholders"),
         "target_ref",
     )
-    ui_surfaces = mapping_item_blocks(nested_section_text(implemented, "ui_surfaces"), "surface")
     visual_targets = [scalar_value(block, "target_ref") for block in visual_coverage]
-    if ui_surfaces and requirement_ids and set(visual_targets) != requirement_ids:
+    if requirement_ids and set(visual_targets) != requirement_ids:
         failures.append(
-            "implemented_feature_prd user-facing requirements require exactly one screenshots_and_placeholders decision per requirement"
+            "implemented_feature_prd requires exactly one screenshots_and_placeholders decision per requirement"
         )
     if len(visual_targets) != len(set(visual_targets)):
         failures.append("screenshots_and_placeholders target_ref values must be unique")
@@ -434,11 +447,20 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
         target_ref = scalar_value(block, "target_ref") or "<empty>"
         decision = scalar_value(block, "coverage_decision")
         surface = scalar_value(block, "surface")
+        rationale = scalar_value(block, "rationale")
         if decision not in {"real_figure", "required_placeholder", "not_required"}:
             failures.append(f"visual coverage {target_ref} has invalid coverage_decision")
+        if not rationale:
+            failures.append(f"visual coverage {target_ref} requires rationale")
         if surface and decision == "not_required":
             failures.append(
                 f"visual coverage {target_ref} cannot omit a figure for a named user-facing surface"
+            )
+        if decision == "not_required" and USER_FACING_SURFACE_RE.search(
+            requirement_bodies.get(target_ref, "")
+        ):
+            failures.append(
+                f"visual coverage {target_ref} cannot omit a figure for a user-facing requirement"
             )
     failures.extend(validate_visual_capture_capability(run_log, implemented))
 
@@ -564,6 +586,14 @@ def validate_run_log(run_log: Path) -> dict[str, Any]:
         failures.append(f"invalid or empty effort_budget: {effort_budget or '<empty>'}")
     if termination_status not in TERMINATION_STATUSES:
         failures.append(f"invalid or empty termination_condition.status: {termination_status or '<empty>'}")
+
+    if task_mode == "implemented_feature_prd":
+        reported_version = scalar_value(text, "pm_copilot_version")
+        if reported_version != RUNTIME_VERSION:
+            failures.append(
+                "implemented-feature PRD pm_copilot_version must equal the active runtime VERSION "
+                f"{RUNTIME_VERSION}, got {reported_version or '<empty>'}"
+            )
 
     failures.extend(validate_implemented_feature_prd_integrity(run_log, text, task_mode))
 

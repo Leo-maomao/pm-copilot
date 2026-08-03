@@ -7,7 +7,13 @@ import hashlib
 import tempfile
 from pathlib import Path
 
-from validate_outputs import check_chinese_prd, check_implemented_feature_prd_trace, check_prd_output_contract, check_stale_validation
+from validate_outputs import (
+    check_chinese_prd,
+    check_implemented_feature_prd_trace,
+    check_prd_output_contract,
+    check_stale_validation,
+    resolve_output_language,
+)
 
 
 PASS_PRD = """# 优化团队权限变更体验 - 2026-07-10
@@ -107,6 +113,15 @@ def run_case(
 
 
 def main() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        folder = Path(temp_dir)
+        (folder / "run-log.yaml").write_text("language: zh\n", encoding="utf-8")
+        if resolve_output_language(folder, None) != "zh":
+            raise SystemExit("FAIL run_log_language_detection: expected zh")
+        if resolve_output_language(folder, "en") != "en":
+            raise SystemExit("FAIL explicit_language_override: expected en")
+        print("PASS run_log_language_detection: accepted")
+
     run_case("user_driven_prd", PASS_PRD, True)
     run_case(
         "research_section_keeps_order",
@@ -292,6 +307,14 @@ readiness:
             "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |",
             "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n"
             "| 验收标准 | 管理员可完成角色变更。 |",
+        ),
+        False,
+    )
+    run_case(
+        "ad_hoc_boundary_rule_field",
+        PASS_PRD.replace(
+            "| 设计与交互 |",
+            "| 边界规则 | 不改变已有连接。 |\n| 设计与交互 |",
         ),
         False,
     )
