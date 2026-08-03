@@ -170,11 +170,106 @@ def main() -> None:
 """
     run_case(
         "implemented_feature_real_figure_matches_requirement_and_asset",
-        PASS_PRD.replace("| 设计与交互 |", "| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>角色变更确认</small> |\n| 设计与交互 |"),
+        PASS_PRD.replace(
+            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n\n## 六、多语言需求",
+            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>角色变更确认</small> |\n\n## 六、多语言需求",
+        ),
         True,
         implemented_trace,
         True,
         {"assets/role-confirmation.png": fixture_asset},
+    )
+    placeholder_trace = """implemented_feature_prd:
+  active: true
+  diff_commands:
+    - git diff --stat
+  changed_files:
+    - app/ui.tsx
+  ui_surfaces:
+    - surface: 确认弹窗
+  behavior_evidence:
+    - evidence_id: E1
+      observed_behavior: 用户确认关键变更。
+      related_requirement_ids:
+        - 5.1
+      coverage_status: covered
+  screenshots_and_placeholders:
+    - target_ref: 5.1
+      surface: 角色变更确认弹窗
+      state: 确认弹窗
+      coverage_decision: required_placeholder
+      rationale: 确认操作需要可视评审，但当前会话无法访问受保护页面。
+      capture_source: 浏览器会话被访问守卫重定向，截图恢复失败。
+      capture_attempt_ids:
+        - visual-playwright
+        - visual-devtools
+        - visual-computer-use
+      replacement_status: pending_manual_completion
+      replacement_instruction: 人工登录目标工作流后补齐“角色变更确认”截图。
+  visual_capture_recovery:
+    - attempt_id: visual-playwright
+      method: playwright
+      target: 本地预览
+      status: blocked
+      evidence: 未获得可用登录态。
+    - attempt_id: visual-devtools
+      method: chrome_devtools
+      target: 已认证浏览器会话
+      status: blocked
+      evidence: 页面守卫重定向。
+    - attempt_id: visual-computer-use
+      method: computer_use
+      target: 本地浏览器
+      status: blocked
+      evidence: 无可用身份会话。
+  validation_evidence: []
+  completeness_check:
+    implementation_behaviors_checked:
+      - 确认操作
+    represented_in_prd:
+      - 5.1
+    unresolved_product_intent:
+      - 无
+readiness:
+  prd_status: ready for review
+"""
+    placeholder_prd = PASS_PRD.replace(
+        "| 文档状态 | 可评审 |",
+        "| 文档状态 | 可评审（图示待人工补全） |",
+    ).replace(
+        "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n\n## 六、多语言需求",
+        "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n| 图示 | 占位图：成员管理-角色变更确认.png |\n\n## 六、多语言需求",
+    )
+    run_case(
+        "implemented_feature_placeholder_is_deliverable_with_manual_completion",
+        placeholder_prd,
+        True,
+        placeholder_trace,
+        True,
+    )
+    run_case(
+        "implemented_feature_placeholder_requires_visible_manual_notice",
+        placeholder_prd.replace("（图示待人工补全）", ""),
+        False,
+        placeholder_trace,
+        True,
+    )
+    run_case(
+        "implemented_feature_figure_row_must_be_last",
+        placeholder_prd.replace(
+            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n| 图示 | 占位图：成员管理-角色变更确认.png |",
+            "| 图示 | 占位图：成员管理-角色变更确认.png |\n| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |",
+        ),
+        False,
+        placeholder_trace,
+        True,
+    )
+    run_case(
+        "implemented_feature_placeholder_must_not_include_explanatory_text",
+        placeholder_prd.replace("占位图：成员管理-角色变更确认.png", "占位图：成员管理-角色变更确认.png（待人工补图）"),
+        False,
+        placeholder_trace,
+        True,
     )
     run_case("missing_document_info", PASS_PRD.replace("### 1. 文档信息", "### 1. 说明"), False)
     run_case("missing_user_requirement_field", PASS_PRD.replace("目标用户", "用户群体"), False)
@@ -191,6 +286,28 @@ def main() -> None:
         False,
     )
     run_case("missing_detail_field", PASS_PRD.replace("| 需求入口 | 团队管理员在成员页修改高危角色时触发。 |\n", ""), False)
+    run_case(
+        "forbidden_acceptance_field",
+        PASS_PRD.replace(
+            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |",
+            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n"
+            "| 验收标准 | 管理员可完成角色变更。 |",
+        ),
+        False,
+    )
+    run_case(
+        "flowchart_must_precede_detail_table",
+        PASS_PRD.replace(
+            "## 六、多语言需求",
+            """```mermaid
+flowchart TD
+  A[开始] --> B[确认]
+```
+
+## 六、多语言需求""",
+        ),
+        False,
+    )
     run_case("explanatory_copy_label", PASS_PRD.replace("## 六、多语言需求", "## 六、多语言需求\n\n### 6.1 新增文案（纯文本）"), False)
     run_case("technical_section", PASS_PRD + "\n## 八、技术方案\n\n说明实现架构。\n", False)
     run_case(
@@ -212,6 +329,13 @@ def main() -> None:
         "invalid_screenshot_placeholder",
         PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更 |\n| 设计与交互 |"),
         False,
+    )
+    run_case(
+        "placeholder_requires_feature_state_name",
+        placeholder_prd.replace("成员管理-角色变更确认.png", "角色变更确认.png"),
+        False,
+        placeholder_trace,
+        True,
     )
     run_case(
         "descriptive_figure_caption",
@@ -280,6 +404,13 @@ def main() -> None:
             "| 取消 | 5.1 角色变更确认 | / |", "| 操作失败：{reason} | 5.1 角色变更确认 | {reason} |"
         ),
         True,
+    )
+    run_case(
+        "chinese_localization_rejects_english_source_copy",
+        PASS_PRD.replace("取消\n```", "Cancel\n```").replace(
+            "| 取消 | 5.1 角色变更确认 | / |", "| Cancel | 5.1 角色变更确认 | / |"
+        ),
+        False,
     )
 
 

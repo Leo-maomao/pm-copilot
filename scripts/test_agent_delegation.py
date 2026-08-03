@@ -37,8 +37,12 @@ class AgentDelegationPlanTest(unittest.TestCase):
 
     def test_conflict_protocol_rejects_unbounded_battle(self) -> None:
         plan = build_plan("需求和埋点")
-        self.assertIn("not_allowed", plan["conflict_protocol"])
-        self.assertIn("PM Orchestrator", plan["conflict_protocol"]["method"])
+        protocol = plan["conflict_protocol"]
+        self.assertEqual(
+            protocol["canonical_owner"],
+            "agents/agent-operating-model.md#conflict-resolution-gate",
+        )
+        self.assertIn("loop_state.conflict_resolution_status", protocol["record_in"])
 
     def test_embedded_workspace_is_recorded_and_scopes_worker_prompt(self) -> None:
         with TemporaryDirectory() as temporary:

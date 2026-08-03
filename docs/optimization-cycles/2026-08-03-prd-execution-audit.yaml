@@ -1,0 +1,34 @@
+cycle_id: "2026-08-03-prd-execution-audit"
+date: "2026-08-03"
+goal: "Turn PRD execution failures into deterministic delivery-gate failures."
+practice_source:
+  source_type: "user_feedback_and_run_audit"
+  source_run_id: "workflow-canvas-media-experience-2026-08-03"
+  user_corrections:
+    - "Audit the operation log step by step instead of adding symptom-only rules."
+generalized_failures:
+  - failure_code: "visual_coverage_omission_accepted"
+    reusable_rule: "Every user-facing implemented-feature requirement has a real-figure or controlled-placeholder decision."
+  - failure_code: "tracking_evidence_comment_bypass"
+    reusable_rule: "Measurement evidence is structured YAML data and tracking omission cannot rely on missing implementation telemetry."
+  - failure_code: "prd_structure_gate_gap"
+    reusable_rule: "PRD validation rejects non-canonical detail fields, post-table flowcharts, and untranslated source copy."
+fixes:
+  - path: "scripts/validate_agent_trace.py"
+    change: "Validate per-requirement visual coverage and measurement evidence semantics."
+    fix_surface: "trace-validator"
+  - path: "scripts/validate_outputs.py"
+    change: "Validate canonical detail-table fields, flowchart placement, and Chinese localization copy."
+    fix_surface: "artifact-validator"
+  - path: "artifacts/prd-contract.md"
+    change: "Clarify that named UI surfaces need visual evidence and telemetry absence is not an omission rationale."
+    fix_surface: "contract"
+validation_commands:
+  - "python3 scripts/test_prd_contract.py"
+  - "python3 scripts/test_prd_generation_integrity.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+versioning:
+  previous_version: "4.9.4"
+  new_version: "4.9.5"
+  changelog_updated: true

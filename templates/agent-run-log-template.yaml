@@ -188,6 +188,7 @@ loop_state:
   consecutive_no_progress: 0
   last_progress_score: 0
   success_criteria_met: false
+  conflict_resolution_status: clear # clear | reconcile | needs_input | blocked
 
 iteration_trace:
   - iteration: 0
@@ -202,7 +203,7 @@ iteration_trace:
     progress_score_before: 0
     progress_score_after: 0
     outcome: "" # progress | no_progress | success | needs_input | blocked | failed
-    next_decision: "" # continue | stop_success | stop_needs_input | stop_blocked | stop_budget | stop_no_progress | stop_human_checkpoint | stop_failed
+    next_decision: "" # continue | continue_reconcile | stop_success | stop_needs_input | stop_blocked | stop_budget | stop_no_progress | stop_human_checkpoint | stop_failed
 
 loop_summary:
   iterations_completed: 0
@@ -264,6 +265,14 @@ context:
   context_excluded: []
   conflicts_found: []
   conflict_resolution: []
+
+artifact_lineage:
+  mode: "" # new_run | replacement_run
+  historical_artifacts:
+    - path: ""
+      role: "" # comparison_only | user_provided_input
+      excluded_from_current_facts: true
+  output_folder_reset: false
 
 external_research:
   status: "" # completed | degraded | skipped | not_applicable
@@ -332,6 +341,22 @@ implemented_feature_prd:
     - surface: ""
       entry_point: ""
       evidence: ""
+  visual_runtime_capability:
+    runtime_discovery:
+      - capability: "" # existing_preview_discovery | project_runtime_activation | test_state_recovery
+        status: "" # passed | failed | blocked | not_available | not_required
+        action: "" # actual discovery, reuse, start, or state-recovery action; never a fixed port assumption
+        preview_target: "" # discovered URL, file, or / when unavailable
+        evidence: ""
+        result_ref: "" # non-empty local tool-results path unless status is not_required
+  visual_capture_recovery:
+    - attempt_id: ""
+      method: "" # playwright | chrome_devtools | computer_use
+      target: ""
+      status: "" # passed | failed | blocked | not_available; skipped is invalid for required_placeholder
+      action: "" # actual tool action, not an intention or port assumption
+      evidence: ""
+      result_ref: "" # non-empty local tool-results path
   behavior_evidence:
     - evidence_id: ""
       source: "" # branch diff, file path, screenshot, asset, test, user note
@@ -342,16 +367,18 @@ implemented_feature_prd:
   screenshots_and_placeholders:
     - target_ref: "" # requirement id, evidence id, flow step, or table row
       surface: "" # independently reviewable user-facing page, panel, dialog, or decisive state
+      state: "" # one independently reviewable state only
       coverage_decision: "" # real_figure | required_placeholder | not_required
       rationale: "" # why this evidence is needed or why it is not needed
       type: "" # image | video | placeholder
       path: ""
       capture_source: "" # trusted rendered surface, user-provided capture, or failed recovery record
+      capture_attempt_ids: []
       asset_sha256: "" # required for real_figure
       recommended_file_name: ""
       inline_marker: ""
-      replacement_status: "" # missing | provided | replaced | not_needed
-      replacement_instruction: ""
+      replacement_status: "" # missing | pending_manual_completion | provided | replaced | not_needed
+      replacement_instruction: "" # required when coverage_decision is required_placeholder
   validation_evidence:
     - command: ""
       status: ""
@@ -362,6 +389,18 @@ implemented_feature_prd:
     represented_in_prd: []
     unresolved_product_intent: []
     omitted_as_non_goal: []
+
+requirement_coverage_review:
+  - requirement_id: ""
+    visual_decision: "" # real_figure | required_placeholder | not_required
+    visual_rationale: ""
+    localization_decision: "" # included | not_needed
+    localization_rationale: ""
+    changed_copy_items: []
+    tracking_decision: "" # included | not_needed
+    tracking_rationale: ""
+    measurable_actions: []
+    measurable_outcomes: []
 
 agent_transitions:
   - state: ""

@@ -134,7 +134,16 @@ Record delegation under `delegation_plan` in the run log:
 - merge rule
 - status and confidence
 
-When specialists disagree, PM Orchestrator records both positions, chooses or asks, and updates `decision_record`.
+## Conflict-Resolution Gate
+
+This document is the canonical owner of specialist-conflict handling. A material disagreement, unsupported claim, or High/Critical review finding must be recorded under `context.conflicts_found` and assigned exactly one `loop_state.conflict_resolution_status`:
+
+- `clear`: no material conflict remains; normal execution may continue.
+- `reconcile`: the next loop pass is limited to comparing evidence, user impact, and rejected alternatives. It must not silently advance a contested artifact.
+- `needs_input`: the decision belongs to the user or another named human owner; the loop stops with `stop_needs_input`.
+- `blocked`: required evidence or approval is unavailable; the loop stops with `stop_blocked`.
+
+PM Orchestrator records both positions, selects a resolution only when the evidence supports its ownership, and updates `context.conflict_resolution` plus `decision_record`. Majority vote, ungrounded debate, and silently overwriting another role's owned decision are prohibited. The bounded-loop evaluator is the only controller that turns this status into a continue or stop decision.
 
 ## Resume Checkpoints
 

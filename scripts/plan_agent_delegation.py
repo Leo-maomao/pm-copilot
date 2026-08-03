@@ -93,8 +93,8 @@ def build_plan(request: str, task_mode: str = "auto") -> dict[str, object]:
         "cross_checks": cross_checks,
         "conflict_protocol": {
             "trigger": "material disagreement, unsupported claim, or high/critical review finding",
-            "method": "retain both positions, compare evidence and user impact, then let PM Orchestrator decide or request human input",
-            "not_allowed": "majority vote, ungrounded debate, or silently overwriting another role's owned decision",
+            "canonical_owner": "agents/agent-operating-model.md#conflict-resolution-gate",
+            "record_in": ["context.conflicts_found", "context.conflict_resolution", "loop_state.conflict_resolution_status"],
         },
         "stop_conditions": ["success criteria met", "needs input", "blocked", "no evidence delta", "iteration budget exhausted"],
     }

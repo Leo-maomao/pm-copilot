@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from validate_agent_trace import validate_visual_capture_capability
+
 
 def scalar(text: str, field: str) -> str:
     match = re.search(
@@ -105,6 +107,11 @@ def evaluate(run_log: Path) -> dict[str, Any]:
     checkpoint_status = scalar(checkpoint, "status")
     checkpoint_after = integer(checkpoint, "required_after_iteration")
     checkpoint_due = checkpoint_after > 0 and current_iteration >= checkpoint_after
+    conflict_resolution_status = scalar(state, "conflict_resolution_status") or "clear"
+    implemented_feature_prd = section(text, "implemented_feature_prd")
+    visual_recovery_failures = validate_visual_capture_capability(
+        run_log, implemented_feature_prd
+    )
 
     invalid_budgets = [
         name
@@ -122,6 +129,12 @@ def evaluate(run_log: Path) -> dict[str, Any]:
             "decision": "stop_failed",
             "reason": "invalid positive loop budget(s): " + ", ".join(invalid_budgets),
         }
+    if conflict_resolution_status not in {"clear", "reconcile", "needs_input", "blocked"}:
+        return {
+            "status": "failed",
+            "decision": "stop_failed",
+            "reason": "loop_state.conflict_resolution_status must be clear, reconcile, needs_input, or blocked",
+        }
 
     if termination_status == "failed":
         decision, reason = "stop_failed", "termination condition is failed"
@@ -129,8 +142,27 @@ def evaluate(run_log: Path) -> dict[str, Any]:
         decision, reason = "stop_needs_input", "required user input is missing"
     elif termination_status == "blocked":
         decision, reason = "stop_blocked", "a required dependency is blocked"
+    elif conflict_resolution_status == "needs_input":
+        decision, reason = "stop_needs_input", "material conflict requires a named human decision"
+    elif conflict_resolution_status == "blocked":
+        decision, reason = "stop_blocked", "material conflict lacks required evidence or approval"
     elif checkpoint_due and checkpoint_status in {"pending", "declined"}:
         decision, reason = "stop_human_checkpoint", f"human checkpoint is {checkpoint_status}"
+    elif visual_recovery_failures:
+        if current_iteration >= max_iterations:
+            decision, reason = "stop_budget", "iteration budget exhausted before visual recovery"
+        elif tool_calls_used >= max_tool_calls:
+            decision, reason = "stop_budget", "tool-call budget exhausted before visual recovery"
+        elif elapsed_minutes >= max_elapsed_minutes:
+            decision, reason = "stop_budget", "elapsed-time budget exhausted before visual recovery"
+        elif consecutive_no_progress >= max_no_progress:
+            decision, reason = "stop_no_progress", "visual recovery made no progress"
+        else:
+            decision, reason = (
+                "continue",
+                "required visual recovery remains incomplete: "
+                + "; ".join(visual_recovery_failures),
+            )
     elif boolean(state, "success_criteria_met"):
         decision, reason = "stop_success", "success criteria are met"
     elif current_iteration >= max_iterations:
@@ -141,6 +173,8 @@ def evaluate(run_log: Path) -> dict[str, Any]:
         decision, reason = "stop_budget", "elapsed-time budget exhausted"
     elif consecutive_no_progress >= max_no_progress:
         decision, reason = "stop_no_progress", "consecutive no-progress threshold reached"
+    elif conflict_resolution_status == "reconcile":
+        decision, reason = "continue_reconcile", "material conflict requires a bounded evidence-reconciliation pass"
     else:
         decision, reason = "continue", "budget remains and progress is still possible"
 

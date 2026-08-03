@@ -18,7 +18,7 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         contract = self.read("artifacts/prd-contract.md")
         self.assertIn("Do not add separate risk, pending-confirmation, acceptance-result", contract)
         self.assertIn("`事件`, `事件名称`, `上报时机`, `附加参数`, and `备注`", contract)
-        self.assertIn("占位图：图片名称", contract)
+        self.assertIn("占位图：功能-状态.png", contract)
         self.assertIn("Do not create a `待确认` item, risk field, or acceptance-result field", contract)
         self.assertIn("Never show “拟议”", contract)
 
@@ -28,6 +28,15 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertNotIn("Function ID and function name", text)
         self.assertIn("Requirement-detail number and requirement name", text)
         self.assertIn("renumber visible H2 sections consecutively", text)
+
+    def test_implemented_feature_template_is_complete_but_deletes_empty_blocks(self) -> None:
+        template = self.read("templates/implemented-feature-prd-template.md")
+        self.assertIn("删除本次没有真实内容的整章、流程图块和图示行", template)
+        self.assertIn("#### 用户流程图", template)
+        self.assertIn("#### 操作流程图", template)
+        self.assertIn("占位图：[功能]-[状态].png", template)
+        self.assertIn("## 六、多语言需求", template)
+        self.assertIn("## 七、埋点需求", template)
 
     def test_tracking_guidance_keeps_detailed_analytics_out_of_the_prd(self) -> None:
         for relative in ("artifacts/tracking-plan-contract.md", "skills/tracking-plan/SKILL.md"):

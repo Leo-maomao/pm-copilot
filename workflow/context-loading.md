@@ -16,6 +16,12 @@ Load only the context needed for the current workflow state. Too much context ca
 
 Local memory should reduce repeated questions, not override current evidence. Load only relevant records for the current task; never treat an example, archived document, previous output, or optimization cycle as product reality.
 
+## Generated-Artifact Isolation
+
+Generated PM Copilot outputs are never runtime instructions or product facts. When a user asks to rewrite, replace, or improve a previous PRD, treat that document as `comparison_only`: it can identify omissions to investigate, but it cannot supply requirement scope, behavior, priorities, visual states, tracking decisions, validation results, or completion status.
+
+Create a new run folder for every distinct generation. Do not overwrite a previous run folder, its `run-log.yaml`, or its `tool-results/` directory. A rewrite receives a new suffixed run id and records any prior artifact under `artifact_lineage.historical_artifacts`; do not list that artifact under `context.files_loaded` or use it to arbitrate current product facts. Current repository evidence, user input, and fresh tool results remain the only sources of truth.
+
 ## Runtime Routing
 
 Classify a task mode before loading workflow, contract, skill, or tool documents. Resolve that mode in `indexes/runtime-routing.yaml`, then read only the listed active document IDs. The routing index is the authority for runtime selection; each selected document remains the authority for its own rule.

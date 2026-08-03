@@ -120,6 +120,7 @@ ITERATION_OUTCOMES = {
 
 LOOP_NEXT_DECISIONS = {
     "continue",
+    "continue_reconcile",
     "stop_success",
     "stop_needs_input",
     "stop_blocked",
@@ -127,6 +128,13 @@ LOOP_NEXT_DECISIONS = {
     "stop_no_progress",
     "stop_human_checkpoint",
     "stop_failed",
+}
+
+CONFLICT_RESOLUTION_STATUSES = {
+    "clear",
+    "reconcile",
+    "needs_input",
+    "blocked",
 }
 
 LOOP_STOP_REASONS = {
@@ -165,6 +173,15 @@ MEMORY_WRITE_RECOMMENDATIONS = {
     "ask_before_writing",
     "do_not_store",
 }
+
+VISUAL_RUNTIME_CAPABILITIES = {
+    "existing_preview_discovery",
+    "project_runtime_activation",
+    "test_state_recovery",
+}
+VISUAL_RUNTIME_STATUSES = {"passed", "failed", "blocked", "not_available", "not_required"}
+VISUAL_CAPTURE_METHODS = {"playwright", "chrome_devtools", "computer_use"}
+VISUAL_CAPTURE_STATUSES = {"passed", "failed", "blocked", "not_available"}
 
 
 def scalar_value(text: str, field: str) -> str:
@@ -296,6 +313,187 @@ def mapping_item_blocks(text: str, first_field: str) -> list[str]:
     return blocks
 
 
+def has_local_result_file(run_log: Path, result_ref: str) -> bool:
+    if not result_ref:
+        return False
+    try:
+        candidate = (run_log.parent / result_ref).resolve()
+        candidate.relative_to(run_log.parent.resolve())
+    except ValueError:
+        return False
+    return candidate.is_file() and candidate.stat().st_size > 0
+
+
+def validate_visual_capture_capability(run_log: Path, implemented: str) -> list[str]:
+    visual_coverage = mapping_item_blocks(
+        nested_section_text(implemented, "screenshots_and_placeholders"),
+        "target_ref",
+    )
+    if not any(scalar_value(item, "coverage_decision") == "required_placeholder" for item in visual_coverage):
+        return []
+
+    failures: list[str] = []
+    capability = nested_section_text(implemented, "visual_runtime_capability")
+    discovery = mapping_item_blocks(nested_section_text(capability, "runtime_discovery"), "capability")
+    discovered_capabilities = {scalar_value(item, "capability") for item in discovery}
+    if discovered_capabilities != VISUAL_RUNTIME_CAPABILITIES:
+        failures.append(
+            "required_placeholder requires existing-preview discovery, project-runtime activation, and test-state recovery records"
+        )
+    discovery_statuses = {scalar_value(item, "capability"): scalar_value(item, "status") for item in discovery}
+    for item in discovery:
+        capability_name = scalar_value(item, "capability") or "<empty>"
+        status = scalar_value(item, "status")
+        if status not in VISUAL_RUNTIME_STATUSES:
+            failures.append(f"visual runtime capability {capability_name} has an invalid status")
+        for field in ("action", "evidence"):
+            if not scalar_value(item, field):
+                failures.append(f"visual runtime capability {capability_name} requires {field}")
+        result_ref = scalar_value(item, "result_ref")
+        if status != "not_required" and not has_local_result_file(run_log, result_ref):
+            failures.append(
+                f"visual runtime capability {capability_name} requires a non-empty local result_ref"
+            )
+    if discovery_statuses.get("project_runtime_activation") == "not_required" and discovery_statuses.get("existing_preview_discovery") != "passed":
+        failures.append("project-runtime activation may be not_required only after an existing preview is found")
+
+    recovery = nested_section_text(implemented, "visual_capture_recovery")
+    attempts = mapping_item_blocks(recovery, "attempt_id")
+    methods = {scalar_value(attempt, "method") for attempt in attempts}
+    if not VISUAL_CAPTURE_METHODS.issubset(methods):
+        failures.append("required_placeholder requires Playwright, Chrome DevTools, and Computer Use recovery records")
+    for attempt in attempts:
+        method = scalar_value(attempt, "method")
+        if method not in VISUAL_CAPTURE_METHODS:
+            continue
+        status = scalar_value(attempt, "status")
+        if status not in VISUAL_CAPTURE_STATUSES:
+            failures.append(f"visual capture recovery {method} must be attempted, not skipped")
+        for field in ("action", "evidence"):
+            if not scalar_value(attempt, field):
+                failures.append(f"visual capture recovery {method} requires {field}")
+        if not has_local_result_file(run_log, scalar_value(attempt, "result_ref")):
+            failures.append(f"visual capture recovery {method} requires a non-empty local result_ref")
+    return failures
+
+
+def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mode: str) -> list[str]:
+    if task_mode != "implemented_feature_prd":
+        return []
+
+    failures: list[str] = []
+    implemented = section_text(text, "implemented_feature_prd")
+    if boolean_value(implemented, "active") is not True:
+        failures.append("implemented_feature_prd task_mode requires implemented_feature_prd.active: true")
+    if scalar_value(implemented, "mode") not in {"implemented_feature_prd", "implemented_feature_prd_review"}:
+        failures.append("implemented_feature_prd task_mode requires a matching implemented_feature_prd.mode")
+
+    current_run = run_log.parent.name
+    task_body = section_text(text, "task")
+    context_body = section_text(text, "context")
+    if current_run and current_run in scalar_value(task_body, "brief_path"):
+        failures.append("rewritten PRDs must use a new run folder instead of the source artifact folder")
+    if current_run and current_run in context_body:
+        failures.append("current run artifacts must not be loaded as product context")
+
+    lineage = section_text(text, "artifact_lineage")
+    if scalar_value(lineage, "mode") not in {"new_run", "replacement_run"}:
+        failures.append("implemented-feature PRD requires artifact_lineage.mode")
+    if "historical_artifacts:" not in lineage:
+        failures.append("implemented-feature PRD requires artifact_lineage.historical_artifacts")
+    if boolean_value(lineage, "output_folder_reset") is not True:
+        failures.append("implemented-feature PRD requires output_folder_reset: true")
+
+    prd_path = run_log.parent / "prd.md"
+    requirement_ids = set()
+    if prd_path.is_file():
+        requirement_ids = set(
+            re.findall(r"(?m)^\|\s*(\d+\.\d+)\s*\|", prd_path.read_text(encoding="utf-8"))
+        )
+    coverage = section_text(text, "requirement_coverage_review")
+    coverage_blocks = mapping_item_blocks(coverage, "requirement_id")
+    coverage_ids = [scalar_value(block, "requirement_id") for block in coverage_blocks]
+    if requirement_ids and set(coverage_ids) != requirement_ids:
+        failures.append("requirement_coverage_review must contain exactly one decision for every PRD requirement")
+    if len(coverage_ids) != len(set(coverage_ids)):
+        failures.append("requirement_coverage_review requirement_id values must be unique")
+
+    visual_coverage = mapping_item_blocks(
+        nested_section_text(implemented, "screenshots_and_placeholders"),
+        "target_ref",
+    )
+    ui_surfaces = mapping_item_blocks(nested_section_text(implemented, "ui_surfaces"), "surface")
+    visual_targets = [scalar_value(block, "target_ref") for block in visual_coverage]
+    if ui_surfaces and requirement_ids and set(visual_targets) != requirement_ids:
+        failures.append(
+            "implemented_feature_prd user-facing requirements require exactly one screenshots_and_placeholders decision per requirement"
+        )
+    if len(visual_targets) != len(set(visual_targets)):
+        failures.append("screenshots_and_placeholders target_ref values must be unique")
+    for block in visual_coverage:
+        target_ref = scalar_value(block, "target_ref") or "<empty>"
+        decision = scalar_value(block, "coverage_decision")
+        surface = scalar_value(block, "surface")
+        if decision not in {"real_figure", "required_placeholder", "not_required"}:
+            failures.append(f"visual coverage {target_ref} has invalid coverage_decision")
+        if surface and decision == "not_required":
+            failures.append(
+                f"visual coverage {target_ref} cannot omit a figure for a named user-facing surface"
+            )
+    failures.extend(validate_visual_capture_capability(run_log, implemented))
+
+    needs_localization = False
+    needs_tracking = False
+    for block in coverage_blocks:
+        requirement_id = scalar_value(block, "requirement_id") or "<empty>"
+        visual = scalar_value(block, "visual_decision")
+        localization = scalar_value(block, "localization_decision")
+        tracking = scalar_value(block, "tracking_decision")
+        if visual not in {"real_figure", "required_placeholder", "not_required"}:
+            failures.append(f"coverage review {requirement_id} has invalid visual_decision")
+        if localization not in {"included", "not_needed"}:
+            failures.append(f"coverage review {requirement_id} has invalid localization_decision")
+        if tracking not in {"included", "not_needed"}:
+            failures.append(f"coverage review {requirement_id} has invalid tracking_decision")
+        for field in ("visual_rationale", "localization_rationale", "tracking_rationale"):
+            if not scalar_value(block, field):
+                failures.append(f"coverage review {requirement_id} requires {field}")
+        if localization == "included":
+            needs_localization = True
+        if tracking == "included":
+            needs_tracking = True
+        if tracking == "not_needed" and (
+            list_field_values(block, "measurable_actions")
+            or list_field_values(block, "measurable_outcomes")
+        ):
+            failures.append(
+                f"coverage review {requirement_id} cannot omit tracking while measurable actions or outcomes remain"
+            )
+        for field in ("measurable_actions", "measurable_outcomes"):
+            if re.search(
+                rf"^\s*{re.escape(field)}:\s*\[\]\s*#\s*\S",
+                block,
+                re.MULTILINE,
+            ):
+                failures.append(
+                    f"coverage review {requirement_id} must record {field} as YAML data, not an inline comment"
+                )
+        if tracking == "not_needed" and re.search(
+            r"(?:未包含|没有|缺少).{0,12}(?:事件|埋点).{0,8}(?:定义|配置)|"
+            r"(?:事件|埋点).{0,8}(?:定义|配置).{0,12}(?:未包含|没有|缺少)",
+            scalar_value(block, "tracking_rationale"),
+        ):
+            failures.append(
+                f"coverage review {requirement_id} cannot omit tracking merely because implementation lacks event definitions"
+            )
+    prd_text = prd_path.read_text(encoding="utf-8") if prd_path.is_file() else ""
+    if needs_localization and "多语言需求" not in prd_text:
+        failures.append("coverage review requires 多语言需求 but the PRD omits it")
+    if needs_tracking and "埋点需求" not in prd_text:
+        failures.append("coverage review requires 埋点需求 but the PRD omits it")
+    return failures
+
+
 def validate_collaboration_protocol(
     delegation_active: bool | None,
     collaboration_body: str,
@@ -366,6 +564,8 @@ def validate_run_log(run_log: Path) -> dict[str, Any]:
         failures.append(f"invalid or empty effort_budget: {effort_budget or '<empty>'}")
     if termination_status not in TERMINATION_STATUSES:
         failures.append(f"invalid or empty termination_condition.status: {termination_status or '<empty>'}")
+
+    failures.extend(validate_implemented_feature_prd_integrity(run_log, text, task_mode))
 
     for field in STRICT_REQUIRED_FIELDS:
         if field in {"success_criteria", "selected_path"}:
@@ -614,6 +814,17 @@ def validate_run_log(run_log: Path) -> dict[str, Any]:
             failures.append(
                 "success_criteria_met true requires success or due human_checkpoint stop reason"
             )
+        conflict_resolution_status = scalar_value(loop_state_body, "conflict_resolution_status") or "clear"
+        if conflict_resolution_status not in CONFLICT_RESOLUTION_STATUSES:
+            failures.append("loop_state.conflict_resolution_status is invalid")
+        elif conflict_resolution_status == "needs_input" and loop_stop_reason != "needs_input":
+            failures.append("needs_input conflict status requires needs_input stop reason")
+        elif conflict_resolution_status == "blocked" and loop_stop_reason != "blocked":
+            failures.append("blocked conflict status requires blocked stop reason")
+        elif conflict_resolution_status == "reconcile" and iteration_blocks:
+            final_decision = scalar_value(iteration_blocks[-1], "next_decision")
+            if final_decision == "continue":
+                failures.append("reconcile conflict status requires continue_reconcile next decision")
         if current_iteration > max_iterations:
             failures.append("loop_state.current_iteration exceeds max_iterations")
         if integer_value(loop_state_body, "tool_calls_used") > max_tool_calls:

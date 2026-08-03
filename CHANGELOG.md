@@ -6,6 +6,77 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [4.9.8] - 2026-08-03
+
+### Fixed
+
+- Made required visual recovery a loop success precondition for implemented-feature PRDs. The controller now continues while any required capability or capture route remains unrecorded, and reports budget exhaustion instead of falsely stopping successfully.
+- Clarified that an empty Chrome DevTools browser-target list affects only that capture method; the Agent must still try preview discovery, project-runtime activation, test-state recovery, Playwright, and Computer Use when applicable.
+
+### Validation
+
+- Added a loop-controller regression proving that a superficially successful run continues after only the Chrome DevTools path reports no browser target.
+
+## [4.9.7] - 2026-08-03
+
+### Fixed
+
+- Replaced the fixed-port screenshot assumption with an auditable runtime-capture capability chain: discover an existing preview, activate the project runtime from its own configuration, recover test state, then attempt Playwright, Chrome DevTools, and Computer Use.
+- Made required figure placeholders invalid when any runtime or capture step is silently skipped. Every attempted or unavailable step now requires an action, evidence, and a non-empty local result file so a fallback can be reviewed and reproduced.
+
+### Validation
+
+- Added regression coverage for rejecting untried screenshot fallbacks and accepting capability-based evidence without assuming a specific local port.
+
+## [4.9.6] - 2026-08-03
+
+### Changed
+
+- Replaced the implemented-feature PRD scaffold with one complete document skeleton: document context, background, optional research, requirement list, per-requirement details, optional localization, and optional tracking all have a stable place before empty blocks are removed from the delivered PRD.
+- Added independent optional `用户流程图` and `操作流程图` blocks before each requirement table. The former describes interaction paths; the latter describes rules, conditions, states, permissions, and exceptions.
+- Unified real figure captions and controlled placeholders as `功能-状态`; placeholders now use only `占位图：功能-状态.png`.
+
+### Validation
+
+- Added template regression coverage for complete-but-removable sections and controlled figure-name regression coverage for the `功能-状态` format.
+
+## [4.9.5] - 2026-08-03
+
+### Fixed
+
+- Made the implemented-feature PRD gate reject a missing visual-coverage decision for any user-facing requirement, silent `not_required` decisions for named UI surfaces, and trace records that hide measurable actions or outcomes inside YAML comments.
+- Required tracking omissions to be justified by product-measurement relevance rather than the absence of existing event definitions.
+- Rejected non-canonical requirement-detail fields such as `验收标准`, Mermaid diagrams placed after their requirement table, and English source strings in a Chinese localization delivery while preserving parameter placeholders such as `{reason}`.
+
+### Validation
+
+- Added negative regressions for visual-coverage omission, commented tracking evidence, standalone acceptance fields, misplaced flowcharts, and English localization source copy.
+
+## [4.9.4] - 2026-08-03
+
+### Fixed
+
+- Isolated generated artifacts from current product evidence: rewrites now require a new run folder and may use earlier PRDs only as comparison inputs, preventing stale run logs and tool results from steering a new delivery.
+- Replaced omission-by-default with a per-requirement coverage review for visual evidence, changed copy, and measurement; reviewers must justify every `not_needed` decision before a PRD can omit localization or tracking content.
+- Made implemented-feature traces fail when they disable their own route with `active: false`, skip the visual capture-recovery record, merge independent visual states, or place explanatory text in controlled placeholders.
+- Enforced the final-row position and exact controlled syntax of PRD figure placeholders.
+
+### Validation
+
+- Added regression coverage for isolated implemented-feature runs, complete requirement coverage review, controlled placeholder recovery, figure-row ordering, and placeholder-only figure cells.
+
+## [4.9.3] - 2026-08-03
+
+### Fixed
+
+- Kept implemented-feature PRDs deliverable when authenticated UI capture cannot be recovered: each required figure now remains as an inline controlled placeholder with a visible `图示待人工补全` reminder and a named manual replacement action in the run log.
+- Made delivery validation reject placeholder PRDs that omit the visible reminder, the pending manual-completion status, the replacement instruction, or the `ready for review` PRD readiness state.
+- Made a failed `run_delivery_checks.py` result explicitly block final-delivery claims.
+
+### Validation
+
+- Added regression coverage for a deliverable implemented-feature PRD with controlled placeholders and for rejection when its visible manual-completion reminder is missing.
+
 ## [4.9.2] - 2026-07-30
 
 ### Changed

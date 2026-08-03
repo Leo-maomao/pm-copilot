@@ -84,7 +84,7 @@ Required formatting:
 - Implemented-feature PRDs describe observed product behavior, confidence, and unverified product intent without exposing technical evidence.
 - Implemented-feature PRDs keep screenshots and missing-image markers inline with the relevant requirement, table row, flow step, state, dialog, or evidence. Do not create a detached image list, figure list, or screenshot appendix by default.
 - Screenshot evidence uses the smallest useful crop, but it must retain three layers of evidence: the target control or state, the locating page/section context, and any comparison context required to understand the behavior. Full-screen captures are reserved for page-level layout or relationship requirements.
-- PRD screenshots are real local evidence by default. Omit the optional figure row when the image would not improve reviewability; use only the controlled inline `占位图：图片名称` marker when an essential visual cannot be captured after all available recovery paths fail. Keep capture failures and rationale in internal evidence.
+- PRD screenshots are real local evidence by default. Omit the optional figure row when the image would not improve reviewability; use only the controlled inline `占位图：功能-状态.png` marker when an essential visual cannot be captured after all available recovery paths fail. Keep capture failures and rationale in internal evidence.
 - Screenshot file names describe content. State screenshots use object plus concrete state, such as `资料卡片-加载中.png`, `资料卡片-加载失败.png`, or `设置弹窗-无权限.png`; generic names such as `资料卡片-状态.png` or `profile-card-state.png` are not acceptable.
 
 Requirement details must be product-grade. For each functional item, include the relevant subset of:

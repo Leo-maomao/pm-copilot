@@ -296,6 +296,13 @@ REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
     "需求详情",
     "设计与交互",
 )
+FORBIDDEN_REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
+    "验收标准",
+    "验收结果",
+    "风险",
+    "待确认",
+    "技术测试",
+)
 PRD_OPERATION_ONLY_VERSION_RE = re.compile(
     r"(?:渲染|格式|模板|同步|校验|验证|截图|生成\s*HTML|文档整理|自动更新|脚本|工具)",
     re.IGNORECASE,
@@ -1603,6 +1610,7 @@ def check_implemented_feature_prd_trace(path: Path) -> None:
         return
 
     prd_text = read(path / "prd.md")
+    required_placeholders = []
     for item in yaml_list_item_blocks(visual_coverage):
         target_ref = yaml_field_value(item, "target_ref")
         coverage_decision = yaml_field_value(item, "coverage_decision")
@@ -1632,8 +1640,48 @@ def check_implemented_feature_prd_trace(path: Path) -> None:
                 fail("implemented_feature_prd real_figure asset_sha256 does not match the referenced asset")
             if Path(asset_path).name not in detail_text:
                 fail(f"implemented_feature_prd real_figure is not inline with requirement detail {target_ref}")
-        elif "占位图" not in detail_text:
-            fail(f"implemented_feature_prd required_placeholder is not inline with requirement detail {target_ref}")
+        else:
+            replacement_status = yaml_field_value(item, "replacement_status")
+            replacement_instruction = yaml_field_value(item, "replacement_instruction")
+            surface = yaml_field_value(item, "surface")
+            state = yaml_field_value(item, "state")
+            capture_source = yaml_field_value(item, "capture_source")
+            capture_attempt_ids = yaml_list_field_has_values(item, "capture_attempt_ids")
+            if "占位图" not in detail_text:
+                fail(f"implemented_feature_prd required_placeholder is not inline with requirement detail {target_ref}")
+            if not surface or not state or not capture_source or not capture_attempt_ids:
+                fail("implemented_feature_prd required_placeholder requires surface, state, capture_source, and capture_attempt_ids")
+            if re.search(r"[、，,/]|(?:和|及)", state):
+                fail("implemented_feature_prd required_placeholder state must name one independently reviewable state")
+            if replacement_status != "pending_manual_completion":
+                fail(
+                    "implemented_feature_prd required_placeholder must use "
+                    "replacement_status: pending_manual_completion"
+                )
+            if not replacement_instruction:
+                fail("implemented_feature_prd required_placeholder must include replacement_instruction")
+            required_placeholders.append(target_ref)
+
+    if not required_placeholders:
+        return
+    recovery = extract_yaml_block(section, "visual_capture_recovery")
+    attempts = yaml_list_item_blocks(recovery)
+    methods = {yaml_field_value(attempt, "method") for attempt in attempts}
+    required_methods = {"playwright", "chrome_devtools", "computer_use"}
+    if not required_methods.issubset(methods):
+        fail("implemented_feature_prd required_placeholder requires Playwright, Chrome DevTools, and Computer Use recovery records")
+    for attempt in attempts:
+        if yaml_field_value(attempt, "method") not in required_methods:
+            continue
+        if yaml_field_value(attempt, "status") not in {"passed", "failed", "blocked", "skipped", "not_available"}:
+            fail("implemented_feature_prd visual capture recovery has an invalid attempt status")
+        if not yaml_field_value(attempt, "evidence"):
+            fail("implemented_feature_prd visual capture recovery requires attempt evidence")
+    if not re.search(r"\|\s*文档状态\s*\|[^\n|]*(?:图示待人工补全|visual figures require manual completion)", prd_text, re.IGNORECASE):
+        fail("PRD with required_placeholder must visibly state that figures require manual completion")
+    readiness = extract_yaml_block(run_log, "readiness")
+    if yaml_scalar_field_value(readiness, "prd_status") != "ready for review":
+        fail("implemented_feature_prd with required_placeholder must keep readiness.prd_status: ready for review")
 
 
 def check_visual_validation_trace(path: Path) -> None:
@@ -2162,6 +2210,47 @@ def check_chinese_prd(path: Path) -> None:
                 + ", ".join(missing_detail_fields)
                 + f"; {detail_title}"
             )
+        forbidden_detail_fields = [
+            label
+            for label in FORBIDDEN_REQUIREMENT_DETAIL_FIELD_LABELS_ZH
+            if re.search(rf"^\|\s*{re.escape(label)}\s*\|", detail_body, re.MULTILINE)
+        ]
+        if forbidden_detail_fields:
+            fail(
+                "Chinese PRD requirement detail must not include non-canonical field(s): "
+                + ", ".join(forbidden_detail_fields)
+            )
+        mermaid_start = detail_body.find("```mermaid")
+        detail_table_offsets = [
+            int(table.get("start_offset", 0))
+            for table in markdown_table_blocks(detail_body)
+            if table_is_field_value_requirement_detail(table)
+        ]
+        if mermaid_start >= 0 and detail_table_offsets and mermaid_start > min(detail_table_offsets):
+            fail("Mermaid flowcharts for a requirement must appear immediately above its detail table")
+
+    localization_sections = [
+        section
+        for section in markdown_sections(text)
+        if int(section.get("level", 0)) == 2
+        and str(section.get("raw_title", "")).endswith("多语言需求")
+    ]
+    for localization_section in localization_sections:
+        localization_body = str(localization_section.get("body", ""))
+        pure_copy_blocks = re.findall(r"```(?:text)?\s*\n(.*?)```", localization_body, re.DOTALL)
+        for block in pure_copy_blocks:
+            localized_copy = re.sub(r"\{[^{}]+\}", "", block)
+            if LATIN_LETTER_RE.search(localized_copy):
+                fail("Chinese PRD 多语言需求 must list localized copy in Chinese, not an English source string")
+        for table in markdown_table_blocks(localization_body):
+            headers = [normalize_table_cell(header) for header in table.get("headers", [])]
+            if "文案" not in headers:
+                continue
+            copy_index = headers.index("文案")
+            for row in table.get("rows", []):
+                localized_copy = re.sub(r"\{[^{}]+\}", "", str(row[copy_index])) if copy_index < len(row) else ""
+                if LATIN_LETTER_RE.search(localized_copy):
+                    fail("Chinese PRD 多语言需求 table must list localized copy in Chinese, not an English source string")
     if CHINESE_STATUS_LEAK_RE.search(text):
         fail("Chinese PRD contains raw English readiness/review status labels")
     if "Mini Program" in text:
@@ -2311,7 +2400,7 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         check_image_asset_name(name, "PRD missing-image placeholder")
     placeholder_sanitized = IMAGE_PLACEHOLDER_RE.sub("", text)
     if "占位图" in placeholder_sanitized:
-        fail("PRD screenshot placeholders must use the controlled 占位图：图片名称 format")
+        fail("PRD screenshot placeholders must use the controlled 占位图：功能-状态.png format")
 
     if markdown_needs_assets_folder(text) and not (path / "assets").is_dir():
         fail("prd.md references screenshots/placeholders or local PRD runtimes, but assets/ is missing")
@@ -2376,6 +2465,7 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
     if implemented_feature_active:
         check_implemented_feature_images_in_requirement_details(text)
         check_field_value_requirement_images_stay_in_table(text)
+        check_requirement_figure_rows(text)
     check_requirement_detail_structure(text)
     check_prd_flow_sections(text)
     check_prd_copy_i18n_sections(text, language)
@@ -2499,6 +2589,36 @@ def check_field_value_requirement_images_stay_in_table(text: str) -> None:
                 "Requirement detail field/value tables must keep images/placeholders inside the same "
                 f"table cell, not outside the table; {kind} near line {line} in {title}"
             )
+
+
+def check_requirement_figure_rows(text: str) -> None:
+    controlled_placeholder = re.compile(
+        r"占位图：[^|<\n.\-]+-[^|<\n.\-]+\.(?:png|jpg|jpeg|webp)(?:\s*<br\s*/?>\s*占位图：[^|<\n.\-]+-[^|<\n.\-]+\.(?:png|jpg|jpeg|webp))*$",
+        re.IGNORECASE,
+    )
+    for table in markdown_table_blocks(text):
+        if not table_is_field_value_requirement_detail(table):
+            continue
+        rows = [
+            line
+            for line in str(table.get("text", "")).splitlines()[2:]
+            if line.strip().startswith("|")
+        ]
+        figure_rows = [
+            index
+            for index, row in enumerate(rows)
+            if normalize_table_cell(row.strip().strip("|").split("|")[0]) == "图示"
+        ]
+        if not figure_rows:
+            continue
+        if figure_rows[-1] != len(rows) - 1:
+            fail("Requirement detail 图示 row must be the final row of its table")
+        for index in figure_rows:
+            cells = [cell.strip() for cell in rows[index].strip().strip("|").split("|")]
+            if len(cells) < 2 or "占位图" not in cells[1]:
+                continue
+            if not controlled_placeholder.fullmatch(cells[1]):
+                fail("Requirement detail 图示 placeholder must use only controlled 功能-状态 image names")
 
 
 def html_requirement_image_row_has_unmerged_empty_cells(row: str) -> bool:
