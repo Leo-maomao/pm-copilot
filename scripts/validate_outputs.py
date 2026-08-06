@@ -75,6 +75,14 @@ PRD_TECHNICAL_CONTENT_RE = re.compile(
     r"(?:前端|后端|客户端|服务端)?(?:组件|接口|服务|数据库|数据表|类|函数|命令|脚本)\s*(?:为|是|调用|使用|实现|路径|地址|名称|[:：]))",
     re.IGNORECASE,
 )
+PRD_NON_PRODUCTION_SCAFFOLDING_RE = re.compile(
+    r"(?:仅|只|专门|专供)\s*(?:用于|供)?\s*本地\s*(?:自测|测试|演示|截图(?:展示|拍摄)?|调试)"
+    r"|本地\s*(?:自测|测试|演示|截图(?:展示|拍摄)?|调试)(?:\s*(?:专用|辅助|临时))?"
+    r"|(?:仅|只|专门|专供)\s*(?:用于|供)?\s*(?:截图(?:展示|拍摄)?|调试)(?:\s*(?:专用|辅助|临时))?"
+    r"|(?:演示|截图|调试)\s*(?:专用|辅助|临时)(?:入口|状态|文案|控件)?"
+    r"|(?:不|不会)\s*(?:随|在)?\s*(?:线上|正式)\s*(?:发布|展示)",
+    re.IGNORECASE,
+)
 
 PROTOTYPE_FILE_NAMES = (
     "index.html",
@@ -2145,6 +2153,8 @@ def check_chinese_prd(path: Path) -> None:
         fail("Chinese PRD must not include explanatory copy-section labels or descriptive tracking headers")
     if PRD_DRAFT_GUIDANCE_RE.search(text):
         fail("Chinese PRD must not include template guidance, visual placeholders, or model-speculation text")
+    if PRD_NON_PRODUCTION_SCAFFOLDING_RE.search(text):
+        fail("Chinese PRD must not include local test, demo, screenshot, debug, or non-production scaffolding")
     version_section = next(
         (section for section in markdown_sections(text) if section.get("level") == 3 and section.get("raw_title") == "2. 版本记录"),
         None,

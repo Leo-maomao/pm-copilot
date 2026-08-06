@@ -26,6 +26,35 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("one blank-line-height gap before the next pair", contract)
         self.assertIn("Do not create a `待确认` item, risk field, or acceptance-result field", contract)
         self.assertIn("Never show “拟议”", contract)
+        self.assertIn("development-only scaffolding", contract)
+        self.assertIn("User-confirmed launch goals and explicit product decisions override observed implementation", contract)
+        self.assertIn("Requirement granularity is defined by a user outcome", contract)
+        self.assertIn("Visual coverage records states separately but never creates or requires a requirement row", contract)
+        self.assertIn("smallest localizable copy unit", contract)
+        self.assertIn("never permits joining copy values", contract)
+        self.assertIn("Do not join separate labels, menu items, tabs, buttons, or messages", contract)
+
+    def test_implemented_feature_guidance_applies_contract_boundaries(self) -> None:
+        skill = self.read("skills/prd-writing/SKILL.md")
+        workflow = self.read("docs/implemented-feature-prd-workflow.md")
+        template = self.read("templates/implemented-feature-prd-template.md")
+        requirements_agent = self.read("agents/requirements-agent.md")
+        self.assertIn("evidence boundary and requirement-granularity rules", skill)
+        self.assertIn("Coverage items are visual evidence, not requirement items", skill)
+        self.assertIn("Implemented-Feature Evidence Boundary", workflow)
+        self.assertIn("evidence-boundary and requirement-granularity rules", workflow)
+        self.assertIn("Each independently usable visible string has its own pure-text line", workflow)
+        self.assertIn("同一页面或弹窗内服务同一目标", template)
+        self.assertIn("独立条目不得用 / 合并", template)
+        self.assertIn("ask for a decision before generation; do not put it in the PRD", skill)
+        self.assertIn("add it to the PRD as `待确认`", skill)
+        self.assertIn("[已确认 / 已观察]", template)
+        self.assertNotIn("[已确认 / 已观察 / 待确认]", template)
+        self.assertIn("ask for a decision before drafting and do not add it to the PRD", requirements_agent)
+        self.assertIn("Keep speculative content and unresolved decisions in the run trace", requirements_agent)
+        self.assertIn("Define requirement boundaries by independently decided user outcomes", requirements_agent)
+        self.assertIn("exclude local self-test, demo, screenshot staging", requirements_agent)
+        self.assertNotIn("Mark required decision fields as `待确认`", requirements_agent)
 
     def test_active_guidance_excludes_retired_placeholder_and_duplicate_id_rules(self) -> None:
         text = self.read("artifacts/artifact-contracts.md")
@@ -33,6 +62,17 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertNotIn("Function ID and function name", text)
         self.assertIn("Requirement-detail number and requirement name", text)
         self.assertIn("renumber visible H2 sections consecutively", text)
+        for relative in (
+            "PM_COPILOT.md",
+            "agents/requirements-agent.md",
+            "docs/implemented-feature-prd-workflow.md",
+            "prompts/prompt-system.md",
+            "tools/validation-tooling.md",
+        ):
+            guidance = self.read(relative)
+            self.assertIn("占位图：功能-状态.png", guidance)
+            self.assertNotIn("small `位置` and `用途` caption", guidance)
+            self.assertNotIn("位置：...；用途：...", guidance)
 
     def test_implemented_feature_template_is_complete_but_deletes_empty_blocks(self) -> None:
         template = self.read("templates/implemented-feature-prd-template.md")

@@ -398,6 +398,29 @@ flowchart TD
     run_case("operation_only_version", PASS_PRD.replace("首次创建", "重新渲染文档"), False)
     run_case("template_guidance", PASS_PRD.replace("降低误操作", "<说明目标用户的问题>"), False)
     run_case("proposed_prd_copy", PASS_PRD.replace("用户确认", "拟议"), False)
+    run_case(
+        "local_self_test_scaffolding",
+        PASS_PRD.replace("降低误操作", "该入口仅供本地自测，不随线上发布。"),
+        False,
+    )
+    run_case(
+        "screenshot_staging_scaffolding",
+        PASS_PRD.replace("确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。", "该临时弹窗仅用于截图展示。"),
+        False,
+    )
+    run_case(
+        "product_demo_is_not_globally_rejected",
+        PASS_PRD.replace("降低误操作", "支持运营人员创建面向用户的产品演示内容。"),
+        True,
+    )
+    run_case(
+        "same_dialog_changes_stay_in_one_requirement",
+        PASS_PRD.replace(
+            "确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。",
+            "同一确认弹窗展示角色变化、校验提示、取消操作和提交反馈。",
+        ),
+        True,
+    )
     run_case("vague_requirement_summary", PASS_PRD.replace("降低误操作", "帮助用户更清楚、更高效地完成当前任务"), False)
     run_case("generic_tracking_event", PASS_PRD.replace("查看成员管理页", "访问"), False)
     run_case(
@@ -447,6 +470,38 @@ flowchart TD
             "| 取消 | 5.1 角色变更确认 | / |", "| Cancel | 5.1 角色变更确认 | / |"
         ),
         False,
+    )
+    run_case(
+        "localization_accepts_independent_copy_rows",
+        PASS_PRD.replace(
+            "确认变更角色\n取消\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |",
+            "积分管理\n订阅管理\n订单管理\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 积分管理 | 5.1 角色变更确认 | / |\n| 订阅管理 | 5.1 角色变更确认 | / |\n| 订单管理 | 5.1 角色变更确认 | / |",
+        ),
+        True,
+    )
+    run_case(
+        "localization_accepts_continuous_ratio_copy",
+        PASS_PRD.replace(
+            "确认变更角色\n取消\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |",
+            "已选择 3/10 项\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 已选择 3/10 项 | 5.1 角色变更确认 | / |",
+        ),
+        True,
+    )
+    run_case(
+        "localization_accepts_continuous_spaced_literal",
+        PASS_PRD.replace(
+            "确认变更角色\n取消\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |",
+            "第 1 页 / 共 10 页\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 第 1 页 / 共 10 页 | 5.1 角色变更确认 | / |",
+        ),
+        True,
+    )
+    run_case(
+        "localization_accepts_continuous_chinese_slash_copy",
+        PASS_PRD.replace(
+            "确认变更角色\n取消\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 确认变更角色 | 5.1 角色变更确认 | / |\n| 取消 | 5.1 角色变更确认 | / |",
+            "男/女比例\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n| 男/女比例 | 5.1 角色变更确认 | / |",
+        ),
+        True,
     )
 
 

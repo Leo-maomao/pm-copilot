@@ -246,7 +246,7 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
 | 需求入口 | 项目列表入口。 |
 | 需求详情 | 用户点击创建项目。 |
 | 设计与交互 | 展示创建入口。 |
-| 图示 | ![创建项目弹窗](./assets/创建项目弹窗.png)<br><small>位置：项目列表；用途：展示创建入口。</small> |
+| 图示 | ![创建项目弹窗](./assets/创建项目弹窗.png)<br><small>创建项目弹窗</small> |
 """
         details = [{"number": "5.1", "title": "创建项目", "entry": "项目列表入口", "description": "用户点击创建项目", "evidence_id": "E001", "body": ""}]
         assets = [{"path": "./assets/创建项目弹窗.png", "name": "创建项目弹窗.png", "tokens": "创建 项目", "evidence_id": "E002"}]

@@ -1,0 +1,12 @@
+{
+  "id": "dialog-requirement-grouping",
+  "required_text": [
+    "| 5.1 | 角色变更确认 |",
+    "同一确认弹窗展示角色变化、校验提示、取消操作和提交反馈。",
+    "一、角色变更流程"
+  ],
+  "forbidden_text": [
+    "| 5.2 |",
+    "### 5.2 "
+  ]
+}

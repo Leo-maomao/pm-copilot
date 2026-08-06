@@ -6,6 +6,19 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [5.0.0] - 2026-08-06
+
+### Fixed
+
+- Made implemented-feature PRDs classify local self-test, demo, screenshot, debug, mock, fixture, and temporary presentation states as development-only scaffolding rather than release requirements.
+- Defined requirement granularity by independently decided user outcomes, so related changes inside one dialog or flow stay in one requirement unless their audience, entry, outcome, priority, or release boundary differs.
+- Required localization handoffs to keep every independently usable visible string on its own pure-text and mapping-table row while preserving literal continuous copy such as `3/10`.
+- Aligned active PRD guidance with the controlled screenshot placeholder format, keeping capture explanations in the run trace instead of the PRD.
+
+### Validation
+
+- Added regressions for non-production PRD leakage, same-dialog requirement grouping, independent localization rows, and continuous slash-bearing copy.
+
 ## [4.9.13] - 2026-08-03
 
 ### Fixed

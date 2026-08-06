@@ -27,8 +27,8 @@ Avoid split Markdown files by default. The PRD should contain confirmed user pro
 Before drafting:
 
 1. Inspect the available evidence needed to understand user-visible behavior, including relevant UI surfaces, analytics, screenshots, validation results, and existing documentation.
-2. Treat observed current-product behavior as evidence, not as guaranteed product intent.
-3. Record technical evidence, behavior evidence, screenshot evidence or gaps, validation evidence, and unresolved product intent in `run-log.yaml`; expose only product-facing behavior and real visual evidence in the PRD.
+2. Apply the Implemented-Feature Evidence Boundary in `artifacts/prd-contract.md`: observed current-product behavior is evidence, not guaranteed product intent.
+3. Record technical evidence, behavior evidence, excluded development-only scaffolding, screenshot evidence or gaps, validation evidence, and unresolved product intent in `run-log.yaml`; expose only confirmed production behavior and real visual evidence in the PRD.
 4. Ask only for product intent, launch, legal/privacy/compliance, metrics, or screenshot gaps that cannot be recovered from the branch.
 
 ## PRD Structure
@@ -41,7 +41,7 @@ The H1 must be one concise requirement sentence plus the requirement date, for e
 
 Use the user-driven numbered structure: `文档说明`, `需求背景`, optional `需求调研`, `需求清单`, `需求详情`, optional `多语言需求`, and optional `埋点需求`.
 
-The first screen must identify the document source, target users, status, and revision. Build `需求清单` from the observed user-visible behavior before expanding matching requirement details. Keep technical evidence and command results in `run-log.yaml`; the PRD contains only the user problem, confirmed product behavior, and user-facing UI/interaction requirements.
+The first screen must identify the document source, target users, status, and revision. Build `需求清单` from the production user-visible behavior retained after applying the PRD contract's evidence-boundary and requirement-granularity rules, then expand matching requirement details. Keep technical evidence and command results in `run-log.yaml`; the PRD contains only the user problem, confirmed product behavior, and user-facing UI/interaction requirements.
 
 Remove optional subsections, diagrams, image blocks, and rows that have no real content. Do not preserve empty tables or artificial `不涉及` text solely to satisfy the template.
 
@@ -75,9 +75,9 @@ Rules:
 
 - Put a real image exactly where it belongs in the requirement.
 - Omit the optional figure row when no trusted rendered source exists and the figure is not necessary to review the behavior.
-- When the figure is necessary but unavailable, use only `占位图：<name>.png` in the affected row or blockquote. Keep location, purpose, state, and capture failures in the run log rather than the PRD.
+- When the figure is necessary but unavailable, use only `占位图：功能-状态.png` in the affected row or blockquote. Keep location, purpose, state, and capture failures in the run log rather than the PRD.
 - Do not add a standalone screenshot list, image list, figure list, appendix, or checklist by default.
-- Cover every independent changed page, window, panel, or dialog. Do not split micro-states into separate screenshots when a single screenshot captures the complete window or panel.
+- Cover every independent changed production page, window, panel, or dialog retained in the PRD. Do not capture development-only scaffolding, and do not split micro-states into separate screenshots when a single screenshot captures the complete window or panel.
 
 Replacement loop:
 
@@ -123,7 +123,7 @@ The generated `prd.html` must:
 
 - Functional flow diagrams must be Mermaid `flowchart` blocks inside `prd.md`. Do not use tables or PNGs as the primary flow diagram.
 - Keep Mermaid syntax simple: ASCII node IDs, localized labels, plain branch labels, and no unverified styling extensions.
-- Copy/i18n sections must include newly added or changed UI copy as a pure-text extraction block for PM localization submission, or explicitly state that no new copy is involved. The pure-text block contains only visible copy lines; i18n keys and usage notes belong in a separate mapping table.
+- Copy/i18n sections must include newly added or changed UI copy as a pure-text extraction block for PM localization submission, or explicitly state that no new copy is involved. Each independently usable visible string has its own pure-text line and mapping-table row; do not combine separate strings because they share a module. I18n keys and usage notes belong in a separate mapping table.
 
 ## Validation
 
