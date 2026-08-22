@@ -1,0 +1,21 @@
+id: prd-html-toc-layout-budget-2026-08-22
+date: 2026-08-22
+goal: "Prevent full PRD HTML TOC titles from reflowing when hovered or selected."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.9"
+  target_version: "6.2.10"
+generalized_failure: "The fixed TOC width left long labels at a wrapping boundary, and browser font-weight differences for link descendants could change line breaks in hover or active states."
+fix_surface:
+  - scripts/render_prd_html.py
+  - scripts/test_prd_toc_tracking.py
+  - VERSION
+  - CHANGELOG.md
+validation:
+  - "test_prd_toc_tracking.py"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.9 -> 6.2.10"
+remote_push_status: "pending until main is pushed"
+stop_condition: "Full TOC titles remain available, may wrap naturally, and keep the same line breaks across default, hover, and active states."
