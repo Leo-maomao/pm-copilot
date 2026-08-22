@@ -6,7 +6,7 @@ Install PM Copilot once when you want to activate the same runtime from multiple
 python3 /path/to/pm-copilot/scripts/install_pm_copilot.py
 ```
 
-The installer copies reusable runtime files to `~/.agents/pm-copilot` and creates the Seawork-compatible Skill link at `~/.agents/skills/pm-copilot`. Run the same command again from a newer source checkout to replace the global runtime safely.
+The installer copies reusable runtime files to `~/.agents/pm-copilot` and creates the Seawork-compatible Skill link at `~/.agents/skills/pm-copilot`. It records the source checkout, commit, version, and an integrity manifest. When the Skill activates, `scripts/ensure_runtime_current.py --require-current` automatically syncs a newer source checkout if the global copy has no local edits; local edits block automatic overwrite and require explicit manual resolution.
 
 The repository also contains the Codex plugin bundle at `plugins/pm-copilot`. It uses the same shared runtime and the same project-output rule; it does not duplicate or relocate product artifacts.
 

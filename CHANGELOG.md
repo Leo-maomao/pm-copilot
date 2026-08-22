@@ -6,6 +6,21 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.0] - 2026-08-22
+
+### Added
+
+- Added startup synchronization for copied global runtimes, including source checkout metadata, commit/version tracking, and an integrity manifest.
+
+### Changed
+
+- Global PM Copilot activation now automatically synchronizes a newer source checkout when the installed runtime is unmodified.
+- Automatic synchronization refuses to overwrite locally modified runtime files and reports the changed paths as an actionable blocker.
+
+### Validation
+
+- Added regression coverage for clean auto-sync and local-modification protection.
+
 ## [6.1.0] - 2026-08-22
 
 ### Added

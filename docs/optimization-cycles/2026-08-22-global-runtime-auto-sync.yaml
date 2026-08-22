@@ -1,0 +1,23 @@
+id: global-runtime-auto-sync-2026-08-22
+date: 2026-08-22
+goal: "Prevent the global PM Copilot runtime from silently lagging behind the source checkout."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "5.0.3"
+  target_version: "6.2.0"
+generalized_failure: "Git push updated the source checkout but the copied global runtime remained on its previous installed version."
+fix_surface:
+  - scripts/install_pm_copilot.py
+  - scripts/ensure_runtime_current.py
+  - plugins/pm-copilot/skills/pm-copilot/SKILL.md
+validation:
+  - "test_install_pm_copilot.py"
+  - "test_ensure_runtime_current.py"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+version_change: "6.1.0 -> 6.2.0"
+remote_push_status: "pending until this release commit is pushed"
+embedded_copy_sync_targets:
+  global_runtime: "~/.agents/pm-copilot"
+  global_skill: "~/.agents/skills/pm-copilot"
+stop_condition: "Startup sync updates only clean copied runtimes; local runtime edits produce a blocker instead of an overwrite."

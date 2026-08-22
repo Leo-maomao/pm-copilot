@@ -22,6 +22,9 @@ class InstallPmCopilotTest(unittest.TestCase):
             self.assertTrue((skills_home / "pm-copilot").is_symlink())
             self.assertFalse((runtime_home / "outputs").exists())
             self.assertFalse((runtime_home / "tool-results").exists())
+            self.assertEqual(state["source_root"], str(Path(__file__).resolve().parents[1]))
+            self.assertIn("source_commit", state)
+            self.assertTrue((runtime_home / "install-manifest.json").is_file())
 
     def test_rejects_runtime_inside_source_checkout(self) -> None:
         source_root = Path(__file__).resolve().parents[1]

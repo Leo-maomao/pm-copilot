@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 
@@ -16,6 +18,31 @@ PROTECTED = {".git", ".DS_Store", ".venv", "node_modules", "outputs", "tool-resu
 
 def ignore_copy(_: str, names: list[str]) -> set[str]:
     return {name for name in names if name in PROTECTED or name.endswith(".local.yaml")}
+
+
+def _file_manifest(root: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        if any(part in PROTECTED for part in relative.parts):
+            continue
+        if relative.name in {"install-state.json", "install-manifest.json"}:
+            continue
+        files[str(relative)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return files
+
+
+def _source_commit() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            text=True, capture_output=True, check=False,
+        )
+    except OSError:
+        return None
+    return result.stdout.strip() if result.returncode == 0 else None
 
 
 def install(runtime_home: Path, skills_home: Path) -> dict[str, str]:
@@ -49,10 +76,19 @@ def install(runtime_home: Path, skills_home: Path) -> dict[str, str]:
     os.symlink(skill_source, skill_target, target_is_directory=True)
     state = {
         "version": (ROOT / "VERSION").read_text(encoding="utf-8").strip(),
+        "source_version": (ROOT / "VERSION").read_text(encoding="utf-8").strip(),
+        "source_root": str(ROOT),
+        "source_commit": _source_commit(),
         "runtime_home": str(runtime_home),
         "skill_path": str(skill_target),
+        "install_mode": "copy",
+        "manifest_file": "install-manifest.json",
     }
     (runtime_home / "install-state.json").write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (runtime_home / "install-manifest.json").write_text(
+        json.dumps({"files": _file_manifest(runtime_home)}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return state
 
 
