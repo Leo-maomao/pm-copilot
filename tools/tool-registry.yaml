@@ -85,6 +85,18 @@ capabilities:
       - run-log.yaml:validation_results
     fallback: "Do not deliver as final; record failure and fix generated artifacts."
 
+  - id: validation.prd_html_renderer
+    category: validation
+    required_when: "A PRD delivery is generated or revised."
+    command: "python3 scripts/render_prd_html.py outputs/<run-id>"
+    behavior: "Uses Pandoc when available; when absent, downloads the official user-level binary, then tries an existing Homebrew installation only as a fallback, and finally uses the bundled local Markdown renderer."
+    setup_command: "python3 scripts/setup_prd_renderer.py --install"
+    result_contract: artifacts/tool-result-contract.md
+    records_to:
+      - outputs/<run-id>/prd.html
+      - run-log.yaml:validation_results
+    fallback: "Do not omit prd.html; report the renderer failure and resolve it before delivery."
+
   - id: validation.visual
     category: validation
     required_when: "A portable UI review artifact is generated, or an existing host preview is inspected as evidence."

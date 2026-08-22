@@ -36,7 +36,7 @@ Use these top-level sections and titles in order:
 ## 七、埋点需求                 # optional
 ```
 
-`需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. Omit empty optional sections and keep the visible H2 numerals consecutive: when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`.
+`需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. Keep the core document, background, requirement list, and requirement-detail section numbers stable even when `需求调研` is omitted, so their traceable detail numbers remain `4` and `5`. Renumber only the trailing optional sections: when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`.
 
 The H1 is a concise requirement sentence plus date, for example:
 

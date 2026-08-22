@@ -285,7 +285,6 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             (folder / "run-log.yaml").unlink()
             report = upgrade_output(folder, Path.cwd(), True, False)
             self.assertEqual(report.status, "upgraded")
-            (folder / "prd.html").unlink()
             command = [
                 "python3",
                 str(Path.cwd() / "scripts" / "validate_outputs.py"),

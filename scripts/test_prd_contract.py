@@ -90,13 +90,12 @@ def run_case(
     with tempfile.TemporaryDirectory() as temp_dir:
         folder = Path(temp_dir)
         (folder / "prd.md").write_text(prd, encoding="utf-8")
+        (folder / "prd.html").write_text("<!doctype html><html><body></body></html>", encoding="utf-8")
         (folder / "run-log.yaml").write_text(run_log, encoding="utf-8")
         for asset_path, content in (assets or {}).items():
             destination = folder / asset_path
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(content)
-        if check_implemented_trace:
-            (folder / "prd.html").write_text("<html></html>", encoding="utf-8")
         passed = True
         try:
             check_chinese_prd(folder)

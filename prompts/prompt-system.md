@@ -70,7 +70,7 @@ Also choose `effort_budget`:
 - Stop on success, input, blocker, budget, no-progress, human checkpoint, or failure. Iteration count is a ceiling, never a target.
 - Before final delivery, convert the selected recommendation into `action_closure.critical_path`. Each critical action must include owner, due phase, source decision or blocker id, completion evidence, and status.
 - Do not treat generic follow-ups as completion. If the run is blocked or needs input, the action closure must identify the exact unblock evidence or answer.
-- Select the smallest sufficient execution subgraph for the task. Revisit nodes only when new evidence changes the decision, and record material routing changes.
+- For PRD or product-requirement delivery, retain the mandatory sequence of requirement discussion, clarification, explicit user confirmation, contracted delivery, independent review, and final validation. For other task modes, select the smallest sufficient execution subgraph. Revisit nodes only when new evidence changes the decision, and record material routing changes.
 - Use memory summaries, not full memory dumps, when only a few facts are relevant.
 - Keep the user's language for all human-facing generated content.
 - Keep file names, event names, property names, Mermaid node IDs, and other machine identifiers in ASCII.
@@ -140,7 +140,7 @@ For implemented-feature PRD delivery:
 - Do not create a detached image, figure, or screenshot list.
 - Name screenshots by content. For multiple states of one object, use object plus concrete state, for example `资料卡片-加载中.png` or `资料卡片-加载失败.png`, not `资料卡片-状态.png`.
 
-Do not create split Markdown files by default. Put metrics, tracking, flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md` when PRD is in scope. For document-class artifacts, keep source facts, product decisions, attention points, change log, completeness check, and validation evidence in the structured reference and run log.
+Do not create split Markdown files by default. Put product-facing metrics, tracking, and flows inside `prd.md` when PRD is in scope. Keep risks, review findings, validation results, clarified answers, and assumptions in the run trace or an explicitly requested handoff; do not add them as PRD fields. For document-class artifacts, keep source facts, product decisions, attention points, change log, completeness check, and validation evidence in the structured reference and run log.
 
 ## Memory Update Prompt Rules
 
@@ -162,7 +162,7 @@ Never silently store sensitive data. Never write `.local.yaml` examples into pub
 - Use web research only when source-backed research is requested or needed.
 - Use `tools/tool-registry.yaml` to decide required tools. Run `scripts/preflight_tools.py` before full-loop/final delivery work; if the script is missing, record that as a tool failure.
 - Use validation tools after writing files. Prefer `scripts/run_delivery_checks.py` for generated run folders. For UI visual validation, attempt or guide Playwright/browser setup before recording a skipped status.
-- Record tool commands actually run in `run-log.yaml` and PRD validation results.
+- Record tool commands and validation results actually run in `run-log.yaml`; include them in the PRD only when the user explicitly requests a validation handoff.
 - Record tool results using `artifacts/tool-result-contract.md` when possible.
 - Do not claim a tool was used if it was skipped.
 - Record agent transition status, artifact delta, validation delta, and conflict resolution in `run-log.yaml` for full-loop, resumed, or release-validation work.

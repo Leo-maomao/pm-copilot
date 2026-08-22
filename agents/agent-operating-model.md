@@ -8,6 +8,25 @@ This repository defines specialist roles, prompts, artifacts, bounded Loop decis
 
 The PM Orchestrator creates specialist work only for independent, bounded questions and records the owned question, model/runtime, evidence delta, and reconciliation result. When no ready runtime is available, it records that limitation and runs as one agent; a role definition or a completed Loop evaluation is not evidence that another agent was actually called.
 
+## First-Principles Execution Rule
+
+Every run starts from the outcome the user needs, not from an available skill, familiar workflow, artifact template, or tool. Decompose the work in this order:
+
+```text
+Goal -> necessary conditions -> current blocking condition -> most direct next action
+```
+
+Keep decomposing until the next action has a direct causal contribution to removing the current blocker. A workflow step, an artifact, a tool call, or an Agent handoff is only justified when it removes a named blocker; it is never justified merely because it is customary or available.
+
+Before `Act`, record or be ready to state:
+
+- the user outcome and the condition that makes it true;
+- the current blocker or unknown preventing that condition;
+- why the chosen next action is the most direct safe way to remove it;
+- what observation, answer, artifact, or validation result proves the blocker changed.
+
+If this chain cannot be stated, do not continue by default. Reframe the goal, ask the smallest branch-changing question, or choose a more direct action. Do not mistake more output, more tool calls, or more iterations for progress.
+
 ## Operating Loop
 
 Every run follows the same operating loop, even when the visible task is small:
@@ -19,8 +38,8 @@ Observe -> Frame -> Decide -> Act -> Verify -> Learn
 | Step | Agent behavior | Evidence |
 |---|---|---|
 | Observe | Inspect the user request, current product context, memory, repo/docs, tools, and risk surface. | `context`, `tool_preflight`, `external_integrations` |
-| Frame | Turn the request into a task mode, success criteria, constraints, assumptions, and open questions. | `agent_strategy`, `human_inputs`, `scope_decisions` |
-| Decide | Choose the delivery path, autonomy level, tools, and artifact set. Record alternatives that were rejected. | `decision_record`, `tool_plan`, `workflow.states_skipped` |
+| Frame | Turn the request into a task mode, success criteria, constraints, assumptions, and open questions. Decompose the user goal into necessary conditions and identify the current blocker before naming a solution. | `agent_strategy`, `human_inputs`, `scope_decisions` |
+| Decide | Choose the most direct safe action that removes the current blocker, then choose the delivery path, autonomy level, tools, and artifact set. Record rejected alternatives, the clarification decision, and the delegation decision. | `decision_record`, `tool_plan`, `workflow.states_skipped`, `delegation_plan` |
 | Act | Produce or revise artifacts with specialist agents and skills. | `agent_transitions`, `artifacts`, `handoff_artifacts` |
 | Verify | Run repository, output, visual, rendering, and delivery checks that match the selected path. | `validation_results`, `visual_validation`, `tool-results/` |
 | Learn | Convert verified evidence into the next decision: close severe findings, replan when reflection changes the path, capture source-backed memory candidates safely, and turn generalized runtime defects into regression-backed improvements. Reflection that changes neither decision nor validation is not learning. | `review_loop`, `memory_candidates`, `self_iteration`, `next_actions`, `action_closure`, optimization-cycle notes |
@@ -112,11 +131,23 @@ Run `scripts/evaluate_agent_loop.py` after each iteration when the Loop is enabl
 PM Orchestrator owns the final product judgment.
 It may split work across specialist agents, but each delegation must have an explicit input, output, confidence expectation, validation expectation, and handoff target.
 
+Before `Act`, decompose the goal into independent, evidence-producing questions. When two or more questions can proceed independently and each can change the recommended path, delegation is required when a ready multi-Agent runtime exists. A plan without dispatch is not delegated work. Run `scripts/run_agent_delegation.py --execute` (or the active runtime's equivalent) and retain the task ledger before using the result.
+
+When the work has only one direct action, or its questions are sequential rather than independent, record a direct single-Agent decision and why delegation would add coordination without removing a blocker. Do not manufacture parallel work merely to use more Agents.
+
 Use delegation when:
 
 - Research, requirements, analytics, UI delivery, review, or integration vetting can proceed independently.
 - A long-running run would benefit from separate worker outputs that PM Orchestrator can reconcile.
 - The task is `deep-agentic`, `research-intensive`, `release/self-iteration`, or `mixed_delivery`.
+
+For `full-loop` and `self-iteration` work, create a delegation plan before action even when the final decision is direct. The plan must state whether clarification is required, whether multiple independent questions exist, and why dispatch did or did not occur.
+
+## Clarification Gate
+
+Run a clarification decision before any action that can materially change user-visible scope, product behavior, readiness, cost, compliance, or the choice of solution. Ask the user before acting when a missing fact creates two or more plausible paths with materially different outcomes and repository or document evidence cannot resolve it.
+
+Direct execution is appropriate only when the requested outcome, affected surface, success condition, and material constraints are already explicit, or when the user has explicitly accepted a conservative default. A request that merely sounds actionable is not proof that these conditions are known. This task-level gate supplements, and never weakens, the artifact-specific clarification rules.
 
 Do not delegate when:
 
@@ -203,4 +234,4 @@ The final response should make it clear how the PM can move the work forward wit
 
 ## Relationship To Workflow
 
-`workflow/main-workflow.md` provides the default execution graph. The agent may skip, merge, or return to states when the task mode and evidence justify it. The run log must record the reason and downstream impact. A shorter path is acceptable only when it preserves product judgment, artifact quality, and validation integrity.
+`workflow/main-workflow.md` provides the default execution graph. For PRD and product-requirement delivery, the agent must not skip or merge requirement discussion, clarification, explicit user confirmation, contracted delivery, independent review, or final validation. For other task modes, the agent may skip, merge, or return to optional states when the task mode and evidence justify it. The run log must record the reason and downstream impact. A shorter path is acceptable only when it preserves every mandatory gate, product judgment, artifact quality, and validation integrity.

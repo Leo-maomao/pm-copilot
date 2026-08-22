@@ -4,6 +4,17 @@ This is the recommended user experience for product managers.
 
 Instead of manually copying templates and creating task folders, open this repository in an agent workspace and say what you need.
 
+For any PRD request, the agent must route the request through the production
+controller before writing artifacts:
+
+```bash
+python3 scripts/prd_request_controller.py --request "<request>"
+```
+
+The controller is the only canonical PRD entry. A direct model-written
+`prd.md` without its run state, Agent/model evidence, stage reviews, and final
+validation is not a valid delivery.
+
 ## One-Shot Prompt
 
 ```text
@@ -24,7 +35,7 @@ The agent should automatically follow `PM_COPILOT.md` and:
 - Ask must-answer clarification questions before downstream generation.
 - Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
 - Generate `prd.md`, a UI deliverable when relevant, optional exports when useful, and an internal run log.
-- Generate `prd.html` when you ask for a browser-readable or externally deliverable PRD document, and always when turning an already implemented branch/current diff into a PRD.
+- Every PRD delivery includes `prd.html`; turning an already implemented branch/current diff into a PRD follows the same rule.
 - Keep confirmed requirement input, clarified answers, source-backed research/reference findings, concise tracking rows, and flow diagrams inside `prd.md`. Keep assumptions, risks, acceptance criteria, validation results, and technical evidence in the run trace or an explicitly requested handoff.
 - For document-class handoffs such as parameter references, API capability catalogs, vendor tables, payment/risk rules, data dictionaries, SOPs/runbooks, or migration inventories, generate `catalog.md` or `reference.md` and optional browser-readable HTML instead of forcing the request into a PRD. Include source facts, product decisions, source/review status, owner, access date, attention points, change log, completeness check, and engineering notes.
 - Treat repository files as current-product context, not as competitor or benchmark research. When external research is unavailable, mark recommendations as assumption-based.
@@ -193,12 +204,9 @@ outputs/membership-renewal/prototype-h5.html
 outputs/membership-renewal/run-log.yaml
 ```
 
-If the same dated scenario already exists, the agent should create a collision-suffixed run folder such as:
-
-```text
-outputs/membership-renewal-2026-05-18-2/prd.md
-outputs/membership-renewal-2026-05-18-2/prototype-h5.html
-```
+If the same requirement already exists, the agent must identify its canonical
+run folder and revise it in place. It must never create a collision-suffixed
+`-2`, `-3`, or parallel copy for the same requirement.
 
 ## When to Prepare Extra Context
 

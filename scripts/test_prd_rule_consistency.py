@@ -6,6 +6,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from prd_visual_contract import PLACEHOLDER_MARKER, is_controlled_placeholder_value
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,6 +35,7 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("smallest localizable copy unit", contract)
         self.assertIn("never permits joining copy values", contract)
         self.assertIn("Do not join separate labels, menu items, tabs, buttons, or messages", contract)
+        self.assertIn("Keep the core document, background, requirement list, and requirement-detail section numbers stable", contract)
 
     def test_implemented_feature_guidance_applies_contract_boundaries(self) -> None:
         skill = self.read("skills/prd-writing/SKILL.md")
@@ -61,7 +64,7 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertNotIn("small `位置` and `用途` caption", text)
         self.assertNotIn("Function ID and function name", text)
         self.assertIn("Requirement-detail number and requirement name", text)
-        self.assertIn("renumber visible H2 sections consecutively", text)
+        self.assertIn("Keep the core PRD section numbers stable", text)
         for relative in (
             "PM_COPILOT.md",
             "agents/requirements-agent.md",
@@ -79,10 +82,44 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("删除本次没有真实内容的整章、流程图块和图示行", template)
         self.assertIn("#### 用户流程图", template)
         self.assertIn("#### 操作流程图", template)
-        self.assertIn("占位图：[功能]-[状态].png", template)
+        self.assertIn("按 `artifacts/prd-contract.md` 的受控图示占位规则填写", template)
+        self.assertNotIn("占位图：[功能]-[状态].png", template)
         self.assertIn("一、主流程<br>1.", template)
         self.assertIn("## 六、多语言需求", template)
         self.assertIn("## 七、埋点需求", template)
+
+    def test_prd_numbering_rule_keeps_core_sections_stable(self) -> None:
+        contract = self.read("artifacts/prd-contract.md")
+        for relative in ("artifacts/artifact-contracts.md", "templates/implemented-feature-prd-template.md", "skills/prd-writing/SKILL.md"):
+            guidance = self.read(relative)
+            self.assertNotIn("renumber visible H2 sections consecutively", guidance)
+        self.assertIn("需求清单和需求详情保留稳定的 `四`、`五` 编号", self.read("templates/implemented-feature-prd-template.md"))
+        self.assertIn("when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`", contract)
+
+    def test_every_prd_delivery_requires_html(self) -> None:
+        for relative in ("PM_COPILOT.md", "workflow/delivery-check-workflow.md", "docs/implemented-feature-prd-workflow.md"):
+            self.assertIn("prd.html", self.read(relative))
+        workflow = self.read("docs/implemented-feature-prd-workflow.md")
+        self.assertIn("Every PRD delivery requires `prd.html`", workflow)
+        self.assertNotIn("exception to the general PRD rule", workflow)
+
+    def test_prompt_keeps_internal_review_content_out_of_prd(self) -> None:
+        for relative in ("PM_COPILOT.md", "prompts/prompt-system.md", "docs/direct-use.md"):
+            guidance = self.read(relative)
+            self.assertIn("run trace", guidance)
+        prompt = self.read("prompts/prompt-system.md")
+        self.assertIn("Keep risks, review findings, validation results, clarified answers, and assumptions in the run trace", prompt)
+        self.assertNotIn("PRD validation results", prompt)
+        self.assertNotIn("flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md`", self.read("PM_COPILOT.md"))
+
+    def test_controlled_placeholder_projection_matches_contract_and_rejects_other_formats(self) -> None:
+        contract = self.read("artifacts/prd-contract.md")
+        workflow = self.read("docs/implemented-feature-prd-workflow.md")
+        self.assertIn(PLACEHOLDER_MARKER, contract)
+        self.assertNotIn("占位图：图片名称", workflow)
+        self.assertTrue(is_controlled_placeholder_value("占位图：成员管理-角色变更确认.png"))
+        self.assertFalse(is_controlled_placeholder_value("占位图：成员管理-角色变更确认.jpg"))
+        self.assertFalse(is_controlled_placeholder_value("占位图：角色变更确认.png"))
 
     def test_tracking_guidance_keeps_detailed_analytics_out_of_the_prd(self) -> None:
         for relative in ("artifacts/tracking-plan-contract.md", "skills/tracking-plan/SKILL.md"):

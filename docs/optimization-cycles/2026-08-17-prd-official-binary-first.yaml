@@ -1,0 +1,34 @@
+cycle_id: "2026-08-17-prd-official-binary-first"
+date: "2026-08-17"
+version_change: "5.0.2 -> 5.0.3"
+source_run: "User review of automatic Pandoc dependency recovery"
+generalized_failure: >-
+  Using a package manager as the first recovery path for a standalone upstream CLI
+  creates unnecessary package-manager dependency, setup time, and network failure modes.
+fix_surface:
+  - "scripts/setup_prd_renderer.py"
+  - "scripts/render_prd_html.py"
+  - "PM_COPILOT.md, README.md, and tools/tool-registry.yaml"
+user_correction:
+  - "Prefer direct official Pandoc installation over Homebrew when both are possible."
+canonical_changes:
+  - rule: "Recover Pandoc in this order: existing executable, official user-level binary, existing Homebrew, bundled renderer."
+    owner: "scripts/setup_prd_renderer.py"
+validation:
+  commands:
+    - "python3 scripts/test_setup_prd_renderer.py"
+    - "python3 scripts/test_prd_flow_rendering.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  result: "passed"
+embedded_copy_sync:
+  checked:
+    - "plugins/pm-copilot/.codex-plugin/plugin.json"
+  updated:
+    - "plugins/pm-copilot/.codex-plugin/plugin.json"
+  pending:
+    - "Reinstall the global runtime after validation."
+remote_push:
+  required: false
+  status: "not_requested"
+  target: ""

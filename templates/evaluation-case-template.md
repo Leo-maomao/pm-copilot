@@ -115,7 +115,7 @@ Paste the original realistic product request here.
 - PRD and UI deliverable agree on scope, logic, interactions, tracking, and blockers.
 - Development handoff and launch decision artifacts preserve blockers when generated.
 - Review findings include artifact, evidence, owner, required-before phase, and status, or an explicit no-finding summary.
-- Validation results are concrete and consistent between PRD and run log.
+- Validation results are concrete in the run log and consistent with any explicitly requested delivery handoff.
 - Fixture-specific names, local paths, domain nouns, route names, APIs, or business assumptions stay out of generic PM Copilot surfaces unless the eval is explicitly fixture-scoped.
 
 ## Latest Result

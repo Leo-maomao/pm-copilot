@@ -19,6 +19,8 @@ class AgentDelegationPlanTest(unittest.TestCase):
         roles = {worker["role"] for worker in evidence}
         self.assertTrue(plan["active"])
         self.assertEqual(plan["pattern"], "parallel_specialists")
+        self.assertTrue(plan["execution_decision"]["goal_decomposition_required"])
+        self.assertTrue(plan["execution_decision"]["delegation_required_when_runtime_ready"])
         self.assertTrue({"Requirements Agent", "UI Delivery Agent", "Analytics Agent", "Research Agent"} <= roles)
         self.assertEqual(plan["dispatch_groups"][1]["workers"][0]["role"], "Review Agent")
 
@@ -27,13 +29,20 @@ class AgentDelegationPlanTest(unittest.TestCase):
         self.assertFalse(plan["active"])
         self.assertEqual(plan["dispatch_groups"][0]["workers"][0]["role"], "Discovery Agent")
         self.assertEqual(plan["dispatch_groups"][1]["workers"], [])
+        self.assertTrue(plan["execution_decision"]["clarification_decision_required"])
+        self.assertFalse(plan["execution_decision"]["delegation_required_when_runtime_ready"])
 
-    def test_self_improvement_uses_evidence_roles_and_runtime_governance(self) -> None:
-        plan = build_plan("强化 Agent", "self_improvement")
+    def test_self_improvement_uses_goal_relevant_evidence_roles(self) -> None:
+        plan = build_plan("强化 Agent 的运行时委派机制", "self_improvement")
         roles = {worker["role"] for worker in plan["dispatch_groups"][0]["workers"]}
         self.assertTrue(plan["active"])
-        self.assertEqual(roles, {"Requirements Agent", "UI Delivery Agent", "Integration Governance Agent"})
+        self.assertEqual(roles, {"Requirements Agent", "Integration Governance Agent"})
         self.assertLessEqual(len(roles), 3)
+
+    def test_self_improvement_adds_ui_agent_only_for_visual_goal(self) -> None:
+        plan = build_plan("强化 UI 原型的视觉证据", "self_improvement")
+        roles = {worker["role"] for worker in plan["dispatch_groups"][0]["workers"]}
+        self.assertIn("UI Delivery Agent", roles)
 
     def test_conflict_protocol_rejects_unbounded_battle(self) -> None:
         plan = build_plan("需求和埋点")

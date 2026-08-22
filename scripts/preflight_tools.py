@@ -188,6 +188,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     browsers = browser_info()
     cached_browsers = browsers.get("cached_playwright_browsers", [])
     tidy = command_version("tidy", ["--version"])
+    pandoc = command_version("pandoc")
     python = {
         "executable": sys.executable,
         "version": platform.python_version(),
@@ -220,6 +221,17 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             f"repo_root={ROOT}",
             True,
             "Agent-native file read/search tools",
+        ),
+        capability(
+            "validation.prd_html_renderer",
+            "available",
+            (
+                f"pandoc={pandoc['path']}" if pandoc["available"]
+                else "pandoc unavailable; scripts/render_prd_html.py will use its built-in local renderer"
+            ),
+            True,
+            "python3 scripts/render_prd_html.py <run-folder>",
+            "python3 scripts/setup_prd_renderer.py --install",
         ),
         capability(
             "repo_context.git_inspection",

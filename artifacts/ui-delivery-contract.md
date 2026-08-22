@@ -27,6 +27,8 @@ Every UI delivery includes:
 ## Evidence and Fidelity
 
 - State the source of every visual baseline: user reference, existing rendered screen, design system, source inspection, or generic proposal.
+- Classify concrete displayed data. Queue counts, rates, case IDs, timestamps, reviewer identities, performance values, and SLA durations must be either source-backed with their evidence classification or visibly labeled illustrative prototype data. Proposed targets must be labeled as proposed rather than observed facts.
+- Keep approval scopes executable: distinguish an individual workflow decision from a global engineering or launch gate. A control named as a decision prerequisite must be modeled in that decision's validation; otherwise state its separate scope, accountable owner, blocking phase, and closure evidence.
 - Mark fidelity as `evidence_based`, `reference_limited`, or `conceptual`.
 - Do not claim 1:1 parity for a proposed feature that has not been implemented by the responsible team.
 - Do not write host source, add preview files, or alter an existing route to validate a PM artifact.

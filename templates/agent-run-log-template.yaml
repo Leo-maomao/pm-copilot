@@ -267,7 +267,10 @@ context:
   conflict_resolution: []
 
 artifact_lineage:
-  mode: "" # new_run | replacement_run
+  mode: "" # new_run | replacement_run | in_place_revision
+  target_prd_path: "" # required for in_place_revision; user-identified Markdown PRD updated in place
+  target_html_path: "" # required for in_place_revision; sibling browser-rendered PRD updated in place
+  revision_evidence_path: "" # required for in_place_revision; relative snapshot or diff retained in this run folder
   historical_artifacts:
     - path: ""
       role: "" # comparison_only | user_provided_input

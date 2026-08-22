@@ -214,7 +214,7 @@ User gives a product-manager request from the host project
 -> Agent writes artifacts under pm-copilot/outputs/<run-id>/
 ```
 
-For repeat or similar requests, PM Copilot should create a distinct dated run folder such as `requirement-slug-YYYY-MM-DD`, with a numeric suffix for same-day collisions, instead of overwriting prior outputs unless the user explicitly asks to revise an existing run.
+For changes to an existing requirement, PM Copilot must update its identified canonical PRD folder in place. A dated folder such as `requirement-slug-YYYY-MM-DD` is created only for an explicitly new independent requirement; never add a numeric suffix for a same-day collision.
 
 If PM Copilot is expected to update a separate repository but that checkout cannot be found, the agent may write the same source changes into a same-name local Desktop folder when it exists. The final handoff must say that this was a local source-folder update and that the user can push from there.
 

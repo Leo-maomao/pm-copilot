@@ -13,7 +13,7 @@ Repository templates are structure guides, not literal English copy. Translate t
 The default product-manager delivery contains only:
 
 - `outputs/<run-id>/prd.md`
-- `outputs/<run-id>/prd.html` when the user requests a browser-readable, externally deliverable, or copy/share-friendly PRD document
+- `outputs/<run-id>/prd.html` for every PRD delivery
 - a UI deliverable when a user-facing UI artifact is relevant:
   - `outputs/<run-id>/prototype-<platform>.html` for an evidence-based interactive review artifact
   - a UI flow or specification in `prd.md` when interactive HTML is not useful
@@ -65,7 +65,7 @@ Required user-driven sections:
 - `## 六、多语言需求`, only when there is new or changed copy
 - `## 七、埋点需求`, only when measurement is in scope
 
-Omit empty optional sections and renumber visible H2 sections consecutively. When localization is omitted but tracking remains, tracking is `## 六、埋点需求`.
+Keep the core PRD section numbers stable when optional research is omitted. Renumber only trailing optional sections: when localization is omitted but tracking remains, tracking is `## 六、埋点需求`.
 
 Technical implementation sections must not appear in PRDs. Keep technical evidence in the run trace or a separately requested engineering handoff.
 

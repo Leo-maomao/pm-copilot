@@ -11,6 +11,18 @@ When the user writes `@pm-copilot`, "按 pm-copilot 规范", "按仓库内 pm-co
 
 Do not require the user to say "Use PM Copilot". Natural product-manager requests should trigger it.
 
+For every PRD request, invoke the PM Copilot production controller before
+writing any PRD artifact:
+
+```bash
+python3 pm-copilot/scripts/prd_request_controller.py --request "<user request>"
+```
+
+Do not draft a PRD directly in the chat. A PRD may be handed off only when the
+controller state records the clarification gate, explicit confirmation,
+provider/model Agent calls, stage reviews, and final validation in one
+canonical run folder.
+
 Before generating PM artifacts, inspect relevant current product context. Use host project files when available as read-only evidence, and use PRDs, specs, docs, screenshots, analytics exports, support tickets, or meeting notes when no code context exists. Ask must-answer questions and identify development or launch confirmation blockers if current product fit, scope, platform, metrics, or risk is unclear. Do not generate PRD/UI deliverables until those questions are answered, unless the user explicitly asks for a draft with risk. For repo-backed UI work, user wording like "prototype" or "only generate a prototype" means review scope only; produce an evidence-based review artifact and do not modify host source, create preview/delta files, deploy, or approve a release. For document-class requests where the user says no PRD is needed, use the structured reference or document prototype as the primary delivery and do not force a PRD.
 
 Write generated PM Copilot artifacts under `pm-copilot/outputs/<run-id>/` unless the user asks for another location.

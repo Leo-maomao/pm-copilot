@@ -4,12 +4,17 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 import agent_runtime
+from runtime_policy import DEFAULT_SEAWORK_MODEL
 
 
 def runtime(provider: str, status: str = "ready") -> agent_runtime.RuntimeStatus:
@@ -17,9 +22,9 @@ def runtime(provider: str, status: str = "ready") -> agent_runtime.RuntimeStatus
         provider=provider,
         executable=f"/{provider}",
         status=status,
-        supports_detached=provider == "seawork",
+        supports_detached=provider in {"seawork", "seawork-claude"},
         supports_structured_output=True,
-        supports_verifier=provider == "seawork",
+        supports_verifier=provider in {"seawork", "seawork-claude"},
         detail="test runtime",
     )
 
@@ -80,12 +85,39 @@ class AgentRuntimeTest(unittest.TestCase):
         statuses = [runtime("seawork")]
         with patch("agent_runtime.discover_runtimes", return_value=statuses):
             result = agent_runtime.execute(
-                "seawork", "inspect only", Path.cwd(), 2, None, None, True
+                "seawork", "inspect only", Path.cwd(), 2, "codex/user-model", None, True
             )
         self.assertEqual(result["status"], "planned")
         self.assertEqual(result["provider"], "seawork")
         self.assertIn("--mode", result["command"])
         self.assertIn("[PROMPT REDACTED]", result["command"])
+
+    def test_seawork_requires_a_declared_model(self) -> None:
+        command = agent_runtime.build_command(
+            "seawork", "/seawork", "inspect", Path.cwd(), 1, "codex/user-model", None, None,
+        )
+        self.assertEqual(command[command.index("--provider") + 1], "codex/user-model")
+
+    def test_seawork_execution_blocks_without_a_discovered_model(self) -> None:
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork")]), patch(
+            "agent_runtime.active_runtime",
+            return_value=agent_runtime.ActiveRuntime(None, None, "no active model"),
+        ), patch("agent_runtime.discover_model_catalog", return_value=([], [])):
+            result = agent_runtime.execute("seawork", "inspect only", Path.cwd(), 1, None, None, True)
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["failure_category"], "no_available_model")
+
+    def test_seawork_claude_dry_run_uses_daemon_managed_claude(self) -> None:
+        statuses = [runtime("seawork-claude")]
+        with patch("agent_runtime.discover_runtimes", return_value=statuses):
+            result = agent_runtime.execute(
+                "seawork-claude", "inspect only", Path.cwd(), 2, "sonnet", None, True
+            )
+        self.assertEqual(result["provider"], "seawork-claude")
+        self.assertEqual(result["model"], "sonnet")
+        self.assertIn("bypassPermissions", result["command"])
+        self.assertIn("claude", result["command"])
+        self.assertIn("--model", result["command"])
 
     def test_codex_command_uses_schema_file_and_output_file(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -98,7 +130,40 @@ class AgentRuntimeTest(unittest.TestCase):
             )
         self.assertIn("--output-schema", command)
         self.assertIn("--output-last-message", command)
+        self.assertIn("--ephemeral", command)
+        self.assertNotIn("--ignore-user-config", command)
+        self.assertIn("--skip-git-repo-check", command)
+        self.assertEqual(command.count("--disable"), 2)
+        self.assertIn("plugins", command)
+        self.assertIn("remote_plugin", command)
+        self.assertIn('model_reasoning_effort="minimal"', command)
         self.assertIn("gpt-5.4", command)
+
+    def test_codex_environment_isolated_reuses_auth_and_minimizes_config(self) -> None:
+        with tempfile.TemporaryDirectory() as source_directory:
+            source = Path(source_directory)
+            (source / "auth.json").write_text("secret", encoding="utf-8")
+            (source / "config.toml").write_text(
+                'model_provider = "custom"\n[model_providers.custom]\nbase_url = "https://example.test"\n[plugins.demo]\nenabled = true\n',
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {"CODEX_HOME": str(source)}):
+                with agent_runtime._isolated_codex_environment() as environment:
+                    isolated = Path(environment["CODEX_HOME"])
+                    self.assertNotEqual(isolated, source)
+                    self.assertTrue((isolated / "auth.json").is_symlink())
+                    self.assertFalse((isolated / "config.toml").is_symlink())
+                    self.assertEqual(
+                        os.path.realpath(isolated / "auth.json"),
+                        os.path.realpath(source / "auth.json"),
+                    )
+                    config = (isolated / "config.toml").read_text(encoding="utf-8")
+                    self.assertIn("[model_providers.custom]", config)
+                    self.assertIn('model_reasoning_effort = "minimal"', config)
+                    self.assertIn("plugins = false", config)
+                    self.assertIn("remote_plugin = false", config)
+                    self.assertNotIn("plugins.demo", config)
+                self.assertFalse(isolated.exists())
 
     def test_domestic_cli_commands_use_documented_headless_modes(self) -> None:
         expected = {
@@ -128,9 +193,19 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertNotIn("BearerSecret", cleaned)
         self.assertIn("[REDACTED]", cleaned)
 
+    def test_diagnostic_keeps_terminal_failure_and_redacts_it(self) -> None:
+        diagnostic = agent_runtime._diagnostic(
+            "warning\n" * 500 + "token=terminal-secret\nfinal runtime failure", 300
+        )
+        self.assertIn("final runtime failure", diagnostic)
+        self.assertNotIn("terminal-secret", diagnostic)
+
     def test_rejects_credentials_in_prompt(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "must not contain credentials"):
             agent_runtime._reject_credential_prompt("api_key=do-not-pass-this")
+
+    def test_allows_authorization_policy_language_without_a_credential(self) -> None:
+        agent_runtime._reject_credential_prompt("Client-only authorization: rejected by the security policy.")
 
     def test_seawork_loop_dry_run_is_bounded_and_redacted(self) -> None:
         with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork")]), patch(
@@ -144,6 +219,213 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertIn("--max-iterations", result["command"])
         self.assertIn("[WORKER PROMPT REDACTED]", result["command"])
         self.assertIn("[VERIFIER PROMPT REDACTED]", result["command"])
+
+    def test_timeout_terminates_descendant_processes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            child_pid = Path(temporary_directory) / "child.pid"
+            script = (
+                "import subprocess, sys, time; "
+                "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); "
+                f"open({str(child_pid)!r}, 'w').write(str(child.pid)); "
+                "time.sleep(30)"
+            )
+            with self.assertRaises(subprocess.TimeoutExpired):
+                agent_runtime._run([sys.executable, "-c", script], timeout=0.1)
+            pid = int(child_pid.read_text(encoding="utf-8"))
+            time.sleep(0.1)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(pid, 0)
+
+    def test_timeout_ends_a_process_that_never_returns_on_its_own(self) -> None:
+        started = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired):
+            agent_runtime._run(
+                [sys.executable, "-c", "import time; time.sleep(30)"],
+                timeout=0.1,
+            )
+        self.assertLess(
+            time.monotonic() - started,
+            3,
+            "the runtime must end a process that never returns on its own",
+        )
+
+    def test_write_first_progress_budget_stops_direct_runtime_before_total_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            with self.assertRaises(subprocess.TimeoutExpired):
+                agent_runtime._run(
+                    [sys.executable, "-c", "import time; time.sleep(30)"],
+                    timeout=30, progress_path=target, no_progress_timeout=0.1,
+                )
+
+    def test_keyboard_interrupt_terminates_child_process_group(self) -> None:
+        child_pid = None
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            marker = Path(temporary_directory) / "child.pid"
+            script = (
+                "import subprocess,sys,time; "
+                "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
+                f"open({str(marker)!r},'w').write(str(child.pid)); time.sleep(30)"
+            )
+            with patch("agent_runtime.time.sleep", side_effect=KeyboardInterrupt):
+                with self.assertRaises(KeyboardInterrupt):
+                    agent_runtime._run([sys.executable, "-c", script], timeout=30)
+            # The interrupt may arrive before the child marker is written;
+            # when it is written, it must no longer be alive.
+            if marker.exists():
+                child_pid = int(marker.read_text(encoding="utf-8"))
+                with self.assertRaises(ProcessLookupError):
+                    os.kill(child_pid, 0)
+
+    def test_run_does_not_leave_stdin_open(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            marker = Path(temporary_directory) / "stdin.txt"
+            script = f"import sys; open({str(marker)!r}, 'w').write(sys.stdin.read())"
+            result = agent_runtime._run([sys.executable, "-c", script], timeout=2)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(marker.read_text(encoding="utf-8"), "")
+
+    def test_seawork_detached_execution_records_agent_id(self) -> None:
+        launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
+        record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"running"}]', "")
+        terminal_record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"idle"}]', "")
+        completed = subprocess.CompletedProcess([], 0, "completed", "")
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork-claude")]), patch(
+            "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+        ), patch("agent_runtime._run", side_effect=[launched, record, terminal_record, completed]) as run:
+            result = agent_runtime.execute("seawork-claude", "inspect only", Path.cwd(), 2, "sonnet", None, False)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["agent_id"], "e5fb49d8-5227-4a93-bba3-ded9b613bab5")
+        self.assertIn("--detach", run.call_args_list[0].args[0])
+        self.assertEqual(len(run.call_args_list), 3)
+        self.assertEqual(result["output"], "Agent e5fb49d8-5227-4a93-bba3-ded9b613bab5 reached terminal control-plane state idle.")
+
+    def test_seawork_codex_model_is_verified_exactly(self) -> None:
+        launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
+        record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"codex/gpt-5.6-sol","status":"running"}]', "")
+        terminal_record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"codex/gpt-5.6-sol","status":"idle"}]', "")
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork")]), patch(
+            "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+        ), patch("agent_runtime._run", side_effect=[launched, record, terminal_record]) as run:
+            result = agent_runtime.execute("seawork", "inspect only", Path.cwd(), 1, "codex/gpt-5.6-sol", None, False)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["requested_model"], "codex/gpt-5.6-sol")
+        self.assertEqual(result["actual_model"], "codex/gpt-5.6-sol")
+        self.assertEqual(len(run.call_args_list), 3)
+
+    def test_seawork_timeout_retains_unconfirmed_agent_for_manual_recovery(self) -> None:
+        launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
+        record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"running"}]', "")
+        stopped = subprocess.CompletedProcess([], 0, "INTERRUPTED", "")
+        running = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","status":"running"}]', "")
+        timeout = subprocess.TimeoutExpired(["seawork", "wait"], 120)
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork-claude")]), patch(
+            "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+        ), patch("agent_runtime._poll_seawork_terminal", return_value=(False, "running")), patch(
+            "agent_runtime._run", side_effect=[launched, record, stopped, running]
+        ):
+            result = agent_runtime.execute("seawork-claude", "inspect only", Path.cwd(), 2, "sonnet", None, False)
+        self.assertEqual(result["status"], "orphaned")
+        self.assertTrue(result["cleanup_blocked"])
+        self.assertIn("control-plane state was running", result["error"])
+
+    def test_idle_seawork_agent_is_safe_after_timeout_stop(self) -> None:
+        launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
+        record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"running"}]', "")
+        stopped = subprocess.CompletedProcess([], 0, "INTERRUPTED", "")
+        idle = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","status":"idle"}]', "")
+        timeout = subprocess.TimeoutExpired(["seawork", "wait"], 120)
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork-claude")]), patch(
+            "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+        ), patch("agent_runtime._poll_seawork_terminal", return_value=(False, "running")), patch(
+            "agent_runtime._run", side_effect=[launched, record, stopped, idle]
+        ):
+            result = agent_runtime.execute("seawork-claude", "inspect only", Path.cwd(), 2, "sonnet", None, False)
+        self.assertEqual(result["status"], "timed_out")
+        self.assertNotIn("cleanup_blocked", result)
+
+    def test_seawork_stops_after_the_write_first_progress_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            with patch("agent_runtime._seawork_agent_record", return_value=(None, "running")), patch(
+                "agent_runtime.time.monotonic", side_effect=[0, 0, 31]
+            ), patch("agent_runtime.time.sleep"):
+                terminal, status = agent_runtime._poll_seawork_terminal("seawork", "agent", 900, target)
+        self.assertFalse(terminal)
+        self.assertEqual(status, "no_progress_before_first_artifact")
+
+    def test_seawork_stops_after_repeated_control_plane_failures(self) -> None:
+        with patch("agent_runtime._seawork_agent_record", return_value=(None, "could not query Agent state: offline")), patch(
+            "agent_runtime.time.sleep"
+        ):
+            terminal, status = agent_runtime._poll_seawork_terminal("seawork", "agent", 900)
+        self.assertFalse(terminal)
+        self.assertEqual(status, "control_plane_unavailable")
+
+    def test_only_transport_or_no_progress_failures_use_direct_fallback(self) -> None:
+        self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "agent_no_progress"}))
+        self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_control_plane_timeout"}))
+        self.assertFalse(agent_runtime._requires_direct_codex_fallback({"failure_category": "agent_timeout"}))
+
+    def test_direct_codex_no_progress_retains_redacted_terminal_diagnostics(self) -> None:
+        timeout = subprocess.TimeoutExpired(["codex"], 30, output="partial", stderr="token=secret upstream stalled")
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
+                "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch("agent_runtime._run", side_effect=timeout):
+                result = agent_runtime.execute(
+                    "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1, None, None, False,
+                )
+        self.assertEqual(result["failure_category"], "agent_no_progress")
+        self.assertIn("no first artifact", result["error"])
+        self.assertIn("partial", result["output"])
+        self.assertNotIn("secret", result["error"])
+
+    def test_direct_codex_preserves_a_written_artifact_after_post_write_timeout(self) -> None:
+        timeout = subprocess.TimeoutExpired(["codex"], 30, output="", stderr="finalizing")
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
+                "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch("agent_runtime._run", side_effect=lambda *args, **kwargs: (target.write_text("complete handoff", encoding="utf-8"), (_ for _ in ()).throw(timeout))[1]):
+                result = agent_runtime.execute(
+                    "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1, None, None, False,
+                )
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["failure_category"], "agent_post_write_timeout")
+        self.assertEqual(result["completion_basis"], "artifact_checkpoint_before_process_timeout")
+        self.assertTrue(result["post_write_timeout"])
+
+    def test_direct_codex_does_not_accept_an_unchanged_prebuilt_artifact(self) -> None:
+        timeout = subprocess.TimeoutExpired(["codex"], 30, output="", stderr="stalled")
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            target.write_text("scaffold", encoding="utf-8")
+            with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
+                "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch("agent_runtime._run", side_effect=timeout):
+                result = agent_runtime.execute(
+                    "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1, None, None, False,
+                )
+        self.assertEqual(result["status"], "timed_out")
+        self.assertEqual(result["failure_category"], "agent_no_progress")
+
+    def test_direct_codex_can_disable_the_first_write_watchdog_for_content_work(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            observed: dict[str, object] = {}
+            def captures_watchdog(*args, **kwargs):
+                observed["watchdog"] = kwargs.get("no_progress_timeout")
+                return subprocess.CompletedProcess([], 0, "", "")
+            with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
+                "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch("agent_runtime._run", side_effect=captures_watchdog):
+                agent_runtime.execute(
+                    "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1,
+                    None, None, False, first_artifact_seconds=None,
+                )
+        self.assertIsNone(observed["watchdog"])
 
 
 if __name__ == "__main__":

@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from agent_event_ledger import validate_file as validate_event_ledger
+from implemented_feature_contract import (
+    VISUAL_CAPTURE_METHODS,
+    VISUAL_CAPTURE_STATUSES,
+    VISUAL_RUNTIME_CAPABILITIES,
+    VISUAL_RUNTIME_STATUSES,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
@@ -177,14 +183,6 @@ MEMORY_WRITE_RECOMMENDATIONS = {
     "do_not_store",
 }
 
-VISUAL_RUNTIME_CAPABILITIES = {
-    "existing_preview_discovery",
-    "project_runtime_activation",
-    "test_state_recovery",
-}
-VISUAL_RUNTIME_STATUSES = {"passed", "failed", "blocked", "not_available", "not_required"}
-VISUAL_CAPTURE_METHODS = {"playwright", "chrome_devtools", "computer_use"}
-VISUAL_CAPTURE_STATUSES = {"passed", "failed", "blocked", "not_available"}
 USER_FACING_SURFACE_RE = re.compile(
     r"(?:页面|画布|面板|弹窗|对话框|节点|工具栏|按钮|图标|控件|列表|菜单|提示|浮层|标签页|连线|media|canvas|panel|dialog|toolbar)",
     re.IGNORECASE,
@@ -193,13 +191,29 @@ USER_FACING_SURFACE_RE = re.compile(
 
 def scalar_value(text: str, field: str) -> str:
     match = re.search(
-        rf"^\s*(?:-\s+)?{re.escape(field)}:\s*(.*?)\s*(?:#.*)?$",
+        rf"^(?P<indent>\s*)(?:-\s+)?{re.escape(field)}:\s*(?P<value>.*?)\s*(?:#.*)?$",
         text,
         re.MULTILINE,
     )
     if not match:
         return ""
-    return match.group(1).strip().strip("\"'")
+    value = match.group("value").strip().strip("\"'")
+    # For a mapping inside a sequence, sibling keys begin after ``- ``. Their
+    # indentation is not a folded continuation of the first key's scalar.
+    indent = len(match.group("indent")) + (2 if match.group(0).lstrip().startswith("-") else 0)
+    # YAML folds an indented continuation line into a plain scalar. Preserve
+    # that value rather than treating a formatter's line wrap as a different
+    # review finding or identifier.
+    remainder = text[match.end():].splitlines()
+    continuations = []
+    for line in remainder:
+        if not line.strip():
+            continue
+        current_indent = len(line) - len(line.lstrip())
+        if current_indent <= indent:
+            break
+        continuations.append(line.strip())
+    return " ".join([value, *continuations]).strip()
 
 
 def integer_value(text: str, field: str, default: int = -1) -> int:
@@ -244,7 +258,12 @@ def nested_section_text(text: str, section: str) -> str:
             body_lines.append(line)
             continue
         current_indent = len(line) - len(line.lstrip())
-        if current_indent <= indent:
+        # PyYAML serializes a sequence value at the same indentation as its
+        # mapping key (``field:\n  - item``). That is valid YAML, so retain it
+        # while still stopping at a sibling mapping key.
+        if current_indent < indent or (
+            current_indent == indent and not line.lstrip().startswith("-")
+        ):
             break
         body_lines.append(line)
     return "\n".join(body_lines)
@@ -266,7 +285,9 @@ def field_has_list_item(text: str, field: str) -> bool:
             body_lines.append(line)
             continue
         current_indent = len(line) - len(line.lstrip())
-        if current_indent <= indent:
+        if current_indent < indent or (
+            current_indent == indent and not line.lstrip().startswith("-")
+        ):
             break
         body_lines.append(line)
     return bool(re.search(r"^\s*-\s+\S", "\n".join(body_lines), re.MULTILINE))
@@ -295,23 +316,37 @@ def list_field_values(text: str, field: str) -> list[str]:
             for item in inline_match.group(1).split(",")
             if item.strip().strip("\"'")
         ]
-    block_match = re.search(
-        rf"^\s*{re.escape(field)}:\s*$\n(?P<body>(?:^\s+-\s+.*$\n?)*)",
-        text,
-        re.MULTILINE,
-    )
+    block_match = re.search(rf"^(?P<indent>\s*){re.escape(field)}:\s*$", text, re.MULTILINE)
     if not block_match:
         return []
-    return [
-        value.strip().strip("\"'")
-        for value in re.findall(r"^\s+-\s+(.+?)\s*$", block_match.group("body"), re.MULTILINE)
-        if value.strip().strip("\"'")
-    ]
+    values = []
+    current = ""
+    item_indent = -1
+    field_indent = len(block_match.group("indent"))
+    for line in text[block_match.end():].splitlines():
+        if not line.strip():
+            continue
+        line_indent = len(line) - len(line.lstrip())
+        item = re.match(r"^(?P<indent>\s*)-\s+(?P<value>.+?)\s*$", line)
+        if item and line_indent >= field_indent:
+            if current:
+                values.append(current)
+            current = item.group("value").strip().strip("\"'")
+            item_indent = len(item.group("indent"))
+            continue
+        if current and line_indent > item_indent:
+            current = f"{current} {line.strip()}"
+            continue
+        if line_indent <= field_indent:
+            break
+    if current:
+        values.append(current)
+    return values
 
 
 def mapping_item_blocks(text: str, first_field: str) -> list[str]:
     starts = list(
-        re.finditer(rf"^\s+-\s+{re.escape(first_field)}:\s*.*$", text, re.MULTILINE)
+        re.finditer(rf"^[ \t]*-\s+{re.escape(first_field)}:\s*.*$", text, re.MULTILINE)
     )
     blocks = []
     for index, match in enumerate(starts):
@@ -343,7 +378,7 @@ def validate_visual_capture_capability(run_log: Path, implemented: str) -> list[
     capability = nested_section_text(implemented, "visual_runtime_capability")
     discovery = mapping_item_blocks(nested_section_text(capability, "runtime_discovery"), "capability")
     discovered_capabilities = {scalar_value(item, "capability") for item in discovery}
-    if discovered_capabilities != VISUAL_RUNTIME_CAPABILITIES:
+    if discovered_capabilities != set(VISUAL_RUNTIME_CAPABILITIES):
         failures.append(
             "required_placeholder requires existing-preview discovery, project-runtime activation, and test-state recovery records"
         )
@@ -367,7 +402,7 @@ def validate_visual_capture_capability(run_log: Path, implemented: str) -> list[
     recovery = nested_section_text(implemented, "visual_capture_recovery")
     attempts = mapping_item_blocks(recovery, "attempt_id")
     methods = {scalar_value(attempt, "method") for attempt in attempts}
-    if not VISUAL_CAPTURE_METHODS.issubset(methods):
+    if not set(VISUAL_CAPTURE_METHODS).issubset(methods):
         failures.append("required_placeholder requires Playwright, Chrome DevTools, and Computer Use recovery records")
     for attempt in attempts:
         method = scalar_value(attempt, "method")
@@ -404,11 +439,20 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
         failures.append("current run artifacts must not be loaded as product context")
 
     lineage = section_text(text, "artifact_lineage")
-    if scalar_value(lineage, "mode") not in {"new_run", "replacement_run"}:
+    lineage_mode = scalar_value(lineage, "mode")
+    if lineage_mode not in {"new_run", "replacement_run", "in_place_revision"}:
         failures.append("implemented-feature PRD requires artifact_lineage.mode")
     if "historical_artifacts:" not in lineage:
         failures.append("implemented-feature PRD requires artifact_lineage.historical_artifacts")
-    if boolean_value(lineage, "output_folder_reset") is not True:
+    if lineage_mode == "in_place_revision":
+        target_prd = scalar_value(lineage, "target_prd_path")
+        target_html = scalar_value(lineage, "target_html_path")
+        revision_evidence = scalar_value(lineage, "revision_evidence_path")
+        if not target_prd or not target_html or not revision_evidence:
+            failures.append("in_place_revision requires target PRD, target HTML, and revision evidence paths")
+        elif not (run_log.parent / revision_evidence).is_file():
+            failures.append("in_place_revision revision evidence path must exist inside the run folder")
+    elif boolean_value(lineage, "output_folder_reset") is not True:
         failures.append("implemented-feature PRD requires output_folder_reset: true")
 
     prd_path = run_log.parent / "prd.md"
@@ -893,10 +937,13 @@ def validate_run_log(run_log: Path) -> dict[str, Any]:
         failures.append("next_actions must include at least one concrete action")
 
     readiness_body = section_text(text, "readiness")
+    # YAML permits quoted scalar IDs.  Normalize the scalar the same way the
+    # action-reference parser does, otherwise `id: "X"` is collected as
+    # `"X"` while `source_blocker_ids: ["X"]` becomes `X`.
     blocker_ids = {
-        value
+        value.strip().strip("\"'")
         for value in re.findall(r"^\s+-\s+id:\s*([^\s#]+)", readiness_body, re.MULTILINE)
-        if value
+        if value.strip().strip("\"'")
     }
     closure_body = section_text(text, "action_closure")
     closure_blocks = mapping_item_blocks(closure_body, "action_id")

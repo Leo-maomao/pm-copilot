@@ -1,0 +1,44 @@
+cycle_id: "2026-08-17-prd-complete-delivery-and-revision-continuity"
+date: "2026-08-17"
+version_change: "5.0.0 -> 5.0.1"
+source_run: "User-reported plugin runtime PRD delivery failure"
+generalized_failure: >-
+  PRD defaults separated browser-readable delivery from ordinary PRD generation,
+  treated every edit as a replacement run, and depended on an optional system binary
+  without preflight visibility or a local rendering fallback.
+fix_surface:
+  - "PM_COPILOT.md and skills/prd-writing/SKILL.md"
+  - "workflow/context-loading.md and workflow/delivery-check-workflow.md"
+  - "scripts/render_prd_html.py, scripts/preflight_tools.py, and output validators"
+  - "templates/agent-run-log-template.yaml and tools/tool-registry.yaml"
+user_correction:
+  - "Every PRD delivery needs complete artifacts regardless of task subtype."
+  - "An identified existing PRD is updated in place unless the user explicitly asks for a new version."
+  - "Missing Pandoc must not prevent PRD HTML delivery."
+canonical_changes:
+  - rule: "Every PRD delivery includes prd.md and prd.html."
+    owner: "PM_COPILOT.md: Delivery Defaults"
+  - rule: "In-place revision updates the identified Markdown and HTML while retaining immutable run evidence."
+    owner: "workflow/context-loading.md: Generated-Artifact Isolation"
+  - rule: "The renderer uses Pandoc when available and a local dependency-free fallback otherwise."
+    owner: "scripts/render_prd_html.py"
+validation:
+  commands:
+    - "python3 scripts/test_prd_flow_rendering.py"
+    - "python3 scripts/test_prd_contract.py"
+    - "python3 scripts/test_prd_generation_integrity.py"
+    - "python3 scripts/test_prd_rule_consistency.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  result: "passed"
+embedded_copy_sync:
+  checked:
+    - "plugins/pm-copilot/.codex-plugin/plugin.json"
+  updated:
+    - "plugins/pm-copilot/.codex-plugin/plugin.json"
+  pending:
+    - "Reinstall the global runtime to replace the currently installed 4.9.13 copy."
+remote_push:
+  required: false
+  status: "not_requested"
+  target: ""

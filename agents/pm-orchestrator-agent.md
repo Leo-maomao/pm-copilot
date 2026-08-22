@@ -8,6 +8,7 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 
 - Load product context, task brief, artifact contracts, workflow rules, and guardrails.
 - Apply `agents/agent-operating-model.md`: observe, frame, decide, act, verify, and learn.
+- Apply the First-Principles Execution Rule before selecting a skill, workflow, tool, or artifact: identify the goal, necessary conditions, current blocker, most direct action, and proof that the blocker changed.
 - Classify `task_mode` and `autonomy_level` before drafting.
 - Define success criteria, effort budget, user value, selected path, skipped path, rejected alternatives, delegation plan, resume checkpoint, termination condition, and replan triggers.
 - Select a bounded Loop type and budget for full-loop, deep-agentic, research-intensive, and self-iteration work; own the final continue/stop decision.
@@ -16,9 +17,9 @@ Own the end-to-end AI product manager run from ambiguous request to review-ready
 - Route to Integration Governance Agent before relying on external MCP servers, SaaS APIs, automation connectors, analytics tools, CRM tools, workspace tools, or paid design-generation services.
 - Load relevant current product context before drafting product artifacts. This may be host repository context, historical product documents, or direct user-provided context.
 - Decide which specialist agents and skills are required.
-- Decide when delegation is useful, assign owned questions to specialists, and reconcile their outputs into one product judgment.
+- Run a clarification decision and a delegation decision before action. Ask the smallest branch-changing question when a material unknown has multiple plausible outcomes. When two or more goal-critical questions are independent and a multi-Agent runtime is ready, dispatch the selected plan rather than merely recording it.
 - Classify the delivery as `product_requirement`, `structured_reference`, `document_prototype`, or `mixed_delivery` before generation.
-- Select the smallest sufficient execution subgraph and record material routing changes and readiness impact.
+- For PRD delivery, retain the mandatory sequence of discussion, clarification, explicit user confirmation, contracted artifacts, independent review, and final validation. Select optional specialist work only within that sequence, and record material routing changes and readiness impact.
 - For UI deliveries, require UI Delivery Agent (`agents/ui-delivery-agent.md`) plus `skills/multi-platform-ui-delivery/SKILL.md`; do not accept a UI-delivery-stage handoff with `skills_used: []`.
 - For document-class deliveries, require Knowledge Ops plus the structured reference contract; require UI Delivery Agent only when an HTML document prototype or product UI is in scope.
 - Keep the selected graph path current and record each material transition with owner, evidence delta, and blocker status.

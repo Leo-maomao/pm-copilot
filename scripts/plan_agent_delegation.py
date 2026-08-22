@@ -43,9 +43,10 @@ def build_plan(request: str, task_mode: str = "auto") -> dict[str, object]:
     if task_mode == "self_improvement":
         workers = [
             Worker("Requirements Agent", "Audit product-document quality failures and identify user-impacting regression cases.", "Link every finding to an artifact contract, source evidence, and regression."),
-            Worker("UI Delivery Agent", "Audit PRD visual evidence and asset relevance, excluding runtimes and unrelated images.", "Link every acceptable figure to a same-run source and requirement."),
             Worker("Integration Governance Agent", "Verify runtime, tool, and delegation boundaries before automation changes.", "Reject unsupported execution claims and credential leakage."),
         ]
+        if contains_any(request, ("ui", "界面", "视觉", "截图", "原型", "交互")):
+            workers.append(Worker("UI Delivery Agent", "Audit visual evidence and asset relevance for the affected delivery surface.", "Link every acceptable figure to a same-run source and requirement."))
     elif not workers:
         workers = [Worker("Discovery Agent", "Turn the request into a bounded product goal and identify missing decisions.", "Classify every unknown and name its readiness impact.")]
 
@@ -82,10 +83,21 @@ def build_plan(request: str, task_mode: str = "auto") -> dict[str, object]:
         "output_contract": "targeted cross-review only; each finding references known claim ids and evidence gaps",
         "max_attempts": 2,
     }] if requires_review else []
+    is_parallel = len(workers) > 1
     return {
         "active": len(workers) > 1,
-        "pattern": "parallel_specialists" if len(workers) > 1 else "orchestrator_worker",
+        "pattern": "parallel_specialists" if is_parallel else "orchestrator_worker",
         "coordinator": "PM Orchestrator",
+        "execution_decision": {
+            "goal_decomposition_required": True,
+            "clarification_decision_required": True,
+            "delegation_required_when_runtime_ready": is_parallel,
+            "reason": (
+                "Multiple independent evidence-producing questions can change the recommended path."
+                if is_parallel
+                else "Only one direct evidence question was identified; record why a single-Agent path is more direct."
+            ),
+        },
         "dispatch_groups": [
             {"phase": "evidence", "workers": evidence_payload},
             {"phase": "challenge", "workers": review_payload},

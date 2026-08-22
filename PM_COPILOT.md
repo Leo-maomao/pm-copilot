@@ -5,7 +5,7 @@ Use it when a user needs product-manager work such as PRD, tracking plan, UI del
 
 The default behavior is goal-driven auxiliary PM agent work.
 The workflow is the safety rail, not the user-facing experience.
-Start by understanding the user's goal, choose a task mode and autonomy level, then use the smallest execution path that can produce a useful PM delivery.
+Start by understanding the user's goal and choose a task mode and autonomy level. For a PRD or product-requirement delivery, the required end-to-end path is never abbreviated: requirement discussion, clarification, explicit user confirmation, complete contracted delivery, and validation must all occur in order. Other task modes may select the smallest path that can produce a useful PM delivery only when that selection does not omit a required gate.
 PM Copilot supports product decisions and handoffs; it does not modify host product code, deploy releases, or replace human approval.
 
 ## Local Reference Rule
@@ -33,6 +33,18 @@ Activate PM Copilot when the user asks for:
 
 The user should not need to remember the project name.
 If the task is clearly product-manager work, run PM Copilot.
+
+### PRD Production Controller Mandate
+
+Any natural-language PRD request, including “调用 pm-copilot 生成 PRD”, must
+enter the production controller before the agent drafts or writes a PRD. The
+controller is `scripts/prd_request_controller.py` for a new requirement and
+`scripts/run_interactive_request.py` for an identified canonical run folder.
+Direct chat drafting is not an alternate PRD path. A final PRD claim is valid
+only when the canonical run folder contains the controller state, attributable
+provider/model Agent calls for intake, clarification review, each artifact and
+each stage review, and passing final validation. Missing evidence terminates
+the run as `blocked` or `failed`.
 
 ## Global Installation
 
@@ -148,15 +160,50 @@ If must-answer questions exist, ask and stop before creating `prd.md`, UI delive
 User silence is not approval.
 If the user explicitly requests a draft with risk, downgrade readiness and keep blockers visible.
 
+### Production Conversation Boundary
+
+Production requirement discussion is a real conversation between the user and
+PM Copilot. It follows this resumable state sequence:
+
+```text
+new -> needs_input -> awaiting_confirmation -> confirmed -> delivery -> validation
+```
+
+Use `scripts/run_interactive_request.py` for a local production run. It must
+persist the user's answers and stop at `needs_input` for each unresolved
+must-answer item. Once the Intake Agent finds that bucket empty, an independent
+Clarification Review Agent must challenge the coverage and identify any
+remaining branch-changing omission or conflict. Only a passing review presents
+the clarified scope and stops at `awaiting_confirmation`; only an explicit user
+confirmation can enter delivery. A model's own summary, a default, or user
+silence is never confirmation.
+
+Evaluation fixtures are a separate `evaluation` mode. They may permit a
+controlled draft-with-risk delivery, but their trace must say
+`fixture_confirmation` and `human_confirmation: false`. Fixture content must
+never be used as evidence that a production user answered or approved a
+decision.
+
+Within a stage, an Agent may loop only while there is an evidence-producing
+repair path and budget remaining. Before a downstream stage consumes a
+requirement or delivery artifact, an independent Stage Quality Review Agent
+must accept that artifact against the confirmed scope and its immediate
+handoff contract. The verifier's stage-specific acceptance criteria, not a
+successful process exit or a file's presence, govern the next transition. A
+failed, exhausted, or no-progress quality loop stops the run at that stage; it
+never creates a shortcut to a later stage. A single-artifact Agent is
+prohibited from mutating upstream artifacts; such a mutation is a failed
+handoff.
+
 ## Delivery Defaults
 
 Generated runtime artifacts live under the active project's resolved output root.
 In embedded repositories they live under `pm-copilot/outputs/<run-id>/`; globally installed PM Copilot uses `pm-copilot-outputs/<run-id>/`.
-Use a dated ASCII run id such as `checkout-coupon-2026-07-09`; append `-2`, `-3`, and so on for same-day collisions.
+Create a dated ASCII run id such as `checkout-coupon-2026-07-09` only for an explicitly new independent requirement. A same-name collision is a stop to identify the existing canonical PRD, never permission to append `-2`, `-3`, or another suffix. Revisions always update the identified canonical folder in place.
 
 Default artifacts by task:
 
-- PRD delivery: `prd.md`, run-log when useful, UI delivery if UI is in scope
+- PRD delivery: `prd.md`, required `prd.html`, and run-log when useful; UI delivery if UI is in scope
 - Implemented-feature PRD: `prd.md`, required `prd.html`, `run-log.yaml`
 - UI delivery: annotated `prototype-<platform>.html`, flow, or review specification grounded in available source, screenshot, and design-system evidence; it is a PM review artifact, not a host-code implementation
 - Structured reference: `catalog.md`, `reference.md`, requested HTML, or document prototype; do not force PRD when the user explicitly says no PRD
@@ -165,7 +212,7 @@ Default artifacts by task:
 - Launch readiness: optional `launch-decision.yaml`
 
 Do not create `pm-package.md`, `task-brief.md`, `clarifying-questions.md`, `assumptions.md`, `metrics-tree.md`, `tracking-plan.md`, `user-flow.md`, `review-checklist.md`, or `final-package-summary.md` by default.
-Put metrics, tracking, flows, risks, review findings, validation results, clarified answers, and assumptions inside `prd.md` when PRD is in scope.
+Put product-facing metrics, tracking, flows, and confirmed requirement context inside `prd.md` when PRD is in scope. Keep risks, review findings, validation results, clarified answers, and assumptions in the run trace or an explicitly requested handoff.
 
 ## Implemented Feature PRD Delivery
 
@@ -189,7 +236,8 @@ For implemented-feature PRDs:
 - When a requirement detail is a field/value table, a real image or controlled missing-image marker belongs in the same `图示`/`截图` row value cell; omit the row when no image is needed.
 - Render Mermaid diagrams through local assets, not CDN.
 
-`prd.html` is a document rendering of the PRD, not a UI prototype.
+Every PRD delivery includes `prd.html`. It is a document rendering of the PRD, not a UI prototype.
+When Pandoc is absent, the renderer first downloads the official architecture-matched user-level binary; only if that fails does it try an existing supported package manager. If both paths are unavailable or fail, it uses the bundled local renderer and records that fallback.
 It should use stable ASCII anchors, a readable table of contents, complete tables, local assets, and click-to-fullscreen for real images.
 Avoid decorative cards, gradients, unusual backgrounds, nested scroll containers, or detached screenshot lists.
 

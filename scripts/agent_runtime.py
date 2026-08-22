@@ -8,22 +8,42 @@ import hashlib
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-DEFAULT_SEAWORK_MODEL = "codex/gpt-5.4"
+from runtime_policy import DEFAULT_SEAWORK_MODEL
+from model_catalog import discover_model_catalog, select_model
+from runtime_limits import (
+    DEFAULT_EXECUTION_TIMEOUT_MINUTES,
+    DEFAULT_LOOP_MAX_ITERATIONS,
+    DEFAULT_LOOP_TIMEOUT_MINUTES,
+)
+
 EXECUTABLE_PROVIDERS = (
-    "seawork", "codex", "claude", "qwen", "kimi", "qoder", "codebuddy",
+    "seawork", "seawork-claude", "codex", "claude", "qwen", "kimi", "qoder", "codebuddy",
 )
 CANDIDATE_TOOLS = ("gemini", "aider", "opencode", "cursor-agent", "trae", "comate")
 SECRET_PATTERN = re.compile(
-    r"(?i)(api[_ -]?key|token|password|authorization)\s*[:=]\s*[^\s,;]+"
+    r"(?i)(?P<label>api[_ -]?key|token|password)\s*[:=]\s*[^\s,;]+"
+    r"|(?P<authorization>authorization)\s*[:=]\s*(?:(?:bearer|basic)[^\s,;]*|[A-Za-z0-9._~-]{16,})"
 )
+AGENT_ID_PATTERN = re.compile(
+    r"\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b", re.IGNORECASE,
+)
+STAGE_TARGET_PATTERN = re.compile(r"Write exactly one complete artifact at ([^\.\n]+\.[A-Za-z0-9_-]+)\.")
+# A write-first stage without an artifact is not productive work. Keep this
+# deliberately short for every runtime so an upstream queue or protocol stall
+# is attributed promptly instead of consuming the case's full stage budget.
+FIRST_ARTIFACT_SECONDS = 30
+SEAWORK_CONTROL_PLANE_FAILURE_LIMIT = 2
 
 
 @dataclass(frozen=True)
@@ -44,21 +64,181 @@ class ActiveRuntime:
     source: str
 
 
-def _run(command: Sequence[str], cwd: Path | None = None, timeout: int = 15) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        list(command),
-        cwd=str(cwd) if cwd else None,
-        check=False,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
+def _run(
+    command: Sequence[str], cwd: Path | None = None, timeout: int = 15,
+    env: dict[str, str] | None = None, progress_path: Path | None = None,
+    no_progress_timeout: int | None = None, progress_baseline: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    stdout_file = tempfile.NamedTemporaryFile(prefix="pm-copilot-stdout-", delete=False)
+    stderr_file = tempfile.NamedTemporaryFile(prefix="pm-copilot-stderr-", delete=False)
+    stdout_path, stderr_path = Path(stdout_file.name), Path(stderr_file.name)
+    stdout_file.close()
+    stderr_file.close()
+    stdout_handle = stdout_path.open("w", encoding="utf-8")
+    stderr_handle = stderr_path.open("w", encoding="utf-8")
+    process = subprocess.Popen(
+        list(command), cwd=str(cwd) if cwd else None, text=True,
+        stdin=subprocess.DEVNULL,
+        stdout=stdout_handle, stderr=stderr_handle, start_new_session=True, env=env,
     )
+    stdout_handle.close()
+    stderr_handle.close()
+    timed_out = False
+    deadline = time.monotonic() + timeout
+    progress_deadline = time.monotonic() + no_progress_timeout if progress_path and no_progress_timeout else None
+    observed_progress = False
+    try:
+        while process.poll() is None and time.monotonic() < deadline:
+            if (
+                progress_path
+                and progress_path.is_file()
+                and progress_path.stat().st_size > 0
+                and _artifact_digest(progress_path) != progress_baseline
+            ):
+                observed_progress = True
+            if progress_deadline is not None and not observed_progress and time.monotonic() >= progress_deadline:
+                timed_out = True
+                break
+            time.sleep(0.05)
+    except KeyboardInterrupt:
+        # An operator stop must also stop the child Agent process group. A
+        # Python traceback alone otherwise leaves Codex running in the
+        # background and consuming the user's budget.
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        raise
+    if process.poll() is None:
+        timed_out = True
+        # ``seawork wait`` can ignore SIGTERM. The caller owns this process
+        # group, so terminate it directly and bound collection after each
+        # signal instead of waiting forever for a watchdog side effect.
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        kill_deadline = time.monotonic() + 2
+        while process.poll() is None and time.monotonic() < kill_deadline:
+            time.sleep(0.05)
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            kill_deadline = time.monotonic() + 2
+            while process.poll() is None and time.monotonic() < kill_deadline:
+                time.sleep(0.05)
+    stdout = stdout_path.read_text(encoding="utf-8", errors="replace")
+    stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
+    stdout_path.unlink(missing_ok=True)
+    stderr_path.unlink(missing_ok=True)
+    if timed_out:
+        raise subprocess.TimeoutExpired(list(command), timeout, output=stdout, stderr=stderr)
+    return subprocess.CompletedProcess(list(command), process.returncode, stdout, stderr)
+
+
+def _artifact_digest(path: Path) -> str | None:
+    """Return the durable content identity used by a write-first checkpoint."""
+    if not path.is_file() or path.stat().st_size == 0:
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@contextmanager
+def _isolated_codex_environment() -> Any:
+    """Keep Codex state isolated without loading unrelated interactive plugins."""
+    source_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser()
+    with tempfile.TemporaryDirectory(prefix="pm-copilot-codex-home-") as temporary_home:
+        isolated = Path(temporary_home)
+        auth = source_home / "auth.json"
+        if auth.exists():
+            (isolated / "auth.json").symlink_to(auth)
+        _write_minimal_codex_config(source_home / "config.toml", isolated / "config.toml")
+        environment = os.environ.copy()
+        environment["CODEX_HOME"] = str(isolated)
+        yield environment
+
+
+def _toml_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def _write_minimal_codex_config(source: Path, destination: Path) -> None:
+    """Copy only the selected model-provider configuration into a fresh home."""
+    try:
+        source_lines = source.read_text(encoding="utf-8").splitlines() if source.exists() else []
+    except OSError:
+        source_lines = []
+    provider_match = next((re.match(r'\s*model_provider\s*=\s*["\']([^"\']+)["\']\s*$', line) for line in source_lines), None)
+    provider = provider_match.group(1) if provider_match else None
+    selected: list[str] = []
+    if provider:
+        header = f"[model_providers.{provider}]"
+        try:
+            start = next(index for index, line in enumerate(source_lines) if line.strip() == header)
+        except StopIteration:
+            start = -1
+        if start >= 0:
+            for line in source_lines[start + 1:]:
+                if line.strip().startswith("["):
+                    break
+                if re.match(r"\s*[A-Za-z0-9_]+\s*=", line):
+                    selected.append(line.strip())
+    # Stage Agents are evaluated on the artifact and review evidence, not on
+    # exploratory planning depth. Keep local execution responsive even when a
+    # user's global profile requests xhigh reasoning.
+    # Stage execution uses the authenticated model provider but never needs
+    # the interactive remote plugin catalog. Disabling it prevents a ChatGPT
+    # plugin-auth startup path from consuming the write-first budget.
+    # Every stage receives a complete, tightly scoped prompt and has an
+    # independent quality gate. Minimal reasoning prioritizes producing the
+    # required write-first checkpoint inside the bounded stage budget.
+    lines = ["disable_response_storage = true", 'model_reasoning_effort = "minimal"']
+    if provider and selected:
+        lines.append(f"model_provider = {_toml_value(provider)}")
+        lines.append("")
+        lines.append(f"[model_providers.{provider}]")
+        lines.extend(selected)
+    lines.extend([
+        "", "[features]",
+        # Evaluation stages do not use Codex plugins. Disable the framework
+        # as well as its remote catalog so startup cannot spend the first-write
+        # budget resolving an interactive plugin installation.
+        "plugins = false",
+        "remote_plugin = false",
+    ])
+    destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _clean(value: str, limit: int = 600) -> str:
-    value = SECRET_PATTERN.sub(r"\1=[REDACTED]", value.strip())
+    value = SECRET_PATTERN.sub(_redact_secret, value.strip())
     return value[:limit]
+
+
+def _diagnostic(value: str, limit: int = 2000) -> str:
+    """Preserve the terminal failure while bounding and redacting noisy CLI logs."""
+    cleaned = SECRET_PATTERN.sub(_redact_secret, value.strip())
+    if len(cleaned) <= limit:
+        return cleaned
+    head = max(200, limit // 3)
+    tail = limit - head - 48
+    return f"{cleaned[:head]}\n... [diagnostic truncated] ...\n{cleaned[-tail:]}"
+
+
+def _redact_secret(match: re.Match[str]) -> str:
+    return f"{match.group('label') or match.group('authorization')}=[REDACTED]"
 
 
 def _portable_command(command: Sequence[str], cwd: Path) -> list[str]:
@@ -98,10 +278,16 @@ def discover_runtimes() -> list[RuntimeStatus]:
     else:
         ready, detail = _probe([seawork, "status"], seawork)
         connected = bool(re.search(r"Connected Daemon\s+reachable", detail))
-        statuses.append(RuntimeStatus(
+        seawork_status = RuntimeStatus(
             "seawork", seawork, "ready" if ready and connected else "degraded",
             True, True, True,
             "local daemon reachable" if ready and connected else (detail or "daemon probe failed"),
+        )
+        statuses.append(seawork_status)
+        statuses.append(RuntimeStatus(
+            "seawork-claude", seawork, seawork_status.status,
+            True, True, True,
+            "Seawork-managed Claude runtime" if seawork_status.status == "ready" else seawork_status.detail,
         ))
 
     codex = _which("codex")
@@ -218,6 +404,9 @@ def runtime_capabilities(cwd: Path | None = None) -> dict[str, object]:
     except RuntimeError as error:
         single_status, selected_provider, selection_reason = "unavailable", None, str(error)
     seawork = statuses.get("seawork")
+    model_options, model_warnings = discover_model_catalog(
+        selected_provider or (context.runtime or "codex"), cwd,
+    )
     return {
         "active_runtime": asdict(context),
         "single_agent_auto": {
@@ -228,6 +417,15 @@ def runtime_capabilities(cwd: Path | None = None) -> dict[str, object]:
         "multi_agent_loop": {
             "status": "available" if seawork and seawork.status == "ready" else "unavailable",
             "reason": "Seawork daemon reachable" if seawork and seawork.status == "ready" else "Seawork worker/verifier loop requires a reachable daemon",
+        },
+        "model_catalog": {
+            "provider": selected_provider or context.runtime or "codex",
+            "models": [item.model for item in model_options if item.model],
+            "capabilities": [
+                {"model": item.model, "provider": item.provider, "capabilities": sorted(item.capabilities), "source": item.source}
+                for item in model_options
+            ],
+            "warnings": model_warnings,
         },
     }
 
@@ -277,16 +475,41 @@ def build_command(
     output_path: Path | None,
 ) -> list[str]:
     """Build a documented non-interactive invocation without embedding secrets."""
-    if provider == "seawork":
+    if provider in {"seawork", "seawork-claude"}:
+        if not model:
+            raise RuntimeError(
+                "no model selected for Seawork; configure a provider model or pass --model explicitly"
+            )
         command = [
-            executable, "run", "--mode", "full-access", "--provider", model or DEFAULT_SEAWORK_MODEL,
+            executable, "run",
+            "--mode", "bypassPermissions" if provider == "seawork-claude" else "full-access",
+            "--provider", "claude" if provider == "seawork-claude" else model,
             "--wait-timeout", f"{timeout_minutes}m",
         ]
+        if provider == "seawork-claude" and model:
+            command.extend(["--model", model.split("/", 1)[-1]])
         if schema_path:
             command.extend(["--output-schema", Path(schema_path).read_text(encoding="utf-8")])
         return command + [prompt]
     if provider == "codex":
-        command = [executable, "exec", "--cd", str(cwd), "--sandbox", "workspace-write"]
+        # Evaluation stages run from an intentionally minimal temporary
+        # workspace rather than a Git checkout. This prevents Codex from
+        # spending the stage budget discovering unrelated repository history.
+        command = [
+            # CODEX_HOME is replaced with a minimal, isolated configuration
+            # by _isolated_codex_environment. Do not pass
+            # --ignore-user-config here: it would discard that very provider
+            # configuration and silently fall back to OpenAI's default.
+            executable,
+            # Command-line settings take precedence over any inherited config
+            # layer. The stage prompt carries all required instruction, so no
+            # plugin or remote catalog is part of this execution path.
+            "--disable", "plugins",
+            "--disable", "remote_plugin",
+            "exec", "--ephemeral", "--skip-git-repo-check",
+            "--cd", str(cwd), "--sandbox", "workspace-write",
+            "--config", 'model_reasoning_effort="minimal"',
+        ]
         if model:
             command.extend(["--model", model])
         if schema_path:
@@ -321,6 +544,185 @@ def build_command(
     raise RuntimeError(f"unsupported provider: {provider}")
 
 
+def _seawork_detached_command(command: Sequence[str]) -> list[str]:
+    """Convert a worker launch into an attributable detached Seawork task."""
+    values = list(command)
+    prompt = values.pop()
+    if "--wait-timeout" in values:
+        position = values.index("--wait-timeout")
+        del values[position:position + 2]
+    return values + ["--detach", "--quiet", prompt]
+
+
+def _agent_id(value: str) -> str | None:
+    match = AGENT_ID_PATTERN.search(value or "")
+    return match.group(0) if match else None
+
+
+def _seawork_agent_record(executable: str, agent_id: str) -> tuple[dict[str, Any] | None, str]:
+    """Read the daemon's record for an attributable Agent ID."""
+    try:
+        listed = _run([executable, "ls", "--json"], timeout=15)
+        agents = json.loads(listed.stdout or "[]") if listed.returncode == 0 else []
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+        return None, f"could not query Agent state: {error}"
+    agent = next((item for item in agents if item.get("id") == agent_id), None)
+    return agent if isinstance(agent, dict) else None, str(agent.get("status", "missing")) if isinstance(agent, dict) else "missing"
+
+
+def _seawork_agent_is_terminal(executable: str, agent_id: str) -> tuple[bool, str]:
+    """Accept only an explicit terminal state; stale or missing state is unsafe."""
+    _, status = _seawork_agent_record(executable, agent_id)
+    # Seawork keeps completed tasks as reusable records with status ``idle``.
+    # An idle task has no active execution and is safe to clean up around.
+    return status in {"completed", "complete", "closed", "failed", "interrupted", "stopped", "archived", "idle"}, status
+
+
+def _stage_target_from_command(command: Sequence[str]) -> Path | None:
+    """Find the promised write-first artifact without inspecting unrelated files."""
+    match = STAGE_TARGET_PATTERN.search(str(command[-1])) if command else None
+    return Path(match.group(1)) if match else None
+
+
+def _poll_seawork_terminal(
+    executable: str, agent_id: str, timeout_seconds: int, progress_path: Path | None = None,
+) -> tuple[bool, str]:
+    """Stop quickly on control-plane failure or no write-first stage progress."""
+    deadline = time.monotonic() + max(0, timeout_seconds)
+    progress_deadline = time.monotonic() + min(timeout_seconds, FIRST_ARTIFACT_SECONDS)
+    control_plane_failures = 0
+    observed_progress = False
+    last_state = "unknown"
+    while True:
+        _, last_state = _seawork_agent_record(executable, agent_id)
+        if last_state.startswith("could not query Agent state"):
+            control_plane_failures += 1
+            if control_plane_failures >= SEAWORK_CONTROL_PLANE_FAILURE_LIMIT:
+                return False, "control_plane_unavailable"
+        else:
+            control_plane_failures = 0
+        if last_state in {"completed", "complete", "closed", "failed", "interrupted", "stopped", "archived", "idle"}:
+            return True, last_state
+        if progress_path and progress_path.is_file() and progress_path.stat().st_size > 0:
+            observed_progress = True
+        if progress_path and not observed_progress and time.monotonic() >= progress_deadline:
+            return False, "no_progress_before_first_artifact"
+        if time.monotonic() >= deadline:
+            return False, last_state
+        time.sleep(min(2, max(0.1, deadline - time.monotonic())))
+
+
+def _execute_seawork(
+    command: Sequence[str], executable: str, cwd: Path, timeout_minutes: int,
+    result: dict[str, Any], output_limit: int,
+) -> dict[str, Any]:
+    """Run a Seawork Agent with a durable ID and a verified timeout cleanup path."""
+    detached = _seawork_detached_command(command)
+    try:
+        launch = _run(detached, cwd=cwd, timeout=30)
+    except subprocess.TimeoutExpired:
+        result.update({"status": "failed", "error": "Seawork did not acknowledge detached launch within 30 seconds"})
+        return result
+    launch_output = (launch.stdout or "") + "\n" + (launch.stderr or "")
+    agent_id = _agent_id(launch_output)
+    result["launch_command"] = _portable_command(detached[:-1], cwd) + ["[PROMPT REDACTED]"]
+    if launch.returncode != 0 or not agent_id:
+        detail = _clean(launch.stderr or launch.stdout, 2000) or "Seawork detached launch did not return an Agent ID"
+        result.update({"status": "failed", "error": detail, "exit_code": launch.returncode})
+        return result
+    result["agent_id"] = agent_id
+    requested_provider = command[command.index("--provider") + 1] if "--provider" in command else ""
+    explicit_model = command[command.index("--model") + 1] if "--model" in command else ""
+    expected_model = (
+        f"claude/{explicit_model}" if explicit_model
+        else requested_provider if "/" in requested_provider
+        else "claude"
+    )
+    record, state = _seawork_agent_record(executable, agent_id)
+    actual_model = str(record.get("provider", "")) if record else ""
+    result["requested_model"] = expected_model
+    result["actual_model"] = actual_model or None
+    if actual_model:
+        result["model"] = actual_model
+    model_mismatch = (
+        not record
+        or (bool(explicit_model) and actual_model != expected_model)
+        or (not explicit_model and "/" in requested_provider and actual_model != expected_model)
+        or (not explicit_model and "/" not in requested_provider and actual_model and not actual_model.startswith("claude/"))
+    )
+    if model_mismatch:
+        stop_output = ""
+        try:
+            stopped = _run([executable, "stop", agent_id], cwd=cwd, timeout=30)
+            stop_output = _clean((stopped.stdout or "") + "\n" + (stopped.stderr or ""), 1000)
+        except (OSError, subprocess.TimeoutExpired) as stop_error:
+            stop_output = f"stop command failed: {stop_error}"
+        terminal, terminal_state = _seawork_agent_is_terminal(executable, agent_id)
+        if not terminal:
+            result.update({
+                "status": "orphaned",
+                "error": f"Seawork model verification failed (requested {expected_model}, actual {actual_model or state}); stop remains unconfirmed",
+                "failure_category": "seawork_model_mismatch",
+                "cleanup_blocked": True,
+                "stop_evidence": stop_output,
+                "agent_state_after_stop": terminal_state,
+            })
+        else:
+            result.update({
+                "status": "failed",
+                "error": f"Seawork model mismatch: requested {expected_model}, actual {actual_model or state}",
+                "failure_category": "seawork_model_mismatch",
+                "stop_evidence": stop_output,
+                "agent_state_after_stop": terminal_state,
+            })
+        return result
+    terminal, polled_state = _poll_seawork_terminal(
+        executable, agent_id, timeout_minutes * 60, _stage_target_from_command(command),
+    )
+    if not terminal:
+        stop_output = ""
+        try:
+            stopped = _run([executable, "stop", agent_id], cwd=cwd, timeout=30)
+            stop_output = _clean((stopped.stdout or "") + "\n" + (stopped.stderr or ""), 1000)
+        except (OSError, subprocess.TimeoutExpired) as stop_error:
+            stop_output = f"stop command failed: {stop_error}"
+        stopped_terminal, state = _seawork_agent_is_terminal(executable, agent_id)
+        result.update({
+            "status": "timed_out" if stopped_terminal else "orphaned",
+            "error": f"Agent exceeded {timeout_minutes} minute(s); control-plane state was {polled_state}",
+            "failure_category": (
+                "seawork_control_plane_timeout" if polled_state == "control_plane_unavailable"
+                else "agent_no_progress" if polled_state == "no_progress_before_first_artifact"
+                else "agent_timeout"
+            ),
+            "stop_evidence": stop_output,
+            "agent_state_after_stop": state,
+            **({"cleanup_blocked": True} if not stopped_terminal else {}),
+        })
+        return result
+    # Artifacts and daemon state are the evidence needed by the stage gate.
+    # ``seawork wait`` only supplies conversational text and has repeatedly
+    # leaked a detached CLI on macOS, so it must not govern execution.
+    output = f"Agent {agent_id} reached terminal control-plane state {polled_state}."
+    result.update({
+        "status": "complete" if polled_state in {"completed", "complete", "closed", "idle"} else "failed",
+        "exit_code": 0 if polled_state in {"completed", "complete", "closed", "idle"} else 1,
+        "output": _clean(output, output_limit),
+        "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
+        "output_truncated": False,
+        "error": "" if polled_state in {"completed", "complete", "closed", "idle"} else f"Agent terminal state: {polled_state}",
+    })
+    return result
+
+
+def _requires_direct_codex_fallback(result: dict[str, Any]) -> bool:
+    """Only transport and no-progress failures justify one alternate runtime."""
+    return result.get("failure_category") in {
+        "seawork_control_plane_timeout",
+        "agent_no_progress",
+    }
+
+
 def execute(
     requested_provider: str,
     prompt: str,
@@ -330,6 +732,7 @@ def execute(
     schema_path: str | None,
     dry_run: bool,
     output_limit: int = 4000,
+    first_artifact_seconds: int | None = FIRST_ARTIFACT_SECONDS,
 ) -> dict[str, Any]:
     _reject_credential_prompt(prompt)
     cwd = cwd.resolve()
@@ -341,6 +744,19 @@ def execute(
         provider_family, provider_model = context.model.split("/", 1)
         if provider_family == status.provider:
             selected_model = provider_model
+    catalog, catalog_warnings = discover_model_catalog(status.provider, cwd, selected_model)
+    configured_model = next((item.model for item in catalog if item.source == "provider-config" and item.model), None)
+    selected_model = selected_model or configured_model
+    if status.provider in {"seawork", "seawork-claude"} and not selected_model:
+        return {
+            "provider": status.provider, "model": None, "status": "blocked",
+            "failure_category": "no_available_model",
+            "selection_status": "blocked",
+            "selection_reason": "No model was supplied or declared by the active provider; configure a model or pass --model.",
+            "available_models": [item.model for item in catalog if item.model],
+            "model_catalog_warnings": catalog_warnings,
+            "cwd": ".", "dry_run": dry_run, "output": "", "error": "No available model for provider",
+        }
     output_path: Path | None = None
     temporary_output: tempfile.NamedTemporaryFile[str] | None = None
     if status.provider == "codex" and not dry_run:
@@ -351,10 +767,26 @@ def execute(
         status.provider, status.executable or status.provider, prompt, cwd,
         timeout_minutes, selected_model, schema_path, output_path,
     )
+    model_requirement = "judgment" if status.provider in {"seawork", "seawork-claude"} else "standard"
+    model_selection = select_model(model_requirement, status.provider, catalog, selected_model)
+    if model_selection.status == "blocked":
+        return {
+            "provider": status.provider, "model": None, "status": "blocked",
+            "failure_category": "no_available_model",
+            "selection_status": "blocked",
+            "selection_reason": model_selection.reason,
+            "available_models": [item.model for item in catalog if item.model],
+            "model_catalog_warnings": catalog_warnings,
+            "cwd": ".", "dry_run": dry_run, "output": "", "error": model_selection.reason,
+        }
     result: dict[str, Any] = {
         "provider": status.provider,
-        "model": selected_model or (DEFAULT_SEAWORK_MODEL if status.provider == "seawork" else "configured default"),
-        "selection_reason": (
+        "model": selected_model or "configured default",
+        "available_models": [item.model for item in catalog if item.model],
+        "model_catalog_warnings": catalog_warnings,
+        "selection_status": model_selection.status,
+        "selection_reason": model_selection.reason,
+        "runtime_selection_reason": (
             context.source if requested_provider == "auto" and status.provider == context.runtime
             else f"fallback from {context.runtime or 'unknown'} active runtime" if requested_provider == "auto"
             else "explicit provider request"
@@ -369,41 +801,118 @@ def execute(
     if dry_run:
         return result
     try:
-        completed = _run(command, cwd=cwd, timeout=timeout_minutes * 60)
-        output = output_path.read_text(encoding="utf-8") if output_path and output_path.exists() else completed.stdout
-        fallback_used = False
-        if (
-            status.provider == "seawork"
-            and completed.returncode != 0
-            and selected_model
-            and selected_model != DEFAULT_SEAWORK_MODEL
-            and "OUTPUT_SCHEMA_FAILED" in (completed.stderr or "")
-        ):
-            fallback_command = build_command(
-                status.provider, status.executable or status.provider, prompt, cwd,
-                timeout_minutes, DEFAULT_SEAWORK_MODEL, schema_path, output_path,
+        if status.provider in {"seawork", "seawork-claude"} and not schema_path:
+            seawork_result = _execute_seawork(command, status.executable or status.provider, cwd, timeout_minutes, result, output_limit)
+            if status.provider != "seawork" or not _requires_direct_codex_fallback(seawork_result):
+                return seawork_result
+            # One alternate path is useful after a transport/no-progress stop;
+            # another detached Seawork launch would repeat the same condition.
+            direct_model = selected_model.split("/", 1)[-1] if selected_model and "/" in selected_model else selected_model
+            try:
+                fallback = execute("codex", prompt, cwd, timeout_minutes, direct_model, None, False, output_limit)
+            except (OSError, RuntimeError) as error:
+                seawork_result["fallback_attempt"] = {
+                    "provider": "codex",
+                    "status": "unavailable",
+                    "reason": str(error),
+                }
+                return seawork_result
+            fallback["fallback_used"] = True
+            fallback["fallback_from"] = {
+                "provider": "seawork",
+                "model": selected_model,
+                "failure_category": seawork_result.get("failure_category"),
+                "error": seawork_result.get("error"),
+                "agent_id": seawork_result.get("agent_id"),
+            }
+            return fallback
+        execution_environment = None
+        environment_context = _isolated_codex_environment() if status.provider == "codex" else None
+        if environment_context is not None:
+            execution_environment = environment_context.__enter__()
+        try:
+            progress_path = _stage_target_from_command(command) if status.provider == "codex" else None
+            progress_baseline = _artifact_digest(progress_path) if progress_path else None
+            completed = _run(
+                command, cwd=cwd, timeout=timeout_minutes * 60, env=execution_environment,
+                progress_path=progress_path,
+                no_progress_timeout=first_artifact_seconds if progress_path else None,
+                progress_baseline=progress_baseline,
             )
-            fallback = _run(fallback_command, cwd=cwd, timeout=timeout_minutes * 60)
-            if fallback.returncode == 0:
-                completed = fallback
-                output = output_path.read_text(encoding="utf-8") if output_path and output_path.exists() else fallback.stdout
-                fallback_used = True
-                result["fallback_from_model"] = selected_model
-                result["fallback_model"] = DEFAULT_SEAWORK_MODEL
-                result["selection_reason"] += "; active Seawork model failed structured execution, fell back to verified default"
-                result["model"] = DEFAULT_SEAWORK_MODEL
+            output = output_path.read_text(encoding="utf-8") if output_path and output_path.exists() else completed.stdout
+            fallback_used = False
+            if (
+                status.provider == "seawork"
+                and completed.returncode != 0
+                and selected_model
+                and "OUTPUT_SCHEMA_FAILED" in (completed.stderr or "")
+            ):
+                fallback_model = next(
+                    (item.model for item in catalog if item.model and item.model != selected_model),
+                    None,
+                )
+                if not fallback_model:
+                    raise RuntimeError(
+                        "structured output failed and no alternate user-declared model is available"
+                    )
+                fallback_command = build_command(
+                    status.provider, status.executable or status.provider, prompt, cwd,
+                    timeout_minutes, fallback_model, schema_path, output_path,
+                )
+                fallback = _run(fallback_command, cwd=cwd, timeout=timeout_minutes * 60)
+                if fallback.returncode == 0:
+                    completed = fallback
+                    output = output_path.read_text(encoding="utf-8") if output_path and output_path.exists() else fallback.stdout
+                    fallback_used = True
+                    result["fallback_from_model"] = selected_model
+                    result["fallback_model"] = fallback_model
+                    result["selection_reason"] += "; active model failed structured execution, fell back to another declared model"
+                    result["model"] = fallback_model
+        finally:
+            if environment_context is not None:
+                environment_context.__exit__(None, None, None)
         result.update({
             "status": "complete" if completed.returncode == 0 else "failed",
             "exit_code": completed.returncode,
             "output": _clean(output, output_limit),
             "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
-            "output_truncated": len(_clean(output, output_limit)) < len(SECRET_PATTERN.sub(r"\1=[REDACTED]", output.strip())),
-            "error": _clean(completed.stderr, 2000),
+            "output_truncated": len(_clean(output, output_limit)) < len(SECRET_PATTERN.sub(_redact_secret, output.strip())),
+            "error": _diagnostic(completed.stderr, 2000),
         })
         if fallback_used:
             result["fallback_used"] = True
-    except subprocess.TimeoutExpired:
-        result.update({"status": "timed_out", "error": f"execution exceeded {timeout_minutes} minute(s)"})
+    except subprocess.TimeoutExpired as error:
+        artifact_changed = bool(
+            progress_path
+            and _artifact_digest(progress_path) is not None
+            and _artifact_digest(progress_path) != progress_baseline
+        )
+        progress_missing = bool(progress_path and not artifact_changed)
+        output = _clean(str(error.output or ""), output_limit)
+        stderr = _diagnostic(str(error.stderr or ""), 2000)
+        artifact_checkpoint = bool(
+            artifact_changed
+        )
+        result.update({
+            # A stage's durable handoff is its assigned artifact. Preserve a
+            # completed write that is visible at timeout, but label it so the
+            # independent quality gate, rather than process exit alone,
+            # decides whether the stage can advance.
+            "status": "complete" if artifact_checkpoint else "timed_out",
+            "failure_category": (
+                "agent_no_progress" if progress_missing
+                else "agent_post_write_timeout" if artifact_checkpoint
+                else "agent_timeout"
+            ),
+            "completion_basis": "artifact_checkpoint_before_process_timeout" if artifact_checkpoint else None,
+            "post_write_timeout": artifact_checkpoint,
+            "error": (
+                f"no first artifact within {FIRST_ARTIFACT_SECONDS} second(s)"
+                if progress_missing else f"execution exceeded {timeout_minutes} minute(s)"
+            ) + (f"; runtime stderr: {stderr}" if stderr else ""),
+            "output": output,
+            "output_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
+        })
     finally:
         if output_path:
             output_path.unlink(missing_ok=True)
@@ -426,7 +935,16 @@ def execute_loop(
     cwd = cwd.resolve()
     status = select_runtime("seawork", cwd)
     context = active_runtime(cwd)
-    selected_worker_model = worker_model or context.model or DEFAULT_SEAWORK_MODEL
+    catalog, warnings = discover_model_catalog("seawork", cwd, worker_model or context.model)
+    worker_selection = select_model("judgment", "seawork", catalog, worker_model or context.model)
+    if worker_selection.status == "blocked" or not worker_selection.option or not worker_selection.option.model:
+        return {
+            "provider": "seawork", "status": "blocked", "failure_category": "no_available_model",
+            "selection_status": "blocked", "selection_reason": worker_selection.reason,
+            "available_models": [item.model for item in catalog if item.model],
+            "model_catalog_warnings": warnings,
+        }
+    selected_worker_model = worker_selection.option.model
     command = [
         status.executable or "seawork", "loop", "run", worker_prompt,
         "--verify", verifier_prompt,
@@ -440,6 +958,8 @@ def execute_loop(
         "provider": "seawork",
         "worker_model": selected_worker_model,
         "verifier_model": verifier_model or "configured default",
+        "selection_status": worker_selection.status,
+        "selection_reason": worker_selection.reason,
         "cwd": str(cwd.resolve()),
         "dry_run": dry_run,
         "command": [
@@ -480,7 +1000,7 @@ def main() -> int:
     execute_parser.add_argument("--provider", choices=("auto",) + EXECUTABLE_PROVIDERS, default="auto")
     execute_parser.add_argument("--model")
     execute_parser.add_argument("--cwd", default=".")
-    execute_parser.add_argument("--timeout-minutes", type=int, default=15)
+    execute_parser.add_argument("--timeout-minutes", type=int, default=DEFAULT_EXECUTION_TIMEOUT_MINUTES)
     execute_parser.add_argument("--output-schema")
     execute_parser.add_argument("--prompt")
     execute_parser.add_argument("--prompt-file")
@@ -490,8 +1010,8 @@ def main() -> int:
     loop_parser.add_argument("--worker-prompt-file")
     loop_parser.add_argument("--verify-prompt", required=True)
     loop_parser.add_argument("--cwd", default=".")
-    loop_parser.add_argument("--timeout-minutes", type=int, default=30)
-    loop_parser.add_argument("--max-iterations", type=int, default=2)
+    loop_parser.add_argument("--timeout-minutes", type=int, default=DEFAULT_LOOP_TIMEOUT_MINUTES)
+    loop_parser.add_argument("--max-iterations", type=int, default=DEFAULT_LOOP_MAX_ITERATIONS)
     loop_parser.add_argument("--model")
     loop_parser.add_argument("--verify-model")
     loop_parser.add_argument("--dry-run", action="store_true")
@@ -507,7 +1027,7 @@ def main() -> int:
             }, ensure_ascii=False, indent=2))
         else:
             for status in results:
-                print(f"{status.provider}: {status.status} — {status.detail}")
+                print(f"{status['provider']}: {status['status']} — {status['detail']}")
         return 0
 
     if args.command == "loop":

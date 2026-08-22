@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 
-from render_prd_html import group_adjacent_flowcharts, inject_defaults
+from render_prd_html import group_adjacent_flowcharts, inject_defaults, render_markdown_locally
 from validate_outputs import check_prd_flow_sections
 
 
@@ -34,6 +34,44 @@ def main() -> None:
 
     single = '<h4>用户流程图</h4><pre class="mermaid">flowchart TD\nA --> B</pre>'
     require("single_flowchart_unchanged", group_adjacent_flowcharts(single) == single)
+
+    fallback = render_markdown_locally(
+        """# 本地渲染测试
+
+## 一、文档说明
+
+| 字段 | 值 |
+| --- | --- |
+| 状态 | 可评审 |
+
+```mermaid
+flowchart TD
+  A --> B
+```
+
+![入口](./assets/入口.png)
+""",
+        "本地渲染测试",
+    )
+    require(
+        "local_renderer_preserves_prd_structure_without_pandoc",
+        '<nav id="TOC">' in fallback
+        and "<table>" in fallback
+        and '<pre class="mermaid">' in fallback
+        and '<img src="./assets/入口.png" alt="入口" />' in fallback,
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        final_fallback = inject_defaults(
+            fallback,
+            "# 本地渲染测试\n\n```mermaid\nflowchart TD\n  A --> B\n```\n",
+            Path(directory),
+        )
+    require(
+        "local_renderer_reaches_final_document_pipeline",
+        "data-pm-copilot-prd-doc=\"true\"" in final_fallback
+        and 'src="./assets/mermaid.min.js"' in final_fallback
+        and "--pm-doc-bg" in final_fallback,
+    )
 
     flow_with_table = """#### 用户流程图
 

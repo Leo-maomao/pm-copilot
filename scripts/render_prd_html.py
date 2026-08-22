@@ -1029,6 +1029,154 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     return html
 
 
+def render_inline_markdown(text: str) -> str:
+    """Render the constrained Markdown used by PM Copilot PRDs without Pandoc."""
+    escaped = html_lib.escape(text, quote=False)
+    escaped = re.sub(r"&lt;br\s*/?&gt;", "<br>", escaped, flags=re.IGNORECASE)
+    escaped = escaped.replace("&lt;small&gt;", "<small>").replace("&lt;/small&gt;", "</small>")
+    escaped = re.sub(
+        r"!\[([^]]*)\]\(([^)\s]+)(?:\s+[^)]*)?\)",
+        lambda match: f'<img src="{html_lib.escape(match.group(2), quote=True)}" alt="{html_lib.escape(match.group(1), quote=True)}" />',
+        escaped,
+    )
+    escaped = re.sub(
+        r"\[([^]]+)\]\(([^)\s]+)(?:\s+[^)]*)?\)",
+        lambda match: f'<a href="{html_lib.escape(match.group(2), quote=True)}">{match.group(1)}</a>',
+        escaped,
+    )
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    return escaped
+
+
+def is_table_separator(line: str) -> bool:
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+
+
+def table_row(line: str, cell_tag: str) -> str:
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    return "<tr>" + "".join(f"<{cell_tag}>{render_inline_markdown(cell)}</{cell_tag}>" for cell in cells) + "</tr>"
+
+
+def render_markdown_locally(markdown: str, title: str) -> str:
+    """Small dependency-free renderer for PM Copilot's document-shaped Markdown."""
+    lines = markdown.splitlines()
+    blocks: list[str] = []
+    toc: list[tuple[int, str, str]] = []
+    paragraph: list[str] = []
+    list_items: list[str] = []
+    list_tag = "ul"
+    index = 0
+
+    def flush_paragraph() -> None:
+        nonlocal paragraph
+        if paragraph:
+            blocks.append(f"<p>{render_inline_markdown('<br>'.join(paragraph))}</p>")
+            paragraph = []
+
+    def flush_list() -> None:
+        nonlocal list_items
+        if list_items:
+            blocks.append(f"<{list_tag}>" + "".join(list_items) + f"</{list_tag}>")
+            list_items = []
+
+    while index < len(lines):
+        line = lines[index]
+        fence = re.match(r"^```([^`]*)$", line.strip())
+        if fence:
+            flush_paragraph()
+            flush_list()
+            language = fence.group(1).strip().lower()
+            index += 1
+            code_lines: list[str] = []
+            while index < len(lines) and not lines[index].strip().startswith("```"):
+                code_lines.append(lines[index])
+                index += 1
+            class_name = ' class="mermaid"' if language == "mermaid" else ""
+            blocks.append(f"<pre{class_name}><code>{html_lib.escape(chr(10).join(code_lines))}</code></pre>")
+            index += 1
+            continue
+
+        heading = re.match(r"^(#{1,6})\s+(.+?)\s*#*\s*$", line)
+        if heading:
+            flush_paragraph()
+            flush_list()
+            level = len(heading.group(1))
+            text = heading.group(2)
+            anchor = f"heading-{len(toc) + 1}"
+            blocks.append(f"<h{level} id=\"{anchor}\">{render_inline_markdown(text)}</h{level}>")
+            if 2 <= level <= 4:
+                toc.append((level, anchor, re.sub(r"<[^>]+>", "", render_inline_markdown(text))))
+            index += 1
+            continue
+
+        if line.strip().startswith("|") and index + 1 < len(lines) and is_table_separator(lines[index + 1]):
+            flush_paragraph()
+            flush_list()
+            rows = ["<thead>", table_row(line, "th"), "</thead><tbody>"]
+            index += 2
+            while index < len(lines) and lines[index].strip().startswith("|"):
+                rows.append(table_row(lines[index], "td"))
+                index += 1
+            blocks.append("<table>" + "".join(rows) + "</tbody></table>")
+            continue
+
+        item = re.match(r"^\s*([-*+]|\d+[.)])\s+(.+)$", line)
+        if item:
+            flush_paragraph()
+            next_tag = "ol" if re.match(r"\d", item.group(1)) else "ul"
+            if list_items and next_tag != list_tag:
+                flush_list()
+            list_tag = next_tag
+            list_items.append(f"<li>{render_inline_markdown(item.group(2))}</li>")
+            index += 1
+            continue
+
+        if not line.strip():
+            flush_paragraph()
+            flush_list()
+            index += 1
+            continue
+        paragraph.append(line.strip())
+        index += 1
+
+    flush_paragraph()
+    flush_list()
+    toc_html = "".join(
+        f'<li class="toc-level-{level}"><a href="#{anchor}">{label}</a></li>'
+        for level, anchor, label in toc
+    )
+    return (
+        "<!doctype html><html><head><meta charset=\"utf-8\">"
+        f"<title>{html_lib.escape(title)}</title></head><body>"
+        f"<nav id=\"TOC\"><ul>{toc_html}</ul></nav><main>{''.join(blocks)}</main></body></html>"
+    )
+
+
+def resolve_pandoc() -> str | None:
+    local_pandoc = Path.home() / ".local" / "bin" / "pandoc"
+    pandoc = shutil.which("pandoc") or (str(local_pandoc) if local_pandoc.is_file() else None)
+    if pandoc:
+        return pandoc
+    setup_script = ROOT / "scripts" / "setup_prd_renderer.py"
+    if not setup_script.is_file():
+        return None
+    result = subprocess.run(
+        [sys.executable, str(setup_script), "--install"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.stdout.strip():
+        print(result.stdout.strip(), file=sys.stderr)
+    if result.stderr.strip():
+        print(result.stderr.strip(), file=sys.stderr)
+    if result.returncode != 0:
+        return None
+    return shutil.which("pandoc") or (str(local_pandoc) if local_pandoc.is_file() else None)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_folder", type=Path, help="Output run folder containing prd.md")
@@ -1040,32 +1188,30 @@ def main() -> None:
     html_path = run_folder / "prd.html"
     if not prd_path.is_file():
         fail(f"Missing prd.md: {prd_path}")
-    pandoc = shutil.which("pandoc")
-    if not pandoc:
-        fail("pandoc is required to render prd.html")
-
     markdown = prd_path.read_text(encoding="utf-8")
     title = args.title.strip() or first_markdown_h1(markdown)
-
-    command = [
-        pandoc,
-        str(prd_path),
-        "--standalone",
-        "--to",
-        "html5",
-        "--toc",
-        "--toc-depth=4",
-        "--metadata",
-        f"pagetitle={title}",
-        "-o",
-        str(html_path),
-    ]
-    result = subprocess.run(command, cwd=run_folder, text=True, capture_output=True, check=False)
-    if result.returncode != 0:
-        sys.stderr.write(result.stderr)
-        fail("pandoc failed")
-
-    html = html_path.read_text(encoding="utf-8")
+    pandoc = resolve_pandoc()
+    if pandoc:
+        command = [
+            pandoc,
+            str(prd_path),
+            "--standalone",
+            "--to",
+            "html5",
+            "--toc",
+            "--toc-depth=4",
+            "--metadata",
+            f"pagetitle={title}",
+            "-o",
+            str(html_path),
+        ]
+        result = subprocess.run(command, cwd=run_folder, text=True, capture_output=True, check=False)
+        if result.returncode != 0:
+            sys.stderr.write(result.stderr)
+            fail("pandoc failed")
+        html = html_path.read_text(encoding="utf-8")
+    else:
+        html = render_markdown_locally(markdown, title)
     html_path.write_text(inject_defaults(html, markdown, run_folder), encoding="utf-8")
     print(html_path)
 

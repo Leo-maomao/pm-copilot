@@ -113,6 +113,7 @@ REQUIRED_FILES = [
     "scripts/plan_agent_delegation.py",
     "scripts/run_agent_delegation.py",
     "scripts/upgrade_local_outputs.py",
+    "scripts/prd_manager.py",
     "scripts/sync_embedded_copies.py",
     "scripts/validate_runtime_routing.py",
     "scripts/evaluate_agent_loop.py",
@@ -612,7 +613,7 @@ REQUIRED_TEXT_TOKENS = {
         "PRD status, engineering handoff status, and launch status",
         "Reference or regulated content records source status",
         "Review findings include artifact, evidence, owner",
-        "Validation results are concrete and consistent",
+        "Validation results are concrete in the run log",
     ],
     "agents/agent-operating-model.md": [
         "Observe -> Frame -> Decide -> Act -> Verify -> Learn",

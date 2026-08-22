@@ -24,6 +24,24 @@ context/decision-log.example.yaml
 
 Copy them to `.local.yaml` files when you want PM Copilot to remember stable product facts, your working preferences, and durable decisions across runs. `.local.yaml` files are ignored by Git.
 
+## Model Capability Catalog
+
+Runtime model routing uses models declared by the active provider or by the
+user. To provide capabilities explicitly, set `PM_COPILOT_MODEL_CATALOG` to a
+JSON object such as:
+
+```json
+{"models":[
+  {"model":"my-fast-model","provider":"codex","capabilities":["standard"]},
+  {"model":"my-judge-model","provider":"codex","capabilities":["judgment"],"quality_rank":2}
+]}
+```
+
+`PM_COPILOT_MODELS` is a simpler comma-separated fallback for standard models.
+If no judgment-capable model exists, the run records an explicit degraded
+selection. If no model is declared or configured, the run stops as
+`no_available_model`; it never invents a vendor-specific model name.
+
 ## Required Fields
 
 | Field | Required | Purpose |

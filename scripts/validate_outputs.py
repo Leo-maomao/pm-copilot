@@ -15,6 +15,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote
 
+from implemented_feature_contract import VISUAL_CAPTURE_METHODS, VISUAL_CAPTURE_STATUSES
+from prd_visual_contract import PLACEHOLDER_DECLARATION_RE, is_controlled_placeholder_value
+
 
 FORBIDDEN_DEFAULT_FILES = {
     "task-brief.md",
@@ -72,7 +75,7 @@ PRD_TECHNICAL_CONTENT_RE = re.compile(
     r"\b(?:React|Vue(?:\.js)?|TypeScript|JavaScript|Node\.?js|Python|SQL|GraphQL|REST(?:ful)?|HTTP|API)\b|"
     r"\b(?:src|components|services|api)/[\w./-]+|"
     r"\b[\w-]+\.(?:tsx?|jsx?|py|java|go|sql|json|ya?ml|css|scss)\b|"
-    r"(?:前端|后端|客户端|服务端)?(?:组件|接口|服务|数据库|数据表|类|函数|命令|脚本)\s*(?:为|是|调用|使用|实现|路径|地址|名称|[:：]))",
+    r"(?:前端|后端|客户端|服务端)?(?:组件|接口|服务|数据库|数据表|类|函数|命令|脚本)\s*(?:为|是(?!否)|调用|使用|实现|路径|地址|名称|[:：]))",
     re.IGNORECASE,
 )
 PRD_NON_PRODUCTION_SCAFFOLDING_RE = re.compile(
@@ -224,11 +227,7 @@ PRODUCTION_DECISIONS = {
     "ready_to_launch",
 }
 RUN_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-\d{4}-\d{2}-\d{2}(?:-\d+)?")
-IMAGE_PLACEHOLDER_RE = re.compile(
-    r"(?P<block>^>\s*占位图[:：]\s*(?P<block_name>[^`<>\n]+?\.(?:png|jpg|jpeg|webp))\s*$)"
-    r"|(?P<inline>占位图[:：]\s*(?P<inline_name>[^`<>\n|]+?\.(?:png|jpg|jpeg|webp)))",
-    re.IGNORECASE | re.MULTILINE,
-)
+IMAGE_PLACEHOLDER_RE = PLACEHOLDER_DECLARATION_RE
 FORBIDDEN_PLACEHOLDER_LABEL_RE = re.compile(r"待补真实图|待补图|真实图待补")
 DETACHED_IMAGE_SECTION_RE = re.compile(
     r"^#{2,4}\s*(?:\d+(?:\.\d+)?\s*[.、]?\s*)?"
@@ -1257,10 +1256,14 @@ def check_folder(path: Path, require_run_log: bool = True) -> None:
         "prd.md",
         "prd.html",
         "run-log.yaml",
+        "discussion.md",
+        "confirmed-requirements.md",
+        "scenario-run.json",
         "tracking-plan.csv",
         "user-flow.mmd",
         "dev-tasks.yaml",
         "launch-decision.yaml",
+        "absorption-report.md",
     } | set(PROTOTYPE_FILE_NAMES) | set(CATALOG_FILE_NAMES)
     unexpected = sorted(item.name for item in path.iterdir() if item.is_file() and item.name not in allowed)
     if unexpected:
@@ -1687,13 +1690,13 @@ def check_implemented_feature_prd_trace(path: Path) -> None:
     recovery = extract_yaml_block(section, "visual_capture_recovery")
     attempts = yaml_list_item_blocks(recovery)
     methods = {yaml_field_value(attempt, "method") for attempt in attempts}
-    required_methods = {"playwright", "chrome_devtools", "computer_use"}
+    required_methods = set(VISUAL_CAPTURE_METHODS)
     if not required_methods.issubset(methods):
         fail("implemented_feature_prd required_placeholder requires Playwright, Chrome DevTools, and Computer Use recovery records")
     for attempt in attempts:
         if yaml_field_value(attempt, "method") not in required_methods:
             continue
-        if yaml_field_value(attempt, "status") not in {"passed", "failed", "blocked", "skipped", "not_available"}:
+        if yaml_field_value(attempt, "status") not in VISUAL_CAPTURE_STATUSES:
             fail("implemented_feature_prd visual capture recovery has an invalid attempt status")
         if not yaml_field_value(attempt, "evidence"):
             fail("implemented_feature_prd visual capture recovery requires attempt evidence")
@@ -1739,7 +1742,10 @@ def check_visual_validation_trace(path: Path) -> None:
 def check_prototype_agent_and_style_trace(path: Path, language: str | None = None) -> None:
     prototypes = generated_prototypes(path)
     run_log = read(path / "run-log.yaml")
-    if not prototypes and "ui_delivery_trace:" not in run_log:
+    has_active_ui_trace = "ui_delivery_trace:" in run_log and not re.search(
+        r"^\s*mode:\s*not_applicable\s*$", run_log, re.MULTILINE
+    )
+    if not prototypes and not has_active_ui_trace:
         return
 
     document_prototypes = [
@@ -1755,7 +1761,11 @@ def check_prototype_agent_and_style_trace(path: Path, language: str | None = Non
     for prototype in document_prototypes:
         check_document_prototype_html(prototype)
 
-    if not ui_prototypes and "ui_delivery_trace:" not in run_log:
+    # A document prototype is a browser-readable reference artifact, not a
+    # product UI delivery. Its document-native attention points and tables are
+    # validated above; do not require UI Delivery Agent/style evidence merely
+    # because the trace template contains a not-applicable ui_delivery_trace.
+    if not ui_prototypes:
         return
 
     if "UI Delivery Agent" not in run_log:
@@ -2171,8 +2181,18 @@ def check_chinese_prd(path: Path) -> None:
         None,
     )
     requirement_list_body = str(requirement_list.get("body", "")) if requirement_list else ""
-    for marker in ("详情编号", "目标用户", "用户场景", "用户问题", "优先级"):
-        if marker not in requirement_list_body:
+    requirement_markers = {
+        "详情编号": ("详情编号",),
+        "目标用户": ("目标用户",),
+        # Existing PRD contract/template permits a qualifier after these
+        # semantic headers (for example 用户场景 / 触发 and 用户问题或价值).
+        # Validate the semantic field, not an accidental exact spelling.
+        "用户场景": ("用户场景", "场景", "scenario"),
+        "用户问题": ("用户问题", "用户问题或价值", "问题/价值", "用户价值/预期结果", "用户价值"),
+        "优先级": ("优先级",),
+    }
+    for marker, aliases in requirement_markers.items():
+        if not any(alias in requirement_list_body for alias in aliases):
             fail(f"Chinese PRD requirement list missing user-driven field: {marker}")
     requirement_id_values = re.findall(r"^\|\s*(\d+\.\d+)\s*\|", requirement_list_body, re.MULTILINE)
     requirement_ids = set(requirement_id_values)
@@ -2406,6 +2426,9 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
     if not prd_path.is_file():
         return
 
+    if not (path / "prd.html").is_file():
+        fail("PRD delivery requires prd.html; run scripts/render_prd_html.py")
+
     text = read(prd_path)
     run_log = read(path / "run-log.yaml") if (path / "run-log.yaml").is_file() else ""
     implemented_feature_active = implemented_feature_prd_is_active(run_log)
@@ -2420,10 +2443,13 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         fail("prd.md must not use informal missing-image labels")
 
     for match in IMAGE_PLACEHOLDER_RE.finditer(text):
-        name = (match.group("block_name") or match.group("inline_name") or "").strip()
+        name = match.group("name").strip()
         check_image_asset_name(name, "PRD missing-image placeholder")
     placeholder_sanitized = IMAGE_PLACEHOLDER_RE.sub("", text)
-    if "占位图" in placeholder_sanitized:
+    # Narrative coverage statements can correctly refer to a placeholder
+    # without declaring an image. Only a remaining labeled declaration is an
+    # invalid placeholder reference.
+    if re.search(r"占位图\s*[:：]", placeholder_sanitized):
         fail("PRD screenshot placeholders must use the controlled 占位图：功能-状态.png format")
 
     if markdown_needs_assets_folder(text) and not (path / "assets").is_dir():
@@ -2490,7 +2516,7 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         check_implemented_feature_images_in_requirement_details(text)
         check_field_value_requirement_images_stay_in_table(text)
         check_requirement_figure_rows(text)
-    check_requirement_detail_structure(text)
+    check_requirement_detail_structure(text, language)
     check_prd_flow_sections(text)
     check_prd_copy_i18n_sections(text, language)
 
@@ -2616,10 +2642,6 @@ def check_field_value_requirement_images_stay_in_table(text: str) -> None:
 
 
 def check_requirement_figure_rows(text: str) -> None:
-    controlled_placeholder = re.compile(
-        r"占位图：[^|<\n.\-]+-[^|<\n.\-]+\.(?:png|jpg|jpeg|webp)(?:\s*<br\s*/?>\s*占位图：[^|<\n.\-]+-[^|<\n.\-]+\.(?:png|jpg|jpeg|webp))*$",
-        re.IGNORECASE,
-    )
     for table in markdown_table_blocks(text):
         if not table_is_field_value_requirement_detail(table):
             continue
@@ -2641,7 +2663,7 @@ def check_requirement_figure_rows(text: str) -> None:
             cells = [cell.strip() for cell in rows[index].strip().strip("|").split("|")]
             if len(cells) < 2 or "占位图" not in cells[1]:
                 continue
-            if not controlled_placeholder.fullmatch(cells[1]):
+            if not is_controlled_placeholder_value(cells[1]):
                 fail("Requirement detail 图示 placeholder must use only controlled 功能-状态 image names")
 
 
@@ -2674,7 +2696,11 @@ def section_by_heading(text: str, heading_re: re.Pattern[str]) -> dict[str, obje
     return matches[0] if matches else None
 
 
-def check_requirement_detail_structure(text: str) -> None:
+def check_requirement_detail_structure(text: str, language: str | None = None) -> None:
+    # This checker enforces canonical Chinese field labels. English PRDs have
+    # their own localized labels and must not be judged against that contract.
+    if language != "zh":
+        return
     detail_section = section_by_heading(text, REQUIREMENT_DETAIL_HEADING_RE)
     if not detail_section:
         return

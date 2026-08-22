@@ -540,7 +540,15 @@ def inspect_page_dom(page) -> dict[str, object]:
                     result.annotation_layout_issues.push("reviewer state switcher should be collapsed by default");
                 }
             }
-            const markers = Array.from(document.querySelectorAll(".annotation-marker")).filter(styleVisible);
+            const markers = Array.from(document.querySelectorAll(".annotation-marker"))
+                .filter(styleVisible)
+                // A prior access-state interaction can navigate to a long view.
+                // Off-screen markers are not clipped; they are simply below the fold.
+                .filter((marker) => {
+                    const rect = marker.getBoundingClientRect();
+                    return rect.right > 0 && rect.bottom > 0
+                        && rect.left < window.innerWidth && rect.top < window.innerHeight;
+                });
             for (const marker of markers) {
                 const rect = marker.getBoundingClientRect();
                 const style = window.getComputedStyle(marker);
@@ -749,11 +757,19 @@ def inspect_page_dom(page) -> dict[str, object]:
                 .filter((node) => !node.classList.contains("annotation-marker"))
                 .filter(styleVisible);
             for (const control of compactControls) {
+                if (control.classList.contains("annotation-toggle")) continue;
                 const label = textOf(control);
                 if (!label || /\\s/.test(label) || label.length > 8) continue;
                 const rect = control.getBoundingClientRect();
-                const lineHeight = parseFloat(window.getComputedStyle(control).lineHeight) || 16;
-                if (control.scrollHeight > lineHeight * 1.8 && rect.height > lineHeight * 1.8) {
+                const controlStyle = window.getComputedStyle(control);
+                const lineHeight = parseFloat(controlStyle.lineHeight) || 16;
+                // Fixed-height compact controls commonly use vertical padding.
+                // Compare content height, not the padded border box, so a
+                // one-line button is not misclassified as wrapped text.
+                const verticalPadding = (parseFloat(controlStyle.paddingTop) || 0)
+                    + (parseFloat(controlStyle.paddingBottom) || 0);
+                const contentHeight = Math.max(0, control.scrollHeight - verticalPadding);
+                if (contentHeight > lineHeight * 1.8) {
                     result.compact_control_wrap_issues.push("compact control text wraps: " + label);
                     break;
                 }

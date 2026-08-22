@@ -13,8 +13,8 @@ PM Copilot 是一个开箱即用的 AI 产品经理 Agent 系统。
 ## 它能做什么
 
 - 需求澄清：判断目标、用户、范围、平台、风险和必须先问的问题。
-- PRD 交付：生成可评审的 `prd.md`，覆盖背景、目标、调研、需求、埋点、验收、风险和就绪状态。
-- PRD HTML：用 `scripts/render_prd_html.py` 生成浏览器可读的 `prd.html`，适合外部交付和同步评审。
+- PRD 交付：生成可评审的 `prd.md` 和浏览器可读的 `prd.html`，覆盖背景、目标、调研、需求、埋点、验收、风险和就绪状态。
+- PRD HTML：用 `scripts/render_prd_html.py` 生成；优先使用 Pandoc，缺失时下载官方用户级二进制，最后才使用内置本地渲染器，适合外部交付和同步评审。
 - UI 交付：基于现有源码、截图和设计系统证据生成可审阅的标注原型、流程或规格；产物默认位于 `outputs/<run-id>/`，不修改宿主源码。
 - 埋点和指标：输出事件、属性、触发时机、隐私说明和验证方式。
 - 研发交接：按需生成 `dev-tasks.yaml`，保留依赖、验收、阻塞项和 issue-ready 切片。
@@ -209,6 +209,16 @@ python3 scripts/validate_repo.py
 `tools/tool-registry.yaml` 是工具能力源。
 工具结果应尽量符合 `artifacts/tool-result-contract.md`。
 生成 portable HTML UI 交付物时使用 `validate_prototype_visual.py`；源码驱动预览使用宿主项目预览路径，并在有 URL 或文件时使用 `validate_ui_preview.py`。
+
+## 本地 PRD 管理器
+
+当本机有多个项目的 `pm-copilot-outputs/<run-id>/prd.html` 时，可启动只读的本地 PRD 管理器：
+
+```bash
+python3 scripts/prd_manager.py
+```
+
+服务固定在 `http://localhost:57391`。它只扫描当前用户主目录中符合 `<项目>/pm-copilot-outputs/<run-id>/prd.html` 的文件，按项目聚合，并支持当前文档与全局搜索。扫描不会修改项目、PRD 或输出目录；索引缓存仅保存在 `~/.pm-copilot-prd-manager/`。端口被占用时服务会明确退出，不会自动切换地址或端口。
 
 ## 记忆
 

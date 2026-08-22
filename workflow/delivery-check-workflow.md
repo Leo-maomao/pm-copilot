@@ -5,7 +5,7 @@ This is the only delivery-check entry. It verifies that PM-facing deliverables a
 ## Inputs
 
 - `outputs/<run-id>/prd.md` when PRD is in scope
-- `outputs/<run-id>/prd.html` when browser-readable PRD delivery is requested, and always for implemented-feature PRD delivery
+- `outputs/<run-id>/prd.html` for every PRD delivery
 - `outputs/<run-id>/catalog.md` or `outputs/<run-id>/reference.md` when structured reference is the primary delivery
 - Document prototype HTML when the requested prototype is a browser-readable reference document
 - UI deliverable reference when user-facing UI is relevant: an evidence-based prototype, existing UI extract, or portable `outputs/<run-id>/prototype-<platform>.html` with observed/proposed behavior and fidelity notes
@@ -20,7 +20,7 @@ This is the only delivery-check entry. It verifies that PM-facing deliverables a
 3. Verify the final delivery contains product judgment, confidence, blockers, next actions, and memory candidates when the run produced durable learning.
 4. For implemented-feature PRD delivery, verify implementation evidence exists in the run log and that visible branch behavior is represented as confirmed requirements or recorded internal evidence gaps.
 5. For implemented-feature PRD delivery, verify output files are under `outputs/<run-id>/` or embedded `pm-copilot/outputs/<run-id>/`, follow `templates/implemented-feature-prd-template.md`, include `prd.html`, and use `scripts/render_prd_html.py`.
-6. Verify `prd.html` exists when requested or when the run is implemented-feature PRD delivery, and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
+6. Verify `prd.html` exists for every PRD delivery and renders as a normal readable PRD document, not a UI prototype or screenshot appendix.
 7. Verify `prd.html` preserves complete tables, renders Mermaid diagrams, uses local image paths, supports click-to-fullscreen for real images, and keeps images/placeholders inline at the relevant PRD position.
 8. Verify real screenshots live under `assets/`; any remaining placeholder is needed by the affected requirement and is inline as `占位图：功能-状态.png`; state screenshot names use function plus concrete state such as `文件上传-上传中.png` instead of `文件上传-状态.png`.
 9. When a requirement detail uses a field/value table, verify every real image or missing-image marker for that requirement is inside the same table row/cell, usually the `图示`/`截图` row. A blank table row plus a blockquote or image below the table is invalid.
@@ -53,7 +53,7 @@ If the answer is no, the check should fail or record a High finding even when fi
 ## Default Delivery Files
 
 - `prd.md`
-- `prd.html` when browser-readable PRD delivery is requested, and always for implemented-feature PRD delivery
+- `prd.html`
 - Structured reference or document prototype when PRD is not in scope
 - UI deliverable reference; `prototype-<platform>.html` only for portable HTML mode
 - `run-log.yaml` as internal trace only

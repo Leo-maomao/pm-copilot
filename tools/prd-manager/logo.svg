@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title">
+  <title id="title">PRD 管理器</title>
+  <rect x="3" y="6" width="20" height="22" rx="5" fill="#0f766e"/>
+  <rect x="7" y="3" width="22" height="22" rx="5" fill="#dff5ef"/>
+  <path d="M11 8.5h9.5M11 13h12M11 17.5h7.5" fill="none" stroke="#0f766e" stroke-linecap="round" stroke-width="2"/>
+  <circle cx="23.5" cy="17.5" r="3.5" fill="#f4c95d"/>
+  <path d="m22.1 17.5.95.95 1.85-2.05" fill="none" stroke="#172033" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.25"/>
+</svg>

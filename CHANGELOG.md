@@ -6,6 +6,80 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.1.0] - 2026-08-22
+
+### Added
+
+- Added provider-agnostic model capability discovery through `scripts/model_catalog.py`, with stage routing based on declared `standard` and `judgment` capabilities.
+- Added `scripts/prd_request_controller.py` as the canonical natural-language PRD entry point.
+- Added production-run gates requiring attributable provider/model Agent evidence for intake, clarification review, artifact delivery, and stage quality review.
+
+### Changed
+
+- PRD requests can no longer claim completion without explicit user confirmation, complete contracted artifacts, independent stage reviews, and passing final validation.
+- Missing or unverifiable model/Agent evidence now produces `failed` or `blocked` state instead of a direct or synthetic PRD result.
+- Sol/Terra are compatibility-only model aliases; they are not automatic model assumptions.
+- Same-requirement revisions remain in one canonical run folder; collision-suffixed copies are prohibited.
+
+### Validation
+
+- Full repository test suite: 292 tests passed.
+- Runtime routing, repository validation, Python compilation, and `git diff --check` passed.
+
+## [6.0.1] - 2026-08-22
+
+### Changed
+
+- Centralized Agent model identifiers and adaptive routing policy constants in `scripts/runtime_policy.py` without changing provider discovery, CLI behavior, or fallback semantics.
+- Centralized evaluation portfolio plan hashing in `scripts/portfolio_contract.py` so runner, auditor, and canonicalizer share one deterministic implementation.
+- Added regression coverage for runtime-policy ownership and portfolio plan-digest stability.
+
+### Validation
+
+- Full repository validation, Python compilation, and 281 tests passed.
+
+## [6.0.0] - 2026-08-22
+
+### Changed
+
+- Established a single canonical PRD directory per requirement. Only `--new-requirement` may create a new PRD; revisions must use `--run-folder <folder> --revise` in place.
+- Made PRD visual rules, section numbering, required `prd.html`, and evidence boundaries canonical and validator-enforced across the workflow, templates, controllers, and evaluation paths.
+- Unified evaluation and interactive execution around one canonical result and explicit blocker handling, preventing conflicting duplicate result branches.
+
+### Breaking Changes
+
+- Same-name PRD collisions no longer create `-2`, `-3`, or version-suffixed copies. Existing callers must identify the canonical run folder for revisions.
+
+### Validation
+
+- Added regression coverage for canonical PRD management, visual-contract consistency, evaluation portfolio reuse, and single-result execution.
+- Full repository validation is recorded for this release.
+
+## [5.0.3] - 2026-08-17
+
+### Fixed
+
+- Reordered Pandoc recovery so the official user-level binary is downloaded before Homebrew is considered. Homebrew remains an optional fallback, and the bundled renderer remains the final delivery fallback.
+
+## [5.0.2] - 2026-08-17
+
+### Fixed
+
+- When Pandoc is missing, PRD rendering now attempts installation through an existing Homebrew installation before falling back to the bundled local renderer. It never installs a package manager or blocks PRD delivery when setup is unavailable.
+
+## [5.0.1] - 2026-08-17
+
+### Fixed
+
+- Made `prd.html` a required deliverable for every PRD mode and made output validation reject a missing browser-readable PRD.
+- Added in-place PRD revision semantics: an identified PRD is updated with its sibling HTML unless the user explicitly asks for a new version, while the execution run remains immutable and records revision evidence.
+- Removed the hard runtime dependency on Pandoc. The PRD renderer now falls back to a bundled local Markdown renderer for headings, tables, lists, links, images, code blocks, and Mermaid when Pandoc is unavailable.
+- Added an explicit preflight capability record for the PRD HTML renderer.
+
+### Validation
+
+- Added local-renderer regression coverage and updated PRD-contract fixtures for the required HTML artifact.
+
 ## [5.0.0] - 2026-08-06
 
 ### Fixed

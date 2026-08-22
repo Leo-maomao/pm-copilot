@@ -18,7 +18,7 @@ Do not write PRD outputs to the host root, `docs/`, `zdocs/`, temporary folders,
 - `assets/` when local screenshots or scripts are needed
 - `run-log.yaml` when a persistent trace is useful
 
-Implemented-feature PRD delivery is the exception to the general PRD rule where HTML is generated only when requested. Always render `prd.html` for this workflow.
+Every PRD delivery requires `prd.html`; implemented-feature PRD delivery follows the same rule.
 
 Avoid split Markdown files by default. The PRD should contain confirmed user problems, product behavior, applicable tracking, flows, and product-facing UI requirements. Keep assumptions, questions, risks, acceptance criteria, validation, engineering, data, API, and other technical notes in the run trace or a separately requested handoff.
 
@@ -57,7 +57,7 @@ Screenshot acquisition order:
 4. If login is required, ask the user to sign in in the selected browser or provide a task-scoped token through an approved secure channel, then resume the same automated flow.
 5. Validate that the image is readable at normal document width. Retry with a larger viewport, higher device scale, focused target, or full-window context when an element screenshot is too small or blurred.
 6. Use manual capture only when automated capture cannot reproduce the required state.
-7. If automated setup, authentication recovery, and manual capture are all unavailable or unsuccessful, omit the figure unless it is required to review the behavior. For a required figure, use the controlled inline placeholder `占位图：图片名称` and record every failed path in `run-log.yaml`.
+7. If automated setup, authentication recovery, and manual capture are all unavailable or unsuccessful, omit the figure unless it is required to review the behavior. For a required figure, use the controlled inline placeholder format defined by `artifacts/prd-contract.md` and record every failed path in `run-log.yaml`.
 
 Never copy credentials into generated artifacts, source-controlled environment files, logs, user-visible commands, or image metadata. Record only the authentication limitation and recovery status.
 

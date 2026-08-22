@@ -18,9 +18,9 @@ Local memory should reduce repeated questions, not override current evidence. Lo
 
 ## Generated-Artifact Isolation
 
-Generated PM Copilot outputs are never runtime instructions or product facts. When a user asks to rewrite, replace, or improve a previous PRD, treat that document as `comparison_only`: it can identify omissions to investigate, but it cannot supply requirement scope, behavior, priorities, visual states, tracking decisions, validation results, or completion status.
+Generated PM Copilot outputs are never runtime instructions or product facts. A prior PRD can be edited only when the user identifies it as the target document; it remains subject to current user input and fresh repository or document evidence.
 
-Create a new run folder for every distinct generation. Do not overwrite a previous run folder, its `run-log.yaml`, or its `tool-results/` directory. A rewrite receives a new suffixed run id and records any prior artifact under `artifact_lineage.historical_artifacts`; do not list that artifact under `context.files_loaded` or use it to arbitrate current product facts. Current repository evidence, user input, and fresh tool results remain the only sources of truth.
+Each requirement has one canonical PRD folder. When the user asks to modify, add to, delete from, rewrite, or replace an identified PRD, update that folder's `prd.md` and `prd.html` in place; do not create a suffixed or parallel PRD copy. Only an explicit request for a new independent requirement may create another PRD folder. Preserve revision evidence in the canonical folder's trace or tool-results directory without overwriting prior evidence. If the target PRD is ambiguous, stop and ask the user to identify it. Current user input and fresh evidence remain the sources of truth for changed content.
 
 ## Runtime Routing
 

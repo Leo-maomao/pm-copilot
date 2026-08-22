@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "purpose": "Controlled confirmation baseline for reproducible PM Copilot evaluation runs.",
+  "authorization": "The evaluation maintainer requests complete draft delivery for every scenario. These confirmations permit draft-with-risk artifacts only; they never grant product, legal, security, privacy, medical, payment, or launch approval.",
+  "defaults": {
+    "autonomy_level": "draft-with-risk",
+    "prd_status": "Draft with assumption risk",
+    "engineering_handoff_status": "blocked pending owner confirmation",
+    "launch_status": "blocked pending required approvals",
+    "discussion_requirement": "Record the question, fixture confirmation, rejected alternatives, and remaining approval owner before delivery.",
+    "safety_requirement": "Do not provide medical, legal, financial, or eligibility advice. Define product boundaries, escalation, source ownership, review, consent, audit, and launch blockers instead."
+  }
+}
