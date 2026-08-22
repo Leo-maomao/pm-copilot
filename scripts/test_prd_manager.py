@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import threading
 import unittest
@@ -118,8 +119,13 @@ class PrdManagerTest(unittest.TestCase):
             try:
                 connection = HTTPConnection("localhost", server.server_port)
                 connection.request("POST", f"/api/document/{document.id}/reveal")
-                self.assertEqual(connection.getresponse().status, 204)
-                open_directory.assert_called_once_with(["open", str(document_path.parent.resolve())], check=True)
+                response = connection.getresponse()
+                if sys.platform == "darwin":
+                    self.assertEqual(response.status, 204)
+                    open_directory.assert_called_once_with(["open", str(document_path.parent.resolve())], check=True)
+                else:
+                    self.assertEqual(response.status, 501)
+                    open_directory.assert_not_called()
                 connection.request("POST", "/api/document/not-indexed/reveal")
                 self.assertEqual(connection.getresponse().status, 404)
                 connection.request("GET", f"/api/document/{document.id}/reveal")

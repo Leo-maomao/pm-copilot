@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.2] - 2026-08-22
+
+### Fixed
+
+- Made the PRD manager reveal endpoint regression test platform-aware: macOS verifies Finder opening, while Linux CI verifies the documented `501` response.
+
 ## [6.2.1] - 2026-08-22
 
 ### Changed
