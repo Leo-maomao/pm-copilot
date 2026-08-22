@@ -158,7 +158,10 @@ DOCUMENT_CSS = """
       padding: 3px 6px;
       border-radius: 6px;
       color: #374151;
+      font-weight: 600;
       text-decoration: none;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     #TOC a:hover {
       background: #eef2ff;
@@ -167,7 +170,6 @@ DOCUMENT_CSS = """
     #TOC a.is-active {
       background: var(--pm-doc-accent-soft);
       color: #1d4ed8;
-      font-weight: 700;
     }
     #TOC a code {
       padding: 0;
@@ -447,16 +449,36 @@ TOC_TRACKING_SCRIPT = """
     active.scrollIntoView({ block: 'nearest' });
   };
 
+  // Use one geometric rule for every scroll position. Observer entry order is
+  // not stable when adjacent headings cross the observation band together.
+  let activeId = '';
+  let updateScheduled = false;
+  const updateActive = () => {
+    updateScheduled = false;
+    const threshold = 32;
+    let current = sections[0];
+    sections.forEach((section) => {
+      if (section.getBoundingClientRect().top <= threshold) current = section;
+    });
+    if (current?.id && current.id !== activeId) {
+      activeId = current.id;
+      setActive(activeId);
+    }
+  };
+  const scheduleUpdate = () => {
+    if (updateScheduled) return;
+    updateScheduled = true;
+    window.requestAnimationFrame(updateActive);
+  };
+
   const observer = new IntersectionObserver((entries) => {
-    const visible = entries
-      .filter((entry) => entry.isIntersecting)
-      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-    if (visible[0]?.target?.id) setActive(visible[0].target.id);
+    if (entries.length) scheduleUpdate();
   }, { rootMargin: '-20% 0px -70% 0px', threshold: [0, 1] });
 
   sections.forEach((section) => observer.observe(section));
-  const current = sections.find((section) => section.getBoundingClientRect().top >= 0) || sections[0];
-  if (current?.id) setActive(current.id);
+  window.addEventListener('scroll', scheduleUpdate, { passive: true });
+  window.addEventListener('resize', scheduleUpdate, { passive: true });
+  updateActive();
 })();
 </script>
 """

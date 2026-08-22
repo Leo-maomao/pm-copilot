@@ -1,0 +1,21 @@
+id: prd-html-toc-tracking-2026-08-22
+date: 2026-08-22
+goal: "Keep PRD HTML TOC selection aligned with the section currently being read."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.8"
+  target_version: "6.2.9"
+generalized_failure: "IntersectionObserver entry order could select the next heading while the current section was still being read; active link font changes could also reflow long TOC labels."
+fix_surface:
+  - scripts/render_prd_html.py
+  - scripts/test_prd_toc_tracking.py
+  - VERSION
+  - CHANGELOG.md
+validation:
+  - "test_prd_toc_tracking.py"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.8 -> 6.2.9"
+remote_push_status: "pending until main is pushed"
+stop_condition: "TOC titles remain complete and may wrap naturally without active-state reflow; the active link is the last heading above the fixed reading threshold."
