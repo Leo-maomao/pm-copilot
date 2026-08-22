@@ -6,6 +6,18 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.4] - 2026-08-22
+
+### Fixed
+
+- Added the missing `PyYAML` development dependency so GitHub Actions discovers and runs the complete evaluation regression suite.
+
+## [6.2.3] - 2026-08-22
+
+### Fixed
+
+- Made direct Codex runtime tests inject a deterministic synthetic model so CI does not depend on a developer's local Codex configuration.
+
 ## [6.2.2] - 2026-08-22
 
 ### Fixed

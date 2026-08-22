@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import agent_runtime
+from model_catalog import ModelOption
 from runtime_policy import DEFAULT_SEAWORK_MODEL
 
 
@@ -373,6 +374,9 @@ class AgentRuntimeTest(unittest.TestCase):
             target = Path(temporary) / "artifact.md"
             with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
                 "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch(
+                "agent_runtime.discover_model_catalog",
+                return_value=([ModelOption("test-model", "codex", frozenset({"standard"}), "test")], []),
             ), patch("agent_runtime._run", side_effect=timeout):
                 result = agent_runtime.execute(
                     "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1, None, None, False,
@@ -388,6 +392,9 @@ class AgentRuntimeTest(unittest.TestCase):
             target = Path(temporary) / "artifact.md"
             with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
                 "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch(
+                "agent_runtime.discover_model_catalog",
+                return_value=([ModelOption("test-model", "codex", frozenset({"standard"}), "test")], []),
             ), patch("agent_runtime._run", side_effect=lambda *args, **kwargs: (target.write_text("complete handoff", encoding="utf-8"), (_ for _ in ()).throw(timeout))[1]):
                 result = agent_runtime.execute(
                     "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1, None, None, False,
@@ -404,6 +411,9 @@ class AgentRuntimeTest(unittest.TestCase):
             target.write_text("scaffold", encoding="utf-8")
             with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
                 "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch(
+                "agent_runtime.discover_model_catalog",
+                return_value=([ModelOption("test-model", "codex", frozenset({"standard"}), "test")], []),
             ), patch("agent_runtime._run", side_effect=timeout):
                 result = agent_runtime.execute(
                     "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1, None, None, False,
@@ -420,6 +430,9 @@ class AgentRuntimeTest(unittest.TestCase):
                 return subprocess.CompletedProcess([], 0, "", "")
             with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
                 "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch(
+                "agent_runtime.discover_model_catalog",
+                return_value=([ModelOption("test-model", "codex", frozenset({"standard"}), "test")], []),
             ), patch("agent_runtime._run", side_effect=captures_watchdog):
                 agent_runtime.execute(
                     "codex", f"Write exactly one complete artifact at {target}.", Path(temporary), 1,
