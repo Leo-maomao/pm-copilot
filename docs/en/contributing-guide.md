@@ -6,6 +6,12 @@
 
 PM Copilot welcomes improvements to agents, skills, templates, guardrails, and documentation.
 
+## Branch Policy
+
+The project keeps one long-lived branch: `main`. Develop, validate, commit, and
+push updates on `main`; do not keep long-lived feature branches. Delete any
+temporary branch immediately after its changes are integrated.
+
 ## Contribution Principles
 
 - Keep the project platform-neutral.

@@ -12,6 +12,12 @@ Example:
 2.0.0
 ```
 
+## Development Branch
+
+The repository has one canonical development branch: `main`. Updates are
+developed, validated, committed, and pushed on `main`; temporary branches are
+not part of the project workflow and must be removed after integration.
+
 ## Version Meaning
 
 | Segment | Meaning |

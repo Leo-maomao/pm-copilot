@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.1] - 2026-08-22
+
+### Changed
+
+- Documented the single-`main` branch development policy in Chinese and English contribution guides.
+- Updated the published security support table to reflect the current 6.x runtime line.
+
 ## [6.2.0] - 2026-08-22
 
 ### Added

@@ -10,8 +10,8 @@ PM Copilot is local-first and does not include a cloud service, database, accoun
 
 | Version | Supported |
 |---|---|
-| 4.x | Supported |
-| 1.x | Best-effort |
+| 6.x | Supported |
+| 5.x | Best-effort |
 
 ## Reporting Issues
 
