@@ -1,0 +1,20 @@
+id: prd-manager-live-sidebar-layout-2026-08-22
+date: 2026-08-22
+goal: "Make the live PRD Manager sidebar match the stable full-title TOC layout."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.10"
+  target_version: "6.2.11"
+generalized_failure: "The localhost PRD Manager still used a 252px sidebar and ellipsized single-line document buttons, so active long titles reflowed or appeared unchanged after the document renderer was fixed."
+fix_surface:
+  - tools/prd-manager/app.css
+  - VERSION
+  - CHANGELOG.md
+validation:
+  - "localhost:57391/app.css exposes sidebar-width 300px and full-title wrapping rules"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.10 -> 6.2.11"
+remote_push_status: "pending until main is pushed"
+stop_condition: "The running PRD Manager serves the updated sidebar CSS and long titles keep the same wrapping across default, hover, and active states."

@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.11] - 2026-08-22
+
+### Fixed
+
+- Applied the full-title, state-stable TOC layout to the live PRD Manager sidebar and expanded its desktop width to match the available title length.
+
 ## [6.2.10] - 2026-08-22
 
 ### Fixed
