@@ -6,6 +6,24 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.15] - 2026-08-22
+
+### Fixed
+
+- Preserved the original PRD template TOC width while giving links a stable content box wide enough for long labels in every visual state.
+
+## [6.2.14] - 2026-08-22
+
+### Fixed
+
+- Stabilized PRD template TOC link geometry across default, hover, and active backgrounds by fixing link width and reserving the scrollbar gutter.
+
+## [6.2.13] - 2026-08-22
+
+### Fixed
+
+- Restored the PRD template TOC to its original 252px width and normal font weight while keeping active-state positioning deterministic and full titles untruncated.
+
 ## [6.2.12] - 2026-08-22
 
 ### Fixed

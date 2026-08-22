@@ -46,7 +46,7 @@ DOCUMENT_CSS = """
       max-width: none;
       min-height: 100vh;
       margin: 0;
-      padding: 40px 56px 80px 356px;
+      padding: 40px 56px 80px 308px;
       background: var(--pm-doc-bg);
       color: var(--pm-doc-text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -117,7 +117,7 @@ DOCUMENT_CSS = """
       top: 0;
       bottom: 0;
       left: 0;
-      width: 300px;
+      width: 252px;
       box-sizing: border-box;
       padding: 24px 18px 32px;
       overflow: auto;
@@ -154,17 +154,19 @@ DOCUMENT_CSS = """
     }
     #TOC a {
       display: block;
+      box-sizing: border-box;
       margin-left: -6px;
       padding: 3px 6px;
+      width: calc(100% + 12px);
       border-radius: 6px;
       color: #374151;
-      font-weight: 600 !important;
+      font-weight: 400;
       text-decoration: none;
       overflow-wrap: anywhere;
       word-break: break-word;
     }
     #TOC a * {
-      font-weight: 600 !important;
+      font-weight: 400;
     }
     #TOC a:hover {
       background: #eef2ff;

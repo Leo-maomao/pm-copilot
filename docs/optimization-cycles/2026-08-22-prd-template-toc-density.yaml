@@ -1,0 +1,22 @@
+id: prd-template-toc-density-2026-08-22
+date: 2026-08-22
+goal: "Fix PRD template TOC behavior without changing its established density."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.12"
+  target_version: "6.2.13"
+generalized_failure: "The prior TOC fix increased the template sidebar width and font weight, changing the established visual density and making all entries appear bold."
+fix_surface:
+  - scripts/render_prd_html.py
+  - scripts/test_prd_toc_tracking.py
+  - VERSION
+  - CHANGELOG.md
+validation:
+  - "template TOC remains 252px wide with normal 400 weight"
+  - "17 local canonical PRDs regenerated from prd.md"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.12 -> 6.2.13"
+remote_push_status: "pending until main is pushed"
+stop_condition: "Template TOC density matches the original layout; active selection changes only color/background, never width or font weight."
