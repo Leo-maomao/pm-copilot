@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.6] - 2026-08-22
+
+### Changed
+
+- Replaced the README demos with evidence-backed enterprise access governance and subscription release-gate scenarios.
+- Refreshed both demo HTML snapshots and PNG previews to match the current runtime contract.
+
 ## [6.2.5] - 2026-08-22
 
 ### Changed

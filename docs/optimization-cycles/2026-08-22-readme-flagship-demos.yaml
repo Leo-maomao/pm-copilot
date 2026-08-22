@@ -1,0 +1,27 @@
+id: readme-flagship-demos-2026-08-22
+date: 2026-08-22
+goal: "Make the two public README demos demonstrate the current evidence-backed PM Copilot workflow at a credible enterprise level."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.5"
+  target_version: "6.2.6"
+generalized_failure: "README demos used ordinary permission and renewal examples and their visuals still labeled the obsolete PM Copilot 4.0 release."
+fix_surface:
+  - README.md
+  - README.en.md
+  - docs/assets/readme-demo-team-permissions.html
+  - docs/assets/readme-demo-team-permissions.png
+  - docs/assets/readme-demo-membership-renewal.html
+  - docs/assets/readme-demo-membership-renewal.png
+validation:
+  - "Playwright render at 1200x720"
+  - "Visual inspection of both PNG previews"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.5 -> 6.2.6"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  global_runtime: "~/.agents/pm-copilot"
+  global_skill: "~/.agents/skills/pm-copilot"
+stop_condition: "Both demos use current release labels, credible high-complexity scenarios, and matching HTML/PNG evidence without layout overflow."

@@ -71,49 +71,47 @@ Paste either request into an agent-enabled workspace.
 PM Copilot should classify context mode, task mode, and autonomy level first; ask blocking questions when required; then generate artifacts and validation evidence when enough information is available.
 For high-risk or evidence-poor requests, stopping at `stop_needs_input` or a human checkpoint is a valid result; the Agent should not continue merely to produce more files.
 
-### Demo 1: Team Permission Management In An Existing Project
+### Demo 1: Enterprise Access Governance And Audit Closure
 
-This verifies that PM Copilot reads code and product evidence before forming the permission model, interaction boundaries, and engineering handoff judgment instead of applying a generic permissions template.
+This repo-backed flagship case tests whether PM Copilot can turn tenant boundaries, SSO/SCIM, RBAC, high-risk access, and audit requirements into an executable product decision instead of applying a generic permissions template.
 
-![Team permission management demo screenshot](docs/assets/readme-demo-team-permissions.png)
+![Enterprise access governance demo screenshot](docs/assets/readme-demo-team-permissions.png)
 
 ```text
-We need team permission management in the admin console.
+We need to upgrade the admin console into an enterprise access-governance control plane covering tenant boundaries, SSO/SCIM provisioning, RBAC, just-in-time approval for high-risk access, and tamper-evident audit.
 
-Please inspect the existing routes, role model, member management page, permission checks, analytics conventions, and component patterns first.
-Do a small amount of external comparable-product research, but do not treat repository files as competitor research.
-If important information is missing, ask me before generation.
-If enough information is available, create the PRD, a Web UI deliverable, and issue-ready engineering tasks.
+Inspect existing routes, tenant isolation, role model, SSO/SCIM integration, permission checks, audit events, and component patterns first.
+Separate observed source facts, user decisions, and Agent inference; do not treat repository files as competitor research.
+Ask before generation when security or compliance facts are missing. When enough evidence is available, create the PRD, Web UI deliverable, engineering tasks, and launch gates.
 ```
 
 A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `prd.md` | The first screen states the recommended permission approach, confidence, MVP/non-goals, key security blocker, and next checkpoint; details cover invites, role changes, permission blocking, audit, and recovery states |
+| `prd.md` | The first screen states the governance approach, confidence, tenant boundaries, MVP/non-goals, key security blocker, and next checkpoint; details cover SSO/SCIM, JIT approval, permission blocking, audit, and recovery states |
 | Web UI deliverable | Evidence-based annotated prototype or UI specification with observed/proposed behavior and fidelity notes |
 | `dev-tasks.yaml` | Issue-ready engineering tasks, dependencies, acceptance criteria, test notes, likely host files, and blocking confirmations |
 | `run-log.yaml` | Agent selection of `mixed_delivery` and autonomy level, source evidence, product decisions, Loop progress and stop reason, next actions, accountable critical path, and memory candidates |
 
-### Demo 2: Membership Auto-Renewal Optimization Without A Code Repository
+### Demo 2: Subscription Experience Governance And Release Gates
 
-This verifies that PM Copilot does not mechanically produce every artifact for a payment and consumer-rights scenario: it stops with `stop_needs_input` when evidence is insufficient and proceeds only when the gates are satisfied.
+This document-backed high-risk case tests whether PM Copilot can establish auditable decisions across growth, payment, consumer rights, and regional compliance. It stops with `stop_needs_input` when evidence is insufficient instead of hiding unknowns behind polished documents.
 
-![Membership auto-renewal demo screenshot](docs/assets/readme-demo-membership-renewal.png)
+![Subscription experience governance demo screenshot](docs/assets/readme-demo-membership-renewal.png)
 
 ```text
-We want to improve the H5 membership auto-renewal experience. Users say renewal reminders are unclear, the cancellation entry is hard to find, and support tickets are increasing.
+We need to govern a cross-region subscription experience: make billing, reminders, cancellation, and refund boundaries clear while reducing complaints without sacrificing reasonable retention.
 
-The business goal is to reduce renewal-related complaints without materially hurting membership retention.
-If you need current billing rules, reminder timing, cancellation paths, support scripts, legal requirements, or metric definitions, ask me first.
-When enough information is available, create the PRD, H5 UI deliverable, tracking plan, and launch decision recommendation.
+Ask first for current billing and retry rules, applicable regions, cancellation effective time, refund policy, support scripts, legal disclosures, and metric baselines.
+When enough information is available, create the canonical PRD, H5 UI deliverable, tracking plan, and launch decision recommendation; stop whenever a missing fact could change the solution.
 ```
 
 A useful run should produce:
 
 | Artifact | What to look for |
 |---|---|
-| `prd.md` | The first screen states the recommendation, confidence, blockers, and separate PRD/engineering/launch statuses; details cover reminders, cancellation, payment, support, legal risks, and non-goals |
+| `prd.md` | The first screen states the recommendation, confidence, blockers, and separate PRD/engineering/launch statuses; details cover regional differences, reminders, cancellation, payment, support, legal risks, and non-goals |
 | `prototype-h5.html` | `portable_html` UI deliverable for no-code/document-backed starts, covering membership center entry, renewal reminder, auto-renewal management, cancellation confirmation, result receipt, logged-out/no-membership/API-failure states |
 | Tracking table inside the PRD | Events such as `renewal_notice_view`, `renewal_manage_open`, `renewal_cancel_submit`, `renewal_cancel_result`, plus privacy notes |
 | `launch-decision.yaml` | Engineering-ready scope, launch blockers, legal/payment/support owners, rollback recommendation, and missing human approvals |
