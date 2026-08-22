@@ -5,7 +5,7 @@
 <a id="english"></a>
 
 PM Copilot is an out-of-the-box AI Product Manager Agent System.
-Current version: `6.2.4`.
+Current version: `6.2.7`.
 It turns ambiguous goals, existing code, product documents, screenshots, research signals, or already implemented features into deliverables a PM can use to drive review, design alignment, engineering handoff, tracking, launch decisions, and learning.
 
 It is not a template library or a fixed-step pipeline.
@@ -75,7 +75,7 @@ For high-risk or evidence-poor requests, stopping at `stop_needs_input` or a hum
 
 This repo-backed flagship case tests whether PM Copilot can turn tenant boundaries, SSO/SCIM, RBAC, high-risk access, and audit requirements into an executable product decision instead of applying a generic permissions template.
 
-![Enterprise access governance demo screenshot](docs/assets/readme-demo-team-permissions.png)
+![Enterprise access governance demo screenshot](docs/assets/readme-demo-access-governance.png)
 
 ```text
 We need to upgrade the admin console into an enterprise access-governance control plane covering tenant boundaries, SSO/SCIM provisioning, RBAC, just-in-time approval for high-risk access, and tamper-evident audit.
@@ -98,7 +98,7 @@ A useful run should produce:
 
 This document-backed high-risk case tests whether PM Copilot can establish auditable decisions across growth, payment, consumer rights, and regional compliance. It stops with `stop_needs_input` when evidence is insufficient instead of hiding unknowns behind polished documents.
 
-![Subscription experience governance demo screenshot](docs/assets/readme-demo-membership-renewal.png)
+![Subscription experience governance demo screenshot](docs/assets/readme-demo-subscription-governance.png)
 
 ```text
 We need to govern a cross-region subscription experience: make billing, reminders, cancellation, and refund boundaries clear while reducing complaints without sacrificing reasonable retention.

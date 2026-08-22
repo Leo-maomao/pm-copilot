@@ -1,0 +1,29 @@
+id: readme-demo-cache-bust-2026-08-22
+date: 2026-08-22
+goal: "Ensure GitHub loads the refreshed flagship demo previews instead of cached same-name images."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.6"
+  target_version: "6.2.7"
+generalized_failure: "README demo PNGs were replaced under the same URLs and their visible release labels lagged behind the repository version, so GitHub could continue showing stale previews."
+fix_surface:
+  - README.md
+  - README.en.md
+  - docs/assets/readme-demo-access-governance.html
+  - docs/assets/readme-demo-access-governance.png
+  - docs/assets/readme-demo-subscription-governance.html
+  - docs/assets/readme-demo-subscription-governance.png
+  - VERSION
+  - plugins/pm-copilot/.codex-plugin/plugin.json
+validation:
+  - "new asset URLs referenced by both README languages"
+  - "Playwright render at 1200x720"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.6 -> 6.2.7"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  global_runtime: "~/.agents/pm-copilot"
+  global_skill: "~/.agents/skills/pm-copilot"
+stop_condition: "No README or demo asset references the old filenames or stale release labels."

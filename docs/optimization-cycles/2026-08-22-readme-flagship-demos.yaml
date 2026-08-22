@@ -9,10 +9,10 @@ generalized_failure: "README demos used ordinary permission and renewal examples
 fix_surface:
   - README.md
   - README.en.md
-  - docs/assets/readme-demo-team-permissions.html
-  - docs/assets/readme-demo-team-permissions.png
-  - docs/assets/readme-demo-membership-renewal.html
-  - docs/assets/readme-demo-membership-renewal.png
+  - docs/assets/readme-demo-access-governance.html
+  - docs/assets/readme-demo-access-governance.png
+  - docs/assets/readme-demo-subscription-governance.html
+  - docs/assets/readme-demo-subscription-governance.png
 validation:
   - "Playwright render at 1200x720"
   - "Visual inspection of both PNG previews"

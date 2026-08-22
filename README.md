@@ -5,7 +5,7 @@
 <a id="zh-cn"></a>
 
 PM Copilot 是一个开箱即用的 AI 产品经理 Agent 系统。
-当前版本：`6.2.4`。
+当前版本：`6.2.7`。
 它把模糊目标、现有代码、产品文档、截图、调研线索或已实现功能，转化为 PM 能直接推进评审、设计、研发、埋点、上线和复盘的交付物。
 
 它不是模板库，也不是固定步骤流水线。
@@ -70,7 +70,7 @@ PM Copilot 会先识别上下文模式、任务模式和自治等级；缺关键
 
 这是一个 repo-backed 的旗舰案例：验证 PM Copilot 能否把多租户边界、SSO/SCIM、RBAC、高危权限和审计要求收敛成可执行的产品决策，而不是套一份权限管理模板。
 
-![企业访问治理 Demo 截图](docs/assets/readme-demo-team-permissions.png)
+![企业访问治理 Demo 截图](docs/assets/readme-demo-access-governance.png)
 
 ```text
 我们要把后台管理端升级为企业级访问治理控制台，覆盖多租户边界、SSO/SCIM 入组、RBAC、高危权限 JIT 审批和不可篡改审计。
@@ -93,7 +93,7 @@ PM Copilot 会先识别上下文模式、任务模式和自治等级；缺关键
 
 这是一个 document-backed 的高风险案例：验证 PM Copilot 能否在增长、支付、消费者权益和地区合规之间建立可审计决策；证据不足就停在 `stop_needs_input`，不会用漂亮文档掩盖未知项。
 
-![订阅体验治理 Demo 截图](docs/assets/readme-demo-membership-renewal.png)
+![订阅体验治理 Demo 截图](docs/assets/readme-demo-subscription-governance.png)
 
 ```text
 我们要治理跨地区订阅体验：让用户清楚知道扣费、提醒、取消和退款边界，同时降低投诉，不牺牲合理留存。

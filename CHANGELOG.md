@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.7] - 2026-08-22
+
+### Fixed
+
+- Renamed README demo assets to cache-busting names and synchronized README, HTML previews, and release metadata to `6.2.7`.
+
 ## [6.2.6] - 2026-08-22
 
 ### Changed
