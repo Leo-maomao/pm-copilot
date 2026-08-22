@@ -5,6 +5,7 @@
 <a id="english"></a>
 
 PM Copilot is local-first and does not include a cloud service, database, account system, or telemetry.
+The current supported runtime is `6.2.4`; users control provider configuration, and credentials must not be written to artifacts.
 
 ## Supported Versions
 
@@ -38,3 +39,5 @@ Agents using this repository should:
 - Avoid collecting unnecessary personal properties in tracking plans.
 - Mark assumptions and tool limitations clearly.
 - Never fabricate source-backed claims.
+- Never present Agent calls, model responses, or validation results as evidence when they did not occur.
+- Review and redact `outputs/` or `pm-copilot-outputs/` before committing because they may contain business context.

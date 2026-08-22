@@ -5,6 +5,7 @@
 <a id="english"></a>
 
 PM Copilot is an out-of-the-box AI Product Manager Agent System.
+Current version: `6.2.4`.
 It turns ambiguous goals, existing code, product documents, screenshots, research signals, or already implemented features into deliverables a PM can use to drive review, design alignment, engineering handoff, tracking, launch decisions, and learning.
 
 It is not a template library or a fixed-step pipeline.
@@ -16,8 +17,9 @@ The execution graph provides safety boundaries; the user-facing experience is an
 
 - Clarifies requirements: goal, user, scope, platform, risk, and must-answer questions.
 - Delivers PRDs: `prd.md` with background, goals, research, requirements, tracking, acceptance, risks, and readiness.
+- Routes every PRD request through the production controller: discuss and clarify first, wait for explicit confirmation, and revise one canonical requirement folder in place without `-2` or `-3` copies.
 - Renders PRD HTML: `scripts/render_prd_html.py` creates browser-readable `prd.html` for external review.
-- Delivers UI: reviewable annotated prototypes, flows, and specifications grounded in existing source, screenshots, and design-system evidence without modifying host source code.
+- Delivers UI: reviewable annotated prototypes, flows, and specifications grounded in existing source, screenshots, and design-system evidence without modifying host source code. Embedded projects use `outputs/<run-id>/`; globally installed runtimes use `pm-copilot-outputs/<run-id>/` at the project root.
 - Routes each task through `indexes/runtime-routing.yaml` so only the smallest relevant active workflow, contract, skill, and memory records are loaded.
 - Designs metrics and tracking: events, properties, triggers, privacy notes, and validation.
 - Supports engineering handoff: optional `dev-tasks.yaml` with dependencies, acceptance, blockers, and issue-ready slices.
@@ -56,7 +58,7 @@ For an already implemented feature:
 ```text
 The feature is already implemented on the current branch. Please inspect the branch diff, relevant code, screenshots/assets, and validation evidence, then reconstruct the implementation into a complete PRD Markdown file and generate a deliverable prd.html.
 
-When a figure is needed, capture a real accessible surface: use Playwright for previews first, then an authenticated browser or system UI for a state that automation cannot reach. Save the real image under `assets/` and reference it inline. Omit the figure row when the image would not improve reviewability. When it is necessary but every trusted capture path fails, use the controlled inline fallback `占位图：<name>.png<br><small>位置：...；用途：...</small>` and record the failed paths.
+When a figure is needed, capture a real accessible surface: use Playwright for previews first, then an authenticated browser or system UI for a state that automation cannot reach. Save the real image under `assets/` and reference it inline. Omit the figure row when the image would not improve reviewability. When it is necessary but every trusted capture path fails, use the controlled fallback `占位图：功能-状态.png` and record the manual replacement location in the run log.
 ```
 
 Name screenshots by content.

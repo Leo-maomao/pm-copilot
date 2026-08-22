@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.5] - 2026-08-22
+
+### Changed
+
+- Updated the public README, conduct, contribution, and security documents to match the current production-controller, canonical-output, model-evidence, and output-safety rules.
+- Synchronized the published plugin manifest version with the repository release.
+
 ## [6.2.4] - 2026-08-22
 
 ### Fixed

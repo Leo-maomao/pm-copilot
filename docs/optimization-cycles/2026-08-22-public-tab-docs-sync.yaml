@@ -1,0 +1,28 @@
+id: public-tab-docs-sync-2026-08-22
+date: 2026-08-22
+goal: "Keep GitHub's README, conduct, contribution, and security pages aligned with the current PM Copilot runtime contract."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.4"
+  target_version: "6.2.5"
+generalized_failure: "Public tab documents and the plugin manifest lagged behind production-controller, canonical-output, model-evidence, and output-safety changes."
+fix_surface:
+  - README.md
+  - README.en.md
+  - CODE_OF_CONDUCT.md
+  - docs/en/code-of-conduct.md
+  - CONTRIBUTING.md
+  - docs/en/contributing-guide.md
+  - SECURITY.md
+  - docs/en/security-policy.md
+  - plugins/pm-copilot/.codex-plugin/plugin.json
+validation:
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.4 -> 6.2.5"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  global_runtime: "~/.agents/pm-copilot"
+  global_skill: "~/.agents/skills/pm-copilot"
+stop_condition: "All user-facing GitHub tab documents describe the current release and no longer contradict active runtime contracts."

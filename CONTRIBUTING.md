@@ -5,6 +5,7 @@
 <a id="zh-cn"></a>
 
 PM Copilot 欢迎对 Agent、技能、模板、护栏和文档进行改进。
+当前文档对应版本：`6.2.4`。
 
 ## 分支策略
 
@@ -71,6 +72,8 @@ PM Copilot 欢迎对 Agent、技能、模板、护栏和文档进行改进。
 
 ```bash
 python3 scripts/validate_repo.py
+python3 scripts/validate_runtime_routing.py
+python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
 安装了 `tidy` 时，可选运行 HTML 检查：

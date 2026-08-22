@@ -5,6 +5,7 @@
 <a id="english"></a>
 
 PM Copilot welcomes improvements to agents, skills, templates, guardrails, and documentation.
+This guide describes version `6.2.4`.
 
 ## Branch Policy
 
@@ -71,6 +72,8 @@ Run:
 
 ```bash
 python3 scripts/validate_repo.py
+python3 scripts/validate_runtime_routing.py
+python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
 Optional HTML checks when `tidy` is installed:
