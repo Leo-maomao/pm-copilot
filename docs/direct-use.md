@@ -11,6 +11,12 @@ controller before writing artifacts:
 python3 scripts/prd_request_controller.py --request "<request>"
 ```
 
+For a change to an existing PRD, identify its canonical run folder and use:
+
+```bash
+python3 scripts/prd_request_controller.py --run-folder "<canonical folder>" --revise --request "<revision>"
+```
+
 The controller is the only canonical PRD entry. A direct model-written
 `prd.md` without its run state, Agent/model evidence, stage reviews, and final
 validation is not a valid delivery.

@@ -11,7 +11,7 @@ Create `outputs/<run-id>/prd.md` as a product document that starts from users an
 
 ## Workflow
 
-1. Load `artifacts/prd-contract.md` and use its canonical ordered structure. Keep the core requirement-list and requirement-detail section numbers stable; renumber only trailing optional sections as specified by the contract.
+1. Load `artifacts/prd-contract.md` and use its canonical ordered structure. On an in-place revision, remove deleted requirements and renumber the remaining detail IDs consecutively; update every matching reference in the PRD and handoff evidence.
 2. Identify target users, their scenario, problem, desired outcome, and the source or confirmation status before drafting requirements.
 3. Apply the evidence boundary and requirement-granularity rules in `artifacts/prd-contract.md` before creating `需求清单`. Create `需求清单` before `需求详情`; use the matching detail number, such as `5.1`, as the sole identifier for every coherent user need, and do not use a visual state or coverage decision as a requirement boundary.
 4. Expand each requirement only in its matching `需求详情` subsection. Do not create requirements that cannot be traced back to a user problem or scenario.

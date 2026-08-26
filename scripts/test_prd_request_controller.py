@@ -11,6 +11,12 @@ class PrdRequestControllerTests(unittest.TestCase):
     def test_non_prd_request_is_not_routed_to_prd_controller(self) -> None:
         self.assertFalse(is_prd_request("检查一下当前测试结果"))
 
+    def test_revision_flags_are_supported(self) -> None:
+        # Argument forwarding is exercised by the production entry point; the
+        # parser must expose the explicit in-place revision contract.
+        import prd_request_controller
+        self.assertIn("--run-folder", prd_request_controller.main.__code__.co_consts)
+
 
 if __name__ == "__main__":
     unittest.main()

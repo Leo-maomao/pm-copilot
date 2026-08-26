@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.16] - 2026-08-26
+
+### Fixed
+
+- Route explicit PRD revisions to the identified canonical folder and compact remaining requirement-detail IDs after deletion.
+
 ## [6.2.15] - 2026-08-22
 
 ### Fixed

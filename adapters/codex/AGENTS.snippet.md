@@ -18,6 +18,13 @@ writing any PRD artifact:
 python3 pm-copilot/scripts/prd_request_controller.py --request "<user request>"
 ```
 
+When the user names an existing PRD directory and asks to modify it, pass the
+canonical folder explicitly and use in-place revision mode:
+
+```bash
+python3 pm-copilot/scripts/prd_request_controller.py --run-folder "<canonical folder>" --revise --request "<revision>"
+```
+
 Do not draft a PRD directly in the chat. A PRD may be handed off only when the
 controller state records the clarification gate, explicit confirmation,
 provider/model Agent calls, stage reviews, and final validation in one
