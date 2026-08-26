@@ -1,0 +1,35 @@
+cycle_id: "2026-08-26-unified-runtime-plugin-version"
+date: "2026-08-26"
+version_change: "6.2.16 -> 6.2.17"
+source_run: "User observed Codex showing plugin version 4.9.13 after the shared runtime had been updated to 6.2.16."
+generalized_failure: >-
+  The global runtime version, source plugin manifest version, and Codex cache
+  version had independent update paths, allowing stale UI metadata and adapter
+  behavior after a runtime release.
+fix_surface:
+  - "VERSION, plugins/pm-copilot/.codex-plugin/plugin.json, and release checklist"
+  - "scripts/sync_plugin_version.py and scripts/install_pm_copilot.py"
+  - "repository validation and regression tests"
+canonical_changes:
+  - rule: "VERSION is the sole base version for the PM Copilot runtime and Codex plugin manifest."
+    owner: "VERSION and scripts/sync_plugin_version.py"
+  - rule: "A global runtime update refreshes the local personal-marketplace plugin when Codex CLI is available."
+    owner: "scripts/install_pm_copilot.py"
+validation:
+  commands:
+    - "PYTHONPATH=scripts python3 -m unittest scripts/test_sync_plugin_version.py scripts/test_install_pm_copilot.py scripts/test_ensure_runtime_current.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  result: "passed"
+embedded_copy_sync:
+  checked:
+    - "~/.agents/pm-copilot"
+    - "Codex personal marketplace pm-copilot plugin"
+  updated:
+    - "~/.agents/pm-copilot"
+    - "Codex personal marketplace pm-copilot plugin"
+  pending: []
+remote_push:
+  required: false
+  status: "not_requested"
+  target: ""

@@ -1197,6 +1197,15 @@ def check_version() -> None:
         )
 
 
+def check_plugin_version() -> None:
+    from sync_plugin_version import manifest_version, repository_version, versions_are_aligned
+    if not versions_are_aligned():
+        fail(
+            "Codex plugin version must share VERSION as its base: "
+            f"{manifest_version()} != {repository_version()}"
+        )
+
+
 def check_self_iteration_release_guard() -> None:
     changed_paths = git_changed_paths()
     if not changed_paths:
@@ -1516,6 +1525,7 @@ def main() -> None:
     if runtime_routing.returncode:
         fail(runtime_routing.stderr.strip() or runtime_routing.stdout.strip())
     check_version()
+    check_plugin_version()
     check_self_iteration_release_guard()
     check_skills()
     check_tracking_plans()

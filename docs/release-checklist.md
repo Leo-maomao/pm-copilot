@@ -5,6 +5,7 @@ Use this checklist before tagging or publishing a release.
 ## Required Metadata
 
 - `VERSION` is updated.
+- Run `python3 scripts/sync_plugin_version.py` after changing `VERSION`; the Codex plugin manifest must use the same base version plus one `+codex.<cachebuster>` suffix.
 - `CHANGELOG.md` includes the new version.
 - PM Copilot self-iterations that touch core workflow, contract, template, skill, guardrail, agent, or validator files include a `docs/optimization-cycles/` note with version change, validation, remote-push status, and embedded-copy sync targets.
 - README links still work.
