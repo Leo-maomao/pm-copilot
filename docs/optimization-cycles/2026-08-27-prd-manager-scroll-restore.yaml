@@ -1,0 +1,16 @@
+id: prd-manager-scroll-restore-2026-08-27
+date: 2026-08-27
+goal: "Reliably restore the selected PRD reading position after a manager refresh."
+source_run: "User confirmed the first scroll-preservation patch still returned to the top after refresh."
+generalized_failure: "Iframe scroll restoration ran before the refreshed PRD layout had settled and did not consistently read the actual scrolling element."
+fix_surface:
+  - tools/prd-manager/app.js
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+version_change: "6.2.29 -> 6.2.30"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves repository static files."
+stop_condition: "Refresh reads the iframe scrolling root and restores position immediately, on the next frame, and after delayed layout without affecting document switching or search jumps."
