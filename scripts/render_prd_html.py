@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import html as html_lib
+import json
 import re
 import shutil
 import subprocess
@@ -997,6 +998,173 @@ def group_requirement_figure_pairs(html: str, run_folder: Path | None = None) ->
     return TABLE_CELL_RE.sub(replace_cell, html)
 
 
+def media_mapping_for_run(run_folder: Path) -> dict[str, list[dict[str, object]]]:
+    """Load reviewed screenshot-to-logic mappings stored beside a PRD."""
+
+    path = run_folder / "prd-media-mapping.json"
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"Invalid PRD media mapping {path}: {error}")
+    if payload.get("schema_version") != 1 or not isinstance(payload.get("requirements"), list):
+        fail(f"Invalid PRD media mapping schema: {path}")
+    result: dict[str, list[dict[str, object]]] = {}
+    for requirement in payload["requirements"]:
+        if not isinstance(requirement, dict):
+            fail(f"Invalid PRD media mapping entry: {path}")
+        title = requirement.get("title")
+        blocks = requirement.get("blocks")
+        if not isinstance(title, str) or not isinstance(blocks, list):
+            fail(f"Invalid PRD media mapping requirement: {path}")
+        result[title] = blocks
+    return result
+
+
+def split_detail_logic_groups(body: str) -> dict[str, str]:
+    """Index top-level Chinese requirement groups without changing their wording."""
+
+    chunks = re.split(r"(?=(?:<strong>)?[一二三四五六七八九十]+、)", body)
+    groups: dict[str, str] = {}
+    for chunk in chunks:
+        text = visible_text_from_html(chunk)
+        matched = re.match(r"([一二三四五六七八九十]+、[^0-9<]+)", text)
+        if matched:
+            groups[matched.group(1).strip()] = chunk.strip()
+    return groups
+
+
+def image_asset_name(image: str) -> str:
+    matched = IMAGE_SRC_RE.search(image)
+    return Path(unquote(html_lib.unescape(matched.group("src")))).name if matched else ""
+
+
+def renumber_detail_copy(copy: str) -> str:
+    """Restart section and rule numbering inside each independently rendered block."""
+
+    headings = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+    segments = re.split(r"(?=(?:<strong>)?[一二三四五六七八九十]+、)", copy)
+    rendered = []
+    section_index = 0
+    for segment in segments:
+        if not re.search(r"(?:<strong>)?[一二三四五六七八九十]+、", segment):
+            rendered.append(segment)
+            continue
+        heading = headings[min(section_index, len(headings) - 1)]
+        section_index += 1
+        segment = re.sub(
+            r"(?:<strong>)?[一二三四五六七八九十]+、",
+            f"{heading}、",
+            segment,
+            count=1,
+        )
+        rule_index = 0
+
+        def replace_rule(_: re.Match[str]) -> str:
+            nonlocal rule_index
+            rule_index += 1
+            return f"{rule_index}."
+
+        rendered.append(re.sub(r"(?<![0-9])\d+\.\s*", replace_rule, segment))
+    return "".join(rendered)
+
+
+def merge_reviewed_requirement_detail_media(html: str, run_folder: Path) -> str:
+    """Render only reviewed semantic screenshot/logic pairings for a PRD."""
+
+    mappings = media_mapping_for_run(run_folder)
+    if not mappings:
+        return html
+
+    def replace_requirement(match: re.Match[str]) -> str:
+        title = visible_text_from_html(match.group("title"))
+        blocks = mappings.get(title)
+        if not blocks:
+            return match.group(0)
+        table = match.group("table")
+        rows = list(TABLE_ROW_RE.finditer(table))
+        detail_rows: list[re.Match[str]] = []
+        figure_row: re.Match[str] | None = None
+        for row in rows:
+            cells = list(TABLE_CELL_RE.finditer(row.group(0)))
+            if len(cells) != 2:
+                continue
+            label = visible_text_from_html(cells[0].group("body"))
+            if label == "需求详情":
+                detail_rows.append(row)
+            elif REQUIREMENT_IMAGE_LABEL_RE.fullmatch(label):
+                figure_row = row
+        if not detail_rows or figure_row is None:
+            fail(f"Reviewed media mapping cannot find detail and figure rows for {title}")
+        detail_body = "<br>".join(
+            list(TABLE_CELL_RE.finditer(row.group(0)))[1].group("body") for row in detail_rows
+        )
+        logic_groups = split_detail_logic_groups(detail_body)
+        figure_cells = list(TABLE_CELL_RE.finditer(figure_row.group(0)))
+        figures = {
+            image_asset_name(figure.group("image")): figure.group("image")
+            for figure in DETAIL_MEDIA_PAIR_RE.finditer(figure_cells[1].group("body"))
+        }
+        rendered_blocks = []
+        consumed_groups: set[str] = set()
+        for block in blocks:
+            if not isinstance(block, dict):
+                fail(f"Invalid media block for {title}")
+            groups = block.get("logic_groups", [])
+            if not isinstance(groups, list) or not all(isinstance(group, str) for group in groups):
+                fail(f"Invalid logic groups for {title}")
+            copy = "<br>".join(logic_groups[group] for group in groups if group in logic_groups)
+            missing = [group for group in groups if group not in logic_groups]
+            if missing:
+                fail(f"Reviewed media mapping missing logic groups for {title}: {', '.join(missing)}")
+            consumed_groups.update(groups)
+            copy = renumber_detail_copy(copy)
+            asset = block.get("asset")
+            if asset is None:
+                if copy:
+                    rendered_blocks.append(f'<div class="prd-detail-text-block">{copy}</div>')
+                continue
+            if not isinstance(asset, str) or asset not in figures:
+                fail(f"Reviewed media mapping missing asset for {title}: {asset}")
+            rendered_blocks.append(
+                '<div class="prd-detail-media-block">'
+                f'<div class="prd-detail-media">{figures[asset]}</div>'
+                f'<div class="prd-detail-copy">{copy}</div>'
+                "</div>"
+            )
+        unmatched = [group for group in logic_groups if group not in consumed_groups]
+        if unmatched:
+            rendered_blocks.append(
+                '<div class="prd-detail-text-block">'
+                + "<br>".join(logic_groups[group] for group in unmatched)
+                + "</div>"
+            )
+        first_row = detail_rows[0]
+        cells = list(TABLE_CELL_RE.finditer(first_row.group(0)))
+        detail_cell = cells[1]
+        replacement = (
+            f'<td{detail_cell.group("attrs")}><div class="prd-detail-media-stack">'
+            + "".join(rendered_blocks)
+            + "</div></td>"
+        )
+        table = table.replace(
+            first_row.group(0),
+            first_row.group(0)[:detail_cell.start()] + replacement + first_row.group(0)[detail_cell.end():],
+            1,
+        )
+        for row in detail_rows[1:]:
+            table = table.replace(row.group(0), "", 1)
+        table = table.replace(figure_row.group(0), "", 1)
+        return match.group("heading") + table
+
+    pattern = re.compile(
+        r"(?P<heading><h3\b[^>]*>(?P<title>.*?)</h3>)\s*(?P<table><table\b[^>]*>.*?</table>)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    return pattern.sub(replace_requirement, html)
+
+
 def merge_legacy_requirement_detail_media(html: str) -> str:
     """Move legacy standalone figure rows into the single detail cell as fixed-column blocks."""
 
@@ -1042,7 +1210,7 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
         # figure row. Split the rule groups across figures so no image inherits
         # the entire requirement narrative. The explicit media-block syntax in
         # new PRDs remains the preferred source format.
-        groups = re.split(r"(?=<strong>[^<]+</strong>)", detail_body)
+        groups = re.split(r"(?=(?:<strong>)?[一二三四五六七八九十]+、)", detail_body)
         groups = [group.strip() for group in groups if visible_text_from_html(group).strip()]
         if len(groups) > 1 and len(figures) > 1:
             buckets = ["" for _ in figures]
@@ -1193,6 +1361,7 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     html = normalize_heading_anchors(html)
     html = remove_h1_from_toc(html)
     html = merge_requirement_image_table_cells(html)
+    html = merge_reviewed_requirement_detail_media(html, run_folder)
     html = merge_legacy_requirement_detail_media(html)
     html = group_requirement_figure_pairs(html, run_folder)
     html = replace_document_styles(html)

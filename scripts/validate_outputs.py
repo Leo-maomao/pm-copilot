@@ -1255,6 +1255,7 @@ def check_folder(path: Path, require_run_log: bool = True) -> None:
     allowed = {
         "prd.md",
         "prd.html",
+        "prd-media-mapping.json",
         "run-log.yaml",
         "discussion.md",
         "confirmed-requirements.md",

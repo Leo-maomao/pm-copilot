@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -65,6 +66,41 @@ class PRDFigureLayoutTest(unittest.TestCase):
         self.assertIn('aria-modal="true"', rendered)
         self.assertIn("image.setAttribute('tabindex', '0')", rendered)
         self.assertIn("event.key === 'Enter'", rendered)
+
+    def test_reviewed_mapping_pairs_each_image_with_only_its_logic(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            folder = Path(temporary_directory)
+            (folder / "prd-media-mapping.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "requirements": [
+                            {
+                                "title": "5.1 截图状态",
+                                "blocks": [
+                                    {"asset": "entry.png", "logic_groups": ["一、入口"]},
+                                    {"asset": "loading.png", "logic_groups": ["二、加载"]},
+                                    {"asset": None, "logic_groups": ["三、失败恢复"]},
+                                ],
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            html = (
+                '<html><head></head><body><h3>5.1 截图状态</h3><table>'
+                '<tr><td>需求详情</td><td>一、入口<br>1. 展示入口。<br>二、加载<br>1. 显示加载。<br>三、失败恢复<br>1. 保留内容。</td></tr>'
+                '<tr><td>图示</td><td><img src="./assets/entry.png" /><small>入口</small><br><img src="./assets/loading.png" /><small>加载</small></td></tr>'
+                '</table></body></html>'
+            )
+            rendered = inject_defaults(html, "# 截图状态 - 2026-08-27", folder)
+        self.assertEqual(rendered.count('class="prd-detail-media-block"'), 2)
+        self.assertEqual(rendered.count('class="prd-detail-text-block"'), 1)
+        self.assertIn('entry.png" /></div><div class="prd-detail-copy">一、入口', rendered)
+        self.assertIn('loading.png" /></div><div class="prd-detail-copy">一、加载', rendered)
+        self.assertNotIn('entry.png" /></div><div class="prd-detail-copy">一、入口<br>1. 展示入口。<br>二、加载', rendered)
 
 
 if __name__ == "__main__":
