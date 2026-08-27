@@ -1035,6 +1035,16 @@ def split_detail_logic_groups(body: str) -> dict[str, str]:
     return groups
 
 
+def join_detail_logic_groups(groups: list[str]) -> str:
+    """Join source groups with exactly one visual line break between them."""
+
+    normalized = [
+        re.sub(r"(?:\s*<br\s*/?>\s*)+$", "", group, flags=re.IGNORECASE).strip()
+        for group in groups
+    ]
+    return "<br>".join(group for group in normalized if group)
+
+
 def image_asset_name(image: str) -> str:
     matched = IMAGE_SRC_RE.search(image)
     return Path(unquote(html_lib.unescape(matched.group("src")))).name if matched else ""
@@ -1097,8 +1107,8 @@ def merge_reviewed_requirement_detail_media(html: str, run_folder: Path) -> str:
                 figure_row = row
         if not detail_rows or figure_row is None:
             fail(f"Reviewed media mapping cannot find detail and figure rows for {title}")
-        detail_body = "<br>".join(
-            list(TABLE_CELL_RE.finditer(row.group(0)))[1].group("body") for row in detail_rows
+        detail_body = join_detail_logic_groups(
+            [list(TABLE_CELL_RE.finditer(row.group(0)))[1].group("body") for row in detail_rows]
         )
         logic_groups = split_detail_logic_groups(detail_body)
         figure_cells = list(TABLE_CELL_RE.finditer(figure_row.group(0)))
@@ -1114,7 +1124,7 @@ def merge_reviewed_requirement_detail_media(html: str, run_folder: Path) -> str:
             groups = block.get("logic_groups", [])
             if not isinstance(groups, list) or not all(isinstance(group, str) for group in groups):
                 fail(f"Invalid logic groups for {title}")
-            copy = "<br>".join(logic_groups[group] for group in groups if group in logic_groups)
+            copy = join_detail_logic_groups([logic_groups[group] for group in groups if group in logic_groups])
             missing = [group for group in groups if group not in logic_groups]
             if missing:
                 fail(f"Reviewed media mapping missing logic groups for {title}: {', '.join(missing)}")
@@ -1137,7 +1147,7 @@ def merge_reviewed_requirement_detail_media(html: str, run_folder: Path) -> str:
         if unmatched:
             rendered_blocks.append(
                 '<div class="prd-detail-text-block">'
-                + "<br>".join(logic_groups[group] for group in unmatched)
+                + join_detail_logic_groups([logic_groups[group] for group in unmatched])
                 + "</div>"
             )
         first_row = detail_rows[0]

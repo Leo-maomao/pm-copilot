@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.21] - 2026-08-27
+
+### Fixed
+
+- Normalized adjacent requirement-logic groups to one line break, preventing empty rows between numbered headings in image-linked detail blocks.
+
 ## [6.2.20] - 2026-08-27
 
 ### Fixed

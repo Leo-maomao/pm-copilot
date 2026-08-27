@@ -91,7 +91,7 @@ class PRDFigureLayoutTest(unittest.TestCase):
             )
             html = (
                 '<html><head></head><body><h3>5.1 截图状态</h3><table>'
-                '<tr><td>需求详情</td><td>一、入口<br>1. 展示入口。<br>二、加载<br>1. 显示加载。<br>三、失败恢复<br>1. 保留内容。</td></tr>'
+                '<tr><td>需求详情</td><td>一、入口<br>1. 展示入口。<br><br>二、加载<br>1. 显示加载。<br><br>三、失败恢复<br>1. 保留内容。</td></tr>'
                 '<tr><td>图示</td><td><img src="./assets/entry.png" /><small>入口</small><br><img src="./assets/loading.png" /><small>加载</small></td></tr>'
                 '</table></body></html>'
             )
@@ -100,6 +100,7 @@ class PRDFigureLayoutTest(unittest.TestCase):
         self.assertEqual(rendered.count('class="prd-detail-text-block"'), 1)
         self.assertIn('entry.png" /></div><div class="prd-detail-copy">一、入口', rendered)
         self.assertIn('loading.png" /></div><div class="prd-detail-copy">一、加载', rendered)
+        self.assertNotIn('展示入口。<br><br>二、加载', rendered)
         self.assertNotIn('entry.png" /></div><div class="prd-detail-copy">一、入口<br>1. 展示入口。<br>二、加载', rendered)
 
 
