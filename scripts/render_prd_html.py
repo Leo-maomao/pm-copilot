@@ -1028,7 +1028,32 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
                 "</div>"
             )
         detail_body = detail_cells[1].group("body")
-        detail_body += '<div class="prd-detail-media-stack">' + "".join(blocks) + "</div>"
+        # Legacy PRDs kept all rules in one text cell and captions in a later
+        # figure row. Split the rule groups across figures so no image inherits
+        # the entire requirement narrative. The explicit media-block syntax in
+        # new PRDs remains the preferred source format.
+        groups = re.split(r"(?=<strong>[^<]+</strong>)", detail_body)
+        groups = [group.strip() for group in groups if visible_text_from_html(group).strip()]
+        if len(groups) > 1 and len(figures) > 1:
+            buckets = ["" for _ in figures]
+            for index, group in enumerate(groups):
+                bucket = min(index * len(figures) // len(groups), len(figures) - 1)
+                buckets[bucket] += ("<br>" if buckets[bucket] else "") + group
+        else:
+            buckets = [detail_body] + ["" for _ in figures[1:]]
+        blocks = []
+        for index, figure in enumerate(figures):
+            copy = buckets[index]
+            copy = re.sub(r"<small>.*?</small>", "", copy, flags=re.IGNORECASE | re.DOTALL)
+            copy = re.sub(r"^\s*用途\s*[:：]\s*", "", copy)
+            copy_html = f'<div class="prd-detail-copy">{copy}</div>' if copy else ""
+            blocks.append(
+                '<div class="prd-detail-media-block">'
+                f'<div class="prd-detail-media">{figure.group("image")}</div>'
+                f'{copy_html}'
+                "</div>"
+            )
+        detail_body = '<div class="prd-detail-media-stack">' + "".join(blocks) + "</div>"
         detail_row = rows[detail_index].group(0)
         detail_cell = detail_cells[1]
         replacement = f'<td{detail_cell.group("attrs")}>{detail_body}</td>'
