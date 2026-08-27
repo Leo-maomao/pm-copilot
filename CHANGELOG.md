@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.27] - 2026-08-27
+
+### Fixed
+
+- Carried the final confirmed PRD evidence into delivery and review, so explicitly confirmed source paths and development-stage follow-ups are not reclassified as generation blockers.
+- Allowed a confirmed failed run to resume its first unaccepted stage, canonicalized promoted run-log paths, and accepted the controller's `interactive-run.json` as a valid interactive output file.
+
 ## [6.2.26] - 2026-08-27
 
 ### Fixed

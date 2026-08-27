@@ -514,6 +514,22 @@ def compact_requirement_numbers(text: str) -> str:
     return text
 
 
+def _confirmation_packet(state: dict[str, Any]) -> dict[str, Any]:
+    """Keep Agent context bounded while preserving the final confirmed facts."""
+    latest = state["turns"][-1]
+    return {
+        "user_confirmation": state.get("user_confirmation"),
+        "final_user_message": latest.get("user_text", ""),
+        "summary": latest.get("summary", ""),
+        "scope": latest.get("scope", {}),
+        "assumptions": latest.get("assumptions", []),
+        "decisions": latest.get("decisions", []),
+        "risks": latest.get("risks", []),
+        "can_draft_with_stated_assumption": latest.get("buckets", {}).get("can_draft_with_stated_assumption", []),
+        "must_confirm_before_development_or_launch": latest.get("buckets", {}).get("must_confirm_before_development_or_launch", []),
+    }
+
+
 def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = "") -> str:
     latest = state["turns"][-1]
     role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
@@ -529,6 +545,8 @@ Clarified scope: {json.dumps(latest.get('scope', {}), ensure_ascii=False)}
 Discussion summary: {latest.get('summary', '')}
 Assumptions: {json.dumps(latest.get('assumptions', []), ensure_ascii=False)}
 Risks: {json.dumps(latest.get('risks', []), ensure_ascii=False)}
+Final user-confirmed evidence packet (authoritative and complete for this run):
+{json.dumps(_confirmation_packet(state), ensure_ascii=False)}
 
 Artifact requirements:
 - confirmed-requirements.md: facts, explicit user-confirmed scope, non-goals, success criteria, constraints, acceptance evidence, assumptions, risks, and unresolved items. Never call model inference user confirmation.
@@ -553,6 +571,11 @@ def _run_artifact_agent(
         # from the project staging copy so the promised artifact is writable.
         result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, timeout, None, None, False, 8000)
         if result.get("status") == "complete" and stage_target.is_file() and stage_target.stat().st_size > 0:
+            if artifact == "run-log.yaml":
+                # Agent tools report their writable staging path. The promoted
+                # trace must instead identify the stable canonical run folder.
+                text = stage_target.read_text(encoding="utf-8")
+                stage_target.write_text(text.replace(str(stage_folder), str(real_folder)), encoding="utf-8")
             shutil.copy2(stage_target, target)
     result["isolated_workspace"] = True
     result["promoted_artifact"] = artifact if target.is_file() else None
@@ -583,7 +606,18 @@ consistent with the user-confirmed scope, and sufficient for its immediate
 downstream consumer. Do not edit any file. Do not treat file existence or a
 previous Agent's success as acceptance. Reject unsupported approvals, invented
 facts, missing scope/non-goals/acceptance evidence, or an artifact that would
-force the next stage to guess.
+force its immediate downstream consumer to guess.
+
+The final user-confirmed evidence packet below is primary evidence. A source
+path, source document, asset set, migration instruction, or ownership
+statement that appears there is confirmed evidence, not an invented fact. Do
+not reject a confirmed-requirements artifact because
+it does not itself prove a requested migration has already been executed: its
+immediate downstream consumer is the PRD writer, so it must state the required
+migration and evidence boundary. Items explicitly deferred to development or
+launch (for example concrete port IDs, provider limits, analytics definitions,
+or launch approval) must remain visible as later gates; they are not PRD
+generation blockers unless the user made them part of the confirmed behavior.
 
 Write ONLY one JSON object to {review_path} (UTF-8):
 {{"status":"pass"|"needs_revision","summary":"", "blocking_findings":["specific repair"], "acceptance_evidence":["checked condition"]}}
@@ -592,6 +626,7 @@ the artifact's required handoff conditions. Empty proof is needs_revision.
 
 Original request: {state['raw_request']}
 Confirmed scope: {json.dumps(state['turns'][-1].get('scope', {}), ensure_ascii=False)}
+Final user-confirmed evidence packet: {json.dumps(_confirmation_packet(state), ensure_ascii=False)}
 Artifact under review: {artifact}
 """
 
@@ -731,6 +766,7 @@ def _confirmed_delivery(
     folder = Path(state["folder"])
     state["status"] = "delivery"
     state["termination"] = "running"
+    state["last_error"] = None
     _checkpoint(state, state_path)
     for artifact in ("confirmed-requirements.md", "prd.md", "run-log.yaml"):
         if not _deliver_artifact_to_quality_gate(state, artifact, provider, timeout, worker, max_revisions, state_path):
@@ -785,6 +821,7 @@ def _confirmed_delivery(
         if evidence_ok:
             state["status"] = "complete"
             state["termination"] = "complete"
+            state["last_error"] = None
         else:
             state["status"] = "blocked"
             state["termination"] = "blocked"
@@ -870,11 +907,11 @@ def main() -> int:
             print(json.dumps({"status": "needs_input", "questions": state["turns"][-1]["questions"], "run_folder": str(folder)}, ensure_ascii=False, indent=2))
         _write_json(state_path, state)
         return 3 if state["status"] == "needs_input" else 0
-    if state["status"] in {"awaiting_confirmation", "recovery_required", "confirmed", "delivery"}:
+    if state["status"] in {"awaiting_confirmation", "recovery_required", "confirmed", "delivery", "failed"}:
         if not args.confirm:
             if state["status"] == "recovery_required":
                 print(json.dumps({"status": "recovery_required", "last_error": state.get("last_error"), "run_folder": str(folder)}, ensure_ascii=False, indent=2))
-            elif state["status"] in {"confirmed", "delivery"}:
+            elif state["status"] in {"confirmed", "delivery", "failed"}:
                 print("交付已中断但确认已持久化；请使用 --confirm 恢复未完成阶段。")
             else:
                 print("仍在等待用户明确确认；未生成 PRD。请使用 --confirm。")

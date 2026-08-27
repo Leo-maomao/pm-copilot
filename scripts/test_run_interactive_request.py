@@ -13,6 +13,8 @@ from unittest.mock import patch
 
 from run_interactive_request import (
     _confirmed_delivery,
+    _artifact_review_prompt,
+    _confirmation_packet,
     _recover_interrupted_delivery,
     _write_json,
     _normalise_intake,
@@ -233,6 +235,23 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertTrue(_run_artifact_agent(state, "confirmed-requirements.md", "test", 1, worker=worker))
             self.assertTrue((folder / "confirmed-requirements.md").is_file())
 
+    def test_run_log_promotes_canonical_path_not_staging_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "pm-copilot-outputs" / "example"
+            folder.mkdir(parents=True)
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+
+            def worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                target.write_text(f"context:\n  folder: {cwd}\n", encoding="utf-8")
+                return {"provider": "test", "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "test", 1, worker=worker))
+            promoted = (folder / "run-log.yaml").read_text(encoding="utf-8")
+            self.assertIn(str(folder.resolve()), promoted)
+            self.assertNotIn(".example.stage-", promoted)
+
     def test_delivery_checkpoint_survives_interruption_after_artifact_promotion(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
@@ -271,6 +290,28 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(state["status"], "recovery_required")
             self.assertEqual(state["termination"], "interrupted")
             self.assertIn("confirmed-requirements.md", state["recovery"]["promoted_artifacts"])
+
+    def test_stage_review_uses_full_confirmed_evidence_and_keeps_later_gates_nonblocking(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = create_state("创建独立 PRD", Path(temporary))
+            state["turns"] = [{
+                "user_text": "确认来源：/tmp/source/prd.md；端口 ID 由开发前确认。",
+                "summary": "已确认迁移来源，端口契约后置。",
+                "scope": {"goal": "迁移需求"}, "assumptions": [], "risks": [],
+            }]
+            prompt = _artifact_review_prompt(state, "confirmed-requirements.md", Path(temporary) / "review.json")
+            self.assertIn("/tmp/source/prd.md", prompt)
+            self.assertIn("not PRD\ngeneration blockers", prompt)
+
+    def test_confirmation_packet_uses_only_final_confirmed_turn(self) -> None:
+        state = create_state("旧请求", Path("/tmp/example"))
+        state["turns"] = [
+            {"user_text": "旧范围", "summary": "旧结论", "scope": {"goal": "旧"}, "assumptions": [], "decisions": [], "risks": [], "buckets": {}},
+            {"user_text": "最终范围", "summary": "最终结论", "scope": {"goal": "新"}, "assumptions": [], "decisions": ["最终决定"], "risks": [], "buckets": {}},
+        ]
+        packet = _confirmation_packet(state)
+        self.assertEqual(packet["final_user_message"], "最终范围")
+        self.assertEqual(packet["scope"], {"goal": "新"})
 
 
 if __name__ == "__main__":

@@ -63,6 +63,17 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertTrue(result["ok"])
             self.assertEqual(result["status"], "recovery_required")
 
+    def test_confirm_allows_explicit_failed_run_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            self.write_state(folder, status="failed", termination="failed", user_confirmation={"confirmed": True})
+            controller = folder / "controller.py"
+            controller.write_text("# mocked controller\n", encoding="utf-8")
+            with patch.object(MCP, "CONTROLLER", controller), patch.object(MCP.subprocess, "run", return_value=type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()):
+                result = MCP.confirm_delivery(str(folder))
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["status"], "failed")
+
     def test_status_detects_legacy_interruption_without_mutating_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / "run"

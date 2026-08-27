@@ -36,6 +36,9 @@ python3 "${PM_COPILOT_HOME:-$HOME/.agents/pm-copilot}/plugins/pm-copilot/scripts
 - For `recovery_required`, report the recorded interruption and promoted
   artifacts. Only after explicit user confirmation, use `--confirm` to resume
   from the first stage without a persisted accepted review.
+- For a failed run that retains explicit confirmation, use `--confirm` only
+  after the user explicitly requests a retry; resume the first unaccepted
+  stage without reopening confirmed scope.
 - Report only the returned JSON. An artifact is generating only when
   `delivery_calls` contains it, and is created only when it appears in
   `artifacts`. Never narrate a controller state from chat text.

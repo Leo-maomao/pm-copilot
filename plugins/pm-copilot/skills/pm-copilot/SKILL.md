@@ -42,6 +42,10 @@ never infer a stage from chat text, a planned command, or an Agent narrative.
 - For `recovery_required`, report the recorded interruption and promoted
   artifacts. After explicit user confirmation, use `prd_confirm_delivery` to
   resume from the first stage without a persisted accepted review.
+- For a failed run whose user-confirmation record remains true, explain the
+  recorded failure. After an explicit user request to retry, use
+  `prd_confirm_delivery` to resume the first unaccepted stage; do not ask the
+  user to restate already confirmed scope.
 - Say an artifact is generating only when `delivery_calls` contains a recorded
   delivery call for that artifact. Say it was created only when it appears in
   `artifacts`.

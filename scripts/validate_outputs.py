@@ -1259,6 +1259,7 @@ def check_folder(path: Path, require_run_log: bool = True) -> None:
         "run-log.yaml",
         "discussion.md",
         "confirmed-requirements.md",
+        "interactive-run.json",
         "scenario-run.json",
         "tracking-plan.csv",
         "user-flow.mmd",

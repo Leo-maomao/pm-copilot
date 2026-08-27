@@ -110,7 +110,7 @@ def submit_answer(run_folder: str, answer: str) -> dict[str, Any]:
 def confirm_delivery(run_folder: str) -> dict[str, Any]:
     folder, state = _load_run(run_folder)
     effective_status = "recovery_required" if _legacy_interruption(folder, state) else state.get("status")
-    if effective_status not in {"awaiting_confirmation", "recovery_required", "confirmed", "delivery"}:
+    if effective_status not in {"awaiting_confirmation", "recovery_required", "confirmed", "delivery", "failed"}:
         return _error(f"cannot confirm or resume delivery while run status is {effective_status}")
     return _invoke(run_folder, ["--confirm"])
 
