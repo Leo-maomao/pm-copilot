@@ -22,9 +22,9 @@ For an implemented-feature PRD, code, local test data, screenshots, and rendered
 
 User-confirmed launch goals and explicit product decisions override observed implementation. A demo can evidence a confirmed production behavior, but the PRD describes only the intended production experience, never the demo setup or convenience text.
 
-## Canonical Structure
+## Canonical Structure For New PRDs
 
-Use these top-level sections and titles in order:
+Use these top-level sections and titles in order only when creating a new PRD:
 
 ```text
 ## 一、文档说明
@@ -36,7 +36,15 @@ Use these top-level sections and titles in order:
 ## 七、埋点需求                 # optional
 ```
 
-`需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. Keep the core section headings stable even when optional sections are omitted. During an in-place revision, deleted requirements are removed and the remaining `5.x` detail IDs are renumbered consecutively; update all references in the list, details, tracking, and handoff evidence. The version record preserves the historical change summary. Renumber only the trailing optional sections: when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`.
+`需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. Keep the core section headings stable even when optional sections are omitted; when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`.
+
+When a new PRD references or migrates content from another PRD, use the current new-PRD template for its document structure. The source PRD is evidence for confirmed requirement content, terminology, assets, and requested migration boundaries only. Never infer or state that the new document adopts the source PRD's chapters, field labels, numbering, or legacy media layout without explicit user direction.
+
+## In-Place Revision Scope
+
+When the user identifies an existing PRD, that PRD is the sole structural source of truth. Preserve its chapter order, headings, field labels, numbering, and all unaffected content. Do not describe another or older PRD as the correct template, and do not apply the new-PRD template to an existing PRD unless the user explicitly requests a structural rewrite.
+
+For a layout-only request, such as pairing screenshots with their corresponding logic, modify only the affected `需求详情` cell and its rendered HTML. Do not add, remove, reorder, or rename chapters, requirement rows, detail fields, version records, research, localization, tracking, or flow diagrams. Renumber requirements only when the user explicitly deletes or merges requirements; then update every affected reference and preserve the version history.
 
 The H1 is a concise requirement sentence plus date, for example:
 
@@ -100,7 +108,7 @@ Requirement granularity is defined by a user outcome that needs a distinct produ
 
 ## 五、需求详情
 
-`需求详情` is the behavioral source of truth. Create one numbered subsection for every requirement-list row, such as `### 5.1 团队项目入口`. Do not add a second identifier such as `R1`.
+`需求详情` is the behavioral source of truth. In a new standard PRD, create one numbered subsection for every requirement-list row, such as `### 5.1 团队项目入口`. Do not add a second identifier such as `R1`. In an in-place revision, retain the existing detail-table structure unless the user explicitly requests a structural change.
 
 Each detail starts from the affected user and uses the smallest applicable set of merged fields:
 

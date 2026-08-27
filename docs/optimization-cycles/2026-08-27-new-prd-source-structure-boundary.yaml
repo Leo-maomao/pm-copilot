@@ -1,0 +1,24 @@
+id: new-prd-source-structure-boundary-2026-08-27
+date: 2026-08-27
+goal: "Keep new PRDs aligned with the current template when they migrate content from an existing PRD."
+source_run:
+  run_id: "video-super-resolution-and-layer-separation-2026-08-27"
+  artifact: "interactive-run.json"
+  evidence: "The run recorded an unconfirmed assumption that the new PRD adopted the source PRD's document structure."
+generalized_failure: "A source PRD used for requirement migration was incorrectly treated as a structural template for a new PRD."
+fix_surface:
+  - artifacts/prd-contract.md
+  - skills/prd-writing/SKILL.md
+  - templates/prd-template.md
+  - templates/implemented-feature-prd-template.md
+  - scripts/test_prd_rule_consistency.py
+generalization_boundary: "Source PRDs may provide confirmed requirement content, terminology, assets, and user-approved migration boundaries. They cannot supply the new PRD structure without explicit user direction."
+validation:
+  - "PRD-writing guidance rejects an assumption that a new PRD follows a source PRD's structure."
+  - "PYTHONPATH=scripts python3 -m unittest scripts.test_prd_rule_consistency scripts.test_prd_contract scripts.test_prd_figure_layout"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+version_change: "6.2.27 -> 6.2.28"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets: "global PM Copilot runtime and personal Codex plugin"
+stop_condition: "A new PRD uses the current template even when its content is migrated from a prior PRD."

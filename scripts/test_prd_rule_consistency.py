@@ -36,6 +36,9 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("never permits joining copy values", contract)
         self.assertIn("Do not join separate labels, menu items, tabs, buttons, or messages", contract)
         self.assertIn("Keep the core section headings stable", contract)
+        self.assertIn("that PRD is the sole structural source of truth", contract)
+        self.assertIn("Do not describe another or older PRD as the correct template", contract)
+        self.assertIn("The source PRD is evidence for confirmed requirement content", contract)
 
     def test_implemented_feature_guidance_applies_contract_boundaries(self) -> None:
         skill = self.read("skills/prd-writing/SKILL.md")
@@ -50,6 +53,9 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("同一页面或弹窗内服务同一目标", template)
         self.assertIn("独立条目不得用 / 合并", template)
         self.assertIn("ask for a decision before generation; do not put it in the PRD", skill)
+        self.assertIn("Use its canonical ordered structure only for a new PRD", skill)
+        self.assertIn("For a layout-only revision, do not add, delete, rename, or reorder rows", skill)
+        self.assertIn("Do not record an assumption that the new PRD follows the source PRD's structure", skill)
         self.assertIn("add it to the PRD as `待确认`", skill)
         self.assertIn("[已确认 / 已观察]", template)
         self.assertNotIn("[已确认 / 已观察 / 待确认]", template)

@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.28] - 2026-08-27
+
+### Fixed
+
+- Required new PRDs that reference or migrate another PRD to use the current new-document template; source PRDs now supply content and assets, not inferred document structure.
+
 ## [6.2.27] - 2026-08-27
 
 ### Fixed
