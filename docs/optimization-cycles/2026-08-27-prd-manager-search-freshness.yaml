@@ -1,0 +1,16 @@
+id: prd-manager-search-freshness-2026-08-27
+date: 2026-08-27
+goal: "Keep search results aligned with the current local PRD files."
+source_run: "User reported that a deleted phrase still appeared in the second search result."
+generalized_failure: "An already-open manager tab searched its in-memory index, which could be older than the current PRD files until manual refresh."
+fix_surface:
+  - tools/prd-manager/app.js
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+version_change: "6.2.31 -> 6.2.32"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves repository static files."
+stop_condition: "Opening search refreshes the index before final results are rendered, while current document state and search interactions remain responsive."

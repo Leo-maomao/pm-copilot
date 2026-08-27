@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.32] - 2026-08-27
+
+### Fixed
+
+- Refresh the local PRD index when opening search so deleted or newly changed documents do not remain in an already-open manager tab.
+
 ## [6.2.31] - 2026-08-27
 
 ### Fixed
