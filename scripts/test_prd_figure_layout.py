@@ -52,6 +52,7 @@ class PRDFigureLayoutTest(unittest.TestCase):
     def test_styles_keep_layout_stable_without_javascript(self) -> None:
         self.assertIn('grid-template-columns: repeat(2, minmax(0, 1fr));', DOCUMENT_CSS)
         self.assertIn('.prd-figure-item.is-wide', DOCUMENT_CSS)
+        self.assertNotIn('min-height: 140px;', DOCUMENT_CSS)
         self.assertNotIn('naturalWidth', LIGHTBOX_HTML_TEMPLATE)
 
     def test_rendered_document_sets_language_and_accessible_image_preview(self) -> None:

@@ -323,7 +323,6 @@ DOCUMENT_CSS = """
     }
     .prd-detail-media-block .prd-detail-media {
       width: 240px;
-      min-height: 140px;
       display: grid;
       place-items: start center;
     }
