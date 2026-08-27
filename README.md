@@ -220,6 +220,8 @@ python3 scripts/prd_manager.py
 
 服务固定在 `http://localhost:57391`。它只扫描当前用户主目录中符合 `<项目>/pm-copilot-outputs/<run-id>/prd.html` 的文件，按项目聚合，并支持当前文档与全局搜索。扫描不会修改项目、PRD 或输出目录；索引缓存仅保存在 `~/.pm-copilot-prd-manager/`。端口被占用时服务会明确退出，不会自动切换地址或端口。
 
+如需让同一局域网内的研发访问，可显式使用 `python3 scripts/prd_manager.py --lan`。服务会继续使用 `57391` 端口并打印可分享的局域网地址；`--lan` 会暴露当前用户主目录下已索引的 PRD，只应在可信网络中使用。
+
 ## 记忆
 
 PM Copilot 使用本地文件记忆，让重复使用更贴合产品和个人工作方式。每次任务先由 `indexes/runtime-routing.yaml` 选择最小相关记录，而不是整文件加载：

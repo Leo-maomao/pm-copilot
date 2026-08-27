@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.37] - 2026-08-27
+
+### Added
+
+- Add an explicit `--lan` mode that binds the PRD manager to the local network and prints a shareable LAN URL while keeping localhost-only startup as the default.
+
 ## [6.2.36] - 2026-08-27
 
 ### Fixed

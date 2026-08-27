@@ -11,6 +11,7 @@ import json
 import mimetypes
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -24,6 +25,7 @@ from urllib.parse import unquote, urlparse
 
 
 HOST = "localhost"
+LAN_HOST = "0.0.0.0"
 PORT = 57391
 ROOT = Path(__file__).resolve().parents[1]
 STATIC_ROOT = ROOT / "tools" / "prd-manager"
@@ -142,6 +144,21 @@ def discover_documents(scan_root: Path) -> list[PrdDocument]:
                 documents.append(document)
         directories[:] = []
     return sorted(documents, key=lambda item: (item.project.casefold(), item.prd_date or "0000-00-00", item.modified_timestamp, item.title.casefold()), reverse=True)
+
+
+def local_network_address() -> str:
+    """Return the local IPv4 address used for outbound LAN traffic."""
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.0.2.1", 80))
+        address = probe.getsockname()[0]
+        if address and not address.startswith("127."):
+            return address
+    except OSError:
+        pass
+    finally:
+        probe.close()
+    return "<本机局域网IP>"
 
 
 class Index:
@@ -334,17 +351,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scan-root", type=Path, default=Path.home(), help="Directory to scan (defaults to the current user home)")
     parser.add_argument("--no-browser", action="store_true", help="Do not open a browser after startup")
+    parser.add_argument("--lan", action="store_true", help="Expose the manager on the local network (default is localhost only)")
     args = parser.parse_args()
     cache_path = Path.home() / ".pm-copilot-prd-manager" / "index.json"
     index = Index(args.scan_root, cache_path)
     try:
-        server = PrdManagerServer((HOST, PORT), index)
+        bind_host = LAN_HOST if args.lan else HOST
+        server = PrdManagerServer((bind_host, PORT), index)
     except OSError as error:
-        print(f"Cannot start PRD manager at http://{HOST}:{PORT}: {error}", file=sys.stderr)
+        display_host = local_network_address() if args.lan else HOST
+        print(f"Cannot start PRD manager at http://{display_host}:{PORT}: {error}", file=sys.stderr)
         return 1
     url = f"http://{HOST}:{PORT}"
+    share_url = f"http://{local_network_address()}:{PORT}" if args.lan else ""
     threading.Thread(target=index.refresh, daemon=True, name="prd-indexer").start()
-    print(f"PRD manager is running at {url}; the first index is being built in the background.")
+    if share_url:
+        print(f"PRD manager is running at {url}; LAN URL: {share_url}; the first index is being built in the background.")
+    else:
+        print(f"PRD manager is running at {url}; the first index is being built in the background.")
     if not args.no_browser:
         webbrowser.open(url)
     try:
