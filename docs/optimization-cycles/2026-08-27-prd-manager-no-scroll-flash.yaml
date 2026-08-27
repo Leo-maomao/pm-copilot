@@ -1,0 +1,18 @@
+id: prd-manager-no-scroll-flash-2026-08-27
+date: 2026-08-27
+goal: "Avoid showing the top of a PRD before restoring its saved reading position."
+source_run: "User observed a visible top-of-document flash before the saved position appeared."
+generalized_failure: "Scroll restoration completed after the iframe's first paint, creating a visible jump even though the final position was correct."
+fix_surface:
+  - tools/prd-manager/app.js
+  - tools/prd-manager/app.css
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+  - "Browser: localhost:57391, saved section position restored before iframe reveal"
+version_change: "6.2.33 -> 6.2.34"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves repository static files."
+stop_condition: "A refreshed manager never visibly renders the PRD at the top before showing the persisted reading position."
