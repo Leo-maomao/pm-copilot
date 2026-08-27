@@ -1,0 +1,34 @@
+cycle_id: "2026-08-27-prd-controller-mcp-bridge"
+date: "2026-08-27"
+version_change: "6.2.23 -> 6.2.24"
+source_run: >-
+  User-reported SeaArt interactive PRD conversation that claimed a completed
+  confirmed-requirements.md write although the canonical interactive-run.json
+  remained awaiting_confirmation with no delivery Agent call.
+generalized_failure: >-
+  The plugin exposed only a Skill prompt. The chat model could narrate an
+  interactive controller state without calling the controller, leaving its
+  prose and the canonical run state inconsistent.
+fix_surface:
+  - "plugins/pm-copilot/.mcp.json and scripts/pm_copilot_mcp.py"
+  - "plugins/pm-copilot/skills/pm-copilot/SKILL.md"
+  - "scripts/test_pm_copilot_mcp.py"
+validation:
+  commands:
+    - "PYTHONPATH=scripts python3 -m unittest scripts/test_pm_copilot_mcp.py scripts/test_prd_request_controller.py scripts/test_run_interactive_request.py"
+    - "python3 plugin-creator/scripts/validate_plugin.py plugins/pm-copilot"
+    - "python3 skill-creator/scripts/quick_validate.py plugins/pm-copilot/skills/pm-copilot"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  result: "passed"
+embedded_copy_sync:
+  checked:
+    - "~/.agents/pm-copilot via scripts/ensure_runtime_current.py --require-current --json"
+  updated:
+    - "~/.agents/pm-copilot"
+    - "Codex personal plugin cache: pm-copilot@personal 6.2.24"
+  pending: []
+remote_push:
+  required: false
+  status: "not_requested"
+  target: ""

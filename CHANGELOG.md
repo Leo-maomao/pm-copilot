@@ -6,6 +6,18 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.25] - 2026-08-27
+
+### Fixed
+
+- Aligned explicit `@pm-copilot` and natural-language PRD activation with the same canonical controller and interactive run-control contract.
+
+## [6.2.24] - 2026-08-27
+
+### Fixed
+
+- Added a local PM Copilot MCP controller bridge so interactive PRD status, answers, and explicit delivery confirmation are read from and applied through the canonical run state instead of narrated by the chat model.
+
 ## [6.2.23] - 2026-08-27
 
 ### Fixed

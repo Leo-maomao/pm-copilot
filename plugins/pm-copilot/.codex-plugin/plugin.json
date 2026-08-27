@@ -1,11 +1,12 @@
 {
   "name": "pm-copilot",
-  "version": "6.2.23+codex.20260827080427",
+  "version": "6.2.25+codex.20260827083304",
   "description": "Evidence-backed PM Copilot runtime for PRDs, product reviews, tracking, and delivery handoffs.",
   "author": {
     "name": "PM Copilot"
   },
   "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "PM Copilot",
     "shortDescription": "Evidence-backed product-manager workflows in the current project.",

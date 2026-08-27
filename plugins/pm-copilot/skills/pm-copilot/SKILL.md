@@ -30,19 +30,21 @@ any artifact:
 python3 "${PM_COPILOT_HOME:-$HOME/.agents/pm-copilot}/scripts/prd_request_controller.py" --request "<request>"
 ```
 
-When a production run reports `awaiting_confirmation`, show its clarified scope.
-A user reply such as "确认执行", "确认生成 PRD", or another unambiguous
-confirmation must resume that exact run with the controller:
+For an active interactive PRD run, use the `prd_run_status` MCP tool before
+every progress or failure reply. The tool result is the only source of truth;
+never infer a stage from chat text, a planned command, or an Agent narrative.
 
-```bash
-python3 "${PM_COPILOT_HOME:-$HOME/.agents/pm-copilot}/scripts/run_interactive_request.py" \
-  --run-folder "<canonical-run-folder>" --confirm
-```
-
-Report only the controller's returned state. Say an artifact is generating only
-after the controller has recorded its delivery Agent call. On failure, report
-the returned stage, target artifact, and recovery-relevant error; never relabel
-an unconfirmed run or a sandbox-path error as a write syntax failure.
+- For `needs_input`, use `prd_submit_answer` with the user's answer, then report
+  the returned state.
+- For `awaiting_confirmation`, show the clarified scope. After an unambiguous
+  user reply such as "确认执行" or "确认生成 PRD", use
+  `prd_confirm_delivery`, then report its returned state.
+- Say an artifact is generating only when `delivery_calls` contains a recorded
+  delivery call for that artifact. Say it was created only when it appears in
+  `artifacts`.
+- On failure, report `status`, `last_error`, and the returned controller exit
+  result. Never relabel an unconfirmed run or a sandbox-path error as a write
+  syntax failure or a process hang.
 
 Do not return a direct model-written PRD. The controller must provide one
 canonical run folder, attributable provider/model Agent calls, stage reviews,
