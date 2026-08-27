@@ -107,6 +107,7 @@ DOCUMENT_CSS = """
       color: #111827;
       overflow-wrap: anywhere;
       word-break: break-word;
+      line-height: 1.65;
     }
     pre code {
       padding: 0;
@@ -1044,6 +1045,14 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
         blocks = []
         for index, figure in enumerate(figures):
             copy = buckets[index]
+            headings = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+            heading_index = 0
+            def renumber_heading(_: re.Match[str]) -> str:
+                nonlocal heading_index
+                value = headings[min(heading_index, len(headings) - 1)]
+                heading_index += 1
+                return f"<strong>{value}、"
+            copy = re.sub(r"<strong>[^<、]+、", renumber_heading, copy)
             copy = re.sub(r"<small>.*?</small>", "", copy, flags=re.IGNORECASE | re.DOTALL)
             copy = re.sub(r"^\s*用途\s*[:：]\s*", "", copy)
             copy_html = f'<div class="prd-detail-copy">{copy}</div>' if copy else ""
