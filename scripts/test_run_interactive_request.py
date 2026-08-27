@@ -13,6 +13,8 @@ from unittest.mock import patch
 
 from run_interactive_request import (
     _confirmed_delivery,
+    _normalise_intake,
+    _run_artifact_agent,
     begin_in_place_revision,
     compact_requirement_numbers,
     create_state,
@@ -24,6 +26,18 @@ from run_interactive_request import (
 
 
 class InteractiveRequestTest(unittest.TestCase):
+    def test_nonblocking_questions_do_not_hold_the_clarification_gate(self) -> None:
+        intake = _normalise_intake({
+            "status": "needs_input",
+            "questions": ["请确认由谁负责 PRD 验收"],
+            "buckets": {
+                "must_answer_before_generation": [],
+                "must_confirm_before_development_or_launch": ["上线确认"],
+            },
+        })
+        self.assertEqual(intake["status"], "complete")
+        self.assertEqual(intake["questions"], [])
+
     def test_compact_requirement_numbers_updates_all_references(self) -> None:
         source = "| 5.1 | A |\n| 5.3 | C |\n### 5.1 A\n### 5.3 C\n目标 5.3"
         result = compact_requirement_numbers(source)
@@ -199,6 +213,23 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(state["status"], "failed")
             self.assertIn("provider/model", state["last_error"])
             self.assertFalse((Path(temporary) / "prd.md").exists())
+
+    def test_delivery_agent_uses_project_staging_directory_as_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "pm-copilot-outputs" / "example"
+            folder.mkdir(parents=True)
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+
+            def worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                self.assertEqual(cwd, target.parent)
+                self.assertNotEqual(cwd, Path(__file__).resolve().parents[1])
+                target.write_text("# confirmed\n", encoding="utf-8")
+                return {"provider": "test", "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            self.assertTrue(_run_artifact_agent(state, "confirmed-requirements.md", "test", 1, worker=worker))
+            self.assertTrue((folder / "confirmed-requirements.md").is_file())
 
 
 if __name__ == "__main__":

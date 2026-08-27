@@ -6,6 +6,14 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.23] - 2026-08-27
+
+### Fixed
+
+- Stopped treating ordinary product-manager ownership and development/launch follow-ups as PRD generation blockers.
+- Resumed explicitly confirmed interactive PRD runs through the canonical controller and report only recorded delivery state.
+- Ran staged delivery and review Agents inside the project output staging directory so Codex sandbox writes can be promoted to the canonical PRD folder.
+
 ## [6.2.22] - 2026-08-27
 
 ### Fixed

@@ -155,6 +155,12 @@ def _normalise_intake(value: dict[str, Any]) -> dict[str, Any]:
     must = [str(item).strip() for item in must if str(item).strip()]
     if must:
         status = "needs_input"
+    elif status == "needs_input":
+        # Only the must-answer bucket is a generation gate. Questions about
+        # normal PRD ownership or later development/launch confirmation must
+        # not trap the user in intake.
+        status = "complete"
+        questions = []
     return {
         "status": status,
         "summary": str(value.get("summary", "")).strip(),
@@ -222,6 +228,14 @@ to move to the next phase. Ask only questions that materially change scope,
 success criteria, platform, permissions, compliance, measurement, or delivery risk.
 Never treat silence, a fixture, or your own assumption as user confirmation.
 
+PM Copilot's default product owner is the product manager. Do not ask who owns
+ordinary PRD decisions, requirement acceptance, risk trade-offs, or launch
+recommendations unless the user identifies a different owner or that ownership
+changes a concrete product, permission, compliance, or delivery boundary. Put
+development or launch follow-ups in the later-confirmation bucket; do not
+promote them to generation blockers unless the PRD would otherwise have to
+guess user-visible behavior or acceptance evidence.
+
 Return ONLY one JSON object with this shape:
 {{
   "status": "needs_input" | "complete",
@@ -261,6 +275,12 @@ unresolved fact that can materially change the user outcome, scope boundary,
 non-goal, acceptance evidence, platform/delivery surface, owner/permission,
 metric, or material risk. Do not ask preference or implementation questions
 that cannot change the next product decision.
+
+PM Copilot's default product owner is the product manager. Do not block merely
+because an ordinary PRD decision, acceptance decision, risk trade-off, or
+launch recommendation lacks a separately named owner. A fact deliberately
+assigned to the development/launch confirmation bucket is covered unless it
+would force this PRD to guess user-visible behavior or acceptance evidence.
 
 Write ONLY one JSON object to {review_path} (UTF-8):
 {{
@@ -484,7 +504,9 @@ def _run_artifact_agent(
         shutil.copytree(real_folder, stage_folder)
         stage_state = {**state, "folder": str(stage_folder)}
         stage_target = stage_folder / artifact
-        result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), ROOT, timeout, None, None, False, 8000)
+        # Codex workspace-write is scoped to its working directory. Execute
+        # from the project staging copy so the promised artifact is writable.
+        result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, timeout, None, None, False, 8000)
         if result.get("status") == "complete" and stage_target.is_file() and stage_target.stat().st_size > 0:
             shutil.copy2(stage_target, target)
     result["isolated_workspace"] = True
@@ -492,6 +514,12 @@ def _run_artifact_agent(
     attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
     if not attributable:
         state["last_error"] = f"{artifact} Agent call has no attributable provider/model evidence"
+    elif not target.is_file() or target.stat().st_size == 0:
+        detail = str(result.get("error", "")).strip()
+        state["last_error"] = (
+            f"{artifact} was not produced in the project staging directory"
+            + (f": {detail}" if detail else "")
+        )
     return attributable and target.is_file() and target.stat().st_size > 0
 
 
@@ -525,7 +553,7 @@ def _review_artifact(
         review_folder = Path(review_dir) / real_folder.name
         shutil.copytree(real_folder, review_folder)
         review_path = review_folder / ".stage-review.json"
-        result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), ROOT, timeout, None, None, False, 8000)
+        result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, timeout, None, None, False, 8000)
         review_text = review_path.read_text(encoding="utf-8") if review_path.is_file() else ""
     result["phase"] = "stage_quality_review"
     result["artifact"] = artifact
