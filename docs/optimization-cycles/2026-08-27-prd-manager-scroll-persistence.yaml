@@ -1,0 +1,16 @@
+id: prd-manager-scroll-persistence-2026-08-27
+date: 2026-08-27
+goal: "Preserve PRD reading position across both index refreshes and manager reloads."
+source_run: "User reproduced the scroll reset at http://localhost:57391 after the delayed iframe restore patch."
+generalized_failure: "In-memory restoration only covered one refresh path; a full manager reload discarded the position, and late iframe navigation could still race restoration."
+fix_surface:
+  - tools/prd-manager/app.js
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+version_change: "6.2.30 -> 6.2.31"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves repository static files."
+stop_condition: "Scroll state is saved per document and restored after selecting, refreshing, or reloading the manager without changing search or navigation behavior."
