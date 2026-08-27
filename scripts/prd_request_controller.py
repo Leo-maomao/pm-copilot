@@ -25,14 +25,22 @@ def main() -> int:
     parser.add_argument("--provider", default="codex")
     parser.add_argument("--timeout-minutes", type=int, default=15)
     parser.add_argument("--max-revisions", type=int, default=3)
+    parser.add_argument("--run-folder", help="existing canonical PRD folder to revise")
+    parser.add_argument("--revise", action="store_true", help="revise the existing PRD in place")
     args = parser.parse_args()
     if not is_prd_request(args.request):
         parser.error("request is not classified as a PRD request")
+    if args.revise and not args.run_folder:
+        parser.error("--revise requires --run-folder")
     sys.argv = [
-        "run_interactive_request.py", "--new-requirement", "--request", args.request,
+        "run_interactive_request.py", "--request", args.request,
         "--provider", args.provider, "--timeout-minutes", str(args.timeout_minutes),
         "--max-revisions", str(args.max_revisions),
     ]
+    if args.revise:
+        sys.argv += ["--revise", "--run-folder", args.run_folder]
+    else:
+        sys.argv.insert(1, "--new-requirement")
     return interactive_main()
 
 

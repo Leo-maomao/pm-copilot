@@ -134,6 +134,30 @@ class PrdManagerTest(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
 
+    @patch("prd_manager.subprocess.run")
+    def test_copy_returns_only_the_indexed_prd_run_directory(self, copy_to_clipboard: object) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            document_path = self.create_prd(root, "project", "run")
+            index = Index(root, root / "cache" / "index.json")
+            index.refresh()
+            document = next(iter(index.documents.values()))
+            server = PrdManagerServer(("localhost", 0), index)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                connection = HTTPConnection("localhost", server.server_port)
+                with patch("prd_manager.sys.platform", "darwin"):
+                    connection.request("POST", f"/api/document/{document.id}/copy")
+                    response = connection.getresponse()
+                self.assertEqual(response.status, 204)
+                copy_to_clipboard.assert_called_once_with(["pbcopy"], input=str(document_path.parent.resolve()).encode("utf-8"), check=True)
+                connection.request("POST", "/api/document/not-indexed/copy")
+                self.assertEqual(connection.getresponse().status, 404)
+            finally:
+                server.shutdown()
+                server.server_close()
+
 
 class PrdManagerBrowserTest(unittest.TestCase):
     def test_search_keyboard_flow(self) -> None:

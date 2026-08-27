@@ -35,7 +35,7 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         self.assertIn("smallest localizable copy unit", contract)
         self.assertIn("never permits joining copy values", contract)
         self.assertIn("Do not join separate labels, menu items, tabs, buttons, or messages", contract)
-        self.assertIn("Keep the core document, background, requirement list, and requirement-detail section numbers stable", contract)
+        self.assertIn("Keep the core section headings stable", contract)
 
     def test_implemented_feature_guidance_applies_contract_boundaries(self) -> None:
         skill = self.read("skills/prd-writing/SKILL.md")
@@ -92,8 +92,8 @@ class PRDRuleConsistencyTest(unittest.TestCase):
         contract = self.read("artifacts/prd-contract.md")
         for relative in ("artifacts/artifact-contracts.md", "templates/implemented-feature-prd-template.md", "skills/prd-writing/SKILL.md"):
             guidance = self.read(relative)
-            self.assertNotIn("renumber visible H2 sections consecutively", guidance)
-        self.assertIn("需求清单和需求详情保留稳定的 `四`、`五` 编号", self.read("templates/implemented-feature-prd-template.md"))
+        self.assertIn("remaining detail IDs consecutively", guidance)
+        self.assertIn("剩余需求详情编号必须从 `5.1` 起连续顺延", self.read("templates/implemented-feature-prd-template.md"))
         self.assertIn("when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`", contract)
 
     def test_every_prd_delivery_requires_html(self) -> None:

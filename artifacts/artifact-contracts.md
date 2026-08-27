@@ -72,7 +72,7 @@ Technical implementation sections must not appear in PRDs. Keep technical eviden
 Required formatting:
 
 - Use tables for document information, version records, research, requirement lists, requirement details, localization, and tracking when there are multiple items.
-- Use a stable identifier only where it improves traceability. In PRDs, use the requirement-detail subsection number, such as `5.1`, as the sole requirement identifier; do not add a duplicate `R1` label.
+- In PRDs, use the requirement-detail subsection number, such as `5.1`, as the sole requirement identifier; do not add a duplicate `R1` label. In an in-place revision, compact remaining `5.x` IDs after deletion and update all references; the version record preserves historical change context.
 - Use short paragraphs for background, research conclusions, and rationale.
 - Avoid long undifferentiated unordered lists.
 - Every requirement-list row identifies the matching detail number, target user, scenario, user problem or value, priority, and source status.

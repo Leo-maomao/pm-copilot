@@ -11,6 +11,8 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 ### Fixed
 
 - Consolidated legacy duplicate `需求详情` rows into one cell: text-only logic remains full-width while screenshot-linked logic uses fixed left-image/right-text blocks.
+- Unified the repository, global runtime, and Codex plugin release version; runtime updates now refresh the local plugin cache when the Codex CLI is available.
+- Added a PRD Manager action to copy an indexed PRD run directory to the macOS clipboard.
 
 ## [6.2.17] - 2026-08-27
 
@@ -26,6 +28,7 @@ See `docs/versioning.md` for upgrade rules, compatibility policy, and release ch
 - Kept screenshots and their state logic inside the single PRD `需求详情` cell using fixed-column media blocks.
 - Migrated legacy standalone figure rows during HTML rendering and removed visible duplicate image-name captions.
 - Synchronized the published plugin manifest version with the runtime version.
+- Route explicit PRD revisions to the identified canonical folder and compact remaining requirement-detail IDs after deletion.
 
 ## [6.2.15] - 2026-08-22
 

@@ -234,6 +234,9 @@ class PrdManagerHandler(BaseHTTPRequestHandler):
             self.send_json(self.server.index.payload())
             return
         if request_path.startswith("/api/document/"):
+            pieces = [unquote(piece) for piece in request_path.split("/") if piece]
+            if len(pieces) == 4 and pieces[3] == "copy":
+                return self.copy_document(pieces[2])
             return self.reveal_document(request_path)
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -257,6 +260,28 @@ class PrdManagerHandler(BaseHTTPRequestHandler):
             return
         try:
             subprocess.run(["open", str(run_root)], check=True)
+        except (OSError, subprocess.CalledProcessError) as error:
+            self.send_json({"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self.end_headers()
+
+    def copy_document(self, document_id: str) -> None:
+        document = self.server.index.get(document_id)
+        if not document:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        try:
+            run_root = Path(document.path).parent.resolve(strict=True)
+            run_root.relative_to(self.server.index.scan_root)
+        except (OSError, ValueError):
+            self.send_error(HTTPStatus.FORBIDDEN)
+            return
+        if sys.platform != "darwin":
+            self.send_json({"error": "复制目录仅支持 macOS。"}, HTTPStatus.NOT_IMPLEMENTED)
+            return
+        try:
+            subprocess.run(["pbcopy"], input=str(run_root).encode("utf-8"), check=True)
         except (OSError, subprocess.CalledProcessError) as error:
             self.send_json({"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return

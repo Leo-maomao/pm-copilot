@@ -435,6 +435,20 @@ def begin_in_place_revision(state: dict[str, Any], request: str) -> dict[str, An
     return state
 
 
+def compact_requirement_numbers(text: str) -> str:
+    """Renumber current requirement details consecutively after a deletion.
+
+    Requirement references in the list, detail tables, tracking and handoff
+    evidence are rewritten together so an in-place revision cannot leave a gap.
+    """
+    headings = re.findall(r"(?m)^###\s+(5\.\d+)(?:\s|$)", text)
+    unique = list(dict.fromkeys(headings))
+    mapping = {old: f"5.{index}" for index, old in enumerate(unique, 1)}
+    for old, new in mapping.items():
+        text = re.sub(rf"(?<![\d.]){re.escape(old)}(?![\d.])", new, text)
+    return text
+
+
 def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = "") -> str:
     latest = state["turns"][-1]
     role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
@@ -548,6 +562,8 @@ def _deliver_artifact_to_quality_gate(
     target = Path(state["folder"]) / artifact
     if not _run_artifact_agent(state, artifact, provider, timeout, worker):
         return False
+    if artifact == "prd.md" and target.is_file():
+        target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
     for revision in range(max_revisions + 1):
         passed, findings = _review_artifact(state, artifact, provider, timeout, worker)
         if passed:
@@ -561,6 +577,8 @@ def _deliver_artifact_to_quality_gate(
             state["revision_stop_reason"] = f"{artifact} stage quality repair failed"
             state["last_error"] = findings
             return False
+        if artifact == "prd.md" and target.is_file():
+            target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
         after = _artifact_digest(target)
         if before == after:
             _record_revision(state, artifact, before, after, "no_progress")

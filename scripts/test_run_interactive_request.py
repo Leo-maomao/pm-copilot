@@ -14,6 +14,7 @@ from unittest.mock import patch
 from run_interactive_request import (
     _confirmed_delivery,
     begin_in_place_revision,
+    compact_requirement_numbers,
     create_state,
     main,
     new_requirement_folder,
@@ -23,6 +24,12 @@ from run_interactive_request import (
 
 
 class InteractiveRequestTest(unittest.TestCase):
+    def test_compact_requirement_numbers_updates_all_references(self) -> None:
+        source = "| 5.1 | A |\n| 5.3 | C |\n### 5.1 A\n### 5.3 C\n目标 5.3"
+        result = compact_requirement_numbers(source)
+        self.assertIn("| 5.2 | C |", result)
+        self.assertIn("### 5.2 C", result)
+        self.assertIn("目标 5.2", result)
     def test_new_requirement_folder_never_allocates_a_suffixed_copy(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

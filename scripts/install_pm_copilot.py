@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -45,7 +46,42 @@ def _source_commit() -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
-def install(runtime_home: Path, skills_home: Path) -> dict[str, str]:
+def publish_codex_plugin_source(source_root: Path, plugin_home: Path | None = None) -> dict[str, str]:
+    """Point the personal marketplace source at the versioned repository plugin."""
+    source = source_root / "plugins" / "pm-copilot"
+    target = (plugin_home or Path.home() / "plugins" / "pm-copilot").expanduser()
+    if not source.is_dir():
+        return {"status": "failed", "reason": f"plugin source is missing: {source}"}
+    if target.is_symlink() and target.resolve() == source.resolve():
+        return {"status": "linked", "path": str(target)}
+    target.parent.mkdir(parents=True, exist_ok=True)
+    backup = ""
+    if target.exists() or target.is_symlink():
+        backup_path = target.with_name(f"{target.name}.backup-{datetime.now(timezone.utc):%Y%m%d%H%M%S}")
+        target.rename(backup_path)
+        backup = str(backup_path)
+    target.symlink_to(source, target_is_directory=True)
+    return {"status": "linked", "path": str(target), "backup": backup}
+
+
+def refresh_codex_plugin(source_root: Path) -> dict[str, str]:
+    """Reinstall the marketplace plugin so Codex refreshes its cached manifest."""
+    source_result = publish_codex_plugin_source(source_root)
+    if source_result["status"] == "failed":
+        return source_result
+    codex = shutil.which("codex")
+    if not codex:
+        return {"status": "skipped", "reason": "codex CLI is not installed", "plugin_source": source_result}
+    result = subprocess.run(
+        [codex, "plugin", "add", "pm-copilot@personal", "--json"],
+        cwd=source_root, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        return {"status": "failed", "reason": (result.stderr or result.stdout).strip()[-1000:], "plugin_source": source_result}
+    return {"status": "refreshed", "result": result.stdout.strip()[-1000:], "plugin_source": source_result}
+
+
+def install(runtime_home: Path, skills_home: Path, *, refresh_plugin: bool = False) -> dict[str, str]:
     runtime_home = runtime_home.expanduser().resolve()
     skills_home = skills_home.expanduser().resolve()
     if runtime_home == ROOT or ROOT in runtime_home.parents:
@@ -89,6 +125,8 @@ def install(runtime_home: Path, skills_home: Path) -> dict[str, str]:
         json.dumps({"files": _file_manifest(runtime_home)}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    if refresh_plugin:
+        state["codex_plugin_refresh"] = refresh_codex_plugin(ROOT)
     return state
 
 
@@ -97,11 +135,12 @@ def main() -> None:
     parser.add_argument("--runtime-home", type=Path, default=Path.home() / ".agents" / "pm-copilot")
     parser.add_argument("--skills-home", type=Path, default=Path.home() / ".agents" / "skills")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--skip-plugin-refresh", action="store_true", help="do not reinstall the Codex plugin")
     args = parser.parse_args()
     if args.dry_run:
         print(json.dumps({"runtime_home": str(args.runtime_home.expanduser()), "skills_home": str(args.skills_home.expanduser())}, ensure_ascii=False, indent=2))
         return
-    print(json.dumps(install(args.runtime_home, args.skills_home), ensure_ascii=False, indent=2))
+    print(json.dumps(install(args.runtime_home, args.skills_home, refresh_plugin=not args.skip_plugin_refresh), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
