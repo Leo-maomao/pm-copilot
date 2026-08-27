@@ -1,0 +1,17 @@
+id: prd-manager-anchor-restore-2026-08-27
+date: 2026-08-27
+goal: "Restore PRD sections during iframe navigation without a visible top-to-section scroll animation."
+source_run: "User compared manager behavior with standalone PRD HTML, which restores through browser navigation state."
+generalized_failure: "Pixel-only restoration happened after the iframe's initial top-of-document paint."
+fix_surface:
+  - tools/prd-manager/app.js
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+  - "Browser: localhost:57391, persisted section anchor supplied in iframe URL before restoration"
+version_change: "6.2.34 -> 6.2.35"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves repository static files."
+stop_condition: "A refreshed manager opens at the persisted PRD anchor before pixel correction, with no visible top-of-document transition."

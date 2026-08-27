@@ -8,8 +8,10 @@
   const allDocuments = () => state.index ? state.index.projects.flatMap((project) => project.documents) : [];
   const readViewerScroll = () => { const frameDocument = viewer.contentDocument; const frameWindow = viewer.contentWindow; if (!frameDocument || !frameWindow) return null; const scrollingElement = frameDocument.scrollingElement || frameDocument.documentElement || frameDocument.body; return { left: Math.max(frameWindow.scrollX || 0, scrollingElement?.scrollLeft || 0), top: Math.max(frameWindow.scrollY || 0, scrollingElement?.scrollTop || 0, frameDocument.documentElement?.scrollTop || 0, frameDocument.body?.scrollTop || 0) }; };
   const scrollStorageKey = (id) => `prd-manager.scroll.${id}`;
+  const hashStorageKey = (id) => `prd-manager.hash.${id}`;
+  const storedViewerHash = (id) => { const value = localStorage.getItem(hashStorageKey(id)); return value && /^#[A-Za-z0-9_:-]+$/.test(value) ? value : ''; };
   const storedViewerScroll = (id) => { try { const value = JSON.parse(localStorage.getItem(scrollStorageKey(id)) || 'null'); return value && Number.isFinite(value.top) ? value : null; } catch (error) { return null; } };
-  const rememberViewerScroll = (id) => { const position = readViewerScroll(); if (position) localStorage.setItem(scrollStorageKey(id), JSON.stringify(position)); };
+  const rememberViewerScroll = (id) => { const position = readViewerScroll(); if (position) localStorage.setItem(scrollStorageKey(id), JSON.stringify(position)); const hash = viewer.contentWindow?.location.hash; if (hash && /^#[A-Za-z0-9_:-]+$/.test(hash)) localStorage.setItem(hashStorageKey(id), hash); };
   function renderTree() {
     tree.innerHTML = (state.index?.projects || []).map((project) => {
       const collapsed = localStorage.getItem(`prd-manager.project.${project.name}`) === 'collapsed';
@@ -24,9 +26,10 @@
   function selectDocument(id, query = '', restoreScroll = undefined) {
     const item = allDocuments().find((entry) => entry.id === id); if (!item) return;
     const targetScroll = restoreScroll === undefined && !query ? storedViewerScroll(id) : restoreScroll;
+    const targetHash = !query ? storedViewerHash(id) : '';
     state.selectedId = id; localStorage.setItem('prd-manager.selected', id); renderTree();
-    empty.hidden = true; viewer.hidden = false; viewer.src = `/document/${encodeURIComponent(id)}/`;
-    viewer.onload = () => { if (targetScroll && !query) { const restore = () => viewer.contentWindow?.scrollTo(targetScroll.left, targetScroll.top); restore(); requestAnimationFrame(() => { restore(); setTimeout(restore, 80); }); } viewer.contentWindow?.addEventListener('scroll', () => rememberViewerScroll(id), { passive: true }); if (query) highlight(query); }; document.querySelector('.sidebar').classList.remove('open');
+    empty.hidden = true; viewer.hidden = false; viewer.classList.add('is-loading'); viewer.src = `/document/${encodeURIComponent(id)}/${targetHash}`;
+    viewer.onload = () => { const reveal = () => viewer.classList.remove('is-loading'); if (targetScroll && !query) { const restore = () => viewer.contentWindow?.scrollTo(targetScroll.left, targetScroll.top); restore(); requestAnimationFrame(() => { restore(); setTimeout(() => { restore(); reveal(); }, 80); }); setTimeout(reveal, 500); } else { if (query) highlight(query); reveal(); } viewer.contentWindow?.addEventListener('scroll', () => rememberViewerScroll(id), { passive: true }); }; document.querySelector('.sidebar').classList.remove('open');
   }
   function setSidebarCollapsed(collapsed) {
     appShell.classList.toggle('sidebar-collapsed', collapsed);

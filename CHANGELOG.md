@@ -6,6 +6,18 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.35] - 2026-08-27
+
+### Fixed
+
+- Restore the active PRD anchor in the iframe URL before first paint, matching standalone HTML navigation while retaining pixel-level scroll correction.
+
+## [6.2.34] - 2026-08-27
+
+### Fixed
+
+- Hide the PRD iframe until its persisted reading position has been restored, preventing a visible jump from the top after a page refresh.
+
 ## [6.2.33] - 2026-08-27
 
 ### Fixed
