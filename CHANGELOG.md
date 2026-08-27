@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.36] - 2026-08-27
+
+### Fixed
+
+- Disable smooth scrolling while restoring a PRD position so refresh jumps directly to the saved location without an animated transition.
+
 ## [6.2.35] - 2026-08-27
 
 ### Fixed

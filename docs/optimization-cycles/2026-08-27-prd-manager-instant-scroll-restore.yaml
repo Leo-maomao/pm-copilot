@@ -1,0 +1,17 @@
+id: prd-manager-instant-scroll-restore-2026-08-27
+date: 2026-08-27
+goal: "Make PRD refresh restoration instantaneous rather than animated."
+source_run: "User observed the manager still scrolling visibly from the top to the saved section after refresh."
+generalized_failure: "The embedded PRD's smooth-scroll CSS intercepted restoration calls, animating the jump."
+fix_surface:
+  - tools/prd-manager/app.js
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+  - "Browser: localhost:57391, restoration writes scrollingElement.scrollTop with behavior auto"
+version_change: "6.2.35 -> 6.2.36"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves repository static files."
+stop_condition: "Refreshing the manager places the PRD at the saved position without a visible scrolling animation."
