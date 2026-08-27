@@ -1,0 +1,40 @@
+cycle_id: "2026-08-27-interactive-prd-delivery-checkpoints"
+date: "2026-08-27"
+version_change: "6.2.25 -> 6.2.26"
+source_run: >-
+  SeaArt interactive PRD run in
+  pm-copilot-outputs/video-super-resolution-and-layer-separation-2026-08-27.
+generalized_failure: >-
+  The controller promoted staged artifacts and performed stage reviews in
+  memory, but wrote interactive-run.json only after the whole delivery flow
+  returned. An interruption could therefore leave a real artifact and staging
+  trace while canonical state incorrectly remained awaiting_confirmation.
+fix_surface:
+  - "scripts/run_interactive_request.py"
+  - "plugins/pm-copilot/scripts/pm_copilot_mcp.py"
+  - "plugins/pm-copilot/skills/pm-copilot/SKILL.md"
+  - "distribution/seawork-skill/SKILL.md"
+  - "scripts/test_run_interactive_request.py"
+  - "scripts/test_pm_copilot_mcp.py"
+canonical_rule:
+  owner: "PM_COPILOT.md / Production Conversation Boundary"
+  rule: >-
+    Confirmed delivery must persist an atomic checkpoint before and after every
+    externally executed stage; interrupted delivery must never be represented
+    as awaiting human confirmation.
+validation:
+  commands:
+    - "PYTHONPATH=scripts python3 -m unittest scripts/test_run_interactive_request.py scripts/test_pm_copilot_mcp.py scripts/test_pm_copilot_entrypoint_parity.py scripts/test_prd_request_controller.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  result: "passed"
+embedded_copy_sync:
+  checked: []
+  updated: []
+  pending:
+    - "~/.agents/pm-copilot"
+    - "Codex personal plugin cache"
+remote_push:
+  required: true
+  status: "pending"
+  target: "origin/main"

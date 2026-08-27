@@ -34,8 +34,26 @@ def _load_run(run_folder: str) -> tuple[Path, dict[str, Any]]:
     return folder, state
 
 
+def _legacy_interruption(folder: Path, state: dict[str, Any]) -> dict[str, Any] | None:
+    """Detect the pre-checkpoint controller inconsistency without mutating a run."""
+    if state.get("status") != "awaiting_confirmation" or state.get("user_confirmation"):
+        return None
+    promoted = [name for name in ("confirmed-requirements.md", "prd.md", "run-log.yaml") if (folder / name).is_file()]
+    traces = list(folder.parent.glob(f".{folder.name}.stage-*")) + list(folder.parent.glob(f".{folder.name}.review-*"))
+    if not promoted or not traces:
+        return None
+    return {
+        "status": "confirmation_required",
+        "promoted_artifacts": promoted,
+        "staging_traces": [str(path) for path in traces],
+        "message": "检测到旧版控制器在交付阶段中断；请明确确认恢复交付。",
+    }
+
+
 def run_summary(run_folder: str) -> dict[str, Any]:
     folder, state = _load_run(run_folder)
+    recovery = state.get("recovery") or _legacy_interruption(folder, state)
+    status = "recovery_required" if recovery and state.get("status") == "awaiting_confirmation" else state.get("status")
     delivery_calls = [
         {
             "artifact": call.get("artifact"),
@@ -49,11 +67,12 @@ def run_summary(run_folder: str) -> dict[str, Any]:
     return {
         "ok": True,
         "run_folder": str(folder),
-        "status": state.get("status"),
-        "termination": state.get("termination"),
+        "status": status,
+        "termination": "interrupted" if status == "recovery_required" else state.get("termination"),
         "user_confirmation": state.get("user_confirmation"),
         "artifacts": state.get("artifacts", []),
         "last_error": state.get("last_error"),
+        "recovery": recovery,
         "delivery_calls": delivery_calls,
         "next_questions": latest_turn.get("questions", []) if state.get("status") == "needs_input" else [],
     }
@@ -89,9 +108,10 @@ def submit_answer(run_folder: str, answer: str) -> dict[str, Any]:
 
 
 def confirm_delivery(run_folder: str) -> dict[str, Any]:
-    _, state = _load_run(run_folder)
-    if state.get("status") != "awaiting_confirmation":
-        return _error(f"cannot confirm delivery while run status is {state.get('status')}")
+    folder, state = _load_run(run_folder)
+    effective_status = "recovery_required" if _legacy_interruption(folder, state) else state.get("status")
+    if effective_status not in {"awaiting_confirmation", "recovery_required", "confirmed", "delivery"}:
+        return _error(f"cannot confirm or resume delivery while run status is {effective_status}")
     return _invoke(run_folder, ["--confirm"])
 
 

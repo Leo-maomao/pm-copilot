@@ -52,6 +52,30 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("needs_input", result["error"])
 
+    def test_confirm_allows_explicit_recovery_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            self.write_state(folder, status="recovery_required", termination="interrupted")
+            controller = folder / "controller.py"
+            controller.write_text("# mocked controller\n", encoding="utf-8")
+            with patch.object(MCP, "CONTROLLER", controller), patch.object(MCP.subprocess, "run", return_value=type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()):
+                result = MCP.confirm_delivery(str(folder))
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["status"], "recovery_required")
+
+    def test_status_detects_legacy_interruption_without_mutating_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "run"
+            folder.mkdir()
+            self.write_state(folder)
+            (folder / "confirmed-requirements.md").write_text("# partial\n", encoding="utf-8")
+            (folder.parent / ".run.stage-abandoned").mkdir()
+            summary = MCP.run_summary(str(folder))
+            self.assertEqual(summary["status"], "recovery_required")
+            self.assertEqual(summary["termination"], "interrupted")
+            persisted = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(persisted["status"], "awaiting_confirmation")
+
     def test_submit_answer_requires_needs_input(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

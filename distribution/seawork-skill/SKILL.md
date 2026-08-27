@@ -33,6 +33,9 @@ python3 "${PM_COPILOT_HOME:-$HOME/.agents/pm-copilot}/plugins/pm-copilot/scripts
 - For `needs_input`, submit the user's answer with `--answer "<answer>"`.
 - For `awaiting_confirmation`, show the clarified scope. After an unambiguous
   confirmation, use `--confirm`.
+- For `recovery_required`, report the recorded interruption and promoted
+  artifacts. Only after explicit user confirmation, use `--confirm` to resume
+  from the first stage without a persisted accepted review.
 - Report only the returned JSON. An artifact is generating only when
   `delivery_calls` contains it, and is created only when it appears in
   `artifacts`. Never narrate a controller state from chat text.

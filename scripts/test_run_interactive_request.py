@@ -13,6 +13,8 @@ from unittest.mock import patch
 
 from run_interactive_request import (
     _confirmed_delivery,
+    _recover_interrupted_delivery,
+    _write_json,
     _normalise_intake,
     _run_artifact_agent,
     begin_in_place_revision,
@@ -230,6 +232,45 @@ class InteractiveRequestTest(unittest.TestCase):
 
             self.assertTrue(_run_artifact_agent(state, "confirmed-requirements.md", "test", 1, worker=worker))
             self.assertTrue((folder / "confirmed-requirements.md").is_file())
+
+    def test_delivery_checkpoint_survives_interruption_after_artifact_promotion(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            state_path = folder / "interactive-run.json"
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            _write_json(state_path, state)
+
+            def interrupted_worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
+                if "Stage Quality Review Agent" in prompt:
+                    raise KeyboardInterrupt("simulated controller interruption")
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("# confirmed\n", encoding="utf-8")
+                return {"provider": "test", "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            with self.assertRaises(KeyboardInterrupt):
+                _confirmed_delivery(state, "test", 1, worker=interrupted_worker, state_path=state_path)
+            persisted = __import__("json").loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(persisted["status"], "delivery")
+            self.assertTrue(persisted["user_confirmation"]["confirmed"])
+            self.assertIn("confirmed-requirements.md", persisted["artifacts"])
+            self.assertEqual(persisted["delivery_stages"]["confirmed-requirements.md"]["artifact_status"], "promoted")
+
+    def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "run"
+            folder.mkdir()
+            state = create_state("做一个 PRD", folder)
+            state["status"] = "awaiting_confirmation"
+            state["termination"] = "human_checkpoint"
+            (folder / "confirmed-requirements.md").write_text("# partial\n", encoding="utf-8")
+            (folder.parent / ".run.stage-abandoned").mkdir()
+            self.assertTrue(_recover_interrupted_delivery(state, folder))
+            self.assertEqual(state["status"], "recovery_required")
+            self.assertEqual(state["termination"], "interrupted")
+            self.assertIn("confirmed-requirements.md", state["recovery"]["promoted_artifacts"])
 
 
 if __name__ == "__main__":

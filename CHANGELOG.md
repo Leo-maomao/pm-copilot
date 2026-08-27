@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.26] - 2026-08-27
+
+### Fixed
+
+- Persisted interactive PRD confirmation, artifact promotion, stage review, and validation checkpoints atomically so a controller interruption cannot leave generated files behind while the canonical state still waits for confirmation.
+- Added truthful `recovery_required` status for legacy interrupted deliveries and explicit resume support that continues from the first stage without a persisted accepted review.
+
 ## [6.2.25] - 2026-08-27
 
 ### Fixed

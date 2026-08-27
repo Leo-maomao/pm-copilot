@@ -39,6 +39,9 @@ never infer a stage from chat text, a planned command, or an Agent narrative.
 - For `awaiting_confirmation`, show the clarified scope. After an unambiguous
   user reply such as "确认执行" or "确认生成 PRD", use
   `prd_confirm_delivery`, then report its returned state.
+- For `recovery_required`, report the recorded interruption and promoted
+  artifacts. After explicit user confirmation, use `prd_confirm_delivery` to
+  resume from the first stage without a persisted accepted review.
 - Say an artifact is generating only when `delivery_calls` contains a recorded
   delivery call for that artifact. Say it was created only when it appears in
   `artifacts`.

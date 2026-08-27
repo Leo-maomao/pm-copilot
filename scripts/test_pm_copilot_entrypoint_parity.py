@@ -19,6 +19,7 @@ class PmCopilotEntrypointParityTest(unittest.TestCase):
         for text in (plugin, global_skill):
             self.assertIn("prd_request_controller.py", text)
             self.assertIn("awaiting_confirmation", text)
+            self.assertIn("recovery_required", text)
             self.assertIn("delivery_calls", text)
         self.assertIn("prd_run_status", plugin)
         self.assertIn("pm_copilot_mcp.py", global_skill)

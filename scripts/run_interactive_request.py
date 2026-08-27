@@ -71,7 +71,51 @@ def new_requirement_folder(request: str, root: Path = OUTPUT_ROOT) -> Path:
 
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    """Persist a run checkpoint without exposing a partially-written JSON file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False,
+    ) as temporary:
+        temporary.write(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(path)
+
+
+def _checkpoint(state: dict[str, Any], state_path: Path | None) -> None:
+    if state_path is not None:
+        _write_json(state_path, state)
+
+
+def _stage(state: dict[str, Any], artifact: str) -> dict[str, Any]:
+    return state.setdefault("delivery_stages", {}).setdefault(artifact, {})
+
+
+def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
+    """Expose an interrupted pre-checkpoint delivery instead of misreporting it.
+
+    Older controller versions could promote an artifact before recording the
+    confirmation and delivery call. Do not infer that a human confirmed it;
+    make the integrity break explicit and require a fresh resume confirmation.
+    """
+    if state.get("status") != "awaiting_confirmation" or state.get("user_confirmation"):
+        return False
+    staged = list(folder.parent.glob(f".{folder.name}.stage-*")) + list(folder.parent.glob(f".{folder.name}.review-*"))
+    promoted = [name for name in ("confirmed-requirements.md", "prd.md", "run-log.yaml") if (folder / name).is_file()]
+    if not staged or not promoted:
+        return False
+    state["status"] = "recovery_required"
+    state["termination"] = "interrupted"
+    state["last_error"] = (
+        "检测到旧版控制器在交付阶段中断：已生成 " + "、".join(promoted)
+        + "，但确认和阶段检查点未写入。请明确确认恢复交付。"
+    )
+    state["recovery"] = {
+        "status": "confirmation_required",
+        "detected_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "promoted_artifacts": promoted,
+        "staging_traces": [str(path) for path in staged],
+    }
+    return True
 
 
 def _agent_call_has_evidence(result: dict[str, Any]) -> bool:
@@ -427,6 +471,7 @@ def create_state(raw_request: str, folder: Path) -> dict[str, Any]:
         "artifacts": [],
         "user_confirmation": None,
         "revision_history": [],
+        "delivery_stages": {},
     }
 
 
@@ -494,7 +539,7 @@ Artifact requirements:
 
 def _run_artifact_agent(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
-    worker: Callable[..., dict[str, Any]] = execute, repair_errors: str = "",
+    worker: Callable[..., dict[str, Any]] = execute, repair_errors: str = "", state_path: Path | None = None,
 ) -> bool:
     target = Path(state["folder"]) / artifact
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -512,6 +557,12 @@ def _run_artifact_agent(
     result["isolated_workspace"] = True
     result["promoted_artifact"] = artifact if target.is_file() else None
     attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
+    stage = _stage(state, artifact)
+    stage["artifact_status"] = "promoted" if target.is_file() and target.stat().st_size > 0 else "failed"
+    stage["artifact_sha256"] = _artifact_digest(target)
+    stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    if stage["artifact_status"] == "promoted" and artifact not in state.setdefault("artifacts", []):
+        state["artifacts"].append(artifact)
     if not attributable:
         state["last_error"] = f"{artifact} Agent call has no attributable provider/model evidence"
     elif not target.is_file() or target.stat().st_size == 0:
@@ -520,6 +571,7 @@ def _run_artifact_agent(
             f"{artifact} was not produced in the project staging directory"
             + (f": {detail}" if detail else "")
         )
+    _checkpoint(state, state_path)
     return attributable and target.is_file() and target.stat().st_size > 0
 
 
@@ -546,7 +598,7 @@ Artifact under review: {artifact}
 
 def _review_artifact(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
-    worker: Callable[..., dict[str, Any]] = execute,
+    worker: Callable[..., dict[str, Any]] = execute, state_path: Path | None = None,
 ) -> tuple[bool, str]:
     real_folder = Path(state["folder"]).resolve()
     with tempfile.TemporaryDirectory(prefix=f".{real_folder.name}.review-", dir=str(real_folder.parent)) as review_dir:
@@ -559,12 +611,18 @@ def _review_artifact(
     result["artifact"] = artifact
     attributable = _record_agent_call(state, result, phase="stage_quality_review", artifact=artifact)
     if not attributable:
+        _stage(state, artifact)["review_status"] = "failed"
+        _checkpoint(state, state_path)
         return False, "Stage Quality Review Agent call has no attributable provider/model evidence"
     if result.get("status") != "complete":
+        _stage(state, artifact)["review_status"] = "failed"
+        _checkpoint(state, state_path)
         return False, result.get("error", "Stage Quality Review Agent failed")
     try:
         review = _extract_json(review_text or result.get("output", ""))
     except (ValueError, json.JSONDecodeError) as error:
+        _stage(state, artifact)["review_status"] = "failed"
+        _checkpoint(state, state_path)
         return False, f"Stage Quality Review Agent returned invalid JSON: {error}"
     findings = review.get("blocking_findings", [])
     if not isinstance(findings, list):
@@ -576,34 +634,53 @@ def _review_artifact(
     acceptance_evidence = [str(item).strip() for item in acceptance_evidence if str(item).strip()]
     review_status = str(review.get("status", "")).strip().lower()
     if review_status == "needs_revision" and not findings:
+        _stage(state, artifact)["review_status"] = "failed"
+        _checkpoint(state, state_path)
         return False, "Stage Quality Review Agent returned needs_revision without specific blocking_findings"
     if review_status == "pass" and not acceptance_evidence:
+        _stage(state, artifact)["review_status"] = "failed"
+        _checkpoint(state, state_path)
         return False, "Stage Quality Review Agent returned pass without acceptance_evidence"
     passed = review_status == "pass" and not findings
+    stage = _stage(state, artifact)
+    stage["review_status"] = "passed" if passed else "needs_revision"
+    stage["reviewed_sha256"] = _artifact_digest(Path(state["folder"]) / artifact)
+    stage["review_findings"] = findings
+    stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    _checkpoint(state, state_path)
     return passed, "\n".join(findings) or str(review.get("summary", "stage review rejected artifact"))
 
 
 def _deliver_artifact_to_quality_gate(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = execute, max_revisions: int = DEFAULT_MAX_REVISIONS,
+    state_path: Path | None = None,
 ) -> bool:
     target = Path(state["folder"]) / artifact
-    if not _run_artifact_agent(state, artifact, provider, timeout, worker):
-        return False
+    stage = _stage(state, artifact)
+    if stage.get("review_status") == "passed" and stage.get("reviewed_sha256") == _artifact_digest(target):
+        return True
+    if stage.get("artifact_status") != "promoted" or not target.is_file():
+        if not _run_artifact_agent(state, artifact, provider, timeout, worker, state_path=state_path):
+            return False
     if artifact == "prd.md" and target.is_file():
         target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
+        _stage(state, artifact)["artifact_sha256"] = _artifact_digest(target)
+        _checkpoint(state, state_path)
     for revision in range(max_revisions + 1):
-        passed, findings = _review_artifact(state, artifact, provider, timeout, worker)
+        passed, findings = _review_artifact(state, artifact, provider, timeout, worker, state_path)
         if passed:
             return True
         if revision >= max_revisions:
             state["revision_stop_reason"] = f"{artifact} stage quality budget exhausted"
             state["last_error"] = findings
+            _checkpoint(state, state_path)
             return False
         before = _artifact_digest(target)
-        if not _run_artifact_agent(state, artifact, provider, timeout, worker, findings[-6000:]):
+        if not _run_artifact_agent(state, artifact, provider, timeout, worker, findings[-6000:], state_path):
             state["revision_stop_reason"] = f"{artifact} stage quality repair failed"
             state["last_error"] = findings
+            _checkpoint(state, state_path)
             return False
         if artifact == "prd.md" and target.is_file():
             target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
@@ -612,9 +689,11 @@ def _deliver_artifact_to_quality_gate(
             _record_revision(state, artifact, before, after, "no_progress")
             state["revision_stop_reason"] = f"{artifact} stage quality repair made no artifact change"
             state["last_error"] = findings
+            _checkpoint(state, state_path)
             return False
         _record_revision(state, artifact, before, after, "changed")
         state["revision_loops"] = state.get("revision_loops", 0) + 1
+        _checkpoint(state, state_path)
     return False
 
 
@@ -641,6 +720,7 @@ def _validate_delivery(folder: Path) -> list[dict[str, Any]]:
 def _confirmed_delivery(
     state: dict[str, Any], provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = execute, max_revisions: int = DEFAULT_MAX_REVISIONS,
+    state_path: Path | None = None,
 ) -> None:
     confirmation = state.get("user_confirmation")
     if not isinstance(confirmation, dict) or confirmation.get("confirmed") is not True:
@@ -649,11 +729,15 @@ def _confirmed_delivery(
         state["last_error"] = "Explicit user confirmation is required before delivery"
         return
     folder = Path(state["folder"])
+    state["status"] = "delivery"
+    state["termination"] = "running"
+    _checkpoint(state, state_path)
     for artifact in ("confirmed-requirements.md", "prd.md", "run-log.yaml"):
-        if not _deliver_artifact_to_quality_gate(state, artifact, provider, timeout, worker, max_revisions):
+        if not _deliver_artifact_to_quality_gate(state, artifact, provider, timeout, worker, max_revisions, state_path):
             state["status"] = "failed"
             state["termination"] = "failed"
             state.setdefault("last_error", f"delivery Agent failed to produce {artifact}")
+            _checkpoint(state, state_path)
             return
     all_checks: list[dict[str, Any]] = []
     final_checks: list[dict[str, Any]] = []
@@ -661,6 +745,8 @@ def _confirmed_delivery(
         checks = _validate_delivery(folder)
         all_checks.extend(checks)
         final_checks = checks
+        state["validation"] = all_checks
+        _checkpoint(state, state_path)
         if all(check["status"] == "passed" for check in checks):
             break
         if revision >= max_revisions:
@@ -671,23 +757,27 @@ def _confirmed_delivery(
         errors = "\n\n".join(f"{check['command']}:\n{check.get('stdout', '')}\n{check.get('stderr', '')}" for check in checks if check["status"] != "passed")
         target = folder / artifact
         before = _artifact_digest(target)
-        if not _run_artifact_agent(state, artifact, provider, timeout, worker, errors[-6000:]):
+        if not _run_artifact_agent(state, artifact, provider, timeout, worker, errors[-6000:], state_path):
             state["revision_stop_reason"] = "repair Agent failed"
+            _checkpoint(state, state_path)
             break
         after = _artifact_digest(target)
         if before == after:
             _record_revision(state, artifact, before, after, "no_progress")
             state["revision_stop_reason"] = f"validation repair made no {artifact} change"
+            _checkpoint(state, state_path)
             break
         _record_revision(state, artifact, before, after, "changed")
         # A validator repair creates a new artifact version. The review that
         # accepted the prior bytes is no longer evidence for this version.
-        passed, findings = _review_artifact(state, artifact, provider, timeout, worker)
+        passed, findings = _review_artifact(state, artifact, provider, timeout, worker, state_path)
         if not passed:
             state["revision_stop_reason"] = f"validation repair for {artifact} was rejected by stage quality review"
             state["last_error"] = findings
+            _checkpoint(state, state_path)
             break
         state["revision_loops"] = revision + 1
+        _checkpoint(state, state_path)
     state["validation"] = all_checks
     state["artifacts"] = ["discussion.md", "confirmed-requirements.md", "prd.md", "prd.html", "run-log.yaml"]
     if final_checks and all(check["status"] == "passed" for check in final_checks):
@@ -702,6 +792,7 @@ def _confirmed_delivery(
     else:
         state["status"] = "failed"
         state["termination"] = "failed"
+    _checkpoint(state, state_path)
 
 
 def main() -> int:
@@ -752,6 +843,8 @@ def main() -> int:
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else create_state(raw_request, folder)
     if state.get("mode") != "interactive":
         parser.error("run folder is not an interactive production run")
+    if _recover_interrupted_delivery(state, folder):
+        _write_json(state_path, state)
     if args.revise:
         if state.get("status") not in {"complete", "failed"}:
             parser.error("canonical PRD is already active; resume it without --revise")
@@ -777,15 +870,23 @@ def main() -> int:
             print(json.dumps({"status": "needs_input", "questions": state["turns"][-1]["questions"], "run_folder": str(folder)}, ensure_ascii=False, indent=2))
         _write_json(state_path, state)
         return 3 if state["status"] == "needs_input" else 0
-    if state["status"] == "awaiting_confirmation":
+    if state["status"] in {"awaiting_confirmation", "recovery_required", "confirmed", "delivery"}:
         if not args.confirm:
-            print("仍在等待用户明确确认；未生成 PRD。请使用 --confirm。")
+            if state["status"] == "recovery_required":
+                print(json.dumps({"status": "recovery_required", "last_error": state.get("last_error"), "run_folder": str(folder)}, ensure_ascii=False, indent=2))
+            elif state["status"] in {"confirmed", "delivery"}:
+                print("交付已中断但确认已持久化；请使用 --confirm 恢复未完成阶段。")
+            else:
+                print("仍在等待用户明确确认；未生成 PRD。请使用 --confirm。")
             return 3
-        state["user_confirmation"] = {"confirmed": True, "at": dt.datetime.now(dt.timezone.utc).isoformat(), "source": "explicit --confirm"}
+        state["user_confirmation"] = {
+            "confirmed": True, "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "source": "explicit --confirm" if state["status"] == "awaiting_confirmation" else "explicit --confirm resume",
+        }
         state["status"] = "confirmed"
         state["termination"] = "running"
-        _confirmed_delivery(state, args.provider, args.timeout_minutes, max_revisions=args.max_revisions)
         _write_json(state_path, state)
+        _confirmed_delivery(state, args.provider, args.timeout_minutes, max_revisions=args.max_revisions, state_path=state_path)
         print(json.dumps({"status": state["status"], "run_folder": str(folder), "artifacts": state.get("artifacts", []), "validation": state.get("validation", [])}, ensure_ascii=False, indent=2))
         return 0 if state["status"] == "complete" else 1
     print(json.dumps(state, ensure_ascii=False, indent=2))
