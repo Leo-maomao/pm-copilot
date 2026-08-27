@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.33] - 2026-08-27
+
+### Fixed
+
+- Restore the selected PRD reading position after a full browser refresh, including a final save during page unload.
+
 ## [6.2.32] - 2026-08-27
 
 ### Fixed
