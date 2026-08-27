@@ -300,6 +300,14 @@ DOCUMENT_CSS = """
       flex-direction: column;
       gap: 18px;
     }
+    .prd-detail-text-block {
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--pm-doc-border);
+    }
+    .prd-detail-text-block:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
     .prd-detail-media-block {
       display: grid;
       grid-template-columns: 240px minmax(0, 1fr);
@@ -995,7 +1003,7 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
     def replace_table(table_match: re.Match[str]) -> str:
         table = table_match.group(0)
         rows = list(TABLE_ROW_RE.finditer(table))
-        detail_index = None
+        detail_indices = []
         figure_index = None
         for index, row_match in enumerate(rows):
             cells = list(TABLE_CELL_RE.finditer(row_match.group(0)))
@@ -1003,11 +1011,12 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
                 continue
             label = visible_text_from_html(cells[0].group("body"))
             if label == "需求详情":
-                detail_index = index
+                detail_indices.append(index)
             elif REQUIREMENT_IMAGE_LABEL_RE.fullmatch(label):
                 figure_index = index
-        if detail_index is None or figure_index is None or figure_index <= detail_index:
+        if not detail_indices or figure_index is None or figure_index <= detail_indices[-1]:
             return table
+        detail_index = detail_indices[-1]
         detail_cells = list(TABLE_CELL_RE.finditer(rows[detail_index].group(0)))
         figure_cells = list(TABLE_CELL_RE.finditer(rows[figure_index].group(0)))
         if len(detail_cells) != 2 or len(figure_cells) != 2:
@@ -1062,11 +1071,26 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
                 f'{copy_html}'
                 "</div>"
             )
-        detail_body = '<div class="prd-detail-media-stack">' + "".join(blocks) + "</div>"
-        detail_row = rows[detail_index].group(0)
-        detail_cell = detail_cells[1]
+        prior_text_blocks = []
+        for prior_index in detail_indices[:-1]:
+            prior_cells = list(TABLE_CELL_RE.finditer(rows[prior_index].group(0)))
+            if len(prior_cells) == 2:
+                prior_text_blocks.append(
+                    f'<div class="prd-detail-text-block">{prior_cells[1].group("body")}</div>'
+                )
+        detail_body = '<div class="prd-detail-media-stack">' + "".join(prior_text_blocks + blocks) + "</div>"
+        first_detail_index = detail_indices[0]
+        first_detail_row = rows[first_detail_index].group(0)
+        first_detail_cells = list(TABLE_CELL_RE.finditer(first_detail_row))
+        detail_cell = first_detail_cells[1]
         replacement = f'<td{detail_cell.group("attrs")}>{detail_body}</td>'
-        table = table.replace(detail_row, detail_row[:detail_cell.start()] + replacement + detail_row[detail_cell.end():], 1)
+        table = table.replace(
+            first_detail_row,
+            first_detail_row[:detail_cell.start()] + replacement + first_detail_row[detail_cell.end():],
+            1,
+        )
+        for prior_index in detail_indices[1:]:
+            table = table.replace(rows[prior_index].group(0), "", 1)
         figure_row = rows[figure_index].group(0)
         table = table.replace(figure_row, "", 1)
         return table

@@ -16,7 +16,7 @@ validation:
   - "Image columns use a fixed width and preserve aspect ratios."
   - "validate_runtime_routing.py"
   - "validate_repo.py"
-version_change: "6.2.16 -> 6.2.17"
+version_change: "6.2.17 -> 6.2.18"
 remote_push_status: "pending until main is pushed"
 embedded_copy_sync_targets: "local manager PRD outputs requested by user"
 stop_condition: "All detail media blocks remain in one cell, align consistently for mixed landscape and portrait screenshots, and distribute legacy grouped rules across the corresponding images."
