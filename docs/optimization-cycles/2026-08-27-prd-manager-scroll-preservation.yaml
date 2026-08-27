@@ -1,0 +1,15 @@
+id: prd-manager-scroll-preservation-2026-08-27
+date: 2026-08-27
+goal: "Keep the current PRD reading position when refreshing the local manager index."
+source_run: "User reported that manager refresh returned an open PRD to the top while standalone PRD pages preserved position."
+generalized_failure: "Reloading the selected iframe during index refresh discarded its document scroll state."
+fix_surface:
+  - tools/prd-manager/app.js
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "git diff --check"
+version_change: "6.2.28 -> 6.2.29"
+remote_push_status: "not requested"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves the repository static files."
+stop_condition: "Refreshing the index restores the selected PRD iframe scroll position, while document changes and search jumps retain their normal behavior."
