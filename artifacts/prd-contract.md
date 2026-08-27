@@ -108,15 +108,15 @@ Each detail starts from the affected user and uses the smallest applicable set o
 - `需求入口`: visible entry point, trigger, eligibility, and navigation context
 - `需求详情`: main flow, business rules, permissions, normal and exception states, empty/loading/error feedback, recovery, degradation, and other user-visible boundaries
 - `设计与交互`: information hierarchy, visible controls, interaction, accessibility, and feedback
-- `图示`: a real, local screenshot or figure when visual evidence is needed; a controlled missing-image placeholder only when the required capture cannot be recovered
+- `需求详情` may contain repeated `prd-detail-media` blocks when a screenshot clarifies a state. Each block keeps the screenshot and its corresponding status, rule, or feedback in the same cell; the outer requirement table remains one table and one `需求详情` cell. The renderer fixes the image column width across all blocks, preserves image proportions, and switches to stacked layout only on narrow screens or paged output.
 
 `用户与场景`、`需求入口`、`需求详情`、`设计与交互` are required for every detail. For an implemented-feature PRD, record one visual-coverage decision for every independently reviewable production user-facing page, panel, dialog, or decisive state retained in the PRD: `real_figure`, `required_placeholder`, or `not_required`. A production user-facing surface that materially affects review must not silently omit this decision.
 
-The detail table may use only `用户与场景`、`需求入口`、`需求详情`、`设计与交互`, and the optional final `图示` row. Put boundaries, permissions, exceptions, recovery, and state constraints in `需求详情` or `设计与交互`; never add standalone rows such as `边界规则`、`状态规则`、`异常规则`, or other ad hoc field names.
+The detail table may use only `用户与场景`、`需求入口`、`需求详情`, and `设计与交互`. Put boundaries, permissions, exceptions, recovery, and state constraints in `需求详情` or `设计与交互`; never add standalone rows such as `边界规则`、`状态规则`、`异常规则`, or other ad hoc field names. Do not create a separate `图示` row. Visible image captions are omitted when the adjacent requirement text already identifies the state; keep alt text and controlled filenames for accessibility and traceability.
 
 Use `real_figure` when a trusted rendered surface is available. Use `required_placeholder` only after a capability-based recovery chain: discover an existing preview, reuse or activate the project runtime through its actual project configuration, recover the needed test state, then attempt Playwright, Chrome DevTools, and Computer Use. The protocol never assumes a fixed port. Each non-skipped capability and capture attempt records its actual action, evidence, and a non-empty local result under `tool-results/`. A required placeholder does not downgrade or block PRD delivery: keep it inline, set `文档状态` to `可评审（图示待人工补全）`, and create one explicit manual replacement instruction for each missing figure in the run log. Record one coverage item per independently reviewable production state; never bundle several states into one placeholder name. A coverage item does not define a PRD requirement and must not cause a requirement to split. Use `not_required` only for a non-visual requirement or a declared non-essential visual state, with a rationale. Keep the `图示` row as the final row of its matching detail table. A placeholder cell contains only one or more controlled `占位图：功能-状态.png` values, without explanatory prose; separate multiple placeholders with `<br>`. A user-provided video is playback evidence: embed the original local video with browser controls and inline playback; never replace it with an extracted still frame unless the user explicitly requests a frame image.
 
-Every figure display name and controlled placeholder name uses exactly `功能-状态`, such as `媒体裁剪-编辑中` or `分组画布-多选拖拽完成`. Do not add file type, capture method, page location, purpose, source, or explanatory prose to the name. A controlled placeholder retains its file extension only as `占位图：功能-状态.png`.
+Asset filenames and alt text use the relevant functional area and key state for traceability. Do not render a separate visible image-name caption when adjacent requirement text identifies the state. Each media block uses a fixed image column, fixed gap, and flexible text column; preserve proportions and stack only for narrow output. A controlled placeholder retains its file extension only as `占位图：功能-状态.png`.
 
 ## Requirement Coverage Review
 
@@ -138,7 +138,9 @@ For an implemented-feature PRD, every requirement that names a production user-f
 | 图示 | 占位图：成员管理-高危角色确认.png |
 ```
 
-Each real image is immediately followed by the same `功能-状态` display name in a small caption. Use the name alone; do not append location, purpose, source, or capture explanations. When multiple image-caption pairs belong to the same requirement, the HTML renderer groups them adaptively: wide screenshots remain full-width, while small or vertical screenshots may share a row. A placeholder uses only `占位图：功能-状态.png`; record failed capture paths and the reason for the placeholder only in internal evidence.
+Each real image is paired with its matching state logic in the same `需求详情` cell; do not repeat a visible image-name caption. A placeholder uses only `占位图：功能-状态.png`; record failed capture paths and the reason for the placeholder only in internal evidence.
+
+The legacy standalone `图示` row is accepted only as input from older PRDs; the HTML renderer migrates it into the matching `需求详情` cell. New PRDs must use the single-cell media-block layout above.
 
 Do not add separate risk, pending-confirmation, acceptance-result, or technical-test fields to requirement details. Keep only confirmed product behavior in the detail; when an unresolved product decision genuinely blocks drafting, handle it before generation or state the assumption in `需求背景`.
 

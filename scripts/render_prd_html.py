@@ -294,6 +294,50 @@ DOCUMENT_CSS = """
       font-size: 12px;
       line-height: 1.5;
     }
+    .prd-detail-media-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .prd-detail-media-block {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--pm-doc-border);
+    }
+    .prd-detail-media-block:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+    .prd-detail-media-block .prd-detail-media {
+      width: 240px;
+      min-height: 140px;
+      display: grid;
+      place-items: start center;
+    }
+    .prd-detail-media-block img,
+    .prd-detail-media-block video {
+      width: auto;
+      max-width: 240px;
+      max-height: 260px;
+      margin: 0;
+    }
+    .prd-detail-media-block .prd-detail-copy {
+      min-width: 0;
+    }
+    .prd-detail-media-block .prd-detail-copy small {
+      display: none;
+    }
+    @media (max-width: 900px) {
+      .prd-detail-media-block {
+        grid-template-columns: 1fr;
+      }
+      .prd-detail-media-block .prd-detail-media {
+        width: 100%;
+      }
+    }
     figcaption {
       margin-top: 8px;
       color: var(--pm-doc-muted);
@@ -779,6 +823,11 @@ FIGURE_PAIR_RE = re.compile(
     r"(?P<image><(?:img\b[^>]*>|video\b[^>]*>.*?</video>))\s*(?P<caption><small>.*?</small>)",
     re.IGNORECASE | re.DOTALL,
 )
+DETAIL_MEDIA_PAIR_RE = re.compile(
+    r"(?P<image><(?:img\b[^>]*>|video\b[^>]*>.*?</video>))\s*"
+    r"(?:<small>.*?</small>)?\s*(?:<br\s*/?>\s*)*(?P<copy><sub>.*?</sub>)?",
+    re.IGNORECASE | re.DOTALL,
+)
 IMAGE_SRC_RE = re.compile(r"\bsrc\s*=\s*([\"'])(?P<src>.*?)\1", re.IGNORECASE | re.DOTALL)
 WIDE_FIGURE_MIN_WIDTH = 1000
 WIDE_FIGURE_MIN_RATIO = 1.45
@@ -939,6 +988,58 @@ def group_requirement_figure_pairs(html: str, run_folder: Path | None = None) ->
     return TABLE_CELL_RE.sub(replace_cell, html)
 
 
+def merge_legacy_requirement_detail_media(html: str) -> str:
+    """Move legacy standalone figure rows into the single detail cell as fixed-column blocks."""
+
+    def replace_table(table_match: re.Match[str]) -> str:
+        table = table_match.group(0)
+        rows = list(TABLE_ROW_RE.finditer(table))
+        detail_index = None
+        figure_index = None
+        for index, row_match in enumerate(rows):
+            cells = list(TABLE_CELL_RE.finditer(row_match.group(0)))
+            if len(cells) != 2:
+                continue
+            label = visible_text_from_html(cells[0].group("body"))
+            if label == "需求详情":
+                detail_index = index
+            elif REQUIREMENT_IMAGE_LABEL_RE.fullmatch(label):
+                figure_index = index
+        if detail_index is None or figure_index is None or figure_index <= detail_index:
+            return table
+        detail_cells = list(TABLE_CELL_RE.finditer(rows[detail_index].group(0)))
+        figure_cells = list(TABLE_CELL_RE.finditer(rows[figure_index].group(0)))
+        if len(detail_cells) != 2 or len(figure_cells) != 2:
+            return table
+        figures = list(DETAIL_MEDIA_PAIR_RE.finditer(figure_cells[1].group("body")))
+        if not figures:
+            return table
+        blocks = []
+        for figure in figures:
+            copy = figure.group("copy") or ""
+            copy = re.sub(r"</?sub\b[^>]*>", "", copy, flags=re.IGNORECASE)
+            copy = re.sub(r"^\s*用途\s*[:：]\s*", "", copy)
+            copy = copy.strip()
+            copy_html = f'<div class="prd-detail-copy">{copy}</div>' if copy else ""
+            blocks.append(
+                '<div class="prd-detail-media-block">'
+                f'<div class="prd-detail-media">{figure.group("image")}</div>'
+                f'{copy_html}'
+                "</div>"
+            )
+        detail_body = detail_cells[1].group("body")
+        detail_body += '<div class="prd-detail-media-stack">' + "".join(blocks) + "</div>"
+        detail_row = rows[detail_index].group(0)
+        detail_cell = detail_cells[1]
+        replacement = f'<td{detail_cell.group("attrs")}>{detail_body}</td>'
+        table = table.replace(detail_row, detail_row[:detail_cell.start()] + replacement + detail_row[detail_cell.end():], 1)
+        figure_row = rows[figure_index].group(0)
+        table = table.replace(figure_row, "", 1)
+        return table
+
+    return re.sub(r"<table\b[^>]*>.*?</table>", replace_table, html, flags=re.IGNORECASE | re.DOTALL)
+
+
 def stable_heading_id(level: int, text: str, counters: dict[int, int], used_ids: set[str]) -> str:
     if level == 1:
         base = "document-title"
@@ -1034,6 +1135,7 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     html = normalize_heading_anchors(html)
     html = remove_h1_from_toc(html)
     html = merge_requirement_image_table_cells(html)
+    html = merge_legacy_requirement_detail_media(html)
     html = group_requirement_figure_pairs(html, run_folder)
     html = replace_document_styles(html)
     if html_contains_images(html) and 'id="image-lightbox"' not in html:

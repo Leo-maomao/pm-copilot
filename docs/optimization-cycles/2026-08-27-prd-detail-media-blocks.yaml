@@ -1,0 +1,21 @@
+id: prd-detail-media-blocks-2026-08-27
+date: 2026-08-27
+goal: "Keep multiple screenshots and their matching logic in one requirement-detail cell with stable alignment."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+generalized_failure: "Multiple screenshots were collected in a standalone figure cell, making state-to-logic association unclear and causing mixed aspect ratios to shift visual alignment."
+fix_surface:
+  - templates/prd-template.md
+  - templates/implemented-feature-prd-template.md
+  - artifacts/prd-contract.md
+  - skills/prd-writing/SKILL.md
+  - scripts/render_prd_html.py
+validation:
+  - "Legacy figure rows migrate into the matching detail cell."
+  - "Image columns use a fixed width and preserve aspect ratios."
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+version_change: "6.2.15 -> 6.2.16"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets: "local manager PRD outputs requested by user"
+stop_condition: "All detail media blocks remain in one cell and align consistently for mixed landscape and portrait screenshots."
