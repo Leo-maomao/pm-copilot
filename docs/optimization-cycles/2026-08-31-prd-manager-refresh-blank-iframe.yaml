@@ -1,0 +1,17 @@
+id: prd-manager-refresh-blank-iframe-2026-08-31
+date: 2026-08-31
+goal: "Keep the selected PRD visible after clicking the manager refresh button."
+source_run: "User reported that refresh left the right content area blank until selecting the document again."
+generalized_failure: "Assigning the unchanged iframe URL cleared its document without reliably triggering a new navigation or load event."
+fix_surface:
+  - tools/prd-manager/app.js
+validation:
+  - "node --check tools/prd-manager/app.js"
+  - "python3 scripts/test_prd_manager.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+  - "Browser: localhost:57391, refresh issued a cache-busting document request and restored visible content"
+version_change: "6.2.39 -> 6.2.40"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; localhost manager serves repository static files."
+stop_condition: "Refreshing the index always reloads and reveals the currently selected PRD without requiring a second tree click."

@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.40] - 2026-08-31
+
+### Fixed
+
+- Force a fresh PRD iframe request after index refresh so the selected document does not remain blank when its URL is unchanged.
+
 ## [6.2.39] - 2026-08-31
 
 ### Fixed
