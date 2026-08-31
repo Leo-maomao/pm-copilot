@@ -1,0 +1,26 @@
+id: pandoc-detail-media-compatibility-2026-08-31
+date: 2026-08-31
+goal: "Make requirement-detail screenshots reliable in Pandoc-rendered Markdown tables."
+source_run: "User-reported PRD output where block-level prd-detail-media HTML in a pipe-table cell caused Pandoc to detach content and stack images above their explanation."
+generalized_failure: "The template prescribed block HTML in a Markdown table even though Pandoc cannot preserve that structure reliably, while the controller treated missing Agent attribution as a terminal failed state despite an explicit confirmation and recoverable staged artifacts."
+fix_surface:
+  - templates/prd-template.md
+  - artifacts/prd-contract.md
+  - scripts/render_prd_html.py
+  - scripts/validate_outputs.py
+  - scripts/run_interactive_request.py
+  - scripts/test_prd_figure_layout.py
+  - scripts/test_validate_outputs.py
+  - scripts/test_run_interactive_request.py
+validation:
+  - "python3 scripts/test_prd_figure_layout.py"
+  - "python3 scripts/test_validate_outputs.py"
+  - "python3 scripts/test_prd_contract.py"
+  - "python3 scripts/test_run_interactive_request.py"
+  - "python3 scripts/test_prd_evidence_upgrade.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+version_change: "6.2.40 -> 6.2.41"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; the renderer and production controller run from the canonical PM Copilot workspace."
+stop_condition: "Pipe-table source uses only the controlled inline marker; rendered HTML has left-media/right-copy blocks without losing adjacent rules, and provenance failures retain a confirmed retry path."

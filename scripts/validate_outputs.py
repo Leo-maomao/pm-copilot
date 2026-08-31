@@ -280,12 +280,12 @@ INLINE_REQUIREMENT_IMAGE_RE = re.compile(
     r"!\[[^\]]+\]\((?:\.\/)?assets\/[^)]+\)|占位图[:：]\s*[^|\n]+?\.(?:png|jpg|jpeg|webp)",
     re.IGNORECASE,
 )
-DETAIL_MEDIA_BLOCK_RE = re.compile(
-    r'<div\b[^>]*\bclass=["\'][^"\']*\bprd-detail-media-block\b[^"\']*["\'][^>]*>\s*'
-    r'<div\b[^>]*\bclass=["\'][^"\']*\bprd-detail-media\b[^"\']*["\'][^>]*>\s*'
-    r'<img\b[^>]*\bsrc=["\'][^"\']+["\'][^>]*/?>\s*</div>\s*'
-    r'<div\b[^>]*\bclass=["\'][^"\']*\bprd-detail-copy\b[^"\']*["\'][^>]*>'
-    r'(?P<copy>.*?)</div>\s*</div>',
+DETAIL_MEDIA_MARKER_RE = re.compile(
+    r"\[\[prd-detail-media\s+(?P<attributes>.*?)\]\]",
+    re.IGNORECASE | re.DOTALL,
+)
+DETAIL_MEDIA_ATTRIBUTE_RE = re.compile(
+    r'\b(?P<name>src|alt|copy)\s*=\s*"(?P<value>[^"]*)"',
     re.IGNORECASE | re.DOTALL,
 )
 HTML_TABLE_ROW_RE = re.compile(r"<tr\b[^>]*>.*?</tr>", re.IGNORECASE | re.DOTALL)
@@ -676,10 +676,19 @@ def markdown_image_count_in_tables(text: str) -> int:
     return count
 
 
+def detail_media_marker_values(match: re.Match[str]) -> dict[str, str]:
+    attributes = match.group("attributes").replace("“", '"').replace("”", '"')
+    return {
+        item.group("name").lower(): item.group("value").strip()
+        for item in DETAIL_MEDIA_ATTRIBUTE_RE.finditer(attributes)
+    }
+
+
 def markdown_image_refs(text: str) -> list[str]:
     refs = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
     html_refs = re.findall(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", text, re.IGNORECASE)
-    return [*refs, *html_refs]
+    marker_refs = [detail_media_marker_values(match).get("src", "") for match in DETAIL_MEDIA_MARKER_RE.finditer(text)]
+    return [*refs, *html_refs, *marker_refs]
 
 
 def is_video_reference(reference: str) -> bool:
@@ -2688,33 +2697,36 @@ def check_field_value_requirement_images_stay_in_table(text: str) -> None:
 
 
 def check_requirement_detail_media_blocks(text: str) -> None:
-    """Require the fixed left-media/right-copy layout for every detail screenshot."""
+    """Require Pandoc-safe source markers for every detail screenshot."""
     detail_section = section_by_heading(text, REQUIREMENT_DETAIL_HEADING_RE)
     if not detail_section:
         return
     detail_start = int(detail_section.get("body_start", 0))
     detail_end = detail_start + len(str(detail_section.get("body", "")))
     detail_text = text[detail_start:detail_end]
+    if re.search(r'<div\b[^>]*\bprd-detail-media-(?:block|media|copy)\b', detail_text, re.IGNORECASE):
+        fail(
+            "Requirement detail source must use the Pandoc-safe [[prd-detail-media ...]] marker, "
+            "not block-level prd-detail-media HTML"
+        )
     images = list(re.finditer(
         r"!\[[^\]]*\]\([^)]+\)|<img\b[^>]*\bsrc=[\"'][^\"']+[\"'][^>]*>",
         detail_text,
         re.IGNORECASE,
     ))
-    if not images:
-        return
-    blocks = list(DETAIL_MEDIA_BLOCK_RE.finditer(detail_text))
-    ranges = [(block.start(), block.end()) for block in blocks]
-    for block in blocks:
-        if not visible_html_text(block.group("copy")):
-            fail("prd-detail-media-block must include non-empty prd-detail-copy text")
     for image in images:
-        if any(start <= image.start() < end for start, end in ranges):
-            continue
         line = text[: detail_start + image.start()].count("\n") + 1
         fail(
-            "Requirement detail images must use a prd-detail-media-block with left media and right copy; "
+            "Requirement detail images must use the Pandoc-safe [[prd-detail-media ...]] marker; "
             f"convert the ordinary image near line {line}"
         )
+    for marker in DETAIL_MEDIA_MARKER_RE.finditer(detail_text):
+        values = detail_media_marker_values(marker)
+        missing = [name for name in ("src", "alt", "copy") if not values.get(name)]
+        if missing:
+            fail("prd-detail-media marker is missing required attribute(s): " + ", ".join(missing))
+        if not values["src"].replace("\\", "/").startswith(("./assets/", "assets/")):
+            fail("prd-detail-media src must reference a local assets/ file")
 
 
 def check_requirement_figure_rows(text: str) -> None:

@@ -102,9 +102,11 @@ class ValidateOutputsTest(unittest.TestCase):
             check_requirement_detail_media_blocks(ordinary)
         compliant = ordinary.replace(
             '<img src="./assets/state.png" alt="状态" />',
-            '<div class="prd-detail-media-block"><div class="prd-detail-media"><img src="./assets/state.png" alt="状态" /></div><div class="prd-detail-copy">展示状态与恢复操作。</div></div>',
+            '[[prd-detail-media src="./assets/state.png" alt="状态" copy="展示状态与恢复操作。"]]',
         )
         check_requirement_detail_media_blocks(compliant)
+        with self.assertRaises(SystemExit):
+            check_requirement_detail_media_blocks(compliant.replace("[[prd-detail-media", '<div class="prd-detail-media-block">[[prd-detail-media'))
 
 
 if __name__ == "__main__":

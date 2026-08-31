@@ -230,6 +230,27 @@ def _record_agent_call(
     return _agent_call_has_evidence(record)
 
 
+def _mark_attribution_recovery(state: dict[str, Any], failed_stage: str, provider: str) -> None:
+    """Keep a confirmed run resumable when execution provenance is incomplete."""
+    completed = []
+    for artifact, stage in state.get("delivery_stages", {}).items():
+        if stage.get("artifact_status") == "promoted":
+            completed.append({"artifact": artifact, "sha256": stage.get("artifact_sha256")})
+    state["status"] = "recovery_required"
+    state["termination"] = "retry_required"
+    state["recovery"] = {
+        "status": "retry_required",
+        "failed_stage": failed_stage,
+        "completed_artifacts": completed,
+        "delivery_workspace": str(_delivery_folder(state)),
+        "retry_entry": "--confirm",
+        "retry_action": (
+            f"python3 scripts/run_interactive_request.py --run-folder {_canonical_folder(state)} "
+            f"--confirm --provider {provider}"
+        ),
+    }
+
+
 def _required_production_evidence(state: dict[str, Any]) -> tuple[bool, str]:
     """Prove every required production stage used an attributable Agent."""
     calls = state.get("agent_calls", [])
@@ -645,7 +666,7 @@ Final user-confirmed evidence packet (authoritative and complete for this run):
 
 Artifact requirements:
 - confirmed-requirements.md: facts, explicit user-confirmed scope, non-goals, success criteria, constraints, acceptance evidence, assumptions, risks, and unresolved items. Never call model inference user confirmation.
-- prd.md: use templates/prd-template.md and artifacts/prd-contract.md exactly. Create a Chinese H1 of concise requirement title plus YYYY-MM-DD; include document information and version history; use every standard requirement-list field; map one-to-one to 5.x detail IDs; each detail table has only 用户与场景、需求入口、需求详情、设计与交互. When new or changed UI copy exists, include 六、多语言需求. Each provided screenshot must be inside its matching 需求详情 cell using exactly `<div class="prd-detail-media-block"><div class="prd-detail-media"><img src="./assets/功能-状态.png" alt="功能-状态" /></div><div class="prd-detail-copy">对应状态、规则和反馈</div></div>`; never use a standalone Markdown image or `<img>`, and never add a standalone 图示 row.
+- prd.md: use templates/prd-template.md and artifacts/prd-contract.md exactly. Create a Chinese H1 of concise requirement title plus YYYY-MM-DD; include document information and version history; use every standard requirement-list field; map one-to-one to 5.x detail IDs; each detail table has only 用户与场景、需求入口、需求详情、设计与交互. When new or changed UI copy exists, include 六、多语言需求. Each provided screenshot must be inside its matching 需求详情 cell using exactly `[[prd-detail-media src="./assets/功能-状态.png" alt="功能-状态" copy="对应状态、规则和反馈"]]`; never put `<div>` or `<img>` source HTML in a Markdown table, never use a standalone Markdown image, and never add a standalone 图示 row.
 - run-log.yaml: use templates/agent-run-log-template.yaml, fill concrete fields, record this interactive user confirmation, real Agent calls, validation commands, separate PRD/engineering/launch readiness, and truthful termination state.
 Provided user visual assets already copied to this delivery workspace: {json.dumps(available_assets, ensure_ascii=False)}. Use each applicable asset inline; do not invent a wireframe in place of it. Record visual coverage decisions as real_figure, required_placeholder, or not_required in run-log.yaml.
 """ + (f"\nRepair these validator findings in this artifact only:\n{repair_errors}" if repair_errors else "")
@@ -755,6 +776,7 @@ def _review_artifact(
     attributable = _agent_call_has_evidence(result)
     if not attributable:
         _stage(state, artifact)["review_status"] = "failed"
+        state["last_error"] = "Stage Quality Review Agent call has no attributable provider/model evidence"
         _checkpoint(state, state_path)
         return False, "Stage Quality Review Agent call has no attributable provider/model evidence"
     if result.get("status") != "complete":
@@ -885,9 +907,13 @@ def _confirmed_delivery(
     _checkpoint(state, state_path)
     for artifact in ("confirmed-requirements.md", "prd.md", "run-log.yaml"):
         if not _deliver_artifact_to_quality_gate(state, artifact, provider, timeout, worker, max_revisions, state_path):
-            state["status"] = "failed"
-            state["termination"] = "failed"
-            state.setdefault("last_error", f"delivery Agent failed to produce {artifact}")
+            reason = str(state.get("last_error") or f"delivery Agent failed to produce {artifact}")
+            state["last_error"] = reason
+            if "provider/model" in reason:
+                _mark_attribution_recovery(state, artifact, provider)
+            else:
+                state["status"] = "failed"
+                state["termination"] = "failed"
             _checkpoint(state, state_path)
             return
     _append_controller_agent_evidence(state)
@@ -949,13 +975,16 @@ def _confirmed_delivery(
                 state["termination"] = "failed"
                 state["last_error"] = str(error)
         else:
-            state["status"] = "blocked"
-            state["termination"] = "blocked"
             state["last_error"] = evidence_reason
+            if "not attributable" in evidence_reason or "missing required Agent evidence" in evidence_reason:
+                _mark_attribution_recovery(state, "production_evidence", provider)
+            else:
+                state["status"] = "blocked"
+                state["termination"] = "blocked"
     else:
         state["status"] = "failed"
         state["termination"] = "failed"
-    if state["status"] != "complete":
+    if state["status"] not in {"complete", "recovery_required"}:
         state["artifacts"] = [item for item in state.get("artifacts", []) if item not in {"prd.md", "prd.html", "run-log.yaml", "assets/"}]
     _checkpoint(state, state_path)
 
@@ -1042,7 +1071,7 @@ def main() -> int:
     if state["status"] in {"awaiting_confirmation", "recovery_required", "confirmed", "delivery", "failed"}:
         if not args.confirm:
             if state["status"] == "recovery_required":
-                print(json.dumps({"status": "recovery_required", "last_error": state.get("last_error"), "run_folder": str(folder)}, ensure_ascii=False, indent=2))
+                print(json.dumps({"status": "recovery_required", "last_error": state.get("last_error"), "recovery": state.get("recovery"), "run_folder": str(folder)}, ensure_ascii=False, indent=2))
             elif state["status"] in {"confirmed", "delivery", "failed"}:
                 print("交付已中断但确认已持久化；请使用 --confirm 恢复未完成阶段。")
             else:
@@ -1056,7 +1085,7 @@ def main() -> int:
         state["termination"] = "running"
         _write_json(state_path, state)
         _confirmed_delivery(state, args.provider, args.timeout_minutes, max_revisions=args.max_revisions, state_path=state_path)
-        print(json.dumps({"status": state["status"], "run_folder": str(folder), "artifacts": state.get("artifacts", []), "validation": state.get("validation", [])}, ensure_ascii=False, indent=2))
+        print(json.dumps({"status": state["status"], "run_folder": str(folder), "artifacts": state.get("artifacts", []), "validation": state.get("validation", []), "recovery": state.get("recovery")}, ensure_ascii=False, indent=2))
         return 0 if state["status"] == "complete" else 1
     print(json.dumps(state, ensure_ascii=False, indent=2))
     return 0

@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.41] - 2026-08-31
+
+### Fixed
+
+- Replace block HTML inside Markdown requirement-detail tables with Pandoc-safe `prd-detail-media` markers that the renderer expands into fixed left-media/right-copy blocks after conversion.
+- Preserve surrounding requirement rules while rendering multiple detail-media markers, and make missing provider/model attribution a resumable controller recovery with completed artifacts and an explicit retry command.
+
 ## [6.2.40] - 2026-08-31
 
 ### Fixed

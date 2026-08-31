@@ -1275,6 +1275,70 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
     return re.sub(r"<table\b[^>]*>.*?</table>", replace_table, html, flags=re.IGNORECASE | re.DOTALL)
 
 
+DETAIL_MEDIA_MARKER_RE = re.compile(
+    r"\[\[prd-detail-media\s+(?P<attributes>.*?)\]\]",
+    re.IGNORECASE | re.DOTALL,
+)
+DETAIL_MEDIA_ATTRIBUTE_RE = re.compile(
+    r'\b(?P<name>src|alt|copy)\s*=\s*"(?P<value>[^"]*)"',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def expand_requirement_detail_media_markers(html: str) -> str:
+    """Expand Pandoc-safe inline markers after table conversion.
+
+    Pandoc preserves the marker text inside a pipe-table cell, while block HTML
+    in that position can terminate or re-parent the table. The replacement is
+    intentionally limited to a `需求详情` cell so marker-like business text in
+    other document sections remains untouched.
+    """
+
+    def replace_marker(marker: re.Match[str]) -> str:
+        attributes = html_lib.unescape(marker.group("attributes"))
+        attributes = attributes.replace("“", '"').replace("”", '"')
+        values = {
+            match.group("name").lower(): html_lib.unescape(match.group("value")).strip()
+            for match in DETAIL_MEDIA_ATTRIBUTE_RE.finditer(attributes)
+        }
+        missing = [name for name in ("src", "alt", "copy") if not values.get(name)]
+        if missing:
+            fail("prd-detail-media marker is missing required attribute(s): " + ", ".join(missing))
+        return (
+            '<div class="prd-detail-media-block">'
+            '<div class="prd-detail-media">'
+            f'<img src="{html_lib.escape(values["src"], quote=True)}" '
+            f'alt="{html_lib.escape(values["alt"], quote=True)}" />'
+            "</div>"
+            f'<div class="prd-detail-copy">{html_lib.escape(values["copy"], quote=False)}</div>'
+            "</div>"
+        )
+
+    def replace_table(table_match: re.Match[str]) -> str:
+        table = table_match.group(0)
+        for row in TABLE_ROW_RE.finditer(table):
+            cells = list(TABLE_CELL_RE.finditer(row.group(0)))
+            if len(cells) != 2 or visible_text_from_html(cells[0].group("body")) != "需求详情":
+                continue
+            detail_cell = cells[1]
+            body = detail_cell.group("body")
+            if not DETAIL_MEDIA_MARKER_RE.search(body):
+                continue
+            replacement = (
+                f'<td{detail_cell.group("attrs")}>'
+                + DETAIL_MEDIA_MARKER_RE.sub(replace_marker, body)
+                + "</td>"
+            )
+            table = table.replace(
+                row.group(0),
+                row.group(0)[:detail_cell.start()] + replacement + row.group(0)[detail_cell.end():],
+                1,
+            )
+        return table
+
+    return re.sub(r"<table\b[^>]*>.*?</table>", replace_table, html, flags=re.IGNORECASE | re.DOTALL)
+
+
 def stable_heading_id(level: int, text: str, counters: dict[int, int], used_ids: set[str]) -> str:
     if level == 1:
         base = "document-title"
@@ -1370,6 +1434,7 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     html = normalize_heading_anchors(html)
     html = remove_h1_from_toc(html)
     html = merge_requirement_image_table_cells(html)
+    html = expand_requirement_detail_media_markers(html)
     html = merge_reviewed_requirement_detail_media(html, run_folder)
     html = merge_legacy_requirement_detail_media(html)
     html = group_requirement_figure_pairs(html, run_folder)

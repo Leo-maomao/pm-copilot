@@ -204,7 +204,7 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(len(state["agent_calls"]), 10)
             self.assertEqual(state["revision_trace"][-1]["outcome"], "changed")
 
-    def test_delivery_blocks_when_agent_result_has_no_provider_model_evidence(self) -> None:
+    def test_delivery_exposes_retry_recovery_when_agent_evidence_is_missing(self) -> None:
         def unauthenticated_worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
             marker = "Write one complete artifact at "
             target = Path(prompt.split(marker, 1)[1].split(".\n", 1)[0])
@@ -221,8 +221,12 @@ class InteractiveRequestTest(unittest.TestCase):
             ]
             state["user_confirmation"] = {"confirmed": True, "source": "test"}
             _confirmed_delivery(state, "test", 1, worker=unauthenticated_worker)
-            self.assertEqual(state["status"], "failed")
+            self.assertEqual(state["status"], "recovery_required")
             self.assertIn("provider/model", state["last_error"])
+            self.assertEqual(state["recovery"]["failed_stage"], "confirmed-requirements.md")
+            self.assertEqual(state["recovery"]["retry_entry"], "--confirm")
+            self.assertIn("--confirm --provider test", state["recovery"]["retry_action"])
+            self.assertEqual(state["recovery"]["completed_artifacts"][0]["artifact"], "confirmed-requirements.md")
             self.assertFalse((Path(temporary) / "prd.md").exists())
 
     def test_delivery_agent_uses_project_staging_directory_as_workspace(self) -> None:

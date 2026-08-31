@@ -40,7 +40,7 @@
 | --- | --- |
 | 用户与场景 |  |
 | 需求入口 |  |
-| 需求详情 | 需要截图时使用：`<div class="prd-detail-media-block"><div class="prd-detail-media"><img src="./assets/功能-状态.png" alt="功能-状态" /></div><div class="prd-detail-copy">对应状态、规则和反馈</div></div>`；图片固定在左侧，说明固定在右侧。 |
+| 需求详情 | 需要截图时使用：`[[prd-detail-media src="./assets/功能-状态.png" alt="功能-状态" copy="对应状态、规则和反馈"]]`；图片固定在左侧，说明固定在右侧。 |
 | 设计与交互 |  |
 
 ## 六、多语言需求

@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -55,19 +57,41 @@ class PRDFigureLayoutTest(unittest.TestCase):
         self.assertNotIn('min-height: 140px;', DOCUMENT_CSS)
         self.assertNotIn('naturalWidth', LIGHTBOX_HTML_TEMPLATE)
 
-    def test_explicit_detail_media_block_keeps_left_media_and_right_copy(self) -> None:
-        rendered = inject_defaults(
-            '<html><head></head><body><table><tr><td>需求详情</td><td>'
-            '<div class="prd-detail-media-block"><div class="prd-detail-media">'
-            '<img src="./assets/confirm.png" alt="确认弹窗" /></div>'
-            '<div class="prd-detail-copy">展示角色变更说明和确认反馈。</div></div>'
-            '</td></tr></table></body></html>',
-            "# 截图状态 - 2026-08-31",
-            Path("."),
-        )
-        self.assertIn('class="prd-detail-media-block"', rendered)
-        self.assertIn('class="prd-detail-media"><img', rendered)
-        self.assertIn('class="prd-detail-copy">展示角色变更说明', rendered)
+    def test_pandoc_safe_detail_media_markers_preserve_all_rules(self) -> None:
+        markdown = """# 截图状态 - 2026-08-31
+
+## 五、需求详情
+
+### 5.1 图示状态
+
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 管理员查看状态。 |
+| 需求入口 | 管理页入口。 |
+| 需求详情 | 图示前规则：展示入口。<br>[[prd-detail-media src=\"./assets/entry.png\" alt=\"入口状态\" copy=\"说明入口状态和操作规则。\"]]<br>图示中规则：用户确认后继续。<br>[[prd-detail-media src=\"./assets/result.png\" alt=\"结果状态\" copy=\"说明结果状态和恢复反馈。\"]]<br>图示后规则：失败时保留内容并允许重试。 |
+| 设计与交互 | 保持清晰反馈。 |
+"""
+        with TemporaryDirectory() as temporary_directory:
+            folder = Path(temporary_directory)
+            (folder / "prd.md").write_text(markdown, encoding="utf-8")
+            (folder / "assets").mkdir()
+            result = subprocess.run(
+                [sys.executable, str(Path(__file__).with_name("render_prd_html.py")), str(folder)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            rendered = (folder / "prd.html").read_text(encoding="utf-8")
+        self.assertEqual(rendered.count('class="prd-detail-media-block"'), 2)
+        self.assertEqual(rendered.count('class="prd-detail-media"'), 2)
+        self.assertEqual(rendered.count('class="prd-detail-copy"'), 2)
+        for value in ("entry.png", "result.png", "说明入口状态和操作规则。", "说明结果状态和恢复反馈。", "图示前规则", "图示中规则", "图示后规则"):
+            self.assertIn(value, rendered)
+        self.assertNotIn("prd-inline-media", rendered)
+        self.assertNotIn("prd-inline-copy", rendered)
+        self.assertNotIn("[[prd-detail-media", rendered)
+        self.assertIn("grid-template-columns: 240px minmax(0, 1fr);", rendered)
 
     def test_rendered_document_sets_language_and_accessible_image_preview(self) -> None:
         with TemporaryDirectory() as temporary_directory:

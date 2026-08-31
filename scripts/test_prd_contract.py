@@ -187,7 +187,7 @@ def main() -> None:
         "implemented_feature_real_figure_matches_requirement_and_asset",
         PASS_PRD.replace(
             "| 需求详情 | 一、角色变更流程<br>1. 管理员修改高危角色。<br>2. 系统展示确认信息。<br>3. 管理员确认后完成变更。<br>二、状态与边界<br>1. 保存中显示加载。<br>2. 无权限用户不可操作。<br>3. 保存错误时保留原角色并允许重试。<br>4. 成员为空时展示空状态。 |",
-            "| 需求详情 | 一、角色变更流程<br>1. 管理员修改高危角色。<br>2. 系统展示确认信息。<br>3. 管理员确认后完成变更。<br>二、状态与边界<br>1. 保存中显示加载。<br>2. 无权限用户不可操作。<br>3. 保存错误时保留原角色并允许重试。<br>4. 成员为空时展示空状态。<br><div class=\"prd-detail-media-block\"><div class=\"prd-detail-media\"><img src=\"./assets/role-confirmation.png\" alt=\"角色变更确认\" /></div><div class=\"prd-detail-copy\">展示变更前后角色与确认反馈。</div></div> |",
+            "| 需求详情 | 一、角色变更流程<br>1. 管理员修改高危角色。<br>2. 系统展示确认信息。<br>3. 管理员确认后完成变更。<br>二、状态与边界<br>1. 保存中显示加载。<br>2. 无权限用户不可操作。<br>3. 保存错误时保留原角色并允许重试。<br>4. 成员为空时展示空状态。<br>[[prd-detail-media src=\"./assets/role-confirmation.png\" alt=\"角色变更确认\" copy=\"展示变更前后角色与确认反馈。\"]] |",
         ),
         True,
         implemented_trace,
