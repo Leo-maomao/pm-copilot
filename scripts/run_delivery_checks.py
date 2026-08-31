@@ -261,6 +261,7 @@ def main() -> None:
     parser.add_argument("output_folder", type=Path, nargs="?", default=None)
     parser.add_argument("--language", choices=["zh", "en"], default=None)
     parser.add_argument("--pre-clarification", action="store_true")
+    parser.add_argument("--staging", action="store_true", help="validate an unpromoted controller delivery workspace")
     parser.add_argument("--skip-repo", action="store_true")
     parser.add_argument("--skip-visual", action="store_true")
     parser.add_argument("--skip-visual-reason", default="")
@@ -363,6 +364,8 @@ def main() -> None:
             command.extend(["--language", args.language])
         if args.pre_clarification:
             command.append("--pre-clarification")
+        if args.staging:
+            command.append("--staging")
         results.append({"tool": "validate_outputs", **run_command(command)})
 
         trace_command = [sys.executable, "scripts/validate_agent_trace.py", str(output_folder)]

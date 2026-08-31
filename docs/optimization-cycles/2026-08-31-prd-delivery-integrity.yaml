@@ -1,0 +1,27 @@
+id: prd-delivery-integrity-2026-08-31
+date: 2026-08-31
+goal: "Prevent incomplete or non-canonical Chinese PRD deliveries from being presented as final."
+source_run: "User-reported PRD delivery failures covering title/contract drift, missing visual assets, non-canonical output roots, premature promotion, and unattributable Agent calls."
+generalized_failure: "The PRD contract and validators covered parts of the delivery shape, but the production controller could promote artifacts before final validation and did not enforce workspace, asset, or provider/model provenance consistently."
+fix_surface:
+  - artifacts/prd-contract.md
+  - templates/prd-template.md
+  - scripts/run_interactive_request.py
+  - scripts/run_delivery_checks.py
+  - scripts/validate_outputs.py
+  - scripts/test_prd_contract.py
+  - scripts/test_run_interactive_request.py
+  - scripts/test_validate_outputs.py
+  - scripts/test_prd_figure_layout.py
+validation:
+  - "python3 scripts/test_run_interactive_request.py"
+  - "python3 scripts/test_prd_contract.py"
+  - "python3 scripts/test_project_workspace.py"
+  - "python3 scripts/test_validate_outputs.py"
+  - "python3 scripts/test_prd_figure_layout.py"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+version_change: "6.2.37 -> 6.2.38"
+remote_push_status: "pending"
+embedded_copy_sync_targets: "No embedded copy; controller resolves each invoking project's workspace through project_workspace.py."
+stop_condition: "A final interactive PRD is complete only after staging validation, canonical verification, required assets, attributable Agent evidence, and fixed left-media/right-copy screenshot blocks all pass."

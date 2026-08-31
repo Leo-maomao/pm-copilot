@@ -40,7 +40,7 @@
 | --- | --- |
 | 用户与场景 |  |
 | 需求入口 |  |
-| 需求详情 | 多个固定列宽的图文块：左侧放截图，右侧写该截图对应的状态、规则和反馈；图文块之间用空白或分隔线区分。无截图时直接填写文字。 |
+| 需求详情 | 需要截图时使用：`<div class="prd-detail-media-block"><div class="prd-detail-media"><img src="./assets/功能-状态.png" alt="功能-状态" /></div><div class="prd-detail-copy">对应状态、规则和反馈</div></div>`；图片固定在左侧，说明固定在右侧。 |
 | 设计与交互 |  |
 
 ## 六、多语言需求

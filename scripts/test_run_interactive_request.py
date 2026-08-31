@@ -132,6 +132,7 @@ class InteractiveRequestTest(unittest.TestCase):
     def test_delivery_is_not_allowed_without_explicit_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             state = create_state("做一个 PRD", Path(temporary))
+            (Path(temporary) / "prd.html").write_text("<!doctype html><html></html>", encoding="utf-8")
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
             state["status"] = "awaiting_confirmation"
             _confirmed_delivery(state, "test", 1, worker=lambda *args: self.fail("worker must not run"))
@@ -149,10 +150,13 @@ class InteractiveRequestTest(unittest.TestCase):
             target = Path(prompt.split(marker, 1)[1].split(".\n", 1)[0])
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("# artifact\n", encoding="utf-8")
+            if target.name == "prd.md":
+                target.with_name("prd.html").write_text("<!doctype html><html></html>", encoding="utf-8")
             return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
 
         with tempfile.TemporaryDirectory() as temporary:
             state = create_state("做一个 PRD", Path(temporary))
+            (Path(temporary) / "prd.html").write_text("<!doctype html><html></html>", encoding="utf-8")
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
             state["agent_calls"] = [
                 {"phase": "intake", "provider": "test", "model": "test", "status": "complete"},
@@ -178,19 +182,22 @@ class InteractiveRequestTest(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             writes += 1
             target.write_text(f"# artifact {writes}\n", encoding="utf-8")
+            if target.name == "prd.md":
+                target.with_name("prd.html").write_text("<!doctype html><html></html>", encoding="utf-8")
             return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
 
         failed = [{"command": "scripts/validate_outputs.py", "status": "failed", "stdout": "missing section", "stderr": ""}]
         passed = [{"command": "scripts/validate_outputs.py", "status": "passed", "stdout": "", "stderr": ""}]
         with tempfile.TemporaryDirectory() as temporary:
             state = create_state("做一个 PRD", Path(temporary))
+            (Path(temporary) / "prd.html").write_text("<!doctype html><html></html>", encoding="utf-8")
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
             state["agent_calls"] = [
                 {"phase": "intake", "provider": "test", "model": "test", "status": "complete"},
                 {"phase": "clarification_review", "provider": "test", "model": "test", "status": "complete"},
             ]
             state["user_confirmation"] = {"confirmed": True, "source": "test"}
-            with patch("run_interactive_request._validate_delivery", side_effect=[failed, passed]):
+            with patch("run_interactive_request._validate_delivery", side_effect=[failed, passed, passed]):
                 _confirmed_delivery(state, "test", 1, worker=worker, max_revisions=1)
             self.assertEqual(state["status"], "complete")
             self.assertGreaterEqual(state["revision_loops"], 1)

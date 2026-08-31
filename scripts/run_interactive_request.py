@@ -22,12 +22,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 from agent_runtime import execute
+from project_workspace import resolve as resolve_project_workspace
 from runtime_limits import DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIVE_MAX_REVISIONS
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_ROOT = ROOT / "outputs"
 DEFAULT_MAX_REVISIONS = DEFAULT_INTERACTIVE_MAX_REVISIONS
+MAX_ATTRIBUTABLE_AGENT_ATTEMPTS = 2
 CLARIFICATION_COVERAGE_AREAS = (
     "goal", "users", "scope", "success_evidence", "constraints_and_risk",
 )
@@ -58,8 +59,15 @@ def _slug(value: str) -> str:
     return value[:48] or "interactive-request"
 
 
-def new_requirement_folder(request: str, root: Path = OUTPUT_ROOT) -> Path:
+def resolved_output_root(cwd: Path | None = None) -> Path:
+    """Use the invoking project, never the PM Copilot installation, for outputs."""
+    context = resolve_project_workspace((cwd or Path.cwd()).resolve(), ensure=True)
+    return Path(context["output_root"]).resolve()
+
+
+def new_requirement_folder(request: str, root: Path | None = None) -> Path:
     """Allocate a canonical folder only for an explicitly new requirement."""
+    root = (root or resolved_output_root()).resolve()
     stem = f"{_slug(request)}-{dt.datetime.now(dt.timezone.utc):%Y-%m-%d}"
     folder = root / stem
     if folder.exists():
@@ -88,6 +96,91 @@ def _checkpoint(state: dict[str, Any], state_path: Path | None) -> None:
 
 def _stage(state: dict[str, Any], artifact: str) -> dict[str, Any]:
     return state.setdefault("delivery_stages", {}).setdefault(artifact, {})
+
+
+def _delivery_folder(state: dict[str, Any]) -> Path:
+    """Return the unpromoted workspace while a confirmed delivery is running."""
+    return Path(str(state.get("delivery_workspace") or state["folder"])).resolve()
+
+
+def _canonical_folder(state: dict[str, Any]) -> Path:
+    return Path(str(state["folder"])).resolve()
+
+
+def _is_retryable_agent_failure(result: dict[str, Any]) -> bool:
+    detail = " ".join(str(result.get(key, "")) for key in ("status", "error", "output")).lower()
+    return "stream disconnected" in detail or "stream_disconnected" in detail
+
+
+def _copy_input_assets(state: dict[str, Any], destination: Path) -> None:
+    assets = destination / "assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    for raw_source in state.get("input_assets", []):
+        source = Path(str(raw_source)).expanduser().resolve()
+        if not source.is_file():
+            raise FileNotFoundError(f"Input screenshot asset not found: {source}")
+        if source.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".m4v", ".ogv", ".ogg"}:
+            raise ValueError(f"Unsupported PRD visual asset: {source.name}")
+        target = assets / source.name
+        if target.exists() and hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(source.read_bytes()).digest():
+            raise FileExistsError(f"Input screenshot asset name conflicts with an existing canonical asset: {source.name}")
+        shutil.copy2(source, target)
+
+
+def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
+    canonical = _canonical_folder(state)
+    workspace = canonical.parent / f".{canonical.name}.delivery-stage" / canonical.name
+    if workspace.exists():
+        shutil.rmtree(workspace.parent)
+    workspace.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(canonical, workspace, ignore=shutil.ignore_patterns(".delivery-stage"))
+    _copy_input_assets(state, workspace)
+    state["delivery_workspace"] = str(workspace)
+    return workspace
+
+
+def _promote_delivery_workspace(state: dict[str, Any]) -> None:
+    """Promote only validated delivery artifacts to the canonical run folder."""
+    canonical = _canonical_folder(state)
+    workspace = _delivery_folder(state)
+    for name in ("prd.md", "prd.html", "run-log.yaml"):
+        source = workspace / name
+        if not source.is_file():
+            raise FileNotFoundError(f"Validated delivery artifact is missing: {source}")
+        temporary = canonical / f".{name}.promoting"
+        shutil.copy2(source, temporary)
+        temporary.replace(canonical / name)
+    source_assets = workspace / "assets"
+    if not source_assets.is_dir():
+        raise FileNotFoundError("Validated delivery assets/ folder is missing")
+    temporary_assets = canonical / ".assets.promoting"
+    if temporary_assets.exists():
+        shutil.rmtree(temporary_assets)
+    shutil.copytree(source_assets, temporary_assets)
+    if (canonical / "assets").exists():
+        shutil.rmtree(canonical / "assets")
+    temporary_assets.replace(canonical / "assets")
+    state["delivery_promoted_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
+    """Make controller-observed provider/model evidence durable in run-log.yaml."""
+    run_log = _delivery_folder(state) / "run-log.yaml"
+    if not run_log.is_file():
+        return
+    calls = state.get("agent_calls", [])
+    lines = ["", "agent_execution_evidence:"]
+    for call in calls:
+        lines.extend([
+            f"  - phase: {call.get('phase', 'unknown')}",
+            f"    artifact: {call.get('artifact', 'request')}",
+            f"    provider: {call.get('provider', '')}",
+            f"    model: {call.get('model', '')}",
+            f"    status: {call.get('status', '')}",
+            f"    attempt: {call.get('attempt', 1)}",
+            f"    error: {json.dumps(str(call.get('error', '')), ensure_ascii=False)}",
+        ])
+    run_log.write_text(run_log.read_text(encoding="utf-8").rstrip() + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
@@ -472,6 +565,7 @@ def create_state(raw_request: str, folder: Path) -> dict[str, Any]:
         "user_confirmation": None,
         "revision_history": [],
         "delivery_stages": {},
+        "input_assets": [],
     }
 
 
@@ -533,7 +627,8 @@ def _confirmation_packet(state: dict[str, Any]) -> dict[str, Any]:
 def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = "") -> str:
     latest = state["turns"][-1]
     role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
-    target = Path(state["folder"]) / artifact
+    target = _delivery_folder(state) / artifact
+    available_assets = [Path(item).name for item in state.get("input_assets", [])]
     return f"""You are the accountable PM Copilot {role} Agent in a production interactive run.
 The user explicitly confirmed the clarified requirements below. Use only this
 conversation as product evidence; do not invent approvals, metrics, policy, or
@@ -550,8 +645,9 @@ Final user-confirmed evidence packet (authoritative and complete for this run):
 
 Artifact requirements:
 - confirmed-requirements.md: facts, explicit user-confirmed scope, non-goals, success criteria, constraints, acceptance evidence, assumptions, risks, and unresolved items. Never call model inference user confirmation.
-- prd.md: complete Chinese PRD with exact headings `## 一、文档说明`, `## 二、需求背景`, `## 四、需求清单`, `## 五、需求详情`; include detail IDs mapped one-to-one, and omit empty optional sections.
+- prd.md: use templates/prd-template.md and artifacts/prd-contract.md exactly. Create a Chinese H1 of concise requirement title plus YYYY-MM-DD; include document information and version history; use every standard requirement-list field; map one-to-one to 5.x detail IDs; each detail table has only 用户与场景、需求入口、需求详情、设计与交互. When new or changed UI copy exists, include 六、多语言需求. Each provided screenshot must be inside its matching 需求详情 cell using exactly `<div class="prd-detail-media-block"><div class="prd-detail-media"><img src="./assets/功能-状态.png" alt="功能-状态" /></div><div class="prd-detail-copy">对应状态、规则和反馈</div></div>`; never use a standalone Markdown image or `<img>`, and never add a standalone 图示 row.
 - run-log.yaml: use templates/agent-run-log-template.yaml, fill concrete fields, record this interactive user confirmation, real Agent calls, validation commands, separate PRD/engineering/launch readiness, and truthful termination state.
+Provided user visual assets already copied to this delivery workspace: {json.dumps(available_assets, ensure_ascii=False)}. Use each applicable asset inline; do not invent a wireframe in place of it. Record visual coverage decisions as real_figure, required_placeholder, or not_required in run-log.yaml.
 """ + (f"\nRepair these validator findings in this artifact only:\n{repair_errors}" if repair_errors else "")
 
 
@@ -559,17 +655,23 @@ def _run_artifact_agent(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = execute, repair_errors: str = "", state_path: Path | None = None,
 ) -> bool:
-    target = Path(state["folder"]) / artifact
+    target = _delivery_folder(state) / artifact
     target.parent.mkdir(parents=True, exist_ok=True)
-    real_folder = Path(state["folder"]).resolve()
+    real_folder = _delivery_folder(state)
     with tempfile.TemporaryDirectory(prefix=f".{real_folder.name}.stage-", dir=str(real_folder.parent)) as stage_name:
         stage_folder = Path(stage_name) / real_folder.name
         shutil.copytree(real_folder, stage_folder)
-        stage_state = {**state, "folder": str(stage_folder)}
+        stage_state = {**state, "folder": str(stage_folder), "delivery_workspace": str(stage_folder)}
         stage_target = stage_folder / artifact
         # Codex workspace-write is scoped to its working directory. Execute
         # from the project staging copy so the promised artifact is writable.
-        result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, timeout, None, None, False, 8000)
+        result = {}
+        for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
+            result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, timeout, None, None, False, 8000)
+            result["attempt"] = attempt
+            attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
+            if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS:
+                break
         if result.get("status") == "complete" and stage_target.is_file() and stage_target.stat().st_size > 0:
             if artifact == "run-log.yaml":
                 # Agent tools report their writable staging path. The promoted
@@ -579,7 +681,7 @@ def _run_artifact_agent(
             shutil.copy2(stage_target, target)
     result["isolated_workspace"] = True
     result["promoted_artifact"] = artifact if target.is_file() else None
-    attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
+    attributable = _agent_call_has_evidence(result)
     stage = _stage(state, artifact)
     stage["artifact_status"] = "promoted" if target.is_file() and target.stat().st_size > 0 else "failed"
     stage["artifact_sha256"] = _artifact_digest(target)
@@ -599,7 +701,7 @@ def _run_artifact_agent(
 
 
 def _artifact_review_prompt(state: dict[str, Any], artifact: str, review_path: Path) -> str:
-    target = Path(state["folder"]) / artifact
+    target = _delivery_folder(state) / artifact
     return f"""You are the independent Stage Quality Review Agent in a production PM run.
 Read only {target}. Check whether this single artifact is complete, internally
 consistent with the user-confirmed scope, and sufficient for its immediate
@@ -635,16 +737,22 @@ def _review_artifact(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = execute, state_path: Path | None = None,
 ) -> tuple[bool, str]:
-    real_folder = Path(state["folder"]).resolve()
+    real_folder = _delivery_folder(state)
     with tempfile.TemporaryDirectory(prefix=f".{real_folder.name}.review-", dir=str(real_folder.parent)) as review_dir:
         review_folder = Path(review_dir) / real_folder.name
         shutil.copytree(real_folder, review_folder)
         review_path = review_folder / ".stage-review.json"
-        result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, timeout, None, None, False, 8000)
+        result = {}
+        for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
+            result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, timeout, None, None, False, 8000)
+            result["attempt"] = attempt
+            attributable = _record_agent_call(state, result, phase="stage_quality_review", artifact=artifact)
+            if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS:
+                break
         review_text = review_path.read_text(encoding="utf-8") if review_path.is_file() else ""
     result["phase"] = "stage_quality_review"
     result["artifact"] = artifact
-    attributable = _record_agent_call(state, result, phase="stage_quality_review", artifact=artifact)
+    attributable = _agent_call_has_evidence(result)
     if not attributable:
         _stage(state, artifact)["review_status"] = "failed"
         _checkpoint(state, state_path)
@@ -691,7 +799,7 @@ def _deliver_artifact_to_quality_gate(
     worker: Callable[..., dict[str, Any]] = execute, max_revisions: int = DEFAULT_MAX_REVISIONS,
     state_path: Path | None = None,
 ) -> bool:
-    target = Path(state["folder"]) / artifact
+    target = _delivery_folder(state) / artifact
     stage = _stage(state, artifact)
     if stage.get("review_status") == "passed" and stage.get("reviewed_sha256") == _artifact_digest(target):
         return True
@@ -732,13 +840,13 @@ def _deliver_artifact_to_quality_gate(
     return False
 
 
-def _validate_delivery(folder: Path) -> list[dict[str, Any]]:
+def _validate_delivery(folder: Path, staging: bool = False) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     commands = [
         [sys.executable, "scripts/render_prd_html.py", str(folder)],
-        [sys.executable, "scripts/validate_outputs.py", str(folder), "--language", "zh"],
+        [sys.executable, "scripts/validate_outputs.py", str(folder), "--language", "zh"] + (["--staging"] if staging else []),
         [sys.executable, "scripts/validate_agent_trace.py", str(folder)],
-        [sys.executable, "scripts/run_delivery_checks.py", str(folder), "--language", "zh"],
+        [sys.executable, "scripts/run_delivery_checks.py", str(folder), "--language", "zh"] + (["--staging"] if staging else []),
     ]
     for command in commands:
         result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
@@ -763,7 +871,14 @@ def _confirmed_delivery(
         state["termination"] = "human_checkpoint"
         state["last_error"] = "Explicit user confirmation is required before delivery"
         return
-    folder = Path(state["folder"])
+    try:
+        folder = _prepare_delivery_workspace(state)
+    except (FileNotFoundError, FileExistsError, ValueError) as error:
+        state["status"] = "failed"
+        state["termination"] = "failed"
+        state["last_error"] = str(error)
+        _checkpoint(state, state_path)
+        return
     state["status"] = "delivery"
     state["termination"] = "running"
     state["last_error"] = None
@@ -775,10 +890,11 @@ def _confirmed_delivery(
             state.setdefault("last_error", f"delivery Agent failed to produce {artifact}")
             _checkpoint(state, state_path)
             return
+    _append_controller_agent_evidence(state)
     all_checks: list[dict[str, Any]] = []
     final_checks: list[dict[str, Any]] = []
     for revision in range(max_revisions + 1):
-        checks = _validate_delivery(folder)
+        checks = _validate_delivery(folder, staging=True)
         all_checks.extend(checks)
         final_checks = checks
         state["validation"] = all_checks
@@ -815,13 +931,23 @@ def _confirmed_delivery(
         state["revision_loops"] = revision + 1
         _checkpoint(state, state_path)
     state["validation"] = all_checks
-    state["artifacts"] = ["discussion.md", "confirmed-requirements.md", "prd.md", "prd.html", "run-log.yaml"]
     if final_checks and all(check["status"] == "passed" for check in final_checks):
         evidence_ok, evidence_reason = _required_production_evidence(state)
         if evidence_ok:
-            state["status"] = "complete"
-            state["termination"] = "complete"
-            state["last_error"] = None
+            try:
+                _promote_delivery_workspace(state)
+                canonical_checks = _validate_delivery(_canonical_folder(state))
+                state["validation"].extend(canonical_checks)
+                if not all(check["status"] == "passed" for check in canonical_checks):
+                    raise RuntimeError("canonical delivery validation failed after promotion")
+                state["status"] = "complete"
+                state["termination"] = "complete"
+                state["last_error"] = None
+                state["artifacts"] = ["discussion.md", "confirmed-requirements.md", "prd.md", "prd.html", "run-log.yaml", "assets/"]
+            except (FileNotFoundError, RuntimeError) as error:
+                state["status"] = "failed"
+                state["termination"] = "failed"
+                state["last_error"] = str(error)
         else:
             state["status"] = "blocked"
             state["termination"] = "blocked"
@@ -829,6 +955,8 @@ def _confirmed_delivery(
     else:
         state["status"] = "failed"
         state["termination"] = "failed"
+    if state["status"] != "complete":
+        state["artifacts"] = [item for item in state.get("artifacts", []) if item not in {"prd.md", "prd.html", "run-log.yaml", "assets/"}]
     _checkpoint(state, state_path)
 
 
@@ -841,6 +969,7 @@ def main() -> int:
     parser.add_argument("--revise", action="store_true", help="revise the canonical PRD in --run-folder")
     parser.add_argument("--answers", help="the user's answer for the current needs_input state")
     parser.add_argument("--confirm", action="store_true", help="explicitly confirm the clarified scope")
+    parser.add_argument("--asset", action="append", default=[], help="user-provided screenshot or video to copy into canonical assets/")
     parser.add_argument("--provider", default="codex", help="Agent runtime; use seawork only when its remote model or scheduler is required")
     parser.add_argument("--timeout-minutes", type=int, default=DEFAULT_EXECUTION_TIMEOUT_MINUTES)
     parser.add_argument("--max-revisions", type=int, default=DEFAULT_MAX_REVISIONS)
@@ -863,7 +992,7 @@ def main() -> int:
     folder = args.run_folder
     if folder is None and raw_request and args.new_requirement:
         try:
-            folder = new_requirement_folder(raw_request)
+            folder = new_requirement_folder(raw_request, resolved_output_root(Path.cwd()))
         except FileExistsError as error:
             parser.error(str(error))
     if folder is None:
@@ -878,6 +1007,9 @@ def main() -> int:
     folder.mkdir(parents=True, exist_ok=True)
     state_path = folder / "interactive-run.json"
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else create_state(raw_request, folder)
+    if args.asset:
+        resolved_assets = [str(Path(value).expanduser().resolve()) for value in args.asset]
+        state["input_assets"] = list(dict.fromkeys([*state.get("input_assets", []), *resolved_assets]))
     if state.get("mode") != "interactive":
         parser.error("run folder is not an interactive production run")
     if _recover_interrupted_delivery(state, folder):

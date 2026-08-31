@@ -6,6 +6,15 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.38] - 2026-08-31
+
+### Fixed
+
+- Stage interactive PRD delivery outside the canonical run and promote `prd.md`, `prd.html`, `run-log.yaml`, and `assets/` only after validation passes.
+- Resolve new PRD output folders from the invoking project's workspace, preserve user-provided visual assets, and require attributable provider/model execution evidence.
+- Enforce the complete Chinese PRD requirement-list contract and keep all visual media inside the four canonical detail fields.
+- Require every requirement-detail screenshot to use the fixed left-media/right-copy `prd-detail-media-block` structure; reject standalone Markdown images and bare `<img>` elements.
+
 ## [6.2.37] - 2026-08-27
 
 ### Added

@@ -55,6 +55,20 @@ class PRDFigureLayoutTest(unittest.TestCase):
         self.assertNotIn('min-height: 140px;', DOCUMENT_CSS)
         self.assertNotIn('naturalWidth', LIGHTBOX_HTML_TEMPLATE)
 
+    def test_explicit_detail_media_block_keeps_left_media_and_right_copy(self) -> None:
+        rendered = inject_defaults(
+            '<html><head></head><body><table><tr><td>需求详情</td><td>'
+            '<div class="prd-detail-media-block"><div class="prd-detail-media">'
+            '<img src="./assets/confirm.png" alt="确认弹窗" /></div>'
+            '<div class="prd-detail-copy">展示角色变更说明和确认反馈。</div></div>'
+            '</td></tr></table></body></html>',
+            "# 截图状态 - 2026-08-31",
+            Path("."),
+        )
+        self.assertIn('class="prd-detail-media-block"', rendered)
+        self.assertIn('class="prd-detail-media"><img', rendered)
+        self.assertIn('class="prd-detail-copy">展示角色变更说明', rendered)
+
     def test_rendered_document_sets_language_and_accessible_image_preview(self) -> None:
         with TemporaryDirectory() as temporary_directory:
             rendered = inject_defaults(

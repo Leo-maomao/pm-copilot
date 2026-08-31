@@ -280,6 +280,14 @@ INLINE_REQUIREMENT_IMAGE_RE = re.compile(
     r"!\[[^\]]+\]\((?:\.\/)?assets\/[^)]+\)|占位图[:：]\s*[^|\n]+?\.(?:png|jpg|jpeg|webp)",
     re.IGNORECASE,
 )
+DETAIL_MEDIA_BLOCK_RE = re.compile(
+    r'<div\b[^>]*\bclass=["\'][^"\']*\bprd-detail-media-block\b[^"\']*["\'][^>]*>\s*'
+    r'<div\b[^>]*\bclass=["\'][^"\']*\bprd-detail-media\b[^"\']*["\'][^>]*>\s*'
+    r'<img\b[^>]*\bsrc=["\'][^"\']+["\'][^>]*/?>\s*</div>\s*'
+    r'<div\b[^>]*\bclass=["\'][^"\']*\bprd-detail-copy\b[^"\']*["\'][^>]*>'
+    r'(?P<copy>.*?)</div>\s*</div>',
+    re.IGNORECASE | re.DOTALL,
+)
 HTML_TABLE_ROW_RE = re.compile(r"<tr\b[^>]*>.*?</tr>", re.IGNORECASE | re.DOTALL)
 HTML_TABLE_CELL_RE = re.compile(r"<td(?P<attrs>[^>]*)>(?P<body>.*?)</td>", re.IGNORECASE | re.DOTALL)
 HTML_REQUIREMENT_IMAGE_LABEL_RE = re.compile(
@@ -306,7 +314,6 @@ REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
 )
 ALLOWED_REQUIREMENT_DETAIL_FIELD_LABELS_ZH = {
     *REQUIREMENT_DETAIL_FIELD_LABELS_ZH,
-    "图示",
 }
 FORBIDDEN_REQUIREMENT_DETAIL_FIELD_LABELS_ZH = (
     "验收标准",
@@ -1228,10 +1235,10 @@ def is_document_prototype_html(text: str) -> bool:
     )
 
 
-def check_folder(path: Path, require_run_log: bool = True) -> None:
+def check_folder(path: Path, require_run_log: bool = True, staging: bool = False) -> None:
     if not path.is_dir():
         fail(f"Output folder not found: {path}")
-    if path.parent.name not in OUTPUT_PARENT_DIRECTORIES:
+    if not staging and path.parent.name not in OUTPUT_PARENT_DIRECTORIES:
         fail(
             "Output folder must be a direct child of outputs/ or pm-copilot-outputs/: "
             "<output-root>/<run-id>"
@@ -2185,13 +2192,16 @@ def check_chinese_prd(path: Path) -> None:
     requirement_list_body = str(requirement_list.get("body", "")) if requirement_list else ""
     requirement_markers = {
         "详情编号": ("详情编号",),
+        "需求名称": ("需求名称",),
         "目标用户": ("目标用户",),
         # Existing PRD contract/template permits a qualifier after these
         # semantic headers (for example 用户场景 / 触发 and 用户问题或价值).
         # Validate the semantic field, not an accidental exact spelling.
         "用户场景": ("用户场景", "场景", "scenario"),
         "用户问题": ("用户问题", "用户问题或价值", "问题/价值", "用户价值/预期结果", "用户价值"),
+        "需求摘要": ("需求摘要",),
         "优先级": ("优先级",),
+        "来源 / 确认状态": ("来源 / 确认状态", "来源/确认状态"),
     }
     for marker, aliases in requirement_markers.items():
         if not any(alias in requirement_list_body for alias in aliases):
@@ -2430,6 +2440,8 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
 
     if not (path / "prd.html").is_file():
         fail("PRD delivery requires prd.html; run scripts/render_prd_html.py")
+    if not (path / "assets").is_dir():
+        fail("PRD delivery requires assets/")
 
     text = read(prd_path)
     run_log = read(path / "run-log.yaml") if (path / "run-log.yaml").is_file() else ""
@@ -2514,6 +2526,7 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
 
     check_markdown_table_alignment(text, language)
     check_requirement_images_inline(text)
+    check_requirement_detail_media_blocks(text)
     if implemented_feature_active:
         check_implemented_feature_images_in_requirement_details(text)
         check_field_value_requirement_images_stay_in_table(text)
@@ -2521,6 +2534,35 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
     check_requirement_detail_structure(text, language)
     check_prd_flow_sections(text)
     check_prd_copy_i18n_sections(text, language)
+
+
+def check_run_log_agent_evidence(path: Path) -> None:
+    run_log_path = path / "run-log.yaml"
+    if not run_log_path.is_file():
+        return
+    text = read(run_log_path)
+    section = extract_yaml_block(text, "agent_execution_evidence")
+    if not section:
+        fail("run-log.yaml missing agent_execution_evidence provider/model evidence")
+    items = yaml_list_item_blocks(section)
+    if not items:
+        fail("run-log.yaml agent_execution_evidence must list attributable Agent calls")
+    completed_keys = {
+        (yaml_field_value(item, "phase"), yaml_field_value(item, "artifact"))
+        for item in items
+        if yaml_field_value(item, "status") == "complete"
+    }
+    for item in items:
+        provider = yaml_field_value(item, "provider")
+        model = yaml_field_value(item, "model")
+        status = yaml_field_value(item, "status")
+        evidence_key = (yaml_field_value(item, "phase"), yaml_field_value(item, "artifact"))
+        if status == "complete" and (not provider or not model or model in {"configured default", "unknown", "None"}):
+            fail("run-log.yaml Agent evidence requires provider and model")
+        if status != "complete" and evidence_key not in completed_keys:
+            fail("run-log.yaml Agent failure has no attributable successful recovery")
+        if re.search(r"stream[ _-]?disconnected", yaml_field_value(item, "error"), re.IGNORECASE) and evidence_key not in completed_keys:
+            fail("run-log.yaml Agent evidence contains an unrecovered stream disconnect")
 
 
 def check_markdown_table_alignment(text: str, language: str | None = None) -> None:
@@ -2641,6 +2683,36 @@ def check_field_value_requirement_images_stay_in_table(text: str) -> None:
                 "Requirement detail field/value tables must keep images/placeholders inside the same "
                 f"table cell, not outside the table; {kind} near line {line} in {title}"
             )
+
+
+def check_requirement_detail_media_blocks(text: str) -> None:
+    """Require the fixed left-media/right-copy layout for every detail screenshot."""
+    detail_section = section_by_heading(text, REQUIREMENT_DETAIL_HEADING_RE)
+    if not detail_section:
+        return
+    detail_start = int(detail_section.get("body_start", 0))
+    detail_end = detail_start + len(str(detail_section.get("body", "")))
+    detail_text = text[detail_start:detail_end]
+    images = list(re.finditer(
+        r"!\[[^\]]*\]\([^)]+\)|<img\b[^>]*\bsrc=[\"'][^\"']+[\"'][^>]*>",
+        detail_text,
+        re.IGNORECASE,
+    ))
+    if not images:
+        return
+    blocks = list(DETAIL_MEDIA_BLOCK_RE.finditer(detail_text))
+    ranges = [(block.start(), block.end()) for block in blocks]
+    for block in blocks:
+        if not visible_html_text(block.group("copy")):
+            fail("prd-detail-media-block must include non-empty prd-detail-copy text")
+    for image in images:
+        if any(start <= image.start() < end for start, end in ranges):
+            continue
+        line = text[: detail_start + image.start()].count("\n") + 1
+        fail(
+            "Requirement detail images must use a prd-detail-media-block with left media and right copy; "
+            f"convert the ordinary image near line {line}"
+        )
 
 
 def check_requirement_figure_rows(text: str) -> None:
@@ -3610,10 +3682,11 @@ def main() -> None:
     parser.add_argument("--language", choices=["zh", "en"], default=None)
     parser.add_argument("--pre-clarification", action="store_true")
     parser.add_argument("--historical-prd-upgrade", action="store_true")
+    parser.add_argument("--staging", action="store_true", help="validate an unpromoted controller delivery workspace")
     args = parser.parse_args()
 
     folder = args.output_folder
-    check_folder(folder, require_run_log=not args.historical_prd_upgrade)
+    check_folder(folder, require_run_log=not args.historical_prd_upgrade, staging=args.staging)
     language = resolve_output_language(folder, args.language)
     if args.pre_clarification:
         check_pre_clarification(folder)
@@ -3638,6 +3711,7 @@ def main() -> None:
     check_structured_run_log_trace(folder)
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
+    check_run_log_agent_evidence(folder)
     check_implemented_feature_prd_trace(folder)
     check_visual_validation_trace(folder)
     check_prototype_agent_and_style_trace(folder, language)

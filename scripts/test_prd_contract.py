@@ -92,6 +92,7 @@ def run_case(
         (folder / "prd.md").write_text(prd, encoding="utf-8")
         (folder / "prd.html").write_text("<!doctype html><html><body></body></html>", encoding="utf-8")
         (folder / "run-log.yaml").write_text(run_log, encoding="utf-8")
+        (folder / "assets").mkdir()
         for asset_path, content in (assets or {}).items():
             destination = folder / asset_path
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -185,8 +186,8 @@ def main() -> None:
     run_case(
         "implemented_feature_real_figure_matches_requirement_and_asset",
         PASS_PRD.replace(
-            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n\n## 六、多语言需求",
-            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n| 图示 | ![角色变更确认](./assets/role-confirmation.png)<small>角色变更确认</small> |\n\n## 六、多语言需求",
+            "| 需求详情 | 一、角色变更流程<br>1. 管理员修改高危角色。<br>2. 系统展示确认信息。<br>3. 管理员确认后完成变更。<br>二、状态与边界<br>1. 保存中显示加载。<br>2. 无权限用户不可操作。<br>3. 保存错误时保留原角色并允许重试。<br>4. 成员为空时展示空状态。 |",
+            "| 需求详情 | 一、角色变更流程<br>1. 管理员修改高危角色。<br>2. 系统展示确认信息。<br>3. 管理员确认后完成变更。<br>二、状态与边界<br>1. 保存中显示加载。<br>2. 无权限用户不可操作。<br>3. 保存错误时保留原角色并允许重试。<br>4. 成员为空时展示空状态。<br><div class=\"prd-detail-media-block\"><div class=\"prd-detail-media\"><img src=\"./assets/role-confirmation.png\" alt=\"角色变更确认\" /></div><div class=\"prd-detail-copy\">展示变更前后角色与确认反馈。</div></div> |",
         ),
         True,
         implemented_trace,
@@ -251,8 +252,8 @@ readiness:
         "| 文档状态 | 可评审 |",
         "| 文档状态 | 可评审（图示待人工补全） |",
     ).replace(
-        "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n\n## 六、多语言需求",
-        "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n| 图示 | 占位图：成员管理-角色变更确认.png |\n\n## 六、多语言需求",
+        "| 需求详情 | 一、角色变更流程<br>1. 管理员修改高危角色。<br>2. 系统展示确认信息。<br>3. 管理员确认后完成变更。<br>二、状态与边界<br>1. 保存中显示加载。<br>2. 无权限用户不可操作。<br>3. 保存错误时保留原角色并允许重试。<br>4. 成员为空时展示空状态。 |",
+        "| 需求详情 | 一、角色变更流程<br>1. 管理员修改高危角色。<br>2. 系统展示确认信息。<br>3. 管理员确认后完成变更。<br>二、状态与边界<br>1. 保存中显示加载。<br>2. 无权限用户不可操作。<br>3. 保存错误时保留原角色并允许重试。<br>4. 成员为空时展示空状态。<br>占位图：成员管理-角色变更确认.png |",
     )
     run_case(
         "implemented_feature_placeholder_is_deliverable_with_manual_completion",
@@ -269,9 +270,9 @@ readiness:
         True,
     )
     run_case(
-        "implemented_feature_figure_row_must_be_last",
+        "implemented_feature_rejects_legacy_figure_row",
         placeholder_prd.replace(
-            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |\n| 图示 | 占位图：成员管理-角色变更确认.png |",
+            "| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |",
             "| 图示 | 占位图：成员管理-角色变更确认.png |\n| 设计与交互 | 确认弹窗突出角色变化与取消操作；键盘焦点停留在弹窗内。 |",
         ),
         False,
@@ -287,6 +288,7 @@ readiness:
     )
     run_case("missing_document_info", PASS_PRD.replace("### 1. 文档信息", "### 1. 说明"), False)
     run_case("missing_user_requirement_field", PASS_PRD.replace("目标用户", "用户群体"), False)
+    run_case("missing_requirement_list_standard_field", PASS_PRD.replace("需求名称 |", "功能名称 |", 1), False)
     run_case("missing_matching_detail", PASS_PRD.replace("### 5.1 角色变更确认", "### 5.2 角色变更确认"), False)
     run_case("duplicate_requirement_id", PASS_PRD.replace("### 5.1 角色变更确认", "### 5.1 R1 角色变更确认"), False)
     run_case(
@@ -357,7 +359,7 @@ flowchart TD
     )
     run_case(
         "controlled_screenshot_placeholder",
-        PASS_PRD.replace("| 设计与交互 |", "| 图示 | 占位图：成员管理-角色变更.png |\n| 设计与交互 |"),
+        PASS_PRD.replace("4. 成员为空时展示空状态。 |", "4. 成员为空时展示空状态。<br>占位图：成员管理-角色变更.png |"),
         True,
     )
     run_case(
