@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.39] - 2026-08-31
+
+### Fixed
+
+- Keep the `assets/` requirement for final PRD deliveries while exempting historical PRD-upgrade validation, which validates migration evidence rather than a complete delivery package.
+
 ## [6.2.38] - 2026-08-31
 
 ### Fixed

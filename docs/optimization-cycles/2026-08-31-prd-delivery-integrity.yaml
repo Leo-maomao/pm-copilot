@@ -21,7 +21,7 @@ validation:
   - "python3 scripts/test_prd_figure_layout.py"
   - "python3 scripts/validate_runtime_routing.py"
   - "python3 scripts/validate_repo.py"
-version_change: "6.2.37 -> 6.2.38"
+version_change: "6.2.37 -> 6.2.39"
 remote_push_status: "pending"
 embedded_copy_sync_targets: "No embedded copy; controller resolves each invoking project's workspace through project_workspace.py."
 stop_condition: "A final interactive PRD is complete only after staging validation, canonical verification, required assets, attributable Agent evidence, and fixed left-media/right-copy screenshot blocks all pass."

@@ -2433,14 +2433,16 @@ def check_image_asset_name(name: str, context: str) -> None:
         fail(f"{context} image name must use the specific state instead of generic 状态: {clean_name}")
 
 
-def check_prd_output_contract(path: Path, language: str | None = None) -> None:
+def check_prd_output_contract(
+    path: Path, language: str | None = None, *, require_assets: bool = True,
+) -> None:
     prd_path = path / "prd.md"
     if not prd_path.is_file():
         return
 
     if not (path / "prd.html").is_file():
         fail("PRD delivery requires prd.html; run scripts/render_prd_html.py")
-    if not (path / "assets").is_dir():
+    if require_assets and not (path / "assets").is_dir():
         fail("PRD delivery requires assets/")
 
     text = read(prd_path)
@@ -3695,7 +3697,7 @@ def main() -> None:
 
     if args.historical_prd_upgrade:
         check_stale_validation(folder)
-        check_prd_output_contract(folder, language)
+        check_prd_output_contract(folder, language, require_assets=False)
         if language == "zh":
             check_chinese_prd(folder)
         check_tracking_context(folder)
