@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.42] - 2026-08-31
+
+### Fixed
+
+- Reset Chinese requirement-detail group and rule numbering for each independently presented content or media block, with validator coverage for invalid continuation numbering.
+
 ## [6.2.41] - 2026-08-31
 
 ### Fixed

@@ -10,7 +10,13 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from render_prd_html import DOCUMENT_CSS, LIGHTBOX_HTML_TEMPLATE, group_requirement_figure_pairs, inject_defaults
+from render_prd_html import (
+    DOCUMENT_CSS,
+    LIGHTBOX_HTML_TEMPLATE,
+    group_requirement_figure_pairs,
+    inject_defaults,
+    renumber_detail_copy,
+)
 
 
 class PRDFigureLayoutTest(unittest.TestCase):
@@ -92,6 +98,12 @@ class PRDFigureLayoutTest(unittest.TestCase):
         self.assertNotIn("prd-inline-copy", rendered)
         self.assertNotIn("[[prd-detail-media", rendered)
         self.assertIn("grid-template-columns: 240px minmax(0, 1fr);", rendered)
+
+    def test_each_independent_detail_group_restarts_numbering(self) -> None:
+        first = renumber_detail_copy("二、入口<br>4. 展示入口。<br>5. 继续操作。")
+        second = renumber_detail_copy("三、结果<br>8. 展示结果。")
+        self.assertIn("一、入口<br>1.展示入口。<br>2.继续操作。", first)
+        self.assertIn("一、结果<br>1.展示结果。", second)
 
     def test_rendered_document_sets_language_and_accessible_image_preview(self) -> None:
         with TemporaryDirectory() as temporary_directory:

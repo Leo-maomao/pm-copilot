@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html as html_lib
 import json
 import shutil
 import subprocess
@@ -2727,6 +2728,13 @@ def check_requirement_detail_media_blocks(text: str) -> None:
             fail("prd-detail-media marker is missing required attribute(s): " + ", ".join(missing))
         if not values["src"].replace("\\", "/").startswith(("./assets/", "assets/")):
             fail("prd-detail-media src must reference a local assets/ file")
+        copy = html_lib.unescape(values["copy"])
+        headings = re.findall(r"(?:^|<br\s*/?>|\n)\s*([一二三四五六七八九十]+)、", copy)
+        if headings and headings[0] != "一":
+            fail("Each independent prd-detail-media copy must restart group numbering at 一、")
+        expected = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+        if headings and headings != expected[: len(headings)]:
+            fail("Group headings inside one prd-detail-media copy must be sequential from 一、")
 
 
 def check_requirement_figure_rows(text: str) -> None:
@@ -2857,12 +2865,17 @@ def check_requirement_detail_rule_layout(detail_body: str, detail_title: str) ->
             rule_count = len(re.findall(r"(?<!\d)\d+\.\s+", rule_cell))
             if rule_count < 2:
                 continue
-            if re.search(r"<br\s*/?>\s*<br\s*/?>", rule_cell, re.IGNORECASE):
-                fail(
-                    "Chinese PRD 需求详情 groups must use one continuous `<br>` line, not a blank separator: "
-                    f"{detail_title}"
-                )
             lines = [line.strip() for line in re.split(r"<br\s*/?>", rule_cell, flags=re.IGNORECASE)]
+            headings = []
+            for index, line in enumerate(lines):
+                heading_match = re.match(r"^([一二三四五六七八九十]+)、\S", line)
+                if heading_match:
+                    headings.append((index, heading_match.group(1)))
+                    if index > 0 and not lines[index - 1] and heading_match.group(1) != "一":
+                        fail(
+                            "Each separated Chinese PRD 需求详情 group must restart at 一、: "
+                            f"{detail_title}"
+                        )
             group_count = sum(
                 bool(re.match(r"^[一二三四五六七八九十]+、\S", line))
                 for line in lines

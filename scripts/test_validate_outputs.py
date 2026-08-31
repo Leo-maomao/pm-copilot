@@ -105,6 +105,12 @@ class ValidateOutputsTest(unittest.TestCase):
             '[[prd-detail-media src="./assets/state.png" alt="状态" copy="展示状态与恢复操作。"]]',
         )
         check_requirement_detail_media_blocks(compliant)
+        reset_required = compliant.replace(
+            'copy="展示状态与恢复操作。"',
+            'copy="二、状态说明<br>1. 展示状态与恢复操作。"',
+        )
+        with self.assertRaises(SystemExit):
+            check_requirement_detail_media_blocks(reset_required)
         with self.assertRaises(SystemExit):
             check_requirement_detail_media_blocks(compliant.replace("[[prd-detail-media", '<div class="prd-detail-media-block">[[prd-detail-media'))
 

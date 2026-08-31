@@ -1146,7 +1146,7 @@ def merge_reviewed_requirement_detail_media(html: str, run_folder: Path) -> str:
         if unmatched:
             rendered_blocks.append(
                 '<div class="prd-detail-text-block">'
-                + join_detail_logic_groups([logic_groups[group] for group in unmatched])
+                + renumber_detail_copy(join_detail_logic_groups([logic_groups[group] for group in unmatched]))
                 + "</div>"
             )
         first_row = detail_rows[0]
@@ -1304,13 +1304,14 @@ def expand_requirement_detail_media_markers(html: str) -> str:
         missing = [name for name in ("src", "alt", "copy") if not values.get(name)]
         if missing:
             fail("prd-detail-media marker is missing required attribute(s): " + ", ".join(missing))
+        copy = renumber_detail_copy(values["copy"])
         return (
             '<div class="prd-detail-media-block">'
             '<div class="prd-detail-media">'
             f'<img src="{html_lib.escape(values["src"], quote=True)}" '
             f'alt="{html_lib.escape(values["alt"], quote=True)}" />'
             "</div>"
-            f'<div class="prd-detail-copy">{html_lib.escape(values["copy"], quote=False)}</div>'
+            f'<div class="prd-detail-copy">{html_lib.escape(copy, quote=False)}</div>'
             "</div>"
         )
 

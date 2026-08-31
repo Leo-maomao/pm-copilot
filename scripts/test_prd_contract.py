@@ -354,8 +354,8 @@ flowchart TD
     )
     run_case(
         "blank_requirement_detail_group_separator",
-        PASS_PRD.replace("<br>二、状态与边界", "<br><br>二、状态与边界"),
-        False,
+        PASS_PRD.replace("<br>二、状态与边界", "<br><br>一、状态与边界"),
+        True,
     )
     run_case(
         "controlled_screenshot_placeholder",
