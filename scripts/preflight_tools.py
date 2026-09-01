@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_runtime import discover_runtimes, runtime_capabilities
+from visual_validation_support import PLAYWRIGHT_BROWSER_PATTERNS, playwright_cache_roots
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,12 +33,6 @@ SYSTEM_BROWSER_CANDIDATES = (
     ("msedge", "Microsoft Edge", "microsoft-edge-stable"),
     ("chromium", "Chromium", "chromium"),
     ("chromium", "Chromium", "chromium-browser"),
-)
-PLAYWRIGHT_BROWSER_PATTERNS = (
-    "chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell",
-    "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-    "chromium-*/chrome-linux/chrome",
-    "chromium-*/chrome-win/chrome.exe",
 )
 
 
@@ -103,19 +98,6 @@ def browser_info() -> dict[str, Any]:
         "browsers": found,
         "cached_playwright_browsers": [str(path) for path in cached],
     }
-
-
-def playwright_cache_roots() -> list[Path]:
-    env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
-    roots: list[Path] = []
-    if env_path and env_path != "0":
-        roots.append(Path(env_path).expanduser())
-    roots.append(Path.home() / "Library" / "Caches" / "ms-playwright")
-    roots.append(Path.home() / ".cache" / "ms-playwright")
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
-        roots.append(Path(local_app_data) / "ms-playwright")
-    return roots
 
 
 def playwright_cached_browser_paths() -> list[Path]:

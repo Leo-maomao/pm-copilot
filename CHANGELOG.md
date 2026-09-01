@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.44] - 2026-09-01
+
+### Added
+
+- Adapt the reviewed Ponytail minimality ladder into repository architecture reviews while preserving validation, security, privacy, accessibility, evidence, and approval gates; remove four unused imports and consolidate duplicated Playwright browser discovery across visual-validation scripts.
+
 ## [6.2.43] - 2026-08-31
 
 ### Fixed
