@@ -787,6 +787,11 @@ def _requires_direct_codex_fallback(result: dict[str, Any]) -> bool:
     return result.get("failure_category") in {
         "seawork_control_plane_timeout",
         "agent_no_progress",
+        # A detached Seawork Agent that remains ``running`` until its bounded
+        # stop has the same recovery semantics as a broken response stream.
+        # The controller still requires a changed staged artifact before it
+        # can promote any fallback output.
+        "agent_timeout",
     }
 
 
@@ -959,6 +964,10 @@ def execute(
             )
             if status.provider != "seawork" or not _requires_direct_codex_fallback(seawork_result):
                 return seawork_result
+            if seawork_result.get("failure_category") == "agent_timeout":
+                return _fallback_from_transport(
+                    seawork_result, prompt, cwd, timeout_minutes, output_limit, first_artifact_seconds,
+                )
             # One alternate path is useful after a transport/no-progress stop;
             # another detached Seawork launch would repeat the same condition.
             direct_model = selected_model.split("/", 1)[-1] if selected_model and "/" in selected_model else selected_model

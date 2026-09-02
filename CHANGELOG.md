@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.58] - 2026-09-02
+
+### Fixed
+
+- Treat a bounded Seawork detached-Agent timeout as a recoverable transport failure: retry once with the next distinct model discovered on the current device, retaining the original failure attribution and staged-artifact SHA gate.
+
 ## [6.2.57] - 2026-09-02
 
 ### Fixed
