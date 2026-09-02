@@ -20,6 +20,7 @@ from run_interactive_request import (
     _delivery_worker,
     _ensure_runtime_current,
     _normalise_trace_runtime_evidence,
+    _materialize_revision_trace,
     _restart_delivery_attempt,
     _recover_interrupted_delivery,
     _write_json,
@@ -463,6 +464,52 @@ class InteractiveRequestTest(unittest.TestCase):
             promoted = (folder / "run-log.yaml").read_text(encoding="utf-8")
             self.assertIn(str(folder.resolve()), promoted)
             self.assertNotIn(".example.stage-", promoted)
+
+    def test_in_place_revision_trace_is_materialized_without_a_remote_writer(self) -> None:
+        baseline = """pm_copilot_version: 5.0.3
+pm_copilot_revision: old
+artifact_lineage:
+  mode: new_run
+implemented_feature_prd:
+  active: true
+  mode: implemented_feature_prd
+requirement_coverage_review:
+  - requirement_id: '5.1'
+    visual_decision: not_required
+agent_transitions: []
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            target = folder / "run-log.yaml"
+            target.write_text(baseline, encoding="utf-8")
+            state = create_state("修订 5.1", folder)
+            state["revision_history"] = [{
+                "request": "仅修订 5.1",
+                "prd_before_sha256": "old-prd",
+                "html_before_sha256": "old-html",
+                "at": "2026-09-03T00:00:00+00:00",
+            }]
+            _materialize_revision_trace(state, target)
+            text = target.read_text(encoding="utf-8")
+            self.assertIn("mode: in_place_revision", text)
+            self.assertIn("revision_evidence_path: revision-evidence.json", text)
+            self.assertIn("target_ref: '5.1'", text)
+            self.assertTrue((folder / "revision-evidence.json").is_file())
+            target.write_text(baseline, encoding="utf-8")
+
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                raise AssertionError("revision trace must not invoke a remote writer")
+
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "seawork", 1, worker=worker))
+            self.assertFalse(worker_called)
+            self.assertEqual(
+                state["agent_calls"][-1]["execution_mode"],
+                "deterministic_trace_materialization",
+            )
 
     def test_delivery_checkpoint_survives_interruption_after_artifact_promotion(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.61] - 2026-09-03
+
+### Fixed
+
+- Materialize an in-place revision's `run-log.yaml` deterministically from the controller's staged state, revision evidence, current runtime version, and current figure hash. This removes the final mechanical artifact from the unreliable remote streaming write path while preserving isolated-workspace promotion, trace validation, independent review, and final delivery validation.
+
 ## [6.2.60] - 2026-09-03
 
 ### Fixed
