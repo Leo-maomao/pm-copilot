@@ -831,28 +831,44 @@ def _fallback_from_transport(
     result: dict[str, Any], prompt: str, cwd: Path, timeout_minutes: int,
     output_limit: int, first_artifact_seconds: int | None,
 ) -> dict[str, Any]:
-    """Use one distinct current-device runtime after a transport-level failure."""
+    """Try bounded distinct current-device models after a transport failure."""
     candidates = _transport_fallback_candidates(str(result.get("provider", "")), str(result.get("model", "")), cwd)
     if not candidates:
         return result
-    provider, fallback_model, source = candidates[0]
-    try:
-        fallback = execute(
-            provider, prompt, cwd, timeout_minutes, fallback_model, None, False, output_limit,
-            first_artifact_seconds=first_artifact_seconds, allow_transport_fallback=False,
-        )
-    except (OSError, RuntimeError) as error:
-        result["fallback_attempt"] = {"provider": provider, "model": fallback_model, "source": source, "status": "unavailable", "reason": str(error)}
-        return result
-    fallback["fallback_used"] = True
-    fallback["fallback_from"] = {
-        "provider": result.get("provider"),
-        "model": result.get("model"),
-        "failure_category": "stream_disconnected",
-        "error": result.get("error"),
-    }
-    fallback["fallback_selection_source"] = source
-    return fallback
+    attempts: list[dict[str, Any]] = []
+    # A device may advertise a model that the upstream rejects at dispatch
+    # time. Try a small, ordered set instead of treating that single 403 as a
+    # product-artifact failure. Each candidate retains normal SHA attribution.
+    for provider, fallback_model, source in candidates[:3]:
+        try:
+            fallback = execute(
+                provider, prompt, cwd, timeout_minutes, fallback_model, None, False, output_limit,
+                first_artifact_seconds=first_artifact_seconds, allow_transport_fallback=False,
+            )
+        except (OSError, RuntimeError) as error:
+            attempts.append({
+                "provider": provider, "model": fallback_model, "source": source,
+                "status": "unavailable", "reason": str(error),
+            })
+            continue
+        attempts.append({
+            "provider": provider, "model": fallback_model, "source": source,
+            "status": fallback.get("status"), "reason": _clean(str(fallback.get("error", "")), 240),
+        })
+        if fallback.get("status") != "complete":
+            continue
+        fallback["fallback_used"] = True
+        fallback["fallback_from"] = {
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+            "failure_category": "stream_disconnected",
+            "error": result.get("error"),
+        }
+        fallback["fallback_selection_source"] = source
+        fallback["fallback_attempts"] = attempts
+        return fallback
+    result["fallback_attempts"] = attempts
+    return result
 
 
 def _actual_provider_model(provider: str, output: str) -> str | None:

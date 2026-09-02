@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.59] - 2026-09-03
+
+### Fixed
+
+- Continue through up to three device-discovered fallback models when a Seawork candidate is rejected at dispatch, such as an upstream `403`; retain every attempt and preserve the controller-owned staged-artifact SHA gate.
+
 ## [6.2.58] - 2026-09-02
 
 ### Fixed

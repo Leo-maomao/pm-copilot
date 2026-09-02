@@ -488,6 +488,25 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertTrue(result["fallback_used"])
         self.assertEqual(result["fallback_from"]["model"], "gpt-primary")
 
+    def test_transport_fallback_skips_an_upstream_rejected_model(self) -> None:
+        candidates = [
+            ("seawork", "codex/rejected", "seawork-provider-discovery"),
+            ("seawork", "codex/usable", "seawork-provider-discovery"),
+        ]
+        with patch("agent_runtime._transport_fallback_candidates", return_value=candidates), patch(
+            "agent_runtime.execute", side_effect=[
+                {"provider": "seawork", "model": "codex/rejected", "status": "failed", "error": "Agent terminal state: error"},
+                {"provider": "seawork", "model": "codex/usable", "status": "complete", "error": ""},
+            ],
+        ) as execute:
+            result = agent_runtime._fallback_from_transport(
+                {"provider": "seawork", "model": "codex/primary", "error": "stream disconnected"},
+                "write", Path.cwd(), 3, 100, None,
+            )
+        self.assertEqual(execute.call_count, 2)
+        self.assertEqual(result["model"], "codex/usable")
+        self.assertEqual([item["status"] for item in result["fallback_attempts"]], ["failed", "complete"])
+
     def test_transport_candidates_include_an_authenticated_cli_default(self) -> None:
         statuses = [runtime("codex"), runtime("claude")]
         def catalog(provider, cwd):
