@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.46] - 2026-09-02
+
+### Fixed
+
+- Make PRD delivery and review stages use their configured total deadline instead of a 30-second first-write cutoff; bound trace work to three minutes and retry only an explicit stream-disconnect failure once.
+- Atomically promote generated trace files, preserve the attributable failure reason, and recalculate real-figure asset hashes plus the active runtime version before validation.
+
 ## [6.2.45] - 2026-09-02
 
 ### Fixed

@@ -13,6 +13,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -29,6 +30,7 @@ from runtime_limits import DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIV
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MAX_REVISIONS = DEFAULT_INTERACTIVE_MAX_REVISIONS
 MAX_ATTRIBUTABLE_AGENT_ATTEMPTS = 2
+TRACE_AGENT_TIMEOUT_MINUTES = 3
 CLARIFICATION_COVERAGE_AREAS = (
     "goal", "users", "scope", "success_evidence", "constraints_and_risk",
 )
@@ -89,6 +91,27 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
     temporary_path.replace(path)
 
 
+def _atomic_copy(source: Path, destination: Path) -> None:
+    """Promote a complete staged artifact without exposing a partial replacement."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="wb", dir=destination.parent, prefix=f".{destination.name}.", delete=False) as temporary:
+        with source.open("rb") as input_handle:
+            shutil.copyfileobj(input_handle, temporary)
+        temporary.flush()
+        os.fsync(temporary.fileno())
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(destination)
+
+
+def _atomic_write_text(path: Path, value: str) -> None:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False) as temporary:
+        temporary.write(value)
+        temporary.flush()
+        os.fsync(temporary.fileno())
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(path)
+
+
 def _checkpoint(state: dict[str, Any], state_path: Path | None) -> None:
     if state_path is not None:
         _write_json(state_path, state)
@@ -110,6 +133,52 @@ def _canonical_folder(state: dict[str, Any]) -> Path:
 def _is_retryable_agent_failure(result: dict[str, Any]) -> bool:
     detail = " ".join(str(result.get(key, "")) for key in ("status", "error", "output")).lower()
     return "stream disconnected" in detail or "stream_disconnected" in detail
+
+
+def _delivery_worker(
+    provider: str, prompt: str, cwd: Path, timeout: int, model: str | None,
+    schema: str | None, dry_run: bool, output_limit: int,
+) -> dict[str, Any]:
+    """PRD content stages use the full stage deadline, not a first-write deadline."""
+    return execute(
+        provider, prompt, cwd, timeout, model, schema, dry_run, output_limit,
+        first_artifact_seconds=None,
+    )
+
+
+def _normalise_trace_runtime_evidence(run_log: Path) -> int:
+    """Keep controller-owned runtime provenance and figure hashes tied to promoted bytes."""
+    text = run_log.read_text(encoding="utf-8")
+    active_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    text = re.sub(r"(?m)^pm_copilot_version:\s*.*$", f"pm_copilot_version: {active_version}", text, count=1)
+    updated = 0
+
+    def refresh(block: re.Match[str]) -> str:
+        nonlocal updated
+        value = block.group(0)
+        if not re.search(r"(?m)^\s+coverage_decision:\s*real_figure\s*$", value):
+            return value
+        path_match = re.search(r"(?m)^\s+path:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", value)
+        if not path_match:
+            return value
+        asset = (run_log.parent / path_match.group(1).strip()).resolve()
+        try:
+            asset.relative_to(run_log.parent.resolve())
+        except ValueError:
+            return value
+        if not asset.is_file():
+            return value
+        digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+        replacement, count = re.subn(
+            r"(?m)^(\s+asset_sha256:\s*).*$", rf"\g<1>{digest}", value, count=1,
+        )
+        if count:
+            updated += 1
+        return replacement
+
+    text = re.sub(r"(?ms)^    - target_ref:.*?(?=^    - target_ref:|\Z)", refresh, text)
+    _atomic_write_text(run_log, text)
+    return updated
 
 
 def _copy_input_assets(state: dict[str, Any], destination: Path) -> None:
@@ -147,9 +216,7 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> None:
         source = workspace / name
         if not source.is_file():
             raise FileNotFoundError(f"Validated delivery artifact is missing: {source}")
-        temporary = canonical / f".{name}.promoting"
-        shutil.copy2(source, temporary)
-        temporary.replace(canonical / name)
+        _atomic_copy(source, canonical / name)
     source_assets = workspace / "assets"
     if not source_assets.is_dir():
         raise FileNotFoundError("Validated delivery assets/ folder is missing")
@@ -182,7 +249,8 @@ def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
             f"    attempt: {call.get('attempt', 1)}",
             f"    error: {json.dumps(str(call.get('error', '')), ensure_ascii=False)}",
         ])
-    run_log.write_text(run_log.read_text(encoding="utf-8").rstrip() + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    _atomic_write_text(run_log, run_log.read_text(encoding="utf-8").rstrip() + "\n" + "\n".join(lines) + "\n")
+    _normalise_trace_runtime_evidence(run_log)
 
 
 def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
@@ -680,7 +748,7 @@ For run-log.yaml, overwrite the target immediately with a compact trace under 24
 
 def _run_artifact_agent(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
-    worker: Callable[..., dict[str, Any]] = execute, repair_errors: str = "", state_path: Path | None = None,
+    worker: Callable[..., dict[str, Any]] = _delivery_worker, repair_errors: str = "", state_path: Path | None = None,
 ) -> bool:
     target = _delivery_folder(state) / artifact
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -693,19 +761,20 @@ def _run_artifact_agent(
         # Codex workspace-write is scoped to its working directory. Execute
         # from the project staging copy so the promised artifact is writable.
         result = {}
+        stage_timeout = min(timeout, TRACE_AGENT_TIMEOUT_MINUTES) if artifact == "run-log.yaml" else timeout
         for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
-            result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, timeout, None, None, False, 8000)
+            result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, stage_timeout, None, None, False, 8000)
             result["attempt"] = attempt
             attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
-            if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS:
+            if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS or not _is_retryable_agent_failure(result):
                 break
         if result.get("status") == "complete" and stage_target.is_file() and stage_target.stat().st_size > 0:
             if artifact == "run-log.yaml":
                 # Agent tools report their writable staging path. The promoted
                 # trace must instead identify the stable canonical run folder.
                 text = stage_target.read_text(encoding="utf-8")
-                stage_target.write_text(text.replace(str(stage_folder), str(real_folder)), encoding="utf-8")
-            shutil.copy2(stage_target, target)
+                _atomic_write_text(stage_target, text.replace(str(stage_folder), str(real_folder)))
+            _atomic_copy(stage_target, target)
     result["isolated_workspace"] = True
     result["promoted_artifact"] = artifact if target.is_file() else None
     attributable = _agent_call_has_evidence(result)
@@ -716,7 +785,8 @@ def _run_artifact_agent(
     if stage["artifact_status"] == "promoted" and artifact not in state.setdefault("artifacts", []):
         state["artifacts"].append(artifact)
     if not attributable:
-        state["last_error"] = f"{artifact} Agent call has no attributable provider/model evidence"
+        detail = str(result.get("error") or result.get("status") or "unknown Agent failure").strip()
+        state["last_error"] = f"{artifact} Agent call has no attributable provider/model evidence: {detail}"
     elif not target.is_file() or target.stat().st_size == 0:
         detail = str(result.get("error", "")).strip()
         state["last_error"] = (
@@ -762,7 +832,7 @@ Artifact under review: {artifact}
 
 def _review_artifact(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
-    worker: Callable[..., dict[str, Any]] = execute, state_path: Path | None = None,
+    worker: Callable[..., dict[str, Any]] = _delivery_worker, state_path: Path | None = None,
 ) -> tuple[bool, str]:
     real_folder = _delivery_folder(state)
     with tempfile.TemporaryDirectory(prefix=f".{real_folder.name}.review-", dir=str(real_folder.parent)) as review_dir:
@@ -771,10 +841,10 @@ def _review_artifact(
         review_path = review_folder / ".stage-review.json"
         result = {}
         for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
-            result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, timeout, None, None, False, 8000)
+            result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, min(timeout, TRACE_AGENT_TIMEOUT_MINUTES), None, None, False, 8000)
             result["attempt"] = attempt
             attributable = _record_agent_call(state, result, phase="stage_quality_review", artifact=artifact)
-            if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS:
+            if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS or not _is_retryable_agent_failure(result):
                 break
         review_text = review_path.read_text(encoding="utf-8") if review_path.is_file() else ""
     result["phase"] = "stage_quality_review"
@@ -824,7 +894,7 @@ def _review_artifact(
 
 def _deliver_artifact_to_quality_gate(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
-    worker: Callable[..., dict[str, Any]] = execute, max_revisions: int = DEFAULT_MAX_REVISIONS,
+    worker: Callable[..., dict[str, Any]] = _delivery_worker, max_revisions: int = DEFAULT_MAX_REVISIONS,
     state_path: Path | None = None,
 ) -> bool:
     target = _delivery_folder(state) / artifact
@@ -890,7 +960,7 @@ def _validate_delivery(folder: Path, staging: bool = False) -> list[dict[str, An
 
 def _confirmed_delivery(
     state: dict[str, Any], provider: str, timeout: int,
-    worker: Callable[..., dict[str, Any]] = execute, max_revisions: int = DEFAULT_MAX_REVISIONS,
+    worker: Callable[..., dict[str, Any]] = _delivery_worker, max_revisions: int = DEFAULT_MAX_REVISIONS,
     state_path: Path | None = None,
 ) -> None:
     confirmation = state.get("user_confirmation")

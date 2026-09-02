@@ -12,9 +12,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from run_interactive_request import (
+    _atomic_copy,
     _confirmed_delivery,
     _artifact_review_prompt,
     _confirmation_packet,
+    _delivery_worker,
+    _normalise_trace_runtime_evidence,
     _recover_interrupted_delivery,
     _write_json,
     _normalise_intake,
@@ -71,6 +74,59 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(revised["status"], "new")
             self.assertEqual(revised["revision_history"][-1]["mode"], "in_place_revision")
             self.assertEqual(revised["revision_history"][-1]["prd_before_sha256"], hashlib.sha256(b"before").hexdigest())
+
+    def test_trace_normalisation_replaces_stale_version_and_asset_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            assets = folder / "assets"
+            assets.mkdir()
+            asset = assets / "current.png"
+            asset.write_bytes(b"current image")
+            trace = folder / "run-log.yaml"
+            trace.write_text(
+                "pm_copilot_version: 5.0.3\nimplemented_feature_prd:\n"
+                "  screenshots_and_placeholders:\n"
+                "    - target_ref: 5.1\n"
+                "      coverage_decision: real_figure\n"
+                "      path: assets/current.png\n"
+                "      asset_sha256: stale\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(_normalise_trace_runtime_evidence(trace), 1)
+            text = trace.read_text(encoding="utf-8")
+            active_version = (Path(__file__).resolve().parents[1] / "VERSION").read_text(encoding="utf-8").strip()
+            self.assertIn(f"pm_copilot_version: {active_version}", text)
+            self.assertIn(hashlib.sha256(b"current image").hexdigest(), text)
+
+    def test_stream_disconnect_retries_once_and_preserves_the_failure_reason(self) -> None:
+        calls = []
+
+        def worker(*args, **kwargs):
+            calls.append(args)
+            return {"provider": "test", "model": "test", "status": "failed", "output": "", "error": "stream disconnected"}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            state = create_state("做一个 PRD", Path(temporary))
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "test", 15, worker=worker))
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(calls[0][3], 3)
+            self.assertIn("stream disconnected", state["last_error"])
+
+    def test_delivery_worker_disables_the_first_artifact_watchdog(self) -> None:
+        with patch("run_interactive_request.execute", return_value={"status": "complete"}) as execute:
+            _delivery_worker("test", "write", Path.cwd(), 15, None, None, False, 8000)
+        self.assertIsNone(execute.call_args.kwargs["first_artifact_seconds"])
+
+    def test_atomic_copy_replaces_the_complete_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            source = folder / "source.txt"
+            destination = folder / "destination.txt"
+            source.write_text("new trace", encoding="utf-8")
+            destination.write_text("old trace", encoding="utf-8")
+            _atomic_copy(source, destination)
+            self.assertEqual(destination.read_text(encoding="utf-8"), "new trace")
 
     def test_nonexistent_run_folder_cannot_create_a_requirement(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
