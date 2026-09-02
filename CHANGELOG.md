@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.55] - 2026-09-02
+
+### Fixed
+
+- Require Trace Agents to start from the complete run-log template, name every trace-validator and delivery-validator contract field explicitly, validate the staged trace before independent review, and run one local repair when that preflight fails. Keep controller-appended Agent diagnostics bounded so the log remains a compact artifact.
+
 ## [6.2.54] - 2026-09-02
 
 ### Fixed

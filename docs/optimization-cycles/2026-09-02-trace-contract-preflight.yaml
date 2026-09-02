@@ -1,0 +1,95 @@
+cycle_id: "2026-09-02-trace-contract-preflight"
+date: "2026-09-02"
+goal: "Make run-log generation and validation use one complete, enforceable trace contract."
+practice_source:
+  source_type: "user_feedback"
+  source_run_id: "not_available"
+  source_output_folder: ""
+  user_corrections:
+    - "The run-log template and Agent prompt must satisfy validate_agent_trace.py and validate_outputs.py."
+  delivery_check_report: "A compact Trace Agent output omitted required top-level trace sections and readiness markers; staged PRD and HTML had already passed their checks."
+observed_corrections:
+  - correction: "Prompt minimization must not remove schema obligations."
+    affected_artifact: "run-log.yaml"
+    evidence: "Trace validation reported missing agent_strategy, loop_state, readiness markers, and implemented-feature lineage fields."
+    severity: "Critical"
+generalized_failures:
+  - failure_code: "trace_prompt_validator_contract_drift"
+    generalized_symptom: "A generated trace can pass a superficial review while omitting deterministic validator-required fields."
+    host_specific_details_removed: true
+    reusable_rule: "Make the template the required initial trace structure, enumerate validator-only fields in the Agent contract, and run deterministic trace validation before independent review."
+input_cases:
+  - eval_case: "interactive-trace-contract-preflight"
+    run_id: "not_available"
+    context_mode: "user_feedback"
+    output_folder: ""
+scenario_portfolio:
+  context_mode: "user_feedback"
+  product_type: "other"
+  pm_task_type: "self_improvement"
+  risk_profile: "operations"
+  platform: "non_ui"
+  pm_user_maturity: "senior_pm"
+artifact_expectations:
+  prd: false
+  ui_delivery: false
+  tracking_plan: false
+  dev_tasks: false
+  launch_decision: false
+  pre_clarification_only: false
+baseline:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures:
+    - "Trace contract validation occurred only after an incomplete trace reached later delivery gates."
+results:
+  generated_artifacts: []
+  validation_commands:
+    - "python3 -m unittest test_run_interactive_request.py test_agent_runtime.py test_model_catalog.py test_validate_agent_trace.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  validation_reports: []
+  review_scores:
+    delivery: null
+    prd: null
+    metrics_tracking: null
+    ui_delivery: null
+    delivery_review: null
+failure_classification:
+  - failure_code: "trace_prompt_validator_contract_drift"
+    severity: "Critical"
+    area: "trace-delivery"
+    symptom: "Final validators reject a Trace Agent output for omitted contract structure."
+    evidence: "Independent trace and output validation findings."
+    first_surface_to_fix: "controller"
+fixes:
+  - path: "scripts/run_interactive_request.py"
+    change: "Require full-template initialization, run trace-contract preflight before stage review, repair once with precise findings, and bound appended diagnostic evidence."
+    rationale: "The same deterministic contract governs generation, repair, and final promotion."
+    fix_surface: "controller"
+  - path: "scripts/test_run_interactive_request.py"
+    change: "Keep orchestration tests explicit about a passing trace preflight."
+    rationale: "Separates controller sequencing tests from trace-schema fixture construction."
+    fix_surface: "test"
+regression_updates:
+  evals_added_or_updated: []
+  validators_added_or_updated:
+    - "scripts/test_run_interactive_request.py"
+versioning:
+  previous_version: "6.2.54"
+  new_version: "6.2.55"
+  changelog_updated: true
+sync:
+  embedded_copies_checked:
+    - "Repository checkout is the source of truth."
+  embedded_copies_updated: []
+  skipped_targets:
+    - path: "origin/main"
+      reason: "Push follows local validation and commit creation."
+after:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures: []
+decision:
+  status: "improved"
+  next_action: "Synchronize the global runtime and retry the canonical run through the controller."

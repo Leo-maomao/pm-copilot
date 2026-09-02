@@ -335,7 +335,9 @@ class InteractiveRequestTest(unittest.TestCase):
                 {"phase": "clarification_review", "provider": "test", "model": "test", "status": "complete"},
             ]
             state["user_confirmation"] = {"confirmed": True, "source": "test"}
-            with patch("run_interactive_request._validate_delivery", return_value=[{"status": "passed"}]):
+            with patch("run_interactive_request._validate_delivery", return_value=[{"status": "passed"}]), patch(
+                "run_interactive_request._trace_contract_findings", return_value="",
+            ):
                 _confirmed_delivery(state, "test", 1, worker=worker)
             self.assertEqual(state["status"], "complete")
             self.assertEqual(len(state["agent_calls"]), 8)
@@ -369,7 +371,9 @@ class InteractiveRequestTest(unittest.TestCase):
                 {"phase": "clarification_review", "provider": "test", "model": "test", "status": "complete"},
             ]
             state["user_confirmation"] = {"confirmed": True, "source": "test"}
-            with patch("run_interactive_request._validate_delivery", side_effect=[failed, passed, passed]):
+            with patch("run_interactive_request._validate_delivery", side_effect=[failed, passed, passed]), patch(
+                "run_interactive_request._trace_contract_findings", return_value="",
+            ):
                 _confirmed_delivery(state, "test", 1, worker=worker, max_revisions=1)
             self.assertEqual(state["status"], "complete")
             self.assertGreaterEqual(state["revision_loops"], 1)

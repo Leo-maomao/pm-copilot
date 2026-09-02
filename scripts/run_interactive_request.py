@@ -283,6 +283,10 @@ def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
     calls = state.get("agent_calls", [])
     lines = ["", "agent_execution_evidence:"]
     for call in calls:
+        # Run logs are evidence indexes, not a second copy of every provider
+        # transcript. Long diagnostics made an otherwise compact trace exceed
+        # its contract budget and obscured the controller-owned fields.
+        error = str(call.get("error", "")).strip()[:320]
         lines.extend([
             f"  - phase: {call.get('phase', 'unknown')}",
             f"    artifact: {call.get('artifact', 'request')}",
@@ -290,7 +294,7 @@ def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
             f"    model: {call.get('model', '')}",
             f"    status: {call.get('status', '')}",
             f"    attempt: {call.get('attempt', 1)}",
-            f"    error: {json.dumps(str(call.get('error', '')), ensure_ascii=False)}",
+            f"    error: {json.dumps(error, ensure_ascii=False)}",
         ])
     _atomic_write_text(run_log, run_log.read_text(encoding="utf-8").rstrip() + "\n" + "\n".join(lines) + "\n")
     _normalise_trace_runtime_evidence(run_log)
@@ -796,14 +800,22 @@ def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = 
 You are the PM Copilot Trace Agent. Create only that YAML file and do not
 modify any other path. Do not read PM_COPILOT.md, prior run-log.yaml, or other
 project artifacts: the controller evidence below is authoritative and
-sufficient. Use templates/agent-run-log-template.yaml only if a field name is
-needed. Write the file before any explanatory response.
+sufficient. Start by copying templates/agent-run-log-template.yaml to the
+target, then replace every placeholder. Do not omit or rename any top-level
+template section. Write the file before any explanatory response.
 
-The log must record the explicit confirmation, real Agent calls, separate PRD,
-engineering, and launch readiness, validation commands, and truthful pending
-or failed state. It must be a compact trace under 24 KiB. For an in-place
+The log must pass validate_agent_trace.py and validate_outputs.py. In
+particular it requires agent_strategy, delegation_plan, resume_checkpoint,
+termination_condition, tool_plan, decision_record, replan_triggers,
+review_loop, loop_policy, loop_state, iteration_trace, loop_summary,
+memory_candidates, next_actions, action_closure, quality_thresholds,
+quality_decision, failures, and readiness.prd_status,
+readiness.engineering_handoff_status, readiness.launch_status,
+readiness.engineering_blockers, readiness.launch_blockers. Record the explicit
+confirmation, real Agent calls, separate PRD/engineering/launch readiness and
+validation commands. It must be a compact trace under 24 KiB. For an in-place
 revision, set artifact_lineage.mode to in_place_revision and include only its
-changed requirement IDs. Do not claim completed validation or approval.
+changed requirement IDs. Do not claim human engineering or launch approval.
 
 Controller evidence:
 {json.dumps(trace_packet, ensure_ascii=False, separators=(",", ":"))}
@@ -1029,6 +1041,17 @@ def _review_artifact(
     return passed, "\n".join(findings) or str(review.get("summary", "stage review rejected artifact"))
 
 
+def _trace_contract_findings(folder: Path) -> str:
+    """Return trace-validator findings before an incomplete trace reaches review."""
+    result = subprocess.run(
+        [sys.executable, "scripts/validate_agent_trace.py", str(folder)],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    if result.returncode == 0:
+        return ""
+    return "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+
+
 def _deliver_artifact_to_quality_gate(
     state: dict[str, Any], artifact: str, provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = _delivery_worker, max_revisions: int = DEFAULT_MAX_REVISIONS,
@@ -1041,6 +1064,20 @@ def _deliver_artifact_to_quality_gate(
     if stage.get("artifact_status") != "promoted" or not target.is_file():
         if not _run_artifact_agent(state, artifact, provider, timeout, worker, state_path=state_path, model=model):
             return False
+    if artifact == "run-log.yaml":
+        findings = _trace_contract_findings(_delivery_folder(state))
+        if findings:
+            if not _run_artifact_agent(
+                state, artifact, provider, timeout, worker, findings[-6000:], state_path, model,
+            ):
+                state["last_error"] = findings
+                _checkpoint(state, state_path)
+                return False
+            findings = _trace_contract_findings(_delivery_folder(state))
+            if findings:
+                state["last_error"] = findings
+                _checkpoint(state, state_path)
+                return False
     if artifact == "prd.md" and target.is_file():
         target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
         _stage(state, artifact)["artifact_sha256"] = _artifact_digest(target)
