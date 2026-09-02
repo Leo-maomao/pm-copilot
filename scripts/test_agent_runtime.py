@@ -424,6 +424,33 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertEqual(result["status"], "timed_out")
         self.assertNotIn("cleanup_blocked", result)
 
+    def test_seawork_accepts_changed_artifact_when_stop_observes_idle(self) -> None:
+        launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
+        running = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"codex/gpt-5.6-terra","status":"running"}]', "")
+        stopped = subprocess.CompletedProcess([], 0, "INTERRUPTED", "")
+        idle = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"codex/gpt-5.6-terra","status":"idle"}]', "")
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            target.write_text("before\n", encoding="utf-8")
+            prompt = f"Write exactly one complete artifact at {target}."
+            calls = [running, running, stopped, idle]
+
+            def run_after_launch(command, *args, **kwargs):
+                if command[1] == "run":
+                    target.write_text("after\n", encoding="utf-8")
+                    return launched
+                return calls.pop(0)
+
+            with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork")]), patch(
+                "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch("agent_runtime._poll_seawork_terminal", return_value=(False, "running")), patch(
+                "agent_runtime._run", side_effect=run_after_launch
+            ):
+                result = agent_runtime.execute("seawork", prompt, Path(temporary), 1, "codex/gpt-5.6-terra", None, False)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["completion_basis"], "artifact_checkpoint_after_stop")
+        self.assertEqual(result["agent_state_after_stop"], "idle")
+
     def test_seawork_stops_after_the_write_first_progress_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / "artifact.md"

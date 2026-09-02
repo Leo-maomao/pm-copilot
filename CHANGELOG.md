@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.56] - 2026-09-02
+
+### Fixed
+
+- Recheck the Seawork Agent terminal state after bounded stop cleanup. When that same Agent changed the controller-owned staged artifact and has converged to a successful terminal state, retain the artifact for normal trace preflight instead of reporting a stale `running` timeout.
+
 ## [6.2.55] - 2026-09-02
 
 ### Fixed

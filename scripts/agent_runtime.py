@@ -735,6 +735,25 @@ def _execute_seawork(
         except (OSError, subprocess.TimeoutExpired) as stop_error:
             stop_output = f"stop command failed: {stop_error}"
         stopped_terminal, state = _seawork_agent_is_terminal(executable, agent_id)
+        if (
+            stopped_terminal
+            and state in {"completed", "complete", "closed", "idle"}
+            and _stage_artifact_updated(target, target_baseline)
+        ):
+            output = f"Agent {agent_id} wrote its target and reached terminal control-plane state {state} after stop."
+            result.update({
+                "status": "complete",
+                "exit_code": 0,
+                "completion_basis": "artifact_checkpoint_after_stop",
+                "control_plane_refresh_state": state,
+                "stop_evidence": stop_output,
+                "agent_state_after_stop": state,
+                "output": _clean(output, output_limit),
+                "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
+                "output_truncated": False,
+                "error": "",
+            })
+            return result
         result.update({
             "status": "timed_out" if stopped_terminal else "orphaned",
             "error": f"Agent exceeded {timeout_minutes} minute(s); control-plane state was {polled_state}",
