@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from agent_runtime import execute
+from ensure_runtime_current import ensure_current
 from project_workspace import resolve as resolve_project_workspace
 from runtime_limits import DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIVE_MAX_REVISIONS
 
@@ -38,6 +39,26 @@ TRACE_AGENT_DELIVERY_TIMEOUT_MINUTES = (
 CLARIFICATION_COVERAGE_AREAS = (
     "goal", "users", "scope", "success_evidence", "constraints_and_risk",
 )
+
+
+def _ensure_runtime_current() -> None:
+    """Synchronize a copied global runtime before it can run an old controller.
+
+    Plugin activation already performs this check, but direct invocation of the
+    global controller bypasses the plugin. Source checkouts have no install
+    metadata and deliberately skip the check.
+    """
+    if not (ROOT / "install-state.json").is_file():
+        return
+    result = ensure_current(ROOT, Path.home() / ".agents" / "skills", require_current=True)
+    status = str(result.get("status", ""))
+    if status == "up_to_date":
+        return
+    if status == "synced":
+        os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]])
+        return
+    reason = str(result.get("reason") or result.get("action_required") or "runtime synchronization failed")
+    raise RuntimeError(f"PM Copilot global runtime is not current: {reason}")
 
 
 def _artifact_digest(path: Path) -> str | None:
@@ -1123,6 +1144,7 @@ def _confirmed_delivery(
 
 
 def main() -> int:
+    _ensure_runtime_current()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", help="initial user request")
     parser.add_argument("--request-file")

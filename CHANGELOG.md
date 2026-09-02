@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.53] - 2026-09-02
+
+### Fixed
+
+- Make the global interactive controller verify its installed runtime before parsing arguments; when the source checkout is newer, synchronize and re-exec the current controller with the original command-line arguments. Refuse delivery when synchronization is blocked, rather than silently running stale code.
+
 ## [6.2.52] - 2026-09-02
 
 ### Fixed

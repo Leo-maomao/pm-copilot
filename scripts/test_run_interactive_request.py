@@ -17,6 +17,7 @@ from run_interactive_request import (
     _artifact_review_prompt,
     _confirmation_packet,
     _delivery_worker,
+    _ensure_runtime_current,
     _normalise_trace_runtime_evidence,
     _restart_delivery_attempt,
     _recover_interrupted_delivery,
@@ -34,6 +35,19 @@ from run_interactive_request import (
 
 
 class InteractiveRequestTest(unittest.TestCase):
+    def test_global_runtime_sync_restarts_the_controller_before_argument_parsing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime_root = Path(temporary)
+            (runtime_root / "install-state.json").write_text("{}", encoding="utf-8")
+            with patch("run_interactive_request.ROOT", runtime_root), patch(
+                "run_interactive_request.ensure_current", return_value={"status": "synced"},
+            ), patch("run_interactive_request.os.execv") as execute, patch.object(
+                sys, "argv", ["run_interactive_request.py", "--confirm"],
+            ):
+                _ensure_runtime_current()
+        self.assertEqual(execute.call_args.args[0], sys.executable)
+        self.assertEqual(execute.call_args.args[1][1:], [str(Path(__file__).resolve().with_name("run_interactive_request.py")), "--confirm"])
+
     def test_nonblocking_questions_do_not_hold_the_clarification_gate(self) -> None:
         intake = _normalise_intake({
             "status": "needs_input",
