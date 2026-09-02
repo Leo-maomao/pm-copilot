@@ -837,12 +837,18 @@ def execute(
     catalog, catalog_warnings = discover_model_catalog(status.provider, cwd, selected_model)
     configured_model = next((item.model for item in catalog if item.source == "provider-config" and item.model), None)
     selected_model = selected_model or configured_model
+    model_requirement = "judgment" if status.provider in {"seawork", "seawork-claude"} else "standard"
+    model_selection = select_model(model_requirement, status.provider, catalog, selected_model)
+    # Seawork has no implicit model contract. A discovered capability-selected
+    # model must become the actual launch argument before command construction.
+    if not selected_model and model_selection.option and model_selection.option.model:
+        selected_model = model_selection.option.model
     if status.provider in {"seawork", "seawork-claude"} and not selected_model:
         return {
             "provider": status.provider, "model": None, "status": "blocked",
             "failure_category": "no_available_model",
             "selection_status": "blocked",
-            "selection_reason": "No model was supplied or declared by the active provider; configure a model or pass --model.",
+            "selection_reason": model_selection.reason,
             "available_models": [item.model for item in catalog if item.model],
             "model_catalog_warnings": catalog_warnings,
             "cwd": ".", "dry_run": dry_run, "output": "", "error": "No available model for provider",
@@ -857,8 +863,6 @@ def execute(
         status.provider, status.executable or status.provider, prompt, cwd,
         timeout_minutes, selected_model, schema_path, output_path,
     )
-    model_requirement = "judgment" if status.provider in {"seawork", "seawork-claude"} else "standard"
-    model_selection = select_model(model_requirement, status.provider, catalog, selected_model)
     if model_selection.status == "blocked":
         return {
             "provider": status.provider, "model": None, "status": "blocked",

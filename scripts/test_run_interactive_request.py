@@ -174,6 +174,21 @@ class InteractiveRequestTest(unittest.TestCase):
             write_discussion(Path(temporary), state)
             self.assertTrue((Path(temporary) / "discussion.md").is_file())
 
+    def test_intake_passes_an_explicit_model_to_the_runtime(self) -> None:
+        observed_models = []
+
+        def worker(*args, **kwargs):
+            observed_models.append(args[4])
+            return {"provider": "seawork", "model": "codex/gpt-5.6-terra", "status": "complete", "output": '{"status":"needs_input","questions":["目标用户？"],"buckets":{"must_answer_before_generation":["target user"]}}', "error": ""}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            state = run_intake(
+                create_state("做一个 PRD", Path(temporary)), "seawork", 1,
+                worker=worker, model="codex/gpt-5.6-terra",
+            )
+        self.assertEqual(state["status"], "needs_input")
+        self.assertEqual(observed_models, ["codex/gpt-5.6-terra"])
+
     def test_incomplete_coverage_cannot_pass_clarification_review(self) -> None:
         responses = [
             '{"status":"complete","summary":"初步完成","questions":[],"buckets":{"must_answer_before_generation":[]}}',

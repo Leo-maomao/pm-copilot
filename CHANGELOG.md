@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.49] - 2026-09-02
+
+### Fixed
+
+- Select a discovered Seawork model before constructing its launch command, and expose `--model` on the interactive PRD controller so an explicit runtime model reaches every Agent stage and recovery command.
+
 ## [6.2.48] - 2026-09-02
 
 ### Fixed

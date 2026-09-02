@@ -108,6 +108,20 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["failure_category"], "no_available_model")
 
+    def test_seawork_uses_the_discovered_model_before_building_a_command(self) -> None:
+        terra = ModelOption(
+            "codex/gpt-5.6-terra", "seawork", frozenset({"judgment", "standard"}),
+            "seawork-provider-discovery", 2,
+        )
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork")]), patch(
+            "agent_runtime.active_runtime",
+            return_value=agent_runtime.ActiveRuntime(None, None, "no active model"),
+        ), patch("agent_runtime.discover_model_catalog", return_value=([terra], [])):
+            result = agent_runtime.execute("seawork", "inspect only", Path.cwd(), 1, None, None, True)
+        self.assertEqual(result["status"], "planned")
+        self.assertEqual(result["model"], "codex/gpt-5.6-terra")
+        self.assertEqual(result["command"][result["command"].index("--provider") + 1], "codex/gpt-5.6-terra")
+
     def test_seawork_claude_dry_run_uses_daemon_managed_claude(self) -> None:
         statuses = [runtime("seawork-claude")]
         with patch("agent_runtime.discover_runtimes", return_value=statuses):
