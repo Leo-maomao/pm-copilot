@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.57] - 2026-09-02
+
+### Fixed
+
+- Bound Trace Agent context to the latest attributable completion for each required production stage and short diagnostics. Do not replay historical provider transcripts or full revision requests into the final YAML write; use the same bounded evidence index in the promoted run log.
+
 ## [6.2.56] - 2026-09-02
 
 ### Fixed

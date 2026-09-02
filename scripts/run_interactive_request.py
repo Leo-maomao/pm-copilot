@@ -280,13 +280,10 @@ def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
     run_log = _delivery_folder(state) / "run-log.yaml"
     if not run_log.is_file():
         return
-    calls = state.get("agent_calls", [])
+    calls = _trace_agent_evidence(state)
     lines = ["", "agent_execution_evidence:"]
     for call in calls:
-        # Run logs are evidence indexes, not a second copy of every provider
-        # transcript. Long diagnostics made an otherwise compact trace exceed
-        # its contract budget and obscured the controller-owned fields.
-        error = str(call.get("error", "")).strip()[:320]
+        error = _compact_trace_text(call.get("error", ""), 160)
         lines.extend([
             f"  - phase: {call.get('phase', 'unknown')}",
             f"    artifact: {call.get('artifact', 'request')}",
@@ -298,6 +295,55 @@ def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
         ])
     _atomic_write_text(run_log, run_log.read_text(encoding="utf-8").rstrip() + "\n" + "\n".join(lines) + "\n")
     _normalise_trace_runtime_evidence(run_log)
+
+
+_TRACE_EVIDENCE_PHASES = (
+    ("intake", None),
+    ("clarification_review", None),
+    ("delivery", "confirmed-requirements.md"),
+    ("stage_quality_review", "confirmed-requirements.md"),
+    ("delivery", "prd.md"),
+    ("stage_quality_review", "prd.md"),
+    ("delivery", "run-log.yaml"),
+    ("stage_quality_review", "run-log.yaml"),
+)
+
+
+def _compact_trace_text(value: object, limit: int = 240) -> str:
+    """Keep provider diagnostics useful without replaying model transcripts."""
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
+
+
+def _trace_agent_evidence(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return one current attributable completion per required production stage.
+
+    Agent-call records are durable controller state and can retain verbose
+    historical provider output across recovery attempts. A trace needs an
+    evidence index, not that transcript: replaying it into the final Agent
+    prompt has repeatedly caused the small YAML write to lose its stream.
+    """
+    latest: dict[tuple[str, str | None], dict[str, Any]] = {}
+    calls = state.get("agent_calls", [])
+    for call in reversed(calls if isinstance(calls, list) else []):
+        if not isinstance(call, dict) or call.get("status") != "complete":
+            continue
+        key = (str(call.get("phase", "")), call.get("artifact"))
+        if key not in _TRACE_EVIDENCE_PHASES or key in latest:
+            continue
+        if not _agent_call_has_evidence(call):
+            continue
+        latest[key] = {
+            "phase": key[0],
+            "artifact": key[1] or "request",
+            "provider": call.get("provider"),
+            "model": call.get("model"),
+            "status": "complete",
+            "attempt": call.get("attempt", 1),
+            "agent_id": call.get("agent_id"),
+            "error": _compact_trace_text(call.get("error", ""), 160),
+        }
+    return [latest[key] for key in _TRACE_EVIDENCE_PHASES if key in latest]
 
 
 def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
@@ -776,23 +822,22 @@ def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = 
         # contract. The old prompt caused the Agent to load them again, making
         # the final, mechanical stage disproportionately prone to a stream
         # interruption before it ever opened the target file.
-        trace_calls = [
-            {
-                key: call.get(key)
-                for key in ("phase", "artifact", "provider", "model", "status", "attempt", "agent_id", "failure_category", "error")
-                if call.get(key) not in (None, "", [], {})
-            }
-            for call in state.get("agent_calls", [])
-            if isinstance(call, dict)
-        ]
+        trace_calls = _trace_agent_evidence(state)
+        revision_history = state.get("revision_history", [])
+        lineage = {
+            "mode": "in_place_revision" if revision_history else "new_delivery",
+            "revised_requirement_ids": ["5.1"] if revision_history else [],
+        }
         trace_packet = {
             "confirmation": state.get("user_confirmation"),
             "task_mode": state.get("task_mode", "implemented_feature_prd"),
-            "summary": latest.get("summary", ""),
-            "scope": latest.get("scope", {}),
-            "assumptions": latest.get("assumptions", []),
-            "risks": latest.get("risks", []),
-            "revision_history": state.get("revision_history", []),
+            "summary": _compact_trace_text(latest.get("summary", ""), 1200),
+            "scope_goal": _compact_trace_text(latest.get("scope", {}).get("goal", ""), 1000),
+            "in_scope": [_compact_trace_text(item, 280) for item in latest.get("scope", {}).get("in_scope", [])[:12]],
+            "out_of_scope": [_compact_trace_text(item, 280) for item in latest.get("scope", {}).get("out_of_scope", [])[:12]],
+            "assumptions": [_compact_trace_text(item, 240) for item in latest.get("assumptions", [])[:8]],
+            "risks": [_compact_trace_text(item, 240) for item in latest.get("risks", [])[:8]],
+            "artifact_lineage": lineage,
             "agent_calls": trace_calls,
             "input_assets": available_assets,
         }

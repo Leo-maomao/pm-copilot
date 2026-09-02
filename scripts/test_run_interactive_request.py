@@ -157,6 +157,31 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertIn("Do not read PM_COPILOT.md", prompt)
             self.assertIn("Controller evidence:", prompt)
 
+    def test_trace_prompt_does_not_replay_historical_agent_transcripts(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = create_state("更新 5.1", Path(temporary))
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "更新 5.1", "in_scope": [], "out_of_scope": []},
+                "assumptions": [], "risks": [],
+            }]
+            historical_error = "historical provider transcript " * 6000
+            state["agent_calls"] = [
+                {
+                    "phase": "delivery", "artifact": "prd.md", "provider": "seawork",
+                    "model": "codex/gpt-5.6-terra", "status": "complete", "agent_id": "old",
+                    "error": historical_error,
+                },
+                {
+                    "phase": "delivery", "artifact": "prd.md", "provider": "seawork",
+                    "model": "codex/gpt-5.6-terra", "status": "complete", "agent_id": "new",
+                    "error": "",
+                },
+            ]
+            prompt = _artifact_prompt(state, "run-log.yaml")
+            self.assertIn('"agent_id":"new"', prompt)
+            self.assertNotIn("historical provider transcript", prompt)
+            self.assertLess(len(prompt), 10000)
+
     def test_stream_disconnected_agent_write_is_not_promoted_without_terminal_completion(self) -> None:
         calls = 0
         with tempfile.TemporaryDirectory() as temporary:
