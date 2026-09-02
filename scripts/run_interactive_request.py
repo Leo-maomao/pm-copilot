@@ -780,6 +780,11 @@ def _run_artifact_agent(
         shutil.copytree(real_folder, stage_folder)
         stage_state = {**state, "folder": str(stage_folder), "delivery_workspace": str(stage_folder)}
         stage_target = stage_folder / artifact
+        stage_before_sha256 = _artifact_digest(stage_target)
+        target_before_sha256 = _artifact_digest(target)
+        target_snapshot = Path(stage_name) / ".controller-target-before"
+        if target.is_file():
+            shutil.copy2(target, target_snapshot)
         # Codex workspace-write is scoped to its working directory. Execute
         # from the project staging copy so the promised artifact is writable.
         result = {}
@@ -790,36 +795,60 @@ def _run_artifact_agent(
         for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
             result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, stage_timeout, model, None, False, 8000)
             result["attempt"] = attempt
+            result["expected_artifact"] = str(stage_target)
+            result["artifact_before_sha256"] = stage_before_sha256
+            result["artifact_after_sha256"] = _artifact_digest(stage_target)
+            result["artifact_changed_in_workspace"] = (
+                result["artifact_after_sha256"] != stage_before_sha256
+            )
             attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
             if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS or not _is_retryable_agent_failure(result):
                 break
-        if result.get("status") == "complete" and stage_target.is_file() and stage_target.stat().st_size > 0:
+        stage_after_sha256 = _artifact_digest(stage_target)
+        promoted = (
+            result.get("status") == "complete"
+            and stage_after_sha256 is not None
+            and stage_after_sha256 != stage_before_sha256
+        )
+        if promoted:
             if artifact == "run-log.yaml":
                 # Agent tools report their writable staging path. The promoted
                 # trace must instead identify the stable canonical run folder.
                 text = stage_target.read_text(encoding="utf-8")
                 _atomic_write_text(stage_target, text.replace(str(stage_folder), str(real_folder)))
             _atomic_copy(stage_target, target)
+        elif _artifact_digest(target) != target_before_sha256:
+            # An Agent that ignored the stage path may have written into the
+            # real delivery workspace. It is not this call's artifact, so put
+            # that workspace back before exposing the failure to a reviewer.
+            if target_snapshot.is_file():
+                _atomic_copy(target_snapshot, target)
+            else:
+                target.unlink(missing_ok=True)
+            result["workspace_target_restored"] = True
     result["isolated_workspace"] = True
-    result["promoted_artifact"] = artifact if target.is_file() else None
+    result["promoted_artifact"] = artifact if promoted else None
     attributable = _agent_call_has_evidence(result)
     stage = _stage(state, artifact)
-    stage["artifact_status"] = "promoted" if target.is_file() and target.stat().st_size > 0 else "failed"
+    stage["artifact_status"] = "promoted" if promoted else "failed"
     stage["artifact_sha256"] = _artifact_digest(target)
+    stage["expected_artifact"] = str(stage_target)
+    stage["source_before_sha256"] = stage_before_sha256
+    stage["source_after_sha256"] = stage_after_sha256
     stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     if stage["artifact_status"] == "promoted" and artifact not in state.setdefault("artifacts", []):
         state["artifacts"].append(artifact)
     if not attributable:
         detail = str(result.get("error") or result.get("status") or "unknown Agent failure").strip()
         state["last_error"] = f"{artifact} Agent call has no attributable provider/model evidence: {detail}"
-    elif not target.is_file() or target.stat().st_size == 0:
+    elif not promoted:
         detail = str(result.get("error", "")).strip()
         state["last_error"] = (
-            f"{artifact} was not produced in the project staging directory"
+            f"{artifact} was not changed in the project staging directory"
             + (f": {detail}" if detail else "")
         )
     _checkpoint(state, state_path)
-    return attributable and target.is_file() and target.stat().st_size > 0
+    return attributable and promoted
 
 
 def _artifact_review_prompt(state: dict[str, Any], artifact: str, review_path: Path) -> str:

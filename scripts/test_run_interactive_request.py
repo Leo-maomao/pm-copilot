@@ -114,6 +114,61 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(calls[0][3], 5)
             self.assertIn("stream disconnected", state["last_error"])
 
+    def test_idle_agent_with_an_unchanged_stage_artifact_cannot_promote(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            target = folder / "run-log.yaml"
+            target.write_text("old trace\n", encoding="utf-8")
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+
+            def idle_worker(*args, **kwargs):
+                return {"provider": "seawork", "model": "codex/gpt-5.6-terra", "status": "complete", "output": "idle", "error": ""}
+
+            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "seawork", 5, worker=idle_worker))
+            self.assertEqual(target.read_text(encoding="utf-8"), "old trace\n")
+            self.assertEqual(state["delivery_stages"]["run-log.yaml"]["artifact_status"], "failed")
+            self.assertIn("not changed in the project staging directory", state["last_error"])
+
+    def test_stream_disconnected_agent_write_is_not_promoted_without_terminal_completion(self) -> None:
+        calls = 0
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            target = folder / "run-log.yaml"
+            target.write_text("old trace\n", encoding="utf-8")
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+
+            def reconnecting_worker(provider, prompt, cwd, *args):
+                nonlocal calls
+                calls += 1
+                staged_target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                staged_target.write_text("new but unconfirmed trace\n", encoding="utf-8")
+                return {"provider": provider, "model": "codex/gpt-5.6-terra", "status": "failed", "output": "", "error": "stream disconnected"}
+
+            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "seawork", 5, worker=reconnecting_worker))
+            self.assertEqual(calls, 2)
+            self.assertEqual(target.read_text(encoding="utf-8"), "old trace\n")
+            self.assertEqual(state["delivery_stages"]["run-log.yaml"]["artifact_status"], "failed")
+
+    def test_agent_write_in_the_wrong_workspace_cannot_promote_or_pollute_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            target = folder / "run-log.yaml"
+            target.write_text("old trace\n", encoding="utf-8")
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+
+            def wrong_workspace_worker(provider, prompt, cwd, *args):
+                target.write_text("wrong workspace trace\n", encoding="utf-8")
+                return {"provider": provider, "model": "codex/gpt-5.6-terra", "status": "complete", "output": "idle", "error": ""}
+
+            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "seawork", 5, worker=wrong_workspace_worker))
+            self.assertEqual(target.read_text(encoding="utf-8"), "old trace\n")
+            stage = state["delivery_stages"]["run-log.yaml"]
+            self.assertEqual(stage["artifact_status"], "failed")
+            self.assertTrue(state["agent_calls"][-1]["artifact_changed_in_workspace"] is False)
+
     def test_delivery_worker_disables_the_first_artifact_watchdog(self) -> None:
         with patch("run_interactive_request.execute", return_value={"status": "complete"}) as execute:
             _delivery_worker("test", "write", Path.cwd(), 15, None, None, False, 8000)

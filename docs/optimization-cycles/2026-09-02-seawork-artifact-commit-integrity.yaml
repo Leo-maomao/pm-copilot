@@ -1,0 +1,96 @@
+cycle_id: "2026-09-02-seawork-artifact-commit-integrity"
+date: "2026-09-02"
+goal: "Promote a Seawork artifact only when this Agent call changed the controller-owned isolated workspace."
+practice_source:
+  source_type: "user_feedback"
+  source_run_id: "not_available"
+  source_output_folder: ""
+  user_corrections:
+    - "An Agent idle state, completion message, or pre-existing target file is not proof that the controller stage workspace received this call's artifact."
+  delivery_check_report: "The Trace Agent reported editing run-log.yaml, but the independent review read the old staged log after the controller marked it promoted."
+observed_corrections:
+  - correction: "Artifact attribution needs a call-local source digest, not only Agent provenance and target existence."
+    affected_artifact: "Interactive delivery stage promotion"
+    evidence: "The real delivery workspace retained stale content while an Agent completion was recorded."
+    severity: "Critical"
+generalized_failures:
+  - failure_code: "agent_terminal_state_promotes_stale_or_wrong_workspace_artifact"
+    generalized_symptom: "A detached Agent can become idle after writing elsewhere or not changing a copied stage target, while the controller promotes stale bytes."
+    host_specific_details_removed: true
+    reusable_rule: "Capture the isolated target digest before launch and promote only a nonempty changed target from that exact workspace; restore any non-promoted write to the real delivery workspace."
+input_cases:
+  - eval_case: "seawork-artifact-commit-integrity"
+    run_id: "not_available"
+    context_mode: "user_feedback"
+    output_folder: ""
+scenario_portfolio:
+  context_mode: "user_feedback"
+  product_type: "other"
+  pm_task_type: "self_improvement"
+  risk_profile: "high"
+  platform: "runtime"
+  pm_user_maturity: "senior_pm"
+artifact_expectations:
+  prd: false
+  ui_delivery: false
+  tracking_plan: false
+  dev_tasks: false
+  launch_decision: false
+  pre_clarification_only: false
+baseline:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures:
+    - "A stale run log could be promoted after an idle Seawork Agent."
+results:
+  generated_artifacts: []
+  validation_commands:
+    - "python3 -m unittest test_agent_runtime.py test_run_interactive_request.py test_model_catalog.py test_validate_agent_trace.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  validation_reports: []
+  review_scores:
+    delivery: null
+    prd: null
+    metrics_tracking: null
+    ui_delivery: null
+    delivery_review: null
+failure_classification:
+  - failure_code: "agent_terminal_state_promotes_stale_or_wrong_workspace_artifact"
+    severity: "Critical"
+    area: "delivery-integrity"
+    symptom: "An old or wrong-workspace artifact is marked promoted after a detached Agent appears complete."
+    evidence: "User-reported Trace Agent stage-review mismatch."
+    first_surface_to_fix: "controller"
+fixes:
+  - path: "scripts/run_interactive_request.py"
+    change: "Record source digest before each isolated Agent call, require a changed staged target for promotion, and restore real delivery bytes written outside the isolated stage."
+    rationale: "Stage review reads only bytes proven to originate from the current Agent invocation and expected workspace."
+    fix_surface: "controller"
+  - path: "scripts/test_run_interactive_request.py"
+    change: "Cover idle without a stage write, stream-disconnected intermediate writes, and writes to the wrong workspace."
+    rationale: "Prevent false promotion across timeout, reconnect, and path-confusion failures."
+    fix_surface: "test"
+regression_updates:
+  evals_added_or_updated: []
+  validators_added_or_updated:
+    - "scripts/test_run_interactive_request.py"
+    - "scripts/test_agent_runtime.py"
+versioning:
+  previous_version: "6.2.51"
+  new_version: "6.2.52"
+  changelog_updated: true
+sync:
+  embedded_copies_checked:
+    - "Repository checkout is the current PM Copilot source of truth."
+  embedded_copies_updated: []
+  skipped_targets:
+    - path: "origin/main"
+      reason: "Push follows local validation and commit creation."
+after:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures: []
+decision:
+  status: "improved"
+  next_action: "Resume the canonical run and verify that only a changed staged run-log.yaml can advance to independent review."
