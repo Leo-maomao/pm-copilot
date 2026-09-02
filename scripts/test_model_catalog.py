@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -33,6 +34,26 @@ class ModelCatalogTests(unittest.TestCase):
             options, warnings = discover_model_catalog("codex")
         self.assertEqual(warnings, [])
         self.assertEqual(options[0].model, "user-model")
+
+    def test_seawork_catalog_discovers_current_provider_models(self) -> None:
+        def runner(command, **kwargs):
+            if command[2:4] == ["ls", "--json"]:
+                return subprocess.CompletedProcess(command, 0, '[{"provider":"codex","status":"available"}]', "")
+            return subprocess.CompletedProcess(command, 0, '[{"id":"gpt-current","thinkingOptionIds":["high"]}]', "")
+
+        with patch("model_catalog.shutil.which", return_value="seawork"), patch(
+            "model_catalog.subprocess.run", side_effect=runner,
+        ), patch("model_catalog._configured_model", return_value=None):
+            options, warnings = discover_model_catalog("seawork")
+        self.assertEqual(warnings, [])
+        self.assertEqual(options[0].model, "codex/gpt-current")
+        self.assertIn("judgment", options[0].capabilities)
+
+    def test_claude_default_is_explicitly_degraded_until_completion(self) -> None:
+        with patch("model_catalog._seawork_options", return_value=([], [])):
+            options, _ = discover_model_catalog("claude")
+        self.assertEqual(options[0].model, None)
+        self.assertIn("configured_default", options[0].capabilities)
 
 
 if __name__ == "__main__":

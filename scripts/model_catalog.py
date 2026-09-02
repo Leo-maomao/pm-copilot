@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -71,6 +73,11 @@ def _env_options(provider: str) -> tuple[list[ModelOption], list[str]]:
 
 
 def _configured_model(provider: str, cwd: Path | None = None) -> ModelOption | None:
+    if provider == "claude":
+        # Claude CLI exposes its authenticated default at execution time rather
+        # than through a local model-list command. It remains degraded until
+        # the structured response proves the actual model identifier.
+        return ModelOption(None, provider, frozenset({"configured_default"}), "provider-default")
     if provider != "codex":
         return None
     codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser()
@@ -85,12 +92,63 @@ def _configured_model(provider: str, cwd: Path | None = None) -> ModelOption | N
     return ModelOption(match.group(1), provider, frozenset({"standard", "configured_default"}), "provider-config")
 
 
+def _seawork_options() -> tuple[list[ModelOption], list[str]]:
+    """Read locally available Seawork providers and models without inventing IDs."""
+    executable = shutil.which("seawork")
+    if executable is None:
+        return [], ["seawork executable not found for runtime model discovery"]
+    try:
+        listed = subprocess.run(
+            [executable, "provider", "ls", "--json"], text=True, capture_output=True, timeout=5, check=False,
+        )
+        providers = json.loads(listed.stdout) if listed.returncode == 0 else []
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+        return [], [f"seawork provider discovery failed: {error}"]
+    options: list[ModelOption] = []
+    warnings: list[str] = []
+    for provider in providers if isinstance(providers, list) else []:
+        if not isinstance(provider, dict):
+            continue
+        provider_id = str(provider.get("provider", "")).strip()
+        if not provider_id or str(provider.get("status", "")).lower() != "available":
+            continue
+        try:
+            result = subprocess.run(
+                [executable, "provider", "models", provider_id, "--json"], text=True, capture_output=True, timeout=5, check=False,
+            )
+            models = json.loads(result.stdout) if result.returncode == 0 else []
+        except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+            warnings.append(f"seawork model discovery failed for {provider_id}: {error}")
+            continue
+        for item in models if isinstance(models, list) else []:
+            if not isinstance(item, dict):
+                continue
+            model_id = str(item.get("id", "")).strip()
+            if not model_id:
+                continue
+            thinking = item.get("thinkingOptionIds", [])
+            if isinstance(thinking, str):
+                thinking = [thinking]
+            capabilities = {"standard"}
+            if any(str(level).lower() in {"high", "xhigh", "max", "ultra"} for level in thinking):
+                capabilities.add("judgment")
+            options.append(ModelOption(
+                f"{provider_id}/{model_id}", "seawork", frozenset(capabilities),
+                "seawork-provider-discovery", len(thinking),
+            ))
+    return options, warnings
+
+
 def discover_model_catalog(provider: str, cwd: Path | None = None, explicit_model: str | None = None) -> tuple[list[ModelOption], list[str]]:
     """Return only user-declared/configured models; never invent model IDs."""
     options, warnings = _env_options(provider)
     configured = _configured_model(provider, cwd)
     if configured is not None:
         options.append(configured)
+    if provider == "seawork":
+        discovered, discovered_warnings = _seawork_options()
+        options.extend(discovered)
+        warnings.extend(discovered_warnings)
     if explicit_model:
         explicit = _normalise_option(explicit_model, provider, "explicit-operator")
         if explicit is not None:

@@ -733,6 +733,85 @@ def _requires_direct_codex_fallback(result: dict[str, Any]) -> bool:
     }
 
 
+def _is_stream_disconnected(result: dict[str, Any]) -> bool:
+    detail = " ".join(str(result.get(key, "")) for key in ("error", "output", "failure_category")).lower()
+    return "stream disconnected" in detail or "stream_disconnected" in detail
+
+
+def _transport_fallback_candidates(
+    failed_provider: str, failed_model: str | None, cwd: Path,
+) -> list[tuple[str, str | None, str]]:
+    """Discover auditable local alternatives in preference order at failure time."""
+    ranked: list[tuple[int, int, tuple[str, str | None, str]]] = []
+    failed_name = (failed_model or "").rsplit("/", 1)[-1]
+    for status in discover_runtimes():
+        if status.status != "ready" or status.provider not in EXECUTABLE_PROVIDERS:
+            continue
+        catalog, _ = discover_model_catalog(status.provider, cwd)
+        for index, option in enumerate(catalog):
+            if option.model and option.model.rsplit("/", 1)[-1] == failed_name:
+                continue
+            if option.model and "standard" not in option.capabilities and "judgment" not in option.capabilities:
+                continue
+            if option.model is None and "configured_default" not in option.capabilities:
+                continue
+            # Capability signals come from the runtime query. When a provider
+            # cannot rank equal-capability models, retain its reported order.
+            capability_rank = 0 if "judgment" in option.capabilities else 1
+            default_rank = 1 if option.model is None else 0
+            ranked.append((capability_rank + default_rank, index, (status.provider, option.model, option.source)))
+    # Prefer explicit device-discovered models. Provider/default fallbacks are
+    # safe only when their completion payload reveals the actual model.
+    return [candidate for _, _, candidate in sorted(ranked, key=lambda item: (item[0], item[1]))]
+
+
+def _fallback_from_transport(
+    result: dict[str, Any], prompt: str, cwd: Path, timeout_minutes: int,
+    output_limit: int, first_artifact_seconds: int | None,
+) -> dict[str, Any]:
+    """Use one distinct current-device runtime after a transport-level failure."""
+    candidates = _transport_fallback_candidates(str(result.get("provider", "")), str(result.get("model", "")), cwd)
+    if not candidates:
+        return result
+    provider, fallback_model, source = candidates[0]
+    try:
+        fallback = execute(
+            provider, prompt, cwd, timeout_minutes, fallback_model, None, False, output_limit,
+            first_artifact_seconds=first_artifact_seconds, allow_transport_fallback=False,
+        )
+    except (OSError, RuntimeError) as error:
+        result["fallback_attempt"] = {"provider": provider, "model": fallback_model, "source": source, "status": "unavailable", "reason": str(error)}
+        return result
+    fallback["fallback_used"] = True
+    fallback["fallback_from"] = {
+        "provider": result.get("provider"),
+        "model": result.get("model"),
+        "failure_category": "stream_disconnected",
+        "error": result.get("error"),
+    }
+    fallback["fallback_selection_source"] = source
+    return fallback
+
+
+def _actual_provider_model(provider: str, output: str) -> str | None:
+    """Extract a model ID from a provider's structured completion envelope."""
+    if provider != "claude":
+        return None
+    try:
+        payload = json.loads(output)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    direct = payload.get("model")
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+    usage = payload.get("modelUsage")
+    if isinstance(usage, dict):
+        return next((str(key) for key in usage if str(key).strip()), None)
+    return None
+
+
 def execute(
     requested_provider: str,
     prompt: str,
@@ -743,6 +822,7 @@ def execute(
     dry_run: bool,
     output_limit: int = 4000,
     first_artifact_seconds: int | None = FIRST_ARTIFACT_SECONDS,
+    allow_transport_fallback: bool = True,
 ) -> dict[str, Any]:
     _reject_credential_prompt(prompt)
     cwd = cwd.resolve()
@@ -889,6 +969,13 @@ def execute(
             "output_truncated": len(_clean(output, output_limit)) < len(SECRET_PATTERN.sub(_redact_secret, output.strip())),
             "error": _diagnostic(completed.stderr, 2000),
         })
+        actual_model = _actual_provider_model(status.provider, output)
+        if actual_model:
+            result["model"] = actual_model
+        if allow_transport_fallback and result["status"] == "failed" and _is_stream_disconnected(result):
+            return _fallback_from_transport(
+                result, prompt, cwd, timeout_minutes, output_limit, first_artifact_seconds,
+            )
         if fallback_used:
             result["fallback_used"] = True
     except subprocess.TimeoutExpired as error:

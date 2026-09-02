@@ -389,6 +389,32 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_control_plane_timeout"}))
         self.assertFalse(agent_runtime._requires_direct_codex_fallback({"failure_category": "agent_timeout"}))
 
+    def test_transport_fallback_uses_a_distinct_locally_discovered_model(self) -> None:
+        options = [ModelOption("codex/gpt-backup", "seawork", frozenset({"judgment"}), "seawork-provider-discovery", 1)]
+        with patch("agent_runtime._transport_fallback_candidates", return_value=[("seawork", "codex/gpt-backup", "seawork-provider-discovery")]), patch(
+            "agent_runtime.execute", return_value={"provider": "seawork", "model": "codex/gpt-backup", "status": "complete"},
+        ) as execute:
+            result = agent_runtime._fallback_from_transport(
+                {"provider": "codex", "model": "gpt-primary", "error": "stream disconnected"},
+                "write", Path.cwd(), 3, 100, None,
+            )
+        self.assertEqual(execute.call_args.args[0], "seawork")
+        self.assertEqual(execute.call_args.args[4], "codex/gpt-backup")
+        self.assertTrue(result["fallback_used"])
+        self.assertEqual(result["fallback_from"]["model"], "gpt-primary")
+
+    def test_transport_candidates_include_an_authenticated_cli_default(self) -> None:
+        statuses = [runtime("codex"), runtime("claude")]
+        def catalog(provider, cwd):
+            if provider == "claude":
+                return [ModelOption(None, "claude", frozenset({"configured_default"}), "provider-default")], []
+            return [ModelOption("gpt-primary", "codex", frozenset({"standard"}), "test")], []
+        with patch("agent_runtime.discover_runtimes", return_value=statuses), patch(
+            "agent_runtime.discover_model_catalog", side_effect=catalog,
+        ):
+            candidates = agent_runtime._transport_fallback_candidates("codex", "gpt-primary", Path.cwd())
+        self.assertIn(("claude", None, "provider-default"), candidates)
+
     def test_direct_codex_no_progress_retains_redacted_terminal_diagnostics(self) -> None:
         timeout = subprocess.TimeoutExpired(["codex"], 30, output="partial", stderr="token=secret upstream stalled")
         with tempfile.TemporaryDirectory() as temporary:

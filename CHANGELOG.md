@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.47] - 2026-09-02
+
+### Fixed
+
+- Discover usable models from the active device at runtime, select alternatives by declared capability, and use a bounded cross-runtime fallback after a transport failure instead of relying on a fixed model list.
+
 ## [6.2.46] - 2026-09-02
 
 ### Fixed
