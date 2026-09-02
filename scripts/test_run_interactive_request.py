@@ -506,6 +506,7 @@ agent_transitions: []
 
             self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "seawork", 1, worker=worker))
             self.assertFalse(worker_called)
+            self.assertTrue((folder / "revision-evidence.json").is_file())
             self.assertEqual(
                 state["agent_calls"][-1]["execution_mode"],
                 "deterministic_trace_materialization",

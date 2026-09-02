@@ -1,0 +1,21 @@
+id: revision-evidence-promotion-2026-09-03
+date: 2026-09-03
+goal: "Keep deterministic in-place revision trace evidence inside the controller-owned delivery workspace."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.61"
+  target_version: "6.2.62"
+generalized_failure: "A deterministic run-log trace correctly recorded revision_evidence_path, but promotion copied only the YAML and discarded the companion evidence file with its child stage."
+fix_surface:
+  - scripts/run_interactive_request.py
+  - scripts/test_run_interactive_request.py
+validation:
+  - "focused trace-controller tests"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+  - "git diff --check"
+version_change: "6.2.61 -> 6.2.62"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  - "global PM Copilot runtime copy"
+stop_condition: "The staged run-log and its revision-evidence companion promote together and validate from the delivery workspace."

@@ -1073,6 +1073,15 @@ def _run_artifact_agent(
                 text = stage_target.read_text(encoding="utf-8")
                 _atomic_write_text(stage_target, text.replace(str(stage_folder), str(real_folder)))
             _atomic_copy(stage_target, target)
+            if artifact == "run-log.yaml" and state.get("revision_history"):
+                # The in-place trace contract points to controller-created
+                # revision evidence. Promote that companion file together with
+                # the trace so validation never observes a dangling path from
+                # the delivery workspace into the discarded child stage.
+                evidence = stage_target.parent / "revision-evidence.json"
+                if not evidence.is_file():
+                    raise FileNotFoundError("deterministic revision trace did not create revision-evidence.json")
+                _atomic_copy(evidence, real_folder / evidence.name)
         elif _artifact_digest(target) != target_before_sha256:
             # An Agent that ignored the stage path may have written into the
             # real delivery workspace. It is not this call's artifact, so put

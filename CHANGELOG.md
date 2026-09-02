@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.62] - 2026-09-03
+
+### Fixed
+
+- Promote controller-created `revision-evidence.json` with the deterministic in-place revision trace, so the staged `run-log.yaml` cannot reference a companion file that was discarded with the child staging directory.
+
 ## [6.2.61] - 2026-09-03
 
 ### Fixed
