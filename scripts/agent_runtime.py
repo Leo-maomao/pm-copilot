@@ -606,11 +606,14 @@ def _stage_artifact_updated(path: Path | None, baseline: str | None) -> bool:
 
 def _poll_seawork_terminal(
     executable: str, agent_id: str, timeout_seconds: int, progress_path: Path | None = None,
-    progress_baseline: str | None = None,
+    progress_baseline: str | None = None, first_artifact_seconds: int | None = FIRST_ARTIFACT_SECONDS,
 ) -> tuple[bool, str]:
     """Stop quickly on control-plane failure or no write-first stage progress."""
     deadline = time.monotonic() + max(0, timeout_seconds)
-    progress_deadline = time.monotonic() + min(timeout_seconds, FIRST_ARTIFACT_SECONDS)
+    progress_deadline = (
+        time.monotonic() + min(timeout_seconds, first_artifact_seconds)
+        if progress_path and first_artifact_seconds is not None else None
+    )
     control_plane_failures = 0
     observed_progress = False
     last_state = "unknown"
@@ -626,7 +629,7 @@ def _poll_seawork_terminal(
             return True, last_state
         if _stage_artifact_updated(progress_path, progress_baseline):
             observed_progress = True
-        if progress_path and not observed_progress and time.monotonic() >= progress_deadline:
+        if progress_path and not observed_progress and progress_deadline is not None and time.monotonic() >= progress_deadline:
             return False, "no_progress_before_first_artifact"
         if time.monotonic() >= deadline:
             return False, last_state
@@ -635,7 +638,7 @@ def _poll_seawork_terminal(
 
 def _execute_seawork(
     command: Sequence[str], executable: str, cwd: Path, timeout_minutes: int,
-    result: dict[str, Any], output_limit: int,
+    result: dict[str, Any], output_limit: int, first_artifact_seconds: int | None,
 ) -> dict[str, Any]:
     """Run a Seawork Agent with a durable ID and a verified timeout cleanup path."""
     target = _stage_target_from_command(command)
@@ -700,7 +703,7 @@ def _execute_seawork(
             })
         return result
     terminal, polled_state = _poll_seawork_terminal(
-        executable, agent_id, timeout_minutes * 60, target, target_baseline,
+        executable, agent_id, timeout_minutes * 60, target, target_baseline, first_artifact_seconds,
     )
     if not terminal:
         # A detached Agent can write the promised artifact just before its
@@ -931,7 +934,10 @@ def execute(
         return result
     try:
         if status.provider in {"seawork", "seawork-claude"} and not schema_path:
-            seawork_result = _execute_seawork(command, status.executable or status.provider, cwd, timeout_minutes, result, output_limit)
+            seawork_result = _execute_seawork(
+                command, status.executable or status.provider, cwd, timeout_minutes, result, output_limit,
+                first_artifact_seconds,
+            )
             if status.provider != "seawork" or not _requires_direct_codex_fallback(seawork_result):
                 return seawork_result
             # One alternate path is useful after a transport/no-progress stop;

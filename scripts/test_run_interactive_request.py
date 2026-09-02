@@ -111,7 +111,7 @@ class InteractiveRequestTest(unittest.TestCase):
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
             self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "test", 15, worker=worker))
             self.assertEqual(len(calls), 2)
-            self.assertEqual(calls[0][3], 3)
+            self.assertEqual(calls[0][3], 5)
             self.assertIn("stream disconnected", state["last_error"])
 
     def test_delivery_worker_disables_the_first_artifact_watchdog(self) -> None:

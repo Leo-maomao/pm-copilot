@@ -1,0 +1,100 @@
+cycle_id: "2026-09-02-trace-stream-recovery-grace"
+date: "2026-09-02"
+goal: "Allow a bounded Trace Agent recovery window for a transient stream reconnect without retaining stale traces."
+practice_source:
+  source_type: "user_feedback"
+  source_run_id: "not_available"
+  source_output_folder: ""
+  user_corrections:
+    - "After a Trace Agent stream reconnect, keep polling its target file and eventual idle state instead of failing exactly at three minutes."
+  delivery_check_report: "The Trace Agent remained attributable but had not updated run-log.yaml before the controller's three-minute deadline."
+observed_corrections:
+  - correction: "The controller-level disabled first-write watchdog must reach the detached Seawork polling path."
+    affected_artifact: "Trace Agent completion evidence"
+    evidence: "Seawork polling independently used its default first-write deadline and the trace-stage budget had no reconnect grace."
+    severity: "High"
+generalized_failures:
+  - failure_code: "trace_stream_reconnect_exhausts_primary_deadline"
+    generalized_symptom: "A small trace stage can lose an attributable in-progress Agent at its primary deadline during a transient transport reconnect."
+    host_specific_details_removed: true
+    reusable_rule: "Trace delivery uses a bounded primary budget plus a stream-recovery polling grace, and its first-write policy is propagated to every execution adapter."
+input_cases:
+  - eval_case: "trace-stream-recovery-grace"
+    run_id: "not_available"
+    context_mode: "user_feedback"
+    output_folder: ""
+scenario_portfolio:
+  context_mode: "user_feedback"
+  product_type: "other"
+  pm_task_type: "self_improvement"
+  risk_profile: "high"
+  platform: "runtime"
+  pm_user_maturity: "senior_pm"
+artifact_expectations:
+  prd: false
+  ui_delivery: false
+  tracking_plan: false
+  dev_tasks: false
+  launch_decision: false
+  pre_clarification_only: false
+baseline:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures:
+    - "Trace delivery could stop before a reconnecting Agent wrote its new target."
+results:
+  generated_artifacts: []
+  validation_commands:
+    - "python3 -m unittest test_agent_runtime.py test_run_interactive_request.py test_model_catalog.py test_validate_agent_trace.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  validation_reports: []
+  review_scores:
+    delivery: null
+    prd: null
+    metrics_tracking: null
+    ui_delivery: null
+    delivery_review: null
+failure_classification:
+  - failure_code: "trace_stream_reconnect_exhausts_primary_deadline"
+    severity: "High"
+    area: "trace-delivery"
+    symptom: "A reconnecting Trace Agent reaches recovery_required at its primary deadline before producing an updated run log."
+    evidence: "User-reported Terra Trace Agent timeout."
+    first_surface_to_fix: "controller"
+fixes:
+  - path: "scripts/run_interactive_request.py"
+    change: "Use a three-minute Trace Agent primary budget plus a two-minute reconnect grace while keeping review stages at the primary budget."
+    rationale: "The same attributable Agent can finish a delayed target without an unbounded controller hang."
+    fix_surface: "controller"
+  - path: "scripts/agent_runtime.py"
+    change: "Pass first_artifact_seconds to detached Seawork polling and honor None for content stages."
+    rationale: "The runtime adapter cannot reintroduce a watchdog the controller deliberately disabled."
+    fix_surface: "runtime"
+  - path: "scripts/test_agent_runtime.py"
+    change: "Cover disabled first-write watchdog propagation for Seawork content work."
+    rationale: "Keep retry behavior consistent across direct and detached providers."
+    fix_surface: "test"
+regression_updates:
+  evals_added_or_updated: []
+  validators_added_or_updated:
+    - "scripts/test_agent_runtime.py"
+    - "scripts/test_run_interactive_request.py"
+versioning:
+  previous_version: "6.2.50"
+  new_version: "6.2.51"
+  changelog_updated: true
+sync:
+  embedded_copies_checked:
+    - "Repository checkout is the current PM Copilot source of truth."
+  embedded_copies_updated: []
+  skipped_targets:
+    - path: "origin/main"
+      reason: "Push follows local validation and commit creation."
+after:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures: []
+decision:
+  status: "improved"
+  next_action: "Resume the canonical run and verify run-log.yaml is promoted from the same Terra Agent after reconnect polling."

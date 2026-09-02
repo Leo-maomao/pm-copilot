@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.51] - 2026-09-02
+
+### Fixed
+
+- Give a Trace Agent a bounded two-minute stream-recovery polling grace after its three-minute primary budget, and propagate its disabled first-write watchdog through the Seawork detached polling path.
+
 ## [6.2.50] - 2026-09-02
 
 ### Fixed

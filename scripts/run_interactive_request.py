@@ -30,7 +30,11 @@ from runtime_limits import DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIV
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MAX_REVISIONS = DEFAULT_INTERACTIVE_MAX_REVISIONS
 MAX_ATTRIBUTABLE_AGENT_ATTEMPTS = 2
-TRACE_AGENT_TIMEOUT_MINUTES = 3
+TRACE_AGENT_PRIMARY_TIMEOUT_MINUTES = 3
+TRACE_AGENT_STREAM_RECOVERY_GRACE_MINUTES = 2
+TRACE_AGENT_DELIVERY_TIMEOUT_MINUTES = (
+    TRACE_AGENT_PRIMARY_TIMEOUT_MINUTES + TRACE_AGENT_STREAM_RECOVERY_GRACE_MINUTES
+)
 CLARIFICATION_COVERAGE_AREAS = (
     "goal", "users", "scope", "success_evidence", "constraints_and_risk",
 )
@@ -779,7 +783,10 @@ def _run_artifact_agent(
         # Codex workspace-write is scoped to its working directory. Execute
         # from the project staging copy so the promised artifact is writable.
         result = {}
-        stage_timeout = min(timeout, TRACE_AGENT_TIMEOUT_MINUTES) if artifact == "run-log.yaml" else timeout
+        # Trace generation is small but can outlive a transient response-stream
+        # reconnect. Keep a bounded two-minute polling grace after its normal
+        # three-minute budget; the same detached Agent and target are retained.
+        stage_timeout = min(timeout, TRACE_AGENT_DELIVERY_TIMEOUT_MINUTES) if artifact == "run-log.yaml" else timeout
         for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
             result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, stage_timeout, model, None, False, 8000)
             result["attempt"] = attempt
@@ -860,7 +867,7 @@ def _review_artifact(
         review_path = review_folder / ".stage-review.json"
         result = {}
         for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
-            result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, min(timeout, TRACE_AGENT_TIMEOUT_MINUTES), model, None, False, 8000)
+            result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, min(timeout, TRACE_AGENT_PRIMARY_TIMEOUT_MINUTES), model, None, False, 8000)
             result["attempt"] = attempt
             attributable = _record_agent_call(state, result, phase="stage_quality_review", artifact=artifact)
             if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS or not _is_retryable_agent_failure(result):

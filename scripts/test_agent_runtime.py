@@ -349,6 +349,24 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertEqual(result["actual_model"], "codex/gpt-5.6-sol")
         self.assertEqual(len(run.call_args_list), 3)
 
+    def test_seawork_can_disable_the_first_write_watchdog_for_content_work(self) -> None:
+        launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
+        record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"codex/gpt-5.6-terra","status":"running"}]', "")
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "run-log.yaml"
+            prompt = f"Write exactly one complete artifact at {target}."
+            with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork")]), patch(
+                "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch("agent_runtime._poll_seawork_terminal", return_value=(True, "idle")) as poll, patch(
+                "agent_runtime._run", side_effect=[launched, record]
+            ):
+                result = agent_runtime.execute(
+                    "seawork", prompt, Path(temporary), 5, "codex/gpt-5.6-terra", None, False,
+                    first_artifact_seconds=None,
+                )
+        self.assertEqual(result["status"], "complete")
+        self.assertIsNone(poll.call_args.args[5])
+
     def test_seawork_timeout_retains_unconfirmed_agent_for_manual_recovery(self) -> None:
         launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
         record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"running"}]', "")
