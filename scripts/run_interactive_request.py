@@ -157,7 +157,11 @@ def _canonical_folder(state: dict[str, Any]) -> Path:
 
 def _is_retryable_agent_failure(result: dict[str, Any]) -> bool:
     detail = " ".join(str(result.get(key, "")) for key in ("status", "error", "output")).lower()
-    return "stream disconnected" in detail or "stream_disconnected" in detail
+    return (
+        "stream disconnected" in detail
+        or "stream_disconnected" in detail
+        or result.get("failure_category") == "agent_no_output"
+    )
 
 
 def _delivery_worker(
@@ -762,6 +766,48 @@ def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = 
     role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
     target = _delivery_folder(state) / artifact
     available_assets = [Path(item).name for item in state.get("input_assets", [])]
+    if artifact == "run-log.yaml":
+        # A trace consists of controller-observable evidence, so avoid
+        # repeating the complete product brief and every unrelated artifact
+        # contract. The old prompt caused the Agent to load them again, making
+        # the final, mechanical stage disproportionately prone to a stream
+        # interruption before it ever opened the target file.
+        trace_calls = [
+            {
+                key: call.get(key)
+                for key in ("phase", "artifact", "provider", "model", "status", "attempt", "agent_id", "failure_category", "error")
+                if call.get(key) not in (None, "", [], {})
+            }
+            for call in state.get("agent_calls", [])
+            if isinstance(call, dict)
+        ]
+        trace_packet = {
+            "confirmation": state.get("user_confirmation"),
+            "task_mode": state.get("task_mode", "implemented_feature_prd"),
+            "summary": latest.get("summary", ""),
+            "scope": latest.get("scope", {}),
+            "assumptions": latest.get("assumptions", []),
+            "risks": latest.get("risks", []),
+            "revision_history": state.get("revision_history", []),
+            "agent_calls": trace_calls,
+            "input_assets": available_assets,
+        }
+        return f"""Write one complete artifact at {target}.
+You are the PM Copilot Trace Agent. Create only that YAML file and do not
+modify any other path. Do not read PM_COPILOT.md, prior run-log.yaml, or other
+project artifacts: the controller evidence below is authoritative and
+sufficient. Use templates/agent-run-log-template.yaml only if a field name is
+needed. Write the file before any explanatory response.
+
+The log must record the explicit confirmation, real Agent calls, separate PRD,
+engineering, and launch readiness, validation commands, and truthful pending
+or failed state. It must be a compact trace under 24 KiB. For an in-place
+revision, set artifact_lineage.mode to in_place_revision and include only its
+changed requirement IDs. Do not claim completed validation or approval.
+
+Controller evidence:
+{json.dumps(trace_packet, ensure_ascii=False, separators=(",", ":"))}
+""" + (f"\nRepair only these trace-validator findings:\n{repair_errors}" if repair_errors else "")
     return f"""You are the accountable PM Copilot {role} Agent in a production interactive run.
 The user explicitly confirmed the clarified requirements below. Use only this
 conversation as product evidence; do not invent approvals, metrics, policy, or
@@ -822,6 +868,21 @@ def _run_artifact_agent(
             result["artifact_changed_in_workspace"] = (
                 result["artifact_after_sha256"] != stage_before_sha256
             )
+            if (
+                artifact == "run-log.yaml"
+                and result.get("status") == "complete"
+                and not result["artifact_changed_in_workspace"]
+            ):
+                # Seawork can report an idle Codex task after its stream has
+                # reconnected even though no tool call reached the stage.
+                # Preserve that as an attributable, bounded retry condition
+                # instead of disguising it as a successful Agent result.
+                result.update({
+                    "status": "failed",
+                    "exit_code": 1,
+                    "failure_category": "agent_no_output",
+                    "error": "Trace Agent reached terminal state without changing its staged target",
+                })
             attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
             if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS or not _is_retryable_agent_failure(result):
                 break

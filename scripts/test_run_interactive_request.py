@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from run_interactive_request import (
     _atomic_copy,
+    _artifact_prompt,
     _confirmed_delivery,
     _artifact_review_prompt,
     _confirmation_packet,
@@ -141,8 +142,20 @@ class InteractiveRequestTest(unittest.TestCase):
 
             self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "seawork", 5, worker=idle_worker))
             self.assertEqual(target.read_text(encoding="utf-8"), "old trace\n")
+            self.assertEqual(len(state["agent_calls"]), 2)
+            self.assertEqual(state["agent_calls"][-1]["failure_category"], "agent_no_output")
             self.assertEqual(state["delivery_stages"]["run-log.yaml"]["artifact_status"], "failed")
-            self.assertIn("not changed in the project staging directory", state["last_error"])
+            self.assertIn("Trace Agent reached terminal state without changing", state["last_error"])
+
+    def test_trace_prompt_uses_only_a_compact_controller_evidence_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = create_state("very long raw request that must not be duplicated", Path(temporary))
+            state["turns"] = [{"summary": "已澄清", "scope": {"goal": "更新 5.1"}, "assumptions": [], "risks": []}]
+            prompt = _artifact_prompt(state, "run-log.yaml")
+            self.assertNotIn("Original request:", prompt)
+            self.assertNotIn(state["raw_request"], prompt)
+            self.assertIn("Do not read PM_COPILOT.md", prompt)
+            self.assertIn("Controller evidence:", prompt)
 
     def test_stream_disconnected_agent_write_is_not_promoted_without_terminal_completion(self) -> None:
         calls = 0

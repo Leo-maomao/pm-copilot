@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.54] - 2026-09-02
+
+### Fixed
+
+- Keep the Trace Agent's prompt to a compact controller evidence packet instead of duplicating the product brief and asking it to reload broad runtime instructions. Classify an idle/complete Agent that did not change its staged `run-log.yaml` as `agent_no_output`, then make one bounded retry rather than silently treating it as a completed call.
+
 ## [6.2.53] - 2026-09-02
 
 ### Fixed
