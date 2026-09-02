@@ -18,6 +18,7 @@ from run_interactive_request import (
     _confirmation_packet,
     _delivery_worker,
     _normalise_trace_runtime_evidence,
+    _restart_delivery_attempt,
     _recover_interrupted_delivery,
     _write_json,
     _normalise_intake,
@@ -127,6 +128,24 @@ class InteractiveRequestTest(unittest.TestCase):
             destination.write_text("old trace", encoding="utf-8")
             _atomic_copy(source, destination)
             self.assertEqual(destination.read_text(encoding="utf-8"), "new trace")
+
+    def test_recovery_attempt_discards_stale_stage_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = create_state("做一个 PRD", Path(temporary))
+            state.update({
+                "resume_from_status": "recovery_required",
+                "delivery_stages": {"run-log.yaml": {"review_status": "passed", "artifact_status": "promoted"}},
+                "validation": [{"status": "failed"}],
+                "artifacts": ["discussion.md", "prd.md", "run-log.yaml"],
+                "recovery": {"status": "retry_required"},
+                "revision_stop_reason": "validation budget exhausted",
+            })
+            _restart_delivery_attempt(state)
+            self.assertEqual(state["delivery_stages"], {})
+            self.assertEqual(state["validation"], [])
+            self.assertEqual(state["artifacts"], ["discussion.md"])
+            self.assertNotIn("recovery", state)
+            self.assertEqual(state["delivery_attempts"][-1]["prior_status"], "recovery_required")
 
     def test_nonexistent_run_folder_cannot_create_a_requirement(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

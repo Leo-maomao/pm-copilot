@@ -208,6 +208,20 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
     return workspace
 
 
+def _restart_delivery_attempt(state: dict[str, Any]) -> None:
+    """Discard stale stage acceptance before a user-confirmed recovery attempt."""
+    state.setdefault("delivery_attempts", []).append({
+        "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "reason": "explicit_confirmation_after_incomplete_delivery",
+        "prior_status": state.get("resume_from_status"),
+    })
+    state["delivery_stages"] = {}
+    state["validation"] = []
+    state["artifacts"] = [item for item in state.get("artifacts", []) if item == "discussion.md"]
+    state.pop("recovery", None)
+    state.pop("revision_stop_reason", None)
+
+
 def _promote_delivery_workspace(state: dict[str, Any]) -> None:
     """Promote only validated delivery artifacts to the canonical run folder."""
     canonical = _canonical_folder(state)
@@ -969,6 +983,8 @@ def _confirmed_delivery(
         state["termination"] = "human_checkpoint"
         state["last_error"] = "Explicit user confirmation is required before delivery"
         return
+    if state.pop("restart_delivery", False):
+        _restart_delivery_attempt(state)
     try:
         folder = _prepare_delivery_workspace(state)
     except (FileNotFoundError, FileExistsError, ValueError) as error:
@@ -1153,10 +1169,13 @@ def main() -> int:
             else:
                 print("仍在等待用户明确确认；未生成 PRD。请使用 --confirm。")
             return 3
+        prior_status = state["status"]
         state["user_confirmation"] = {
             "confirmed": True, "at": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "source": "explicit --confirm" if state["status"] == "awaiting_confirmation" else "explicit --confirm resume",
+            "source": "explicit --confirm" if prior_status == "awaiting_confirmation" else "explicit --confirm resume",
         }
+        state["resume_from_status"] = prior_status
+        state["restart_delivery"] = prior_status in {"recovery_required", "delivery", "failed"}
         state["status"] = "confirmed"
         state["termination"] = "running"
         _write_json(state_path, state)

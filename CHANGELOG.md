@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.48] - 2026-09-02
+
+### Fixed
+
+- On an explicitly confirmed recovery, discard stale delivery-stage acceptance, validation output, recovery state, and unpromoted artifact inventory before rebuilding staging and rerunning every required Agent stage.
+
 ## [6.2.47] - 2026-09-02
 
 ### Fixed
