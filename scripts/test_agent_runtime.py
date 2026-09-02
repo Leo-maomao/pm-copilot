@@ -358,23 +358,49 @@ class AgentRuntimeTest(unittest.TestCase):
         with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork-claude")]), patch(
             "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
         ), patch("agent_runtime._poll_seawork_terminal", return_value=(False, "running")), patch(
-            "agent_runtime._run", side_effect=[launched, record, stopped, running]
+            "agent_runtime._run", side_effect=[launched, record, running, stopped, running]
         ):
             result = agent_runtime.execute("seawork-claude", "inspect only", Path.cwd(), 2, "sonnet", None, False)
         self.assertEqual(result["status"], "orphaned")
         self.assertTrue(result["cleanup_blocked"])
         self.assertIn("control-plane state was running", result["error"])
 
+    def test_seawork_accepts_written_artifact_after_terminal_state_refresh(self) -> None:
+        launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
+        running = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"codex/gpt-5.6-terra","status":"running"}]', "")
+        idle = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"codex/gpt-5.6-terra","status":"idle"}]', "")
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            target.write_text("# previous attempt\n", encoding="utf-8")
+            prompt = f"Write exactly one complete artifact at {target}."
+            follow_up_calls = [running, idle]
+            def run_after_launch(command, *args, **kwargs):
+                if command[1] == "run":
+                    target.write_text("# complete\n", encoding="utf-8")
+                    return launched
+                return follow_up_calls.pop(0)
+            with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork")]), patch(
+                "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
+            ), patch("agent_runtime._poll_seawork_terminal", return_value=(False, "running")), patch(
+                "agent_runtime._run", side_effect=run_after_launch
+            ) as run:
+                result = agent_runtime.execute("seawork", prompt, Path(temporary), 1, "codex/gpt-5.6-terra", None, False)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["completion_basis"], "artifact_checkpoint_after_control_plane_refresh")
+        self.assertEqual(result["control_plane_refresh_state"], "idle")
+        self.assertEqual(len(run.call_args_list), 3)
+
     def test_idle_seawork_agent_is_safe_after_timeout_stop(self) -> None:
         launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
         record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"running"}]', "")
+        running = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","status":"running"}]', "")
         stopped = subprocess.CompletedProcess([], 0, "INTERRUPTED", "")
         idle = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","status":"idle"}]', "")
         timeout = subprocess.TimeoutExpired(["seawork", "wait"], 120)
         with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork-claude")]), patch(
             "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
         ), patch("agent_runtime._poll_seawork_terminal", return_value=(False, "running")), patch(
-            "agent_runtime._run", side_effect=[launched, record, stopped, idle]
+            "agent_runtime._run", side_effect=[launched, record, running, stopped, idle]
         ):
             result = agent_runtime.execute("seawork-claude", "inspect only", Path.cwd(), 2, "sonnet", None, False)
         self.assertEqual(result["status"], "timed_out")

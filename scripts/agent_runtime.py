@@ -594,8 +594,19 @@ def _stage_target_from_command(command: Sequence[str]) -> Path | None:
     return Path(match.group(1)) if match else None
 
 
+def _stage_artifact_written(path: Path | None) -> bool:
+    """Check the one promised stage artifact without inferring broader progress."""
+    return bool(path and path.is_file() and path.stat().st_size > 0)
+
+
+def _stage_artifact_updated(path: Path | None, baseline: str | None) -> bool:
+    """Require this Agent call to have changed its promised artifact."""
+    return _stage_artifact_written(path) and _artifact_digest(path) != baseline
+
+
 def _poll_seawork_terminal(
     executable: str, agent_id: str, timeout_seconds: int, progress_path: Path | None = None,
+    progress_baseline: str | None = None,
 ) -> tuple[bool, str]:
     """Stop quickly on control-plane failure or no write-first stage progress."""
     deadline = time.monotonic() + max(0, timeout_seconds)
@@ -613,7 +624,7 @@ def _poll_seawork_terminal(
             control_plane_failures = 0
         if last_state in {"completed", "complete", "closed", "failed", "interrupted", "stopped", "archived", "idle"}:
             return True, last_state
-        if progress_path and progress_path.is_file() and progress_path.stat().st_size > 0:
+        if _stage_artifact_updated(progress_path, progress_baseline):
             observed_progress = True
         if progress_path and not observed_progress and time.monotonic() >= progress_deadline:
             return False, "no_progress_before_first_artifact"
@@ -627,6 +638,8 @@ def _execute_seawork(
     result: dict[str, Any], output_limit: int,
 ) -> dict[str, Any]:
     """Run a Seawork Agent with a durable ID and a verified timeout cleanup path."""
+    target = _stage_target_from_command(command)
+    target_baseline = _artifact_digest(target) if target is not None else None
     detached = _seawork_detached_command(command)
     try:
         launch = _run(detached, cwd=cwd, timeout=30)
@@ -687,9 +700,31 @@ def _execute_seawork(
             })
         return result
     terminal, polled_state = _poll_seawork_terminal(
-        executable, agent_id, timeout_minutes * 60, _stage_target_from_command(command),
+        executable, agent_id, timeout_minutes * 60, target, target_baseline,
     )
     if not terminal:
+        # A detached Agent can write the promised artifact just before its
+        # control-plane record catches up. Refresh once before sending stop:
+        # only an actual successful terminal state plus the written artifact
+        # is enough to accept completion.
+        final_record, final_state = _seawork_agent_record(executable, agent_id)
+        if final_state in {"completed", "complete", "closed", "idle"} and _stage_artifact_updated(target, target_baseline):
+            final_model = str(final_record.get("provider", "")) if final_record else ""
+            if final_model:
+                result["actual_model"] = final_model
+                result["model"] = final_model
+            output = f"Agent {agent_id} wrote its target and reached terminal control-plane state {final_state}."
+            result.update({
+                "status": "complete",
+                "exit_code": 0,
+                "completion_basis": "artifact_checkpoint_after_control_plane_refresh",
+                "control_plane_refresh_state": final_state,
+                "output": _clean(output, output_limit),
+                "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
+                "output_truncated": False,
+                "error": "",
+            })
+            return result
         stop_output = ""
         try:
             stopped = _run([executable, "stop", agent_id], cwd=cwd, timeout=30)

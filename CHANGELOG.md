@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.50] - 2026-09-02
+
+### Fixed
+
+- After a Seawork polling deadline, refresh its control-plane record once before stopping it; accept an attributable Agent when its promised artifact changed during this call and the refresh reports a successful terminal state such as `idle`.
+
 ## [6.2.49] - 2026-09-02
 
 ### Fixed
