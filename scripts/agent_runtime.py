@@ -38,11 +38,15 @@ SECRET_PATTERN = re.compile(
 AGENT_ID_PATTERN = re.compile(
     r"\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b", re.IGNORECASE,
 )
-STAGE_TARGET_PATTERN = re.compile(r"Write exactly one complete artifact at ([^\.\n]+\.[A-Za-z0-9_-]+)\.")
+STAGE_TARGET_PATTERN = re.compile(
+    r"(?:Write exactly one complete artifact at|Write ONLY one JSON object to) "
+    r"(.+\.[A-Za-z0-9_-]+)(?=\.|\s|$)"
+)
 # A write-first stage without an artifact is not productive work. Keep this
 # deliberately short for every runtime so an upstream queue or protocol stall
 # is attributed promptly instead of consuming the case's full stage budget.
 FIRST_ARTIFACT_SECONDS = 30
+POST_ARTIFACT_GRACE_SECONDS = 5
 SEAWORK_CONTROL_PLANE_FAILURE_LIMIT = 2
 
 
@@ -86,6 +90,7 @@ def _run(
     timed_out = False
     deadline = time.monotonic() + timeout
     progress_deadline = time.monotonic() + no_progress_timeout if progress_path and no_progress_timeout else None
+    post_progress_deadline: float | None = None
     observed_progress = False
     try:
         while process.poll() is None and time.monotonic() < deadline:
@@ -95,8 +100,13 @@ def _run(
                 and progress_path.stat().st_size > 0
                 and _artifact_digest(progress_path) != progress_baseline
             ):
-                observed_progress = True
+                if not observed_progress:
+                    observed_progress = True
+                    post_progress_deadline = time.monotonic() + POST_ARTIFACT_GRACE_SECONDS
             if progress_deadline is not None and not observed_progress and time.monotonic() >= progress_deadline:
+                timed_out = True
+                break
+            if post_progress_deadline is not None and time.monotonic() >= post_progress_deadline:
                 timed_out = True
                 break
             time.sleep(0.05)

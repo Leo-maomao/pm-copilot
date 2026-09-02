@@ -468,10 +468,19 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
             )
             if match:
                 requirement_bodies[requirement_id] = match.group("body")
+    covered_requirement_ids = requirement_ids
+    if lineage_mode == "in_place_revision":
+        revised_ids = set(list_field_values(lineage, "revised_requirement_ids"))
+        if not revised_ids:
+            failures.append("in_place_revision requires artifact_lineage.revised_requirement_ids")
+        elif not revised_ids <= requirement_ids:
+            failures.append("revised_requirement_ids must reference existing PRD requirements")
+        else:
+            covered_requirement_ids = revised_ids
     coverage = section_text(text, "requirement_coverage_review")
     coverage_blocks = mapping_item_blocks(coverage, "requirement_id")
     coverage_ids = [scalar_value(block, "requirement_id") for block in coverage_blocks]
-    if requirement_ids and set(coverage_ids) != requirement_ids:
+    if covered_requirement_ids and set(coverage_ids) != covered_requirement_ids:
         failures.append("requirement_coverage_review must contain exactly one decision for every PRD requirement")
     if len(coverage_ids) != len(set(coverage_ids)):
         failures.append("requirement_coverage_review requirement_id values must be unique")
@@ -481,7 +490,7 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
         "target_ref",
     )
     visual_targets = [scalar_value(block, "target_ref") for block in visual_coverage]
-    if requirement_ids and set(visual_targets) != requirement_ids:
+    if covered_requirement_ids and set(visual_targets) != covered_requirement_ids:
         failures.append(
             "implemented_feature_prd requires exactly one screenshots_and_placeholders decision per requirement"
         )

@@ -259,6 +259,27 @@ class AgentRuntimeTest(unittest.TestCase):
                     timeout=30, progress_path=target, no_progress_timeout=0.1,
                 )
 
+    def test_stage_target_accepts_dot_prefixed_artifact_and_review_paths(self) -> None:
+        artifact = "Write exactly one complete artifact at /tmp/.delivery-stage/example.stage/run-log.yaml.\n"
+        review = "Write ONLY one JSON object to /tmp/.delivery-stage/example/.stage-review.json (UTF-8):"
+        self.assertEqual(
+            agent_runtime._stage_target_from_command(["codex", artifact]),
+            Path("/tmp/.delivery-stage/example.stage/run-log.yaml"),
+        )
+        self.assertEqual(
+            agent_runtime._stage_target_from_command(["codex", review]),
+            Path("/tmp/.delivery-stage/example/.stage-review.json"),
+        )
+
+    def test_written_artifact_bounds_a_stalled_agent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "artifact.md"
+            script = f"from pathlib import Path; import time; Path({str(target)!r}).write_text('done'); time.sleep(30)"
+            started = time.monotonic()
+            with self.assertRaises(subprocess.TimeoutExpired):
+                agent_runtime._run([sys.executable, "-c", script], timeout=30, progress_path=target, no_progress_timeout=1)
+            self.assertLess(time.monotonic() - started, 8)
+
     def test_keyboard_interrupt_terminates_child_process_group(self) -> None:
         child_pid = None
         with tempfile.TemporaryDirectory() as temporary_directory:

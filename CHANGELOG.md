@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.45] - 2026-09-02
+
+### Fixed
+
+- Recognize dot-prefixed staging and review targets in PRD Agent prompts, bound a process that stalls after writing its artifact, and keep PRD delivery staging free of Finder metadata.
+- Permit in-place PRD revisions to validate coverage and visual evidence only for the declared changed requirement IDs; constrain regenerated run logs to a compact current trace.
+
 ## [6.2.44] - 2026-09-01
 
 ### Added

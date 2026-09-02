@@ -133,7 +133,7 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
     if workspace.exists():
         shutil.rmtree(workspace.parent)
     workspace.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(canonical, workspace, ignore=shutil.ignore_patterns(".delivery-stage"))
+    shutil.copytree(canonical, workspace, ignore=shutil.ignore_patterns(".delivery-stage", ".DS_Store"))
     _copy_input_assets(state, workspace)
     state["delivery_workspace"] = str(workspace)
     return workspace
@@ -156,10 +156,12 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> None:
     temporary_assets = canonical / ".assets.promoting"
     if temporary_assets.exists():
         shutil.rmtree(temporary_assets)
-    shutil.copytree(source_assets, temporary_assets)
+    shutil.copytree(source_assets, temporary_assets, ignore=shutil.ignore_patterns(".DS_Store"))
     if (canonical / "assets").exists():
         shutil.rmtree(canonical / "assets")
     temporary_assets.replace(canonical / "assets")
+    (canonical / ".DS_Store").unlink(missing_ok=True)
+    (canonical / "assets" / ".DS_Store").unlink(missing_ok=True)
     state["delivery_promoted_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
 
 
@@ -669,7 +671,11 @@ Artifact requirements:
 - prd.md: use templates/prd-template.md and artifacts/prd-contract.md exactly. Create a Chinese H1 of concise requirement title plus YYYY-MM-DD; include document information and version history; use every standard requirement-list field; map one-to-one to 5.x detail IDs; each detail table has only 用户与场景、需求入口、需求详情、设计与交互. When new or changed UI copy exists, include 六、多语言需求. Each provided screenshot must be inside its matching 需求详情 cell using exactly `[[prd-detail-media src="./assets/功能-状态.png" alt="功能-状态" copy="对应状态、规则和反馈"]]`; never put `<div>` or `<img>` source HTML in a Markdown table, never use a standalone Markdown image, and never add a standalone 图示 row.
 - run-log.yaml: use templates/agent-run-log-template.yaml, fill concrete fields, record this interactive user confirmation, real Agent calls, validation commands, separate PRD/engineering/launch readiness, and truthful termination state.
 Provided user visual assets already copied to this delivery workspace: {json.dumps(available_assets, ensure_ascii=False)}. Use each applicable asset inline; do not invent a wireframe in place of it. Record visual coverage decisions as real_figure, required_placeholder, or not_required in run-log.yaml.
-""" + (f"\nRepair these validator findings in this artifact only:\n{repair_errors}" if repair_errors else "")
+""" + ("""
+This is an in-place partial PRD revision. In run-log.yaml, set artifact_lineage.mode to in_place_revision and list only the changed requirement IDs under artifact_lineage.revised_requirement_ids. Coverage and visual evidence must cover exactly that subset. Record the active runtime VERSION, not a historical value.
+""" if state.get("revision_history") else "") + ("""
+For run-log.yaml, overwrite the target immediately with a compact trace under 24 KiB. Do not read, summarize, or preserve the prior run-log.yaml. Use concise field values and file paths instead of embedded command output or Agent transcripts.
+""" if artifact == "run-log.yaml" else "") + (f"\nRepair these validator findings in this artifact only:\n{repair_errors}" if repair_errors else "")
 
 
 def _run_artifact_agent(

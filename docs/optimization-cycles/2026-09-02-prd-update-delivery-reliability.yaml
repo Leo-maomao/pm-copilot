@@ -1,0 +1,132 @@
+cycle_id: "2026-09-02-prd-update-delivery-reliability"
+date: "2026-09-02"
+goal: "Make partial PRD updates complete reliably without expanding their validation scope."
+practice_source:
+  source_type: "user_feedback"
+  source_run_id: "not_available"
+  source_output_folder: ""
+  user_corrections:
+    - "Recent PRD update failures repeatedly interrupted delivery and validation."
+  delivery_check_report: "No canonical output run was retained locally; the reported failure sequence and its repair scope were supplied in the active conversation."
+observed_corrections:
+  - correction: "Stage target detection must include dot-prefixed staging and review files."
+    affected_artifact: "Interactive PRD delivery and stage review"
+    evidence: "The staged artifact and review paths use dot-prefixed directory or filename segments."
+    severity: "High"
+generalized_failures:
+  - failure_code: "stage_target_pattern_excludes_dot_prefixed_paths"
+    generalized_symptom: "A monitor cannot observe a valid staged artifact when its prompt path contains dot-prefixed segments."
+    host_specific_details_removed: true
+    reusable_rule: "Parse write targets across every controller-generated artifact prompt, including hidden staging and review paths."
+  - failure_code: "in_place_revision_validates_unchanged_requirements"
+    generalized_symptom: "A local PRD repair is blocked by coverage obligations for unrelated, unchanged requirements."
+    host_specific_details_removed: true
+    reusable_rule: "An explicitly declared in-place revision validates exactly its changed requirement IDs while retaining full-document structural checks."
+input_cases:
+  - eval_case: "interactive-prd-update-reliability"
+    run_id: "not_available"
+    context_mode: "user_feedback"
+    output_folder: ""
+scenario_portfolio:
+  context_mode: "user_feedback"
+  product_type: "other"
+  pm_task_type: "self_improvement"
+  risk_profile: "normal"
+  platform: "runtime"
+  pm_user_maturity: "senior_pm"
+artifact_expectations:
+  prd: false
+  ui_delivery: false
+  tracking_plan: false
+  dev_tasks: false
+  launch_decision: false
+  pre_clarification_only: false
+generalization_boundary:
+  reference_projects_are_fixtures: true
+  host_specific_terms_allowed_only_in:
+    - "outputs/<run-id>/"
+    - "fixture-scoped eval case"
+  host_specific_terms_must_not_enter:
+    - "PM_COPILOT.md"
+    - "README*.md"
+    - "workflow/"
+    - "prompts/"
+    - "agents/"
+    - "skills/"
+    - "templates/"
+    - "tools/"
+    - "artifacts/"
+    - "guardrails/"
+    - "docs/"
+    - "context/*.example.yaml"
+baseline:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures:
+    - "Valid PRD stage targets could be missed by runtime monitoring."
+results:
+  generated_artifacts: []
+  validation_commands:
+    - "python3 -m unittest test_agent_runtime.py test_run_interactive_request.py test_validate_agent_trace.py"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  validation_reports: []
+  review_scores:
+    delivery: null
+    prd: null
+    metrics_tracking: null
+    ui_delivery: null
+    delivery_review: null
+failure_classification:
+  - failure_code: "stage_target_pattern_excludes_dot_prefixed_paths"
+    severity: "High"
+    area: "runtime-monitoring"
+    symptom: "Artifact-progress monitoring treats valid staged work as absent."
+    evidence: "Controller prompt forms and targeted regression tests."
+    first_surface_to_fix: "runtime"
+  - failure_code: "in_place_revision_validates_unchanged_requirements"
+    severity: "High"
+    area: "delivery-validation"
+    symptom: "A local revision inherits unrelated historical coverage obligations."
+    evidence: "Partial-update flow and trace validator behavior."
+    first_surface_to_fix: "validator"
+fixes:
+  - path: "scripts/agent_runtime.py"
+    change: "Recognize both artifact and JSON review write prompts with dot-prefixed paths, then terminate a process that remains stalled after its artifact checkpoint."
+    rationale: "Observe legitimate PRD stages while retaining a bounded cleanup path for a stalled child process."
+    fix_surface: "runtime"
+  - path: "scripts/run_interactive_request.py"
+    change: "Exclude Finder metadata from staging and promotion, and instruct partial revisions to produce a compact current run log."
+    rationale: "Prevent macOS metadata and historical trace growth from blocking a local repair."
+    fix_surface: "controller"
+  - path: "scripts/validate_agent_trace.py"
+    change: "Scope coverage and visual-evidence checks to declared revised requirement IDs for in-place revisions."
+    rationale: "Keep unchanged historical requirements outside a narrowly declared update."
+    fix_surface: "validator"
+  - path: "scripts/test_agent_runtime.py"
+    change: "Add staged-target and post-write-stall regression coverage."
+    rationale: "Prevent the runtime monitor from regressing to unsupported prompt paths or unbounded post-write processes."
+    fix_surface: "test"
+regression_updates:
+  evals_added_or_updated: []
+  validators_added_or_updated:
+    - "scripts/test_agent_runtime.py"
+    - "scripts/validate_agent_trace.py"
+versioning:
+  previous_version: "6.2.44"
+  new_version: "6.2.45"
+  changelog_updated: true
+sync:
+  embedded_copies_checked:
+    - "Repository checkout is the current PM Copilot source of truth."
+  embedded_copies_updated: []
+  skipped_targets:
+    - path: "origin/main"
+      reason: "Push follows local validation and commit creation."
+after:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures: []
+decision:
+  status: "improved"
+  next_action: "Push the validated 6.2.45 patch to origin/main."
