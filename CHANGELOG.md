@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.60] - 2026-09-03
+
+### Fixed
+
+- Treat Seawork's `error` Agent status as terminal. An upstream-rejected fallback model now converges immediately, allowing the bounded fallback chain to advance instead of waiting for the execution deadline.
+
 ## [6.2.59] - 2026-09-03
 
 ### Fixed

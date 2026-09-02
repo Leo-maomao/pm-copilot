@@ -585,7 +585,7 @@ def _seawork_agent_is_terminal(executable: str, agent_id: str) -> tuple[bool, st
     _, status = _seawork_agent_record(executable, agent_id)
     # Seawork keeps completed tasks as reusable records with status ``idle``.
     # An idle task has no active execution and is safe to clean up around.
-    return status in {"completed", "complete", "closed", "failed", "interrupted", "stopped", "archived", "idle"}, status
+    return status in {"completed", "complete", "closed", "failed", "error", "interrupted", "stopped", "archived", "idle"}, status
 
 
 def _stage_target_from_command(command: Sequence[str]) -> Path | None:
@@ -625,7 +625,7 @@ def _poll_seawork_terminal(
                 return False, "control_plane_unavailable"
         else:
             control_plane_failures = 0
-        if last_state in {"completed", "complete", "closed", "failed", "interrupted", "stopped", "archived", "idle"}:
+        if last_state in {"completed", "complete", "closed", "failed", "error", "interrupted", "stopped", "archived", "idle"}:
             return True, last_state
         if _stage_artifact_updated(progress_path, progress_baseline):
             observed_progress = True

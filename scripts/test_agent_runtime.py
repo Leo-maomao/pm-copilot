@@ -469,6 +469,15 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertFalse(terminal)
         self.assertEqual(status, "control_plane_unavailable")
 
+    def test_seawork_error_is_a_terminal_state(self) -> None:
+        with patch("agent_runtime._seawork_agent_record", return_value=(None, "error")):
+            terminal, status = agent_runtime._poll_seawork_terminal("seawork", "agent", 900)
+            stopped_terminal, stopped_status = agent_runtime._seawork_agent_is_terminal("seawork", "agent")
+        self.assertTrue(terminal)
+        self.assertEqual(status, "error")
+        self.assertTrue(stopped_terminal)
+        self.assertEqual(stopped_status, "error")
+
     def test_transport_and_detached_agent_timeouts_use_fallback(self) -> None:
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "agent_no_progress"}))
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_control_plane_timeout"}))
