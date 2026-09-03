@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.88] - 2026-09-03
+
+- Generalize in-place revision trace materialization to derive changed requirement scope from the confirmed request and staged PRD diff, eliminating the historical `5.1` fallback.
+
 ## [6.2.87] - 2026-09-03
 
 - Support natural-language in-place revisions without requiring internal requirement IDs; persist a generic revision scope manifest at confirmation.

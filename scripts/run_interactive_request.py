@@ -279,6 +279,25 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     if not revision_history:
         raise ValueError("deterministic trace materialization is only valid for an in-place revision")
     latest = revision_history[-1]
+    baseline_prd = target.parent / ".revision-baseline" / "prd.md"
+    current_prd = target.parent / "prd.md"
+    scope_ids = list(state.get("revision_requirement_ids") or [])
+    if not scope_ids:
+        scope_ids = re.findall(r"\b\d+\.\d+\b", str(latest.get("request", "")))
+    if not scope_ids and baseline_prd.is_file() and current_prd.is_file():
+        before = baseline_prd.read_text(encoding="utf-8")
+        after = current_prd.read_text(encoding="utf-8")
+        headings = re.findall(r"(?m)^###\s+(\d+\.\d+)\b", before)
+        for requirement_id in dict.fromkeys(headings):
+            section = re.compile(
+                rf"(?ms)^###\s+{re.escape(requirement_id)}\b.*?(?=^###\s+\d+\.\d+\b|^##\s|\Z)"
+            )
+            if section.search(before).group(0) != (section.search(after).group(0) if section.search(after) else ""):
+                scope_ids.append(requirement_id)
+    scope_ids = list(dict.fromkeys(scope_ids))
+    # The legacy trace shape has one primary coverage record. Keep that field
+    # syntactically compatible while retaining the complete list in lineage.
+    scope_display = scope_ids[0] if scope_ids else "用户确认的局部范围"
     evidence_path = target.parent / "revision-evidence.json"
     _write_json(evidence_path, {
         "mode": "in_place_revision",
@@ -291,7 +310,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     active_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     text = re.sub(r"(?m)^pm_copilot_version:\s*.*$", f"pm_copilot_version: {active_version}", text, count=1)
     text = re.sub(r"(?m)^pm_copilot_revision:\s*.*$", "pm_copilot_revision: controller-deterministic-trace", text, count=1)
-    revision_request = str(latest.get("request", state.get("raw_request", "仅修订既有 PRD 第 5.1 节"))).replace("'", "''")
+    revision_request = str(latest.get("request", state.get("raw_request", "修订既有 PRD"))).replace("'", "''")
     text = _replace_trace_section(text, "task", f"""task:
   request_source: conversation
   brief_path: ''
@@ -648,6 +667,16 @@ final_status: deterministic trace ready for validation""")
     - fact: 本次范围仅包含 requirement 5.1。
       source: user confirmation
       confidence: high""")
+    # The historical trace template predates generic natural-language
+    # revisions and used one example requirement everywhere. Replace that
+    # example only after the complete YAML has been assembled, so the same
+    # controller path works for any detected requirement scope.
+    text = text.replace("5.1", scope_display)
+    text = text.replace("两张固定图示", "本次确认图示")
+    text = text.replace("两张既有图示", "本次确认图示")
+    if scope_ids:
+        revised_lines = "artifact_lineage:\n  mode: in_place_revision\n  target_prd_path: prd.md\n  target_html_path: prd.html\n  revision_evidence_path: revision-evidence.json\n  revised_requirement_ids:\n" + "".join(f"    - '{item}'\n" for item in scope_ids) + "  historical_artifacts:\n    - path: prd.md\n      role: comparison_only\n      excluded_from_current_facts: true\n  output_folder_reset: false"
+        text = _replace_trace_section(text, "artifact_lineage", revised_lines)
     _atomic_write_text(target, text)
     _normalise_trace_runtime_evidence(target)
 
@@ -703,7 +732,8 @@ def _revision_scope_violation(stage_target: Path, baseline: Path, allowed_ids: S
         text = row_re.sub("", text)
         return text
     if outside_scope(candidate) != outside_scope(original):
-        return "in-place revision changed PRD content outside confirmed requirement 5.1"
+        scope = ", ".join(sorted(ids)) or "confirmed scope"
+        return f"in-place revision changed PRD content outside confirmed requirement scope ({scope})"
     return None
 
 
@@ -1405,9 +1435,12 @@ def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = 
         # interruption before it ever opened the target file.
         trace_calls = _trace_agent_evidence(state)
         revision_history = state.get("revision_history", [])
+        revision_ids = list(state.get("revision_requirement_ids") or [])
+        if not revision_ids and revision_history:
+            revision_ids = re.findall(r"\b\d+\.\d+\b", str(revision_history[-1].get("request", "")))
         lineage = {
             "mode": "in_place_revision" if revision_history else "new_delivery",
-            "revised_requirement_ids": ["5.1"] if revision_history else [],
+            "revised_requirement_ids": revision_ids if revision_history else [],
         }
         trace_packet = {
             "confirmation": state.get("user_confirmation"),
