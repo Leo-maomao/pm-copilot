@@ -1,0 +1,21 @@
+id: seawork-error-fallback-2026-09-03
+date: 2026-09-03
+goal: "Fallback to another device-discovered model when Seawork reports an Agent error terminal state."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.64"
+  target_version: "6.2.65"
+generalized_failure: "The controller received Agent terminal state error with the requested model, but the runtime only classified timeout and stream disconnect as fallback-eligible, so no alternate model was attempted."
+fix_surface:
+  - scripts/agent_runtime.py
+  - scripts/run_interactive_request.py
+  - scripts/test_agent_runtime.py
+validation:
+  - "86 focused runtime/controller/model/trace tests"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+version_change: "6.2.64 -> 6.2.65"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  - "global PM Copilot runtime copy"
+stop_condition: "A Seawork error terminal state records its failure category and tries the next distinct ready model before the controller reports recovery_required."

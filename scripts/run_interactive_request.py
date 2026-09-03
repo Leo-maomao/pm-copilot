@@ -161,6 +161,7 @@ def _is_retryable_agent_failure(result: dict[str, Any]) -> bool:
         "stream disconnected" in detail
         or "stream_disconnected" in detail
         or result.get("failure_category") == "agent_no_output"
+        or result.get("failure_category") == "seawork_agent_error"
     )
 
 

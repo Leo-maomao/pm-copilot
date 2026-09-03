@@ -482,6 +482,7 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "agent_no_progress"}))
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_control_plane_timeout"}))
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "agent_timeout"}))
+        self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_agent_error"}))
 
     def test_transport_fallback_uses_a_distinct_locally_discovered_model(self) -> None:
         options = [ModelOption("codex/gpt-backup", "seawork", frozenset({"judgment"}), "seawork-provider-discovery", 1)]

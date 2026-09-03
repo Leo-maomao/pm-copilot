@@ -778,6 +778,7 @@ def _execute_seawork(
         "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
         "output_truncated": False,
         "error": "" if polled_state in {"completed", "complete", "closed", "idle"} else f"Agent terminal state: {polled_state}",
+        "failure_category": "seawork_agent_error" if polled_state == "error" else None,
     })
     return result
 
@@ -792,6 +793,7 @@ def _requires_direct_codex_fallback(result: dict[str, Any]) -> bool:
         # The controller still requires a changed staged artifact before it
         # can promote any fallback output.
         "agent_timeout",
+        "seawork_agent_error",
     }
 
 
@@ -980,7 +982,7 @@ def execute(
             )
             if status.provider != "seawork" or not _requires_direct_codex_fallback(seawork_result):
                 return seawork_result
-            if seawork_result.get("failure_category") == "agent_timeout":
+            if seawork_result.get("failure_category") in {"agent_timeout", "seawork_agent_error"}:
                 return _fallback_from_transport(
                     seawork_result, prompt, cwd, timeout_minutes, output_limit, first_artifact_seconds,
                 )

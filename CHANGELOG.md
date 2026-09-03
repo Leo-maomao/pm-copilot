@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.65] - 2026-09-03
+
+### Fixed
+
+- Treat a terminal Seawork Agent `error` as a bounded runtime failure and enter the device-discovered model fallback chain instead of returning an unattributable error immediately.
+
 ## [6.2.64] - 2026-09-03
 
 ### Fixed
