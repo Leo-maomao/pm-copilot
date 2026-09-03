@@ -614,9 +614,9 @@ final_status: deterministic trace ready for validation""")
   min_progress_score_delta: 1
   stop_conditions: [success_criteria_met, validation_failure, no_progress]
   human_checkpoint:
-    required_after_iteration: 0
-    status: not_required
-    required_before_actions: []""")
+    required_after_iteration: 1
+    status: pending
+    required_before_actions: [final controller validation]""")
     text = _replace_trace_section(text, "loop_state", """loop_state:
   current_iteration: 1
   tool_calls_used: 0
@@ -920,6 +920,13 @@ def _finalize_deterministic_trace(
   unresolved_items: []""")
     text = re.sub(r"(?ms)(^    outcome:) (?:progress|success|failed)\n    next_decision: (?:stop_human_checkpoint|stop_success|stop_failed)", f"    outcome: {'success' if passed else 'failed'}\n    next_decision: {'stop_success' if passed else 'stop_failed'}", text, count=1)
     text = re.sub(r"(?ms)(^action_closure:\n.*?^      status:) ready", rf"\1 {'complete' if passed else 'blocked'}", text, count=1)
+    if passed:
+        text = re.sub(
+            r"(?ms)(^  human_checkpoint:\n)    required_after_iteration: 1\n    status: pending\n    required_before_actions: \[final controller validation\]",
+            r"\1    required_after_iteration: 0\n    status: not_required\n    required_before_actions: []",
+            text,
+            count=1,
+        )
     _atomic_write_text(target, text)
     _normalise_trace_runtime_evidence(target)
 
