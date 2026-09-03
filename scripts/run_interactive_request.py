@@ -316,6 +316,14 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     # The legacy trace shape has one primary coverage record. Keep that field
     # syntactically compatible while retaining the complete list in lineage.
     scope_display = scope_ids[0] if scope_ids else "用户确认的局部范围"
+    copy_candidates = [
+        "执行成功", "执行失败", "Task ID", "失败原因", "Task ID 已复制",
+        "复制失败，请重试", "任务 ID 暂未返回", "节点执行失败，请稍后重试。",
+    ]
+    evidence_text = current_prd.read_text(encoding="utf-8") if current_prd.is_file() else ""
+    copy_items = [item for item in copy_candidates if item in evidence_text]
+    if not copy_items:
+        copy_items = ["节点执行失败，请稍后重试。"]
     evidence_path = target.parent / "revision-evidence.json"
     _write_json(evidence_path, {
         "mode": "in_place_revision",
@@ -401,7 +409,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   next_safe_action: validate and promote the deterministic trace""")
     text = _replace_trace_section(text, "readiness", """readiness:
   prd_status: ready for engineering
-  engineering_handoff_status: ready
+  engineering_handoff_status: not_generated
   launch_status: not applicable
   status_rationale: 本次 5.1 文档、中文文案、HTML 和两张图示引用已按用户确认完成；后端和权限事项后置。
   engineering_blockers: []
@@ -701,8 +709,7 @@ final_status: deterministic trace ready for validation""")
     localization_decision: included
     localization_rationale: 本次修订涉及用户可见文案时同步记录。
     changed_copy_items:
-      - 节点执行失败，请稍后重试。
-    tracking_decision: not_needed
+""" + "".join(f"      - {item}\n" for item in copy_items) + """    tracking_decision: not_needed
     tracking_rationale: 本次修订未新增可度量事件。
     measurable_actions: []
     measurable_outcomes: []"""

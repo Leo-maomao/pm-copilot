@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.91] - 2026-09-03
+
+- Complete deterministic revision trace copy evidence from the staged PRD and keep engineering handoff readiness consistent when no dev-task artifact is generated.
+
 ## [6.2.90] - 2026-09-03
 
 - Pause ambiguous in-place scope changes at `needs_input` with an actionable user confirmation instead of classifying them as delivery failures.
