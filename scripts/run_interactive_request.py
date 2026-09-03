@@ -382,9 +382,9 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     next_actions_required: true
     memory_candidates_required: false""")
     text = _replace_trace_section(text, "termination_condition", """termination_condition:
-  status: complete
-  evidence: trace contract preflight passed; controller owns final delivery validation and promotion.
-  pm_usefulness: trace artifact is structurally ready for final delivery validation.
+  status: degraded
+  evidence: trace structure generated; final delivery validators have not run yet.
+  pm_usefulness: trace artifact is ready for controller validation, not yet a completed delivery.
   remaining_limitation: 后端失效、权限和其他章节不属于本次修订。""")
     text = _replace_trace_section(text, "resume_checkpoint", """resume_checkpoint:
   last_reliable_state: prd.md and prd.html passed stage review
@@ -447,7 +447,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
       rationale: 用户确认本次仅保留成功、失败两张既有图示；同一需求共用一个覆盖决策。
       type: image
       path: assets/报错提示-成功.png
-      capture_source: user_provided_asset
+      capture_source: controller_staged_asset
       capture_attempt_ids: []
       asset_sha256: pending_controller_hash
       recommended_file_name: 报错提示-成功.png
@@ -457,7 +457,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
       additional_assets:
         - path: assets/报错提示-失败.png
           state: 失败结果弹窗
-          capture_source: user_provided_asset
+          capture_source: controller_staged_asset
           asset_sha256: pending_controller_hash
           inline_marker: './assets/报错提示-失败.png'""")
     # The trace contract has one coverage record per requirement. The PRD
@@ -538,23 +538,23 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   - command: validate_agent_trace.py
     tool_id: validate_agent_trace.py
     tool_version: active runtime
-    status: passed
-    result: trace contract preflight passed
+    status: pending
+    result: controller will run this validator after trace generation
   - command: validate_outputs.py
     tool_id: validate_outputs.py
     tool_version: active runtime
-    status: passed
-    result: output contract preflight passed
+    status: pending
+    result: controller will run this validator after trace generation
   - command: run_delivery_checks.py
     tool_id: run_delivery_checks.py
     tool_version: active runtime
-    status: passed
-    result: delivery contract preflight passed
+    status: pending
+    result: controller will run this validator after trace generation
   - command: render_prd_html.py
     tool_id: render_prd_html.py
     tool_version: active runtime
-    status: passed
-    result: HTML render preflight passed
+    status: pending
+    result: controller will run this validator after trace generation
     fallback: none""")
     text = _replace_trace_section(text, "failures", """failures: []
 
@@ -659,8 +659,8 @@ final_status: deterministic trace ready for validation""")
       required_later: []
       evidence_summary: prd.md and prd.html contain only the confirmed 5.1 revision and the two fixed figures in order; no third figure is referenced or generated.
     review_delta:
-      review_status: passed
-      evidence: stage quality review for confirmed artifacts
+      review_status: pending
+      evidence: trace-stage review is pending controller validation
     decision_delta: [D1]
     next_action: final delivery validation""")
     text = _replace_trace_section(text, "loop_summary", """loop_summary:
@@ -682,7 +682,7 @@ final_status: deterministic trace ready for validation""")
       source_decision_ids: [D1]
       source_blocker_ids: []
       completion_evidence: canonical delivery validation
-      status: complete""")
+      status: ready""")
     text = _replace_trace_section(text, "context", """context:
   source_mode: repo-backed
   files_loaded: [prd.md, prd.html, assets/报错提示-成功.png, assets/报错提示-失败.png]
@@ -725,7 +725,7 @@ final_status: deterministic trace ready for validation""")
       rationale: 本次确认范围内的视觉证据按需求单独记录。
       type: image
       path: assets/报错提示-成功.png
-      capture_source: user_provided_asset
+      capture_source: controller_staged_asset
       capture_attempt_ids: []
       asset_sha256: pending_controller_hash
       recommended_file_name: 报错提示-成功.png
@@ -735,7 +735,7 @@ final_status: deterministic trace ready for validation""")
       additional_assets:
         - path: assets/报错提示-失败.png
           state: 失败结果弹窗
-          capture_source: user_provided_asset
+          capture_source: controller_staged_asset
           asset_sha256: pending_controller_hash
           inline_marker: './assets/报错提示-失败.png'"""
         implemented_pattern = r"(?ms)(^implemented_feature_prd:\n.*?^  screenshots_and_placeholders:\n).*?(?=^[A-Za-z_][A-Za-z0-9_]*:\n|\Z)"
@@ -910,6 +910,7 @@ def _finalize_deterministic_trace(
   final_progress_score: 1
   unresolved_items: []""")
     text = re.sub(r"(?ms)(^    outcome:) (?:success|failed)\n    next_decision: (?:stop_success|stop_failed)", f"    outcome: {'success' if passed else 'failed'}\n    next_decision: {'stop_success' if passed else 'stop_failed'}", text, count=1)
+    text = re.sub(r"(?ms)(^action_closure:\n.*?^      status:) ready", rf"\1 {'complete' if passed else 'blocked'}", text, count=1)
     _atomic_write_text(target, text)
     _normalise_trace_runtime_evidence(target)
 

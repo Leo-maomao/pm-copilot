@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.94] - 2026-09-03
+
+- Keep deterministic trace validation, review, and action-closure states truthful until final controller validation completes.
+
 ## [6.2.93] - 2026-09-03
 
 - Scope screenshot counts and acceptance rules to revised requirement sections, preserving baseline images in unchanged PRD sections during review and repair.
