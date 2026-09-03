@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.93] - 2026-09-03
+
+- Scope screenshot counts and acceptance rules to revised requirement sections, preserving baseline images in unchanged PRD sections during review and repair.
+
 ## [6.2.92] - 2026-09-03
 
 - Extract additional localized copy evidence from the PRD instead of relying on a fixed example list.

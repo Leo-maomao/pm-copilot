@@ -1589,6 +1589,7 @@ Artifact requirements:
 Provided user visual assets already copied to this delivery workspace: {json.dumps(available_assets, ensure_ascii=False)}. Use each applicable asset inline; do not invent a wireframe in place of it. Record visual coverage decisions as real_figure, required_placeholder, or not_required in run-log.yaml.
 """ + ("""
 This is an in-place partial PRD revision. In run-log.yaml, set artifact_lineage.mode to in_place_revision and list only the changed requirement IDs under artifact_lineage.revised_requirement_ids. Coverage and visual evidence must cover exactly that subset. Record the active runtime VERSION, not a historical value.
+For an in-place revision, every scope constraint is local to the confirmed requirement sections. Preserve all existing content and assets in unchanged sections. In particular, a count/order rule for screenshots applies only inside the revised requirement's detail cells; never rewrite it as a total-document image limit, and never remove or reject an unchanged section's existing images.
 """ if state.get("revision_history") else "") + ("""
 For run-log.yaml, overwrite the target immediately with a compact trace under 24 KiB. Do not read, summarize, or preserve the prior run-log.yaml. Use concise field values and file paths instead of embedded command output or Agent transcripts.
 """ if artifact == "run-log.yaml" else "") + (f"\nRepair these validator findings in this artifact only:\n{repair_errors}" if repair_errors else "")
@@ -1773,6 +1774,10 @@ migration and evidence boundary. Items explicitly deferred to development or
 launch (for example concrete port IDs, provider limits, analytics definitions,
 or launch approval) must remain visible as later gates; they are not PRD
 generation blockers unless the user made them part of the confirmed behavior.
+For an in-place revision, evaluate image counts, copy changes, and acceptance
+rules only within the revised requirement sections. Existing images and
+requirements outside that subset are protected baseline content and must not
+be treated as conflicts.
 
 Write ONLY one JSON object to {review_path} (UTF-8):
 {{"status":"pass"|"needs_revision","summary":"", "blocking_findings":["specific repair"], "acceptance_evidence":["checked condition"]}}
