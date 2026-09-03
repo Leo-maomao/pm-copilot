@@ -397,6 +397,59 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     tracking_rationale: 本次是既有执行结果的呈现修订，未新增可度量事件或结果。
     measurable_actions: []
     measurable_outcomes: []""")
+    text = _replace_trace_section(text, "human_inputs", """human_inputs:
+  clarification_questions: []
+  answers_received:
+    - 用户已明确确认仅修订既有 PRD 第 5.1 节及其交付物。
+  default_options_selected: []
+  unanswered_questions: []
+  confirmations_required: []""")
+    text = _replace_trace_section(text, "assumptions", """assumptions:
+  - id: A1
+    assumption: 主产品实现仅作为当前 PRD 的兼容性边界，不在本次仓库交付中修改。
+    reason: 用户确认本次为文档原地修订。
+    risk: 具体后端失效和权限行为需在开发联调阶段核验。
+    source: user confirmed
+    blocks_generation: false""")
+    text = _replace_trace_section(text, "scope_decisions", """scope_decisions:
+  confirmed_mvp:
+    - 仅修订既有 PRD 第 5.1 节、对应中文用户可见文案、prd.html 和两张既有图示引用。
+  optional_or_conditional: []
+  future_scope: []
+  non_goals:
+    - 主产品代码和其他 PRD 章节
+    - 额外图示（超过两张）、非中文文案、接口、权限和后端逻辑""")
+    text = _replace_trace_section(text, "surface_decisions", """surface_decisions:
+  entry_points:
+    - 节点标题栏右侧的执行结果状态入口
+  navigation_visibility: not_applicable
+  eligible_user_state: 当前画布中当前节点已有执行结果
+  ineligible_user_state: 无保存结果时不显示状态标识或弹窗
+  fallback_states:
+    - Task ID 缺失时隐藏复制按钮并展示缺省文案""")
+    text = _replace_trace_section(text, "content_sources", """content_sources:
+  - content_area: 5.1 PRD 修订范围与图示
+    source_status: user supplied
+    source_reference: current conversation and two existing assets
+    review_owner: PM Orchestrator
+    review_status: approved
+    disclaimer_status: not applicable
+    launch_impact: not applicable""")
+    text = _replace_trace_section(text, "quality_decision", """quality_decision:
+  passed: true
+  score_delta: 0
+  rationale: controller deterministic trace records only confirmed 5.1 scope and validation boundary.""")
+    text = _replace_trace_section(text, "validation_results", """validation_results:
+  - command: validate_agent_trace.py
+    tool_id: validate_agent_trace.py
+    tool_version: active runtime
+    status: required
+    result: controller runs after trace materialization
+    limitation: final pass is recorded only after all delivery artifacts are validated
+    fallback: none""")
+    text = _replace_trace_section(text, "failures", """failures: []
+
+final_status: deterministic trace ready for validation""")
     text = _replace_trace_section(text, "delegation_plan", """delegation_plan:
   active: false
   pattern: direct
