@@ -753,6 +753,15 @@ def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
     return True
 
 
+def _controller_pid_alive(state: dict[str, Any]) -> bool:
+    """Return whether the controller recorded for an active delivery exists."""
+    try:
+        os.kill(int(state.get("controller_pid")), 0)
+        return True
+    except (TypeError, ValueError, ProcessLookupError, PermissionError):
+        return False
+
+
 def _agent_call_has_evidence(result: dict[str, Any]) -> bool:
     """Require attributable runtime evidence before a call can advance a gate."""
     provider = str(result.get("provider", "")).strip()
@@ -1847,13 +1856,22 @@ def main() -> int:
             else:
                 print("仍在等待用户明确确认；未生成 PRD。请使用 --confirm。")
             return 3
+        if state["status"] == "delivery" and state.get("termination") == "running" and _controller_pid_alive(state):
+            print(json.dumps({
+                "status": "delivery",
+                "termination": "running",
+                "controller_pid": state.get("controller_pid"),
+                "message": "delivery is already running; refusing a second controller",
+                "run_folder": str(folder),
+            }, ensure_ascii=False, indent=2))
+            return 2
         prior_status = state["status"]
         state["user_confirmation"] = {
             "confirmed": True, "at": dt.datetime.now(dt.timezone.utc).isoformat(),
             "source": "explicit --confirm" if prior_status == "awaiting_confirmation" else "explicit --confirm resume",
         }
         state["resume_from_status"] = prior_status
-        state["restart_delivery"] = prior_status in {"recovery_required", "delivery", "failed"}
+        state["restart_delivery"] = prior_status in {"recovery_required", "failed"}
         state["status"] = "confirmed"
         state["termination"] = "running"
         _write_json(state_path, state)
