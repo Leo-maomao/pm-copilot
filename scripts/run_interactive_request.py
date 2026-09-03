@@ -1669,6 +1669,17 @@ def _run_artifact_agent(
                     "status": "failed", "exit_code": 1,
                     "failure_category": "revision_scope_violation", "error": violation,
                 })
+                question = (
+                    "检测到 PRD 修改超出当前确认范围。请确认是否允许这些额外章节一并修改；"
+                    "若不允许，控制器将恢复未授权内容。"
+                )
+                state["status"] = "needs_input"
+                state["termination"] = "needs_input"
+                state["last_error"] = violation
+                state["scope_clarification"] = {"artifact": artifact, "question": question, "violation": violation}
+                if state.get("turns"):
+                    state["turns"][-1]["questions"] = [question]
+                    state["turns"][-1].setdefault("buckets", {})["must_answer_before_generation"] = [question]
         stage_after_sha256 = _artifact_digest(stage_target)
         promoted = (
             result.get("status") == "complete"
@@ -1963,6 +1974,9 @@ def _confirmed_delivery_impl(
             return
         remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
         if not _deliver_artifact_to_quality_gate(state, artifact, provider, min(timeout, remaining_minutes), worker, max_revisions, state_path, model):
+            if state.get("status") == "needs_input":
+                _checkpoint(state, state_path)
+                return
             reason = str(state.get("last_error") or f"delivery Agent failed to produce {artifact}")
             state["last_error"] = reason
             if "provider/model" in reason:
