@@ -356,10 +356,10 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   mode: implemented_feature_prd
   screenshots_and_placeholders:
     - target_ref: '5.1'
-      surface: 节点执行结果提示
+      surface: 节点执行结果提示（成功与失败）
       state: 成功与失败结果弹窗
       coverage_decision: real_figure
-      rationale: 用户确认本次仅保留成功、失败两张既有图示。
+      rationale: 用户确认本次仅保留成功、失败两张既有图示；同一需求共用一个覆盖决策。
       type: image
       path: assets/报错提示-成功.png
       capture_source: user_provided_asset
@@ -369,20 +369,12 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
       inline_marker: './assets/报错提示-成功.png'
       replacement_status: provided
       replacement_instruction: ''
-    - target_ref: '5.1'
-      surface: 节点执行结果提示
-      state: 失败结果弹窗
-      coverage_decision: real_figure
-      rationale: 用户确认本次仅保留成功、失败两张既有图示。
-      type: image
-      path: assets/报错提示-失败.png
-      capture_source: user_provided_asset
-      capture_attempt_ids: []
-      asset_sha256: pending_controller_hash
-      recommended_file_name: 报错提示-失败.png
-      inline_marker: './assets/报错提示-失败.png'
-      replacement_status: provided
-      replacement_instruction: ''""")
+      additional_assets:
+        - path: assets/报错提示-失败.png
+          state: 失败结果弹窗
+          capture_source: user_provided_asset
+          asset_sha256: pending_controller_hash
+          inline_marker: './assets/报错提示-失败.png'""")
     # The trace contract has one coverage record per requirement. The PRD
     # itself retains both fixed figures; the first figure anchors the trace's
     # required asset-hash record for this revised requirement.
@@ -425,6 +417,9 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     text = _replace_trace_section(text, "tool_plan", """tool_plan:
   required_tools: []
   optional_tools: []
+  skipped_tools:
+    - tool_id: validate_agent_trace.py
+      reason: controller runs this validator after trace materialization
   unavailable_or_skipped: []""")
     text = _replace_trace_section(text, "decision_record", """decision_record:
   - id: D1
@@ -481,14 +476,15 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     review_findings: []
     progress_score_before: 0
     progress_score_after: 1
-    outcome: progress
-    next_decision: continue""")
+    outcome: success
+    next_decision: stop_success""")
     text = _replace_trace_section(text, "loop_summary", """loop_summary:
   iterations_completed: 1
-  stop_reason: not_applicable
+  stop_reason: success
   final_progress_score: 1
   unresolved_items: []""")
     text = _replace_trace_section(text, "memory_candidates", """memory_candidates:
+  none: true
   product_memory: []
   user_preferences: []
   decision_log: []""")
@@ -501,7 +497,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
       source_decision_ids: [D1]
       source_blocker_ids: []
       completion_evidence: canonical delivery validation
-      status: ready""")
+      status: complete""")
     text = _replace_trace_section(text, "context", """context:
   source_mode: repo-backed
   files_loaded: [prd.md, prd.html, assets/报错提示-成功.png, assets/报错提示-失败.png]
