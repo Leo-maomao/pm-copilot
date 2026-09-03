@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.71] - 2026-09-03
+
+### Fixed
+
+- Migrate legacy in-place revision traces by appending newly required contract sections when they are absent, including `agent_task_ledger`.
+
 ## [6.2.70] - 2026-09-03
 
 ### Fixed

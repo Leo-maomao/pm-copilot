@@ -216,9 +216,13 @@ def _replace_trace_section(text: str, section: str, replacement: str) -> str:
     """Replace one top-level YAML section without exposing partial trace bytes."""
     pattern = rf"(?ms)^{re.escape(section)}:\n.*?(?=^[A-Za-z_][A-Za-z0-9_]*:\n|\Z)"
     updated, count = re.subn(pattern, replacement.rstrip() + "\n\n", text, count=1)
-    if count != 1:
-        raise ValueError(f"run-log.yaml is missing required {section} section")
-    return updated
+    if count == 1:
+        return updated
+    # Historical in-place traces may predate newer contract sections. Append
+    # the controller-owned section so a revision can be migrated atomically.
+    if re.search(rf"(?m)^{re.escape(section)}:", text):
+        raise ValueError(f"run-log.yaml has malformed {section} section")
+    return text.rstrip() + "\n\n" + replacement.rstrip() + "\n"
 
 
 def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:

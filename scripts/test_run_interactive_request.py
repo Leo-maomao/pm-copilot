@@ -531,6 +531,21 @@ class InteractiveRequestTest(unittest.TestCase):
                 "deterministic_trace_materialization",
             )
 
+    def test_in_place_revision_trace_migrates_legacy_missing_sections(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            target = folder / "run-log.yaml"
+            # This mirrors the pre-ledger traces found in existing canonical runs.
+            target.write_text("schema_version: 1\n", encoding="utf-8")
+            state = create_state("修订 5.1", folder)
+            state["revision_history"] = [{"request": "仅修订 5.1", "at": "2026-09-03T00:00:00+00:00"}]
+
+            _materialize_revision_trace(state, target)
+            text = target.read_text(encoding="utf-8")
+            self.assertIn("agent_task_ledger:", text)
+            self.assertIn("loop_state:", text)
+            self.assertIn("readiness:", text)
+
     def test_delivery_checkpoint_survives_interruption_after_artifact_promotion(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
