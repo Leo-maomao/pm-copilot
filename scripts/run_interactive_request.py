@@ -660,6 +660,29 @@ def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
     confirmation and delivery call. Do not infer that a human confirmed it;
     make the integrity break explicit and require a fresh resume confirmation.
     """
+    if state.get("status") in {"delivery", "confirmed"} and state.get("termination") == "running":
+        raw_pid = state.get("controller_pid")
+        alive = False
+        try:
+            pid = int(raw_pid)
+            os.kill(pid, 0)
+            alive = True
+        except (TypeError, ValueError, ProcessLookupError, PermissionError):
+            pass
+        if not alive:
+            promoted = [name for name in ("confirmed-requirements.md", "prd.md", "prd.html", "run-log.yaml") if (folder / name).is_file()]
+            state["status"] = "recovery_required"
+            state["termination"] = "interrupted"
+            state["last_error"] = "controller process exited during delivery; prior running state was recovered"
+            state["recovery"] = {
+                "status": "retry_required",
+                "detected_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "controller_pid": raw_pid,
+                "promoted_artifacts": promoted,
+                "retry_entry": "--confirm",
+            }
+            return True
+        return False
     if state.get("status") != "awaiting_confirmation" or state.get("user_confirmation"):
         return False
     staged = list(folder.parent.glob(f".{folder.name}.stage-*")) + list(folder.parent.glob(f".{folder.name}.review-*"))
@@ -1559,6 +1582,8 @@ def _confirmed_delivery_impl(
         return
     state["status"] = "delivery"
     state["termination"] = "running"
+    state["controller_pid"] = os.getpid()
+    state["controller_started_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     state["last_error"] = None
     _checkpoint(state, state_path)
 

@@ -606,6 +606,18 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(state["termination"], "interrupted")
             self.assertIn("confirmed-requirements.md", state["recovery"]["promoted_artifacts"])
 
+    def test_dead_controller_lease_recovers_running_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "run"
+            folder.mkdir()
+            state = create_state("做一个 PRD", folder)
+            state.update({"status": "delivery", "termination": "running", "controller_pid": 99999999})
+            (folder / "confirmed-requirements.md").write_text("# confirmed\n", encoding="utf-8")
+            self.assertTrue(_recover_interrupted_delivery(state, folder))
+            self.assertEqual(state["status"], "recovery_required")
+            self.assertEqual(state["termination"], "interrupted")
+            self.assertEqual(state["recovery"]["controller_pid"], 99999999)
+
     def test_stage_review_uses_full_confirmed_evidence_and_keeps_later_gates_nonblocking(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             state = create_state("创建独立 PRD", Path(temporary))

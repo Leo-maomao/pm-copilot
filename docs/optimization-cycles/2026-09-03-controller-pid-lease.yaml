@@ -1,0 +1,20 @@
+id: controller-pid-lease-2026-09-03
+date: 2026-09-03
+goal: "Recover delivery state when the parent controller disappears before its finally/checkpoint path runs."
+source_run:
+  source_checkout: "canonical video-editor-canvas-optimizations validation run"
+  previous_runtime_version: "6.2.73"
+  target_version: "6.2.74"
+generalized_failure: "A supervisor could terminate the controller process before Python cleanup ran, leaving delivery/running with no durable indication that the process was gone."
+fix_surface:
+  - scripts/run_interactive_request.py
+  - scripts/test_run_interactive_request.py
+validation:
+  - "36 interactive request regression tests"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+version_change: "6.2.73 -> 6.2.74"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  - "global PM Copilot runtime copy"
+stop_condition: "A new invocation detects a dead controller PID and records recovery_required before any new delivery attempt."
