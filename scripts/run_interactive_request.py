@@ -1535,7 +1535,7 @@ def _validate_delivery(folder: Path, staging: bool = False) -> list[dict[str, An
     return checks
 
 
-def _confirmed_delivery(
+def _confirmed_delivery_impl(
     state: dict[str, Any], provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = _delivery_worker, max_revisions: int = DEFAULT_MAX_REVISIONS,
     state_path: Path | None = None, model: str | None = None,
@@ -1560,6 +1560,7 @@ def _confirmed_delivery(
     state["termination"] = "running"
     state["last_error"] = None
     _checkpoint(state, state_path)
+
     for artifact in ("confirmed-requirements.md", "prd.md", "run-log.yaml"):
         if not _deliver_artifact_to_quality_gate(state, artifact, provider, timeout, worker, max_revisions, state_path, model):
             reason = str(state.get("last_error") or f"delivery Agent failed to produce {artifact}")
@@ -1642,6 +1643,31 @@ def _confirmed_delivery(
     if state["status"] not in {"complete", "recovery_required"}:
         state["artifacts"] = [item for item in state.get("artifacts", []) if item not in {"prd.md", "prd.html", "run-log.yaml", "assets/"}]
     _checkpoint(state, state_path)
+
+
+def _confirmed_delivery(
+    state: dict[str, Any], provider: str, timeout: int,
+    worker: Callable[..., dict[str, Any]] = _delivery_worker, max_revisions: int = DEFAULT_MAX_REVISIONS,
+    state_path: Path | None = None, model: str | None = None,
+) -> None:
+    """Run delivery behind one terminal-state boundary."""
+    try:
+        _confirmed_delivery_impl(state, provider, timeout, worker, max_revisions, state_path, model)
+    except BaseException as error:
+        if state.get("status") != "complete":
+            state["status"] = "failed"
+            state["termination"] = "failed"
+            state["last_error"] = f"controller terminated during delivery: {type(error).__name__}: {error}".strip()
+            state["artifacts"] = [item for item in state.get("artifacts", []) if item in {"discussion.md", "confirmed-requirements.md"}]
+        _checkpoint(state, state_path)
+        raise
+    finally:
+        if state.get("status") in {"confirmed", "delivery"} or state.get("termination") == "running":
+            if state.get("status") != "complete":
+                state["status"] = "failed"
+                state["termination"] = "failed"
+                state["last_error"] = state.get("last_error") or "controller exited before delivery reached a terminal state"
+            _checkpoint(state, state_path)
 
 
 def main() -> int:

@@ -566,10 +566,31 @@ class InteractiveRequestTest(unittest.TestCase):
             with self.assertRaises(KeyboardInterrupt):
                 _confirmed_delivery(state, "test", 1, worker=interrupted_worker, state_path=state_path)
             persisted = __import__("json").loads(state_path.read_text(encoding="utf-8"))
-            self.assertEqual(persisted["status"], "delivery")
+            self.assertEqual(persisted["status"], "failed")
+            self.assertEqual(persisted["termination"], "failed")
             self.assertTrue(persisted["user_confirmation"]["confirmed"])
             self.assertIn("confirmed-requirements.md", persisted["artifacts"])
             self.assertEqual(persisted["delivery_stages"]["confirmed-requirements.md"]["artifact_status"], "promoted")
+
+    def test_delivery_exception_always_converges_from_running(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            state_path = folder / "interactive-run.json"
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            state["status"] = "confirmed"
+            _write_json(state_path, state)
+
+            def exploding_worker(*args, **kwargs):
+                raise RuntimeError("transport exploded")
+
+            with self.assertRaises(RuntimeError):
+                _confirmed_delivery(state, "test", 1, worker=exploding_worker, state_path=state_path)
+            persisted = __import__("json").loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(persisted["status"], "failed")
+            self.assertEqual(persisted["termination"], "failed")
+            self.assertIn("transport exploded", persisted["last_error"])
 
     def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

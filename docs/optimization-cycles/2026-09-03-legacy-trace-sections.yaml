@@ -4,7 +4,7 @@ goal: "Allow in-place PRD revisions to migrate legacy run traces to the current 
 source_run:
   source_checkout: "canonical video-editor-canvas-optimizations revision run"
   previous_runtime_version: "6.2.70"
-  target_version: "6.2.71"
+  target_version: "6.2.72"
 generalized_failure: "Deterministic trace materialization assumed every new top-level contract section already existed, so legacy run-log.yaml files failed before validation when agent_task_ledger was absent."
 fix_surface:
   - scripts/run_interactive_request.py
@@ -13,7 +13,7 @@ validation:
   - "34 interactive request regression tests"
   - "validate_runtime_routing.py"
   - "validate_repo.py"
-version_change: "6.2.70 -> 6.2.71"
+version_change: "6.2.71 -> 6.2.72"
 remote_push_status: "pending until main is pushed"
 embedded_copy_sync_targets:
   - "global PM Copilot runtime copy"

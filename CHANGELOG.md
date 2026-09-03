@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.72] - 2026-09-03
+
+### Fixed
+
+- Converge every interactive delivery exception and interruption to a persisted terminal failure instead of leaving `delivery/running` without a controller.
+
 ## [6.2.71] - 2026-09-03
 
 ### Fixed

@@ -1,0 +1,20 @@
+id: delivery-terminal-state-2026-09-03
+date: 2026-09-03
+goal: "Ensure interactive delivery controllers never leave a persisted run in delivery/running after an exception or interruption."
+source_run:
+  source_checkout: "canonical video-editor-canvas-optimizations validation run"
+  previous_runtime_version: "6.2.71"
+  target_version: "6.2.72"
+generalized_failure: "The controller checkpointed delivery/running before invoking an Agent, renderer, or validator, but had no single exception boundary to persist terminal failure when that call exited unexpectedly."
+fix_surface:
+  - scripts/run_interactive_request.py
+  - scripts/test_run_interactive_request.py
+validation:
+  - "35 interactive request regression tests"
+  - "validate_runtime_routing.py"
+  - "validate_repo.py"
+version_change: "6.2.71 -> 6.2.72"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  - "global PM Copilot runtime copy"
+stop_condition: "Every delivery exception or interruption checkpoints failed termination and preserves the concrete error without promoting unvalidated artifacts."
