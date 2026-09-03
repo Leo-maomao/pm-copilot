@@ -16,6 +16,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1651,6 +1652,16 @@ def _confirmed_delivery(
     state_path: Path | None = None, model: str | None = None,
 ) -> None:
     """Run delivery behind one terminal-state boundary."""
+    previous_handlers = {
+        signal.SIGTERM: signal.getsignal(signal.SIGTERM),
+        signal.SIGINT: signal.getsignal(signal.SIGINT),
+    }
+
+    def _request_terminal_stop(signum: int, _frame: object) -> None:
+        raise KeyboardInterrupt(f"controller received {signal.Signals(signum).name}")
+
+    signal.signal(signal.SIGTERM, _request_terminal_stop)
+    signal.signal(signal.SIGINT, _request_terminal_stop)
     try:
         _confirmed_delivery_impl(state, provider, timeout, worker, max_revisions, state_path, model)
     except BaseException as error:
@@ -1662,6 +1673,8 @@ def _confirmed_delivery(
         _checkpoint(state, state_path)
         raise
     finally:
+        signal.signal(signal.SIGTERM, previous_handlers[signal.SIGTERM])
+        signal.signal(signal.SIGINT, previous_handlers[signal.SIGINT])
         if state.get("status") in {"confirmed", "delivery"} or state.get("termination") == "running":
             if state.get("status") != "complete":
                 state["status"] = "failed"
