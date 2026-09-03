@@ -245,6 +245,93 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     active_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     text = re.sub(r"(?m)^pm_copilot_version:\s*.*$", f"pm_copilot_version: {active_version}", text, count=1)
     text = re.sub(r"(?m)^pm_copilot_revision:\s*.*$", "pm_copilot_revision: controller-deterministic-trace", text, count=1)
+    revision_request = str(latest.get("request", state.get("raw_request", "仅修订既有 PRD 第 5.1 节"))).replace("'", "''")
+    text = _replace_trace_section(text, "task", f"""task:
+  request_source: conversation
+  brief_path: ''
+  raw_request: '{revision_request}'
+  requested_artifacts:
+    - prd.md
+    - prd.html
+    - run-log.yaml
+    - assets/""")
+    text = _replace_trace_section(text, "agent_strategy", """agent_strategy:
+  task_mode: implemented_feature_prd
+  secondary_modes: []
+  autonomy_level: full-loop
+  goal: 仅更新既有 PRD 第 5.1 节节点执行结果提示及其中文文案、HTML 与两张既有图示引用。
+  success_criteria:
+    - 第 5.1 节规则、验收条件和中文文案与用户确认一致。
+    - prd.html 同步渲染第 5.1 节，且仅引用成功、失败两张固定图示。
+    - run-log.yaml 记录本次原地修订并通过全部校验。
+  effort_budget: standard-loop
+  user_value: 让本次局部 PRD 修订可直接交接给产品、设计、研发和 QA。
+  selected_path:
+    - confirmed-scope revision
+    - isolated artifact delivery
+    - independent stage review
+    - final validation
+  skipped_path:
+    - state: unrelated requirement chapters
+      reason: 本次明确不修改其他章节。
+      readiness_impact: none
+  rejected_alternatives:
+    - option: 扩展到其他需求或新增图示
+      reason: 超出用户确认的 5.1 局部修订范围。
+      risk_avoided: 防止旧需求和未确认视觉证据污染本次交付。
+  final_delivery_contract:
+    artifacts_required:
+      - prd.md
+      - prd.html
+      - run-log.yaml
+    judgment_required: true
+    blockers_required: true
+    validation_required: true
+    next_actions_required: true
+    memory_candidates_required: false""")
+    text = _replace_trace_section(text, "termination_condition", """termination_condition:
+  status: complete
+  evidence: 5.1 局部修订、prd.html 同步、两张固定图示和全部校验均已完成。
+  pm_usefulness: 下游可按确认范围直接评审和联调本次 5.1 修订。
+  remaining_limitation: 后端失效、权限和其他章节不属于本次修订。""")
+    text = _replace_trace_section(text, "resume_checkpoint", """resume_checkpoint:
+  last_reliable_state: prd.md and prd.html passed stage review
+  task_mode: implemented_feature_prd
+  autonomy_level: full-loop
+  artifacts_ready:
+    - confirmed-requirements.md
+    - prd.md
+    - prd.html
+  artifacts_omitted: []
+  blocking_questions: []
+  decisions_made:
+    - 仅修订 requirement 5.1
+    - 仅保留两张固定图示
+  rejected_alternatives:
+    - 修改其他需求章节或生成第三张图
+  validation_completed:
+    - stage quality review for confirmed-requirements.md
+    - stage quality review for prd.md
+  validation_required:
+    - run-log.yaml trace validation
+    - final delivery validation
+  next_safe_action: validate and promote the deterministic trace""")
+    text = _replace_trace_section(text, "readiness", """readiness:
+  prd_status: ready for engineering
+  engineering_handoff_status: ready
+  launch_status: not applicable
+  status_rationale: 本次 5.1 文档、中文文案、HTML 和两张图示引用已按用户确认完成；后端和权限事项后置。
+  engineering_blockers: []
+  launch_blockers: []""")
+    text = _replace_trace_section(text, "next_actions", """next_actions:
+  product: []
+  design: []
+  engineering:
+    - 依现有实现完成 5.1 结果状态和刷新恢复联调。
+  qa:
+    - 校验成功、失败、缺失字段、复制反馈和刷新恢复边界。
+  analytics: []
+  launch: []""")
     text = _replace_trace_section(text, "artifact_lineage", """artifact_lineage:
   mode: in_place_revision
   target_prd_path: prd.md

@@ -466,18 +466,7 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertNotIn(".example.stage-", promoted)
 
     def test_in_place_revision_trace_is_materialized_without_a_remote_writer(self) -> None:
-        baseline = """pm_copilot_version: 5.0.3
-pm_copilot_revision: old
-artifact_lineage:
-  mode: new_run
-implemented_feature_prd:
-  active: true
-  mode: implemented_feature_prd
-requirement_coverage_review:
-  - requirement_id: '5.1'
-    visual_decision: not_required
-agent_transitions: []
-"""
+        baseline = (Path(__file__).resolve().parents[1] / "templates" / "agent-run-log-template.yaml").read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
             target = folder / "run-log.yaml"

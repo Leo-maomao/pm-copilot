@@ -4,7 +4,7 @@ goal: "Keep deterministic in-place revision trace evidence inside the controller
 source_run:
   source_checkout: "current PM Copilot source checkout"
   previous_runtime_version: "6.2.61"
-  target_version: "6.2.62"
+  target_version: "6.2.63"
 generalized_failure: "A deterministic run-log trace correctly recorded revision_evidence_path, but promotion copied only the YAML and discarded the companion evidence file with its child stage."
 fix_surface:
   - scripts/run_interactive_request.py
