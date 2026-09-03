@@ -647,14 +647,21 @@ def _execute_seawork(
     try:
         launch = _run(detached, cwd=cwd, timeout=30)
     except subprocess.TimeoutExpired:
-        result.update({"status": "failed", "error": "Seawork did not acknowledge detached launch within 30 seconds"})
+        result.update({
+            "status": "failed",
+            "error": "Seawork did not acknowledge detached launch within 30 seconds",
+            "failure_category": "seawork_launch_error",
+        })
         return result
     launch_output = (launch.stdout or "") + "\n" + (launch.stderr or "")
     agent_id = _agent_id(launch_output)
     result["launch_command"] = _portable_command(detached[:-1], cwd) + ["[PROMPT REDACTED]"]
     if launch.returncode != 0 or not agent_id:
         detail = _clean(launch.stderr or launch.stdout, 2000) or "Seawork detached launch did not return an Agent ID"
-        result.update({"status": "failed", "error": detail, "exit_code": launch.returncode})
+        result.update({
+            "status": "failed", "error": detail, "exit_code": launch.returncode,
+            "failure_category": "seawork_launch_error",
+        })
         return result
     result["agent_id"] = agent_id
     requested_provider = command[command.index("--provider") + 1] if "--provider" in command else ""
@@ -794,6 +801,9 @@ def _requires_direct_codex_fallback(result: dict[str, Any]) -> bool:
         # can promote any fallback output.
         "agent_timeout",
         "seawork_agent_error",
+        # Detached launch can stall before an Agent ID is returned. Treat it
+        # as a transport failure so the next device-available model is tried.
+        "seawork_launch_error",
     }
 
 

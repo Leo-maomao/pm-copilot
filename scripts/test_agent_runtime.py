@@ -483,6 +483,18 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_control_plane_timeout"}))
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "agent_timeout"}))
         self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_agent_error"}))
+        self.assertTrue(agent_runtime._requires_direct_codex_fallback({"failure_category": "seawork_launch_error"}))
+
+    def test_seawork_detached_launch_timeout_is_retryable(self) -> None:
+        timeout = subprocess.TimeoutExpired(["seawork", "run"], 30)
+        with patch("agent_runtime._run", side_effect=timeout):
+            result = agent_runtime._execute_seawork(
+                ["seawork", "run", "--provider", "codex/gpt-primary", "Write exactly one complete artifact at /tmp/a.md."],
+                "seawork", Path.cwd(), 3,
+                {"provider": "seawork", "model": "codex/gpt-primary"}, 100, None,
+            )
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["failure_category"], "seawork_launch_error")
 
     def test_transport_fallback_uses_a_distinct_locally_discovered_model(self) -> None:
         options = [ModelOption("codex/gpt-backup", "seawork", frozenset({"judgment"}), "seawork-provider-discovery", 1)]
