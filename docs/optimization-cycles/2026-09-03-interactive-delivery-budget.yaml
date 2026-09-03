@@ -1,0 +1,16 @@
+cycle: interactive-delivery-budget
+date: 2026-09-03
+previous_runtime_version: "6.2.77"
+target_runtime_version: "6.2.78"
+trigger: "A supervisor terminated a multi-stage PRD delivery after the shared 15-minute Agent timeout, leaving delivery/running."
+changes:
+  - "Separate per-Agent execution timeout from the aggregate confirmed-delivery budget."
+  - "Persist recovery_required/retry_required at aggregate budget boundaries."
+  - "Add regression coverage for aggregate budget exhaustion."
+validation:
+  - "python3 -m unittest test_runtime_limits test_run_interactive_request -q"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+stop_condition: "A bounded interactive delivery can never leave delivery/running after its aggregate budget expires."
+remote_push: "pending"
+embedded_runtime_sync: "pending"

@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.78] - 2026-09-03
+
+- Separate the interactive delivery aggregate timeout from the per-Agent execution timeout and persist `recovery_required` when the aggregate budget is exhausted.
+
 ## [6.2.77] - 2026-09-03
 
 ### Fixed

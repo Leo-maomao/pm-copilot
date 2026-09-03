@@ -20,13 +20,17 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Callable
 
 from agent_runtime import execute
 from ensure_runtime_current import ensure_current
 from project_workspace import resolve as resolve_project_workspace
-from runtime_limits import DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIVE_MAX_REVISIONS
+from runtime_limits import (
+    DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIVE_MAX_REVISIONS,
+    DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1621,6 +1625,7 @@ def _confirmed_delivery_impl(
     state: dict[str, Any], provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = _delivery_worker, max_revisions: int = DEFAULT_MAX_REVISIONS,
     state_path: Path | None = None, model: str | None = None,
+    interactive_timeout: int = DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,
 ) -> None:
     confirmation = state.get("user_confirmation")
     if not isinstance(confirmation, dict) or confirmation.get("confirmed") is not True:
@@ -1630,6 +1635,21 @@ def _confirmed_delivery_impl(
         return
     if state.pop("restart_delivery", False):
         _restart_delivery_attempt(state)
+    deadline = time.monotonic() + max(1, interactive_timeout) * 60
+
+    def ensure_budget(stage: str) -> bool:
+        if time.monotonic() < deadline:
+            return True
+        state["status"] = "recovery_required"
+        state["termination"] = "retry_required"
+        state["last_error"] = f"interactive delivery budget exhausted before {stage}"
+        state["recovery"] = {
+            "status": "retry_required", "failed_stage": stage,
+            "delivery_workspace": str(_delivery_folder(state)),
+            "retry_entry": "--confirm",
+        }
+        _checkpoint(state, state_path)
+        return False
     try:
         folder = _prepare_delivery_workspace(state)
     except (FileNotFoundError, FileExistsError, ValueError) as error:
@@ -1646,7 +1666,10 @@ def _confirmed_delivery_impl(
     _checkpoint(state, state_path)
 
     for artifact in ("confirmed-requirements.md", "prd.md", "run-log.yaml"):
-        if not _deliver_artifact_to_quality_gate(state, artifact, provider, timeout, worker, max_revisions, state_path, model):
+        if not ensure_budget(artifact):
+            return
+        remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
+        if not _deliver_artifact_to_quality_gate(state, artifact, provider, min(timeout, remaining_minutes), worker, max_revisions, state_path, model):
             reason = str(state.get("last_error") or f"delivery Agent failed to produce {artifact}")
             state["last_error"] = reason
             if "provider/model" in reason:
@@ -1660,6 +1683,8 @@ def _confirmed_delivery_impl(
     all_checks: list[dict[str, Any]] = []
     final_checks: list[dict[str, Any]] = []
     for revision in range(max_revisions + 1):
+        if not ensure_budget("final validation"):
+            return
         checks = _validate_delivery(folder, staging=True)
         all_checks.extend(checks)
         final_checks = checks
@@ -1675,7 +1700,10 @@ def _confirmed_delivery_impl(
         errors = "\n\n".join(f"{check['command']}:\n{check.get('stdout', '')}\n{check.get('stderr', '')}" for check in checks if check["status"] != "passed")
         target = folder / artifact
         before = _artifact_digest(target)
-        if not _run_artifact_agent(state, artifact, provider, timeout, worker, errors[-6000:], state_path, model):
+        if not ensure_budget(f"validation repair for {artifact}"):
+            return
+        remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
+        if not _run_artifact_agent(state, artifact, provider, min(timeout, remaining_minutes), worker, errors[-6000:], state_path, model):
             state["revision_stop_reason"] = "repair Agent failed"
             _checkpoint(state, state_path)
             break
@@ -1688,7 +1716,10 @@ def _confirmed_delivery_impl(
         _record_revision(state, artifact, before, after, "changed")
         # A validator repair creates a new artifact version. The review that
         # accepted the prior bytes is no longer evidence for this version.
-        passed, findings = _review_artifact(state, artifact, provider, timeout, worker, state_path, model)
+        if not ensure_budget(f"review for {artifact}"):
+            return
+        remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
+        passed, findings = _review_artifact(state, artifact, provider, min(timeout, remaining_minutes), worker, state_path, model)
         if not passed:
             state["revision_stop_reason"] = f"validation repair for {artifact} was rejected by stage quality review"
             state["last_error"] = findings
@@ -1733,6 +1764,7 @@ def _confirmed_delivery(
     state: dict[str, Any], provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = _delivery_worker, max_revisions: int = DEFAULT_MAX_REVISIONS,
     state_path: Path | None = None, model: str | None = None,
+    interactive_timeout: int = DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,
 ) -> None:
     """Run delivery behind one terminal-state boundary."""
     previous_handlers = {
@@ -1746,7 +1778,7 @@ def _confirmed_delivery(
     signal.signal(signal.SIGTERM, _request_terminal_stop)
     signal.signal(signal.SIGINT, _request_terminal_stop)
     try:
-        _confirmed_delivery_impl(state, provider, timeout, worker, max_revisions, state_path, model)
+        _confirmed_delivery_impl(state, provider, timeout, worker, max_revisions, state_path, model, interactive_timeout)
     except BaseException as error:
         if state.get("status") != "complete":
             state["status"] = "failed"
@@ -1780,11 +1812,15 @@ def main() -> int:
     parser.add_argument("--provider", default="codex", help="Agent runtime; use seawork only when its remote model or scheduler is required")
     parser.add_argument("--model", help="explicitly select a model reported by the chosen runtime")
     parser.add_argument("--timeout-minutes", type=int, default=DEFAULT_EXECUTION_TIMEOUT_MINUTES)
+    parser.add_argument("--interactive-timeout-minutes", type=int, default=DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,
+                        help="aggregate budget for the confirmed delivery workflow")
     parser.add_argument("--max-revisions", type=int, default=DEFAULT_MAX_REVISIONS)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if args.timeout_minutes < 1:
         parser.error("--timeout-minutes must be at least 1")
+    if args.interactive_timeout_minutes < 1:
+        parser.error("--interactive-timeout-minutes must be at least 1")
     if args.max_revisions < 0:
         parser.error("--max-revisions cannot be negative")
     if args.request_file:
@@ -1875,7 +1911,7 @@ def main() -> int:
         state["status"] = "confirmed"
         state["termination"] = "running"
         _write_json(state_path, state)
-        _confirmed_delivery(state, args.provider, args.timeout_minutes, max_revisions=args.max_revisions, state_path=state_path, model=args.model)
+        _confirmed_delivery(state, args.provider, args.timeout_minutes, max_revisions=args.max_revisions, state_path=state_path, model=args.model, interactive_timeout=args.interactive_timeout_minutes)
         print(json.dumps({"status": state["status"], "run_folder": str(folder), "artifacts": state.get("artifacts", []), "validation": state.get("validation", []), "recovery": state.get("recovery")}, ensure_ascii=False, indent=2))
         return 0 if state["status"] == "complete" else 1
     print(json.dumps(state, ensure_ascii=False, indent=2))

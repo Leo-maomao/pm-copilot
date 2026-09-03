@@ -592,6 +592,21 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(persisted["termination"], "failed")
             self.assertIn("transport exploded", persisted["last_error"])
 
+    def test_interactive_budget_exhaustion_recovers_before_next_stage(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            state_path = folder / "interactive-run.json"
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            _write_json(state_path, state)
+            with patch("run_interactive_request.time.monotonic", side_effect=[0, 61]):
+                _confirmed_delivery(state, "test", 1, worker=lambda *args: self.fail("budget should stop delivery"), state_path=state_path, interactive_timeout=1)
+            persisted = __import__("json").loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(persisted["status"], "recovery_required")
+            self.assertEqual(persisted["termination"], "retry_required")
+            self.assertNotEqual(persisted["status"], "delivery")
+
     def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / "run"
