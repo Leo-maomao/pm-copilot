@@ -283,7 +283,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     current_prd = target.parent / "prd.md"
     scope_ids = list(state.get("revision_requirement_ids") or [])
     if not scope_ids:
-        scope_ids = re.findall(r"\b\d+\.\d+\b", str(latest.get("request", "")))
+        scope_ids = _extract_requirement_ids(str(latest.get("request", "")))
     if not scope_ids and baseline_prd.is_file() and current_prd.is_file():
         before = baseline_prd.read_text(encoding="utf-8")
         after = current_prd.read_text(encoding="utf-8")
@@ -293,6 +293,24 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
                 rf"(?ms)^###\s+{re.escape(requirement_id)}\b.*?(?=^###\s+\d+\.\d+\b|^##\s|\Z)"
             )
             if section.search(before).group(0) != (section.search(after).group(0) if section.search(after) else ""):
+                scope_ids.append(requirement_id)
+    current_requirement_ids = list(dict.fromkeys(re.findall(
+        r"(?m)^\|\s*(\d+\.\d+)\s*\|", current_prd.read_text(encoding="utf-8")
+    ))) if current_prd.is_file() else None
+    # Requests may quote retired or historical IDs. Only IDs that still exist
+    # in the staged PRD can enter the trace contract; fall back to the actual
+    # staged diff when the request supplied no usable ID.
+    if current_requirement_ids is not None:
+        scope_ids = [item for item in dict.fromkeys(scope_ids) if item in current_requirement_ids]
+    if not scope_ids and baseline_prd.is_file() and current_prd.is_file():
+        before = baseline_prd.read_text(encoding="utf-8")
+        after = current_prd.read_text(encoding="utf-8")
+        for requirement_id in current_requirement_ids:
+            section = re.compile(
+                rf"(?ms)^###\s+{re.escape(requirement_id)}\b.*?(?=^###\s+\d+\.\d+\b|^##\s|\Z)"
+            )
+            before_match, after_match = section.search(before), section.search(after)
+            if before_match and after_match and before_match.group(0) != after_match.group(0):
                 scope_ids.append(requirement_id)
     scope_ids = list(dict.fromkeys(scope_ids))
     # The legacy trace shape has one primary coverage record. Keep that field
@@ -677,6 +695,48 @@ final_status: deterministic trace ready for validation""")
     if scope_ids:
         revised_lines = "artifact_lineage:\n  mode: in_place_revision\n  target_prd_path: prd.md\n  target_html_path: prd.html\n  revision_evidence_path: revision-evidence.json\n  revised_requirement_ids:\n" + "".join(f"    - '{item}'\n" for item in scope_ids) + "  historical_artifacts:\n    - path: prd.md\n      role: comparison_only\n      excluded_from_current_facts: true\n  output_folder_reset: false"
         text = _replace_trace_section(text, "artifact_lineage", revised_lines)
+        coverage_block = """  - requirement_id: '{id}'
+    visual_decision: real_figure
+    visual_rationale: 本次确认范围内的用户界面证据按该需求单独记录。
+    localization_decision: included
+    localization_rationale: 本次修订涉及用户可见文案时同步记录。
+    changed_copy_items:
+      - 节点执行失败，请稍后重试。
+    tracking_decision: not_needed
+    tracking_rationale: 本次修订未新增可度量事件。
+    measurable_actions: []
+    measurable_outcomes: []"""
+        text = _replace_trace_section(
+            text, "requirement_coverage_review",
+            "requirement_coverage_review:\n" + "\n".join(coverage_block.format(id=item) for item in scope_ids),
+        )
+        visual_block = """    - target_ref: '{id}'
+      surface: 本次确认范围内的用户界面
+      state: 当前需求状态
+      coverage_decision: real_figure
+      rationale: 本次确认范围内的视觉证据按需求单独记录。
+      type: image
+      path: assets/报错提示-成功.png
+      capture_source: user_provided_asset
+      capture_attempt_ids: []
+      asset_sha256: pending_controller_hash
+      recommended_file_name: 报错提示-成功.png
+      inline_marker: './assets/报错提示-成功.png'
+      replacement_status: provided
+      replacement_instruction: ''
+      additional_assets:
+        - path: assets/报错提示-失败.png
+          state: 失败结果弹窗
+          capture_source: user_provided_asset
+          asset_sha256: pending_controller_hash
+          inline_marker: './assets/报错提示-失败.png'"""
+        implemented_pattern = r"(?ms)(^implemented_feature_prd:\n.*?^  screenshots_and_placeholders:\n).*?(?=^[A-Za-z_][A-Za-z0-9_]*:\n|\Z)"
+        text = re.sub(
+            implemented_pattern,
+            lambda match: match.group(1) + "\n".join(visual_block.format(id=item) for item in scope_ids) + "\n",
+            text,
+            count=1,
+        )
     _atomic_write_text(target, text)
     _normalise_trace_runtime_evidence(target)
 
@@ -1352,14 +1412,16 @@ def begin_in_place_revision(state: dict[str, Any], request: str) -> dict[str, An
         "html_before_sha256": _artifact_digest(folder / "prd.html"),
         "mode": "in_place_revision",
     })
-    ids = set(re.findall(r"\b\d+\.\d+\b", request))
+    prd_text = (folder / "prd.md").read_text(encoding="utf-8") if (folder / "prd.md").is_file() else ""
+    known_ids = list(dict.fromkeys(re.findall(r"(?m)^\|\s*(\d+\.\d+)\s*\|", prd_text)))
+    ids = set(_extract_requirement_ids(request, known_ids))
     if not ids:
         baseline_trace = folder / "run-log.yaml"
         if baseline_trace.is_file():
             trace_text = baseline_trace.read_text(encoding="utf-8")
             lineage = re.search(r"(?ms)^artifact_lineage:\n.*?(?=^[A-Za-z_][A-Za-z0-9_]*:\n|\Z)", trace_text)
             if lineage:
-                ids.update(re.findall(r"(?m)^\s+- ['\"]?(\d+\.\d+)['\"]?\s*$", lineage.group(0)))
+                ids.update(item for item in re.findall(r"(?m)^\s+- ['\"]?(\d+\.\d+)['\"]?\s*$", lineage.group(0)) if item in known_ids)
     state["revision_requirement_ids"] = sorted(ids)
     state["revision_scope_manifest"] = {
         "mode": "in_place_revision",
@@ -1389,6 +1451,15 @@ def compact_requirement_numbers(text: str) -> str:
     for old, new in mapping.items():
         text = re.sub(rf"(?<![\d.]){re.escape(old)}(?![\d.])", new, text)
     return text
+
+
+def _extract_requirement_ids(request: str, known_ids: Sequence[str] | None = None) -> list[str]:
+    """Extract requirement references without mistaking CSS values for IDs."""
+    known = {str(item) for item in (known_ids or [])}
+    candidates = re.findall(r"(?:需求|requirement|PRD|第|修订|修改|更新|删除|新增)\s*#?\s*(\d+\.\d+)\b", request, re.IGNORECASE)
+    if known:
+        return list(dict.fromkeys(item for item in candidates if item in known))
+    return list(dict.fromkeys(candidates))
 
 
 def _normalise_confirmed_prd_copy(path: Path) -> None:
@@ -1437,7 +1508,7 @@ def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = 
         revision_history = state.get("revision_history", [])
         revision_ids = list(state.get("revision_requirement_ids") or [])
         if not revision_ids and revision_history:
-            revision_ids = re.findall(r"\b\d+\.\d+\b", str(revision_history[-1].get("request", "")))
+            revision_ids = _extract_requirement_ids(str(revision_history[-1].get("request", "")))
         lineage = {
             "mode": "in_place_revision" if revision_history else "new_delivery",
             "revised_requirement_ids": revision_ids if revision_history else [],

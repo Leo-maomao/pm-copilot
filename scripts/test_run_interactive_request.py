@@ -94,6 +94,17 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(revised["revision_history"][-1]["mode"], "in_place_revision")
             self.assertEqual(revised["revision_history"][-1]["prd_before_sha256"], hashlib.sha256(b"before").hexdigest())
 
+    def test_revision_id_extraction_ignores_css_decimal_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "prd.md").write_text(
+                "| 5.1 | 状态提示 |\n### 5.1 状态提示\n颜色 rgba(0, 0, 0, 0.12)，位置 13.97px\n",
+                encoding="utf-8",
+            )
+            state = create_state("原需求", folder)
+            revised = begin_in_place_revision(state, "修改需求 5.1 的状态提示，保留 rgba(0, 0, 0, 0.12) 和 13.97px")
+            self.assertEqual(revised["revision_requirement_ids"], ["5.1"])
+
     def test_trace_normalisation_replaces_stale_version_and_asset_hash(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
