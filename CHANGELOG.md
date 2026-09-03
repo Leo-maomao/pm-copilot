@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.98] - 2026-09-03
+
+- Finalize deterministic trace asset hashes before validation and prevent remote repair loops from reintroducing legacy run-log state.
+
 ## [6.2.97] - 2026-09-03
 
 - Run and record controller validation before stage-reviewing deterministic run-log artifacts, removing the impossible pending-review ordering.

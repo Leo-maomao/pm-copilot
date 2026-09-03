@@ -1633,6 +1633,11 @@ def _run_artifact_agent(
         if artifact == "run-log.yaml" and state.get("revision_history"):
             try:
                 _materialize_revision_trace(stage_state, stage_target)
+                # Materialization writes controller-owned figure references.
+                # Resolve their hashes before the trace contract validator or
+                # an independent reviewer sees the staged bytes; pending
+                # placeholders are not valid evidence for a delivered trace.
+                _normalise_trace_runtime_evidence(stage_target)
                 result = {
                     "provider": "controller",
                     "model": "deterministic-trace-v1",
@@ -1895,14 +1900,22 @@ def _deliver_artifact_to_quality_gate(
         if not _run_artifact_agent(state, artifact, provider, timeout, worker, state_path=state_path, model=model):
             return False
     if artifact == "run-log.yaml":
+        deterministic_trace = target.is_file() and "pm_copilot_revision: controller-deterministic-trace" in target.read_text(encoding="utf-8")
         findings = _trace_contract_findings(_delivery_folder(state))
         if findings:
-            if not _run_artifact_agent(
-                state, artifact, provider, timeout, worker, findings[-6000:], state_path, model,
-            ):
-                state["last_error"] = findings
-                _checkpoint(state, state_path)
-                return False
+            if deterministic_trace:
+                # Deterministic traces are controller-owned. Never hand their
+                # contract repair to a remote Agent, which can reintroduce a
+                # legacy template and repeat the same finding indefinitely.
+                checks = _validate_delivery(_delivery_folder(state), staging=True)
+                _finalize_deterministic_trace(_delivery_folder(state), checks)
+            else:
+                if not _run_artifact_agent(
+                    state, artifact, provider, timeout, worker, findings[-6000:], state_path, model,
+                ):
+                    state["last_error"] = findings
+                    _checkpoint(state, state_path)
+                    return False
             findings = _trace_contract_findings(_delivery_folder(state))
             if findings:
                 state["last_error"] = findings
