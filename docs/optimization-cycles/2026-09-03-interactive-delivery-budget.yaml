@@ -1,7 +1,7 @@
 cycle: interactive-delivery-budget
 date: 2026-09-03
 previous_runtime_version: "6.2.77"
-target_runtime_version: "6.2.83"
+target_runtime_version: "6.2.84"
 trigger: "A supervisor terminated a multi-stage PRD delivery after the shared 15-minute Agent timeout, leaving delivery/running."
 changes:
   - "Separate per-Agent execution timeout from the aggregate confirmed-delivery budget."
@@ -12,6 +12,7 @@ changes:
   - "Keep the trace artifact stage-reviewable while separating preflight from final delivery validation."
   - "Refresh hashes for nested additional assets, not only top-level trace figures."
   - "Remove unsupported pending language from the stage-reviewable trace preflight contract."
+  - "Add structured agent transition evidence for prd.html and fixed figure validation."
 validation:
   - "python3 -m unittest test_runtime_limits test_run_interactive_request -q"
   - "python3 scripts/validate_runtime_routing.py"

@@ -594,6 +594,29 @@ final_status: deterministic trace ready for validation""")
     progress_score_after: 1
     outcome: success
     next_decision: stop_success""")
+    text = _replace_trace_section(text, "agent_transitions", """agent_transitions:
+  - transition_id: T1
+    from_state: confirmed
+    to_state: delivery
+    agent_role: PM Orchestrator
+    artifact_delta:
+      files_created: [revision-evidence.json]
+      files_changed: [prd.md, prd.html, run-log.yaml]
+      files_unchanged: []
+      assets_verified:
+        - ./assets/报错提示-成功.png
+        - ./assets/报错提示-失败.png
+      prohibited_assets: [third figure]
+    validation_delta:
+      commands_run: [render_prd_html.py, validate_agent_trace.py, validate_outputs.py, run_delivery_checks.py]
+      commands_skipped: []
+      required_later: []
+      evidence_summary: prd.md and prd.html contain only the confirmed 5.1 revision and the two fixed figures in order; no third figure is referenced or generated.
+    review_delta:
+      review_status: passed
+      evidence: stage quality review for confirmed artifacts
+    decision_delta: [D1]
+    next_action: final delivery validation""")
     text = _replace_trace_section(text, "loop_summary", """loop_summary:
   iterations_completed: 1
   stop_reason: success
