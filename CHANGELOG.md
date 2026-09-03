@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.95] - 2026-09-03
+
+- Make pre-validation deterministic traces internally consistent: pending validation, non-final review/action states, and controller-owned finalization now use matching loop and readiness semantics.
+
 ## [6.2.94] - 2026-09-03
 
 - Keep deterministic trace validation, review, and action-closure states truthful until final controller validation completes.

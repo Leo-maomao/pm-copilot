@@ -387,7 +387,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   pm_usefulness: trace artifact is ready for controller validation, not yet a completed delivery.
   remaining_limitation: 后端失效、权限和其他章节不属于本次修订。""")
     text = _replace_trace_section(text, "resume_checkpoint", """resume_checkpoint:
-  last_reliable_state: prd.md and prd.html passed stage review
+  last_reliable_state: artifact generation complete; final validation pending
   task_mode: implemented_feature_prd
   autonomy_level: full-loop
   artifacts_ready:
@@ -402,8 +402,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   rejected_alternatives:
     - 修改其他需求章节或生成第三张图
   validation_completed:
-    - stage quality review for confirmed-requirements.md
-    - stage quality review for prd.md
+    - artifact generation and staged hashes recorded
   validation_required:
     - run-log.yaml trace validation
     - final delivery validation
@@ -531,9 +530,9 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     disclaimer_status: not applicable
     launch_impact: not applicable""")
     text = _replace_trace_section(text, "quality_decision", """quality_decision:
-  passed: true
+  passed: false
   score_delta: 0
-  rationale: controller deterministic trace records only confirmed 5.1 scope and validation boundary.""")
+  rationale: final validation is pending; controller will replace this decision with actual validator results.""")
     text = _replace_trace_section(text, "validation_results", """validation_results:
   - command: validate_agent_trace.py
     tool_id: validate_agent_trace.py
@@ -603,7 +602,7 @@ final_status: deterministic trace ready for validation""")
   critical_or_high_findings: []
   finding_closures: []
   unresolved_findings: []
-  final_recommendation: proceed""")
+  final_recommendation: proceed_with_controls""")
     text = _replace_trace_section(text, "loop_policy", """loop_policy:
   enabled: true
   loop_type: execution
@@ -638,8 +637,8 @@ final_status: deterministic trace ready for validation""")
     review_findings: []
     progress_score_before: 0
     progress_score_after: 1
-    outcome: success
-    next_decision: stop_success""")
+    outcome: progress
+    next_decision: stop_human_checkpoint""")
     text = _replace_trace_section(text, "agent_transitions", """agent_transitions:
   - transition_id: T1
     from_state: confirmed
@@ -654,9 +653,9 @@ final_status: deterministic trace ready for validation""")
         - ./assets/报错提示-失败.png
       prohibited_assets: [third figure]
     validation_delta:
-      commands_run: [render_prd_html.py, validate_agent_trace.py, validate_outputs.py, run_delivery_checks.py]
+      commands_run: []
       commands_skipped: []
-      required_later: []
+      required_later: [render_prd_html.py, validate_agent_trace.py, validate_outputs.py, run_delivery_checks.py]
       evidence_summary: prd.md and prd.html contain only the confirmed 5.1 revision and the two fixed figures in order; no third figure is referenced or generated.
     review_delta:
       review_status: pending
@@ -665,7 +664,7 @@ final_status: deterministic trace ready for validation""")
     next_action: final delivery validation""")
     text = _replace_trace_section(text, "loop_summary", """loop_summary:
   iterations_completed: 1
-  stop_reason: success
+  stop_reason: human_checkpoint
   final_progress_score: 1
   unresolved_items: []""")
     text = _replace_trace_section(text, "memory_candidates", """memory_candidates:
@@ -903,13 +902,23 @@ def _finalize_deterministic_trace(
   evidence: {'所有最终验证命令均返回 passed。' if passed else '最终验证至少有一项失败。'}
   pm_usefulness: {'下游可按确认范围直接评审和联调本次 5.1 修订。' if passed else '交付不可提升，需按失败验证结果恢复。'}
   remaining_limitation: 后端失效、权限和其他章节不属于本次修订。""")
+    text = _replace_trace_section(text, "quality_decision", f"""quality_decision:
+  passed: {'true' if passed else 'false'}
+  score_delta: 0
+  rationale: {'所有最终验证命令均返回 passed。' if passed else '最终验证至少有一项失败。'}""")
+    text = _replace_trace_section(text, "review_loop", f"""review_loop:
+  iterations: 1
+  critical_or_high_findings: []
+  finding_closures: []
+  unresolved_findings: []
+  final_recommendation: {'proceed' if passed else 'revise'}""")
     text = re.sub(r"(?ms)(^loop_state:\n.*?^  success_criteria_met:) (?:true|false)", rf"\1 {'true' if passed else 'false'}", text, count=1)
     text = _replace_trace_section(text, "loop_summary", f"""loop_summary:
   iterations_completed: 1
   stop_reason: {'success' if passed else 'failed'}
   final_progress_score: 1
   unresolved_items: []""")
-    text = re.sub(r"(?ms)(^    outcome:) (?:success|failed)\n    next_decision: (?:stop_success|stop_failed)", f"    outcome: {'success' if passed else 'failed'}\n    next_decision: {'stop_success' if passed else 'stop_failed'}", text, count=1)
+    text = re.sub(r"(?ms)(^    outcome:) (?:progress|success|failed)\n    next_decision: (?:stop_human_checkpoint|stop_success|stop_failed)", f"    outcome: {'success' if passed else 'failed'}\n    next_decision: {'stop_success' if passed else 'stop_failed'}", text, count=1)
     text = re.sub(r"(?ms)(^action_closure:\n.*?^      status:) ready", rf"\1 {'complete' if passed else 'blocked'}", text, count=1)
     _atomic_write_text(target, text)
     _normalise_trace_runtime_evidence(target)
