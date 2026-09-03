@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.92] - 2026-09-03
+
+- Extract additional localized copy evidence from the PRD instead of relying on a fixed example list.
+
 ## [6.2.91] - 2026-09-03
 
 - Complete deterministic revision trace copy evidence from the staged PRD and keep engineering handoff readiness consistent when no dev-task artifact is generated.

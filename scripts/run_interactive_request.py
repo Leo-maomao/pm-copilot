@@ -322,6 +322,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     ]
     evidence_text = current_prd.read_text(encoding="utf-8") if current_prd.is_file() else ""
     copy_items = [item for item in copy_candidates if item in evidence_text]
+    copy_items.extend(item for item in _extract_prd_copy_items(evidence_text) if item not in copy_items)
     if not copy_items:
         copy_items = ["节点执行失败，请稍后重试。"]
     evidence_path = target.parent / "revision-evidence.json"
@@ -1467,6 +1468,15 @@ def _extract_requirement_ids(request: str, known_ids: Sequence[str] | None = Non
     if known:
         return list(dict.fromkeys(item for item in candidates if item in known))
     return list(dict.fromkeys(candidates))
+
+
+def _extract_prd_copy_items(text: str) -> list[str]:
+    """Collect user-facing copy evidence from the PRD localization section."""
+    match = re.search(r"(?ms)^##\s+六、[^\n]*\n(?P<body>.*?)(?=^##\s|\Z)", text)
+    body = match.group("body") if match else text
+    values = re.findall(r"[“「『]([^”」』\n]{2,80})[”」』]", body)
+    values.extend(re.findall(r"(?m)^\s*[-*]\s+([^\n|]{2,80})\s*$", body))
+    return list(dict.fromkeys(value.strip() for value in values if value.strip()))
 
 
 def _normalise_confirmed_prd_copy(path: Path) -> None:

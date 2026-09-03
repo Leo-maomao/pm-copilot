@@ -1,7 +1,7 @@
 cycle: interactive-delivery-budget
 date: 2026-09-03
 previous_runtime_version: "6.2.77"
-target_runtime_version: "6.2.91"
+target_runtime_version: "6.2.92"
 trigger: "A supervisor terminated a multi-stage PRD delivery after the shared 15-minute Agent timeout, leaving delivery/running."
 changes:
   - "Separate per-Agent execution timeout from the aggregate confirmed-delivery budget."
@@ -20,6 +20,7 @@ changes:
   - "Filter retired IDs against the staged PRD and emit complete per-requirement trace coverage."
   - "Treat revision scope mismatches as resumable needs_input questions rather than terminal delivery failures."
   - "Populate changed copy evidence from the staged PRD and align handoff readiness with generated artifacts."
+  - "Extract additional localized copy evidence from the staged PRD rather than relying on a fixed example list."
 validation:
   - "python3 -m unittest test_runtime_limits test_run_interactive_request -q"
   - "python3 scripts/validate_runtime_routing.py"
