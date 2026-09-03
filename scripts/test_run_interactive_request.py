@@ -183,6 +183,15 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertNotIn("historical provider transcript", prompt)
             self.assertLess(len(prompt), 10000)
 
+    def test_prd_prompt_assigns_html_rendering_to_the_controller(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = create_state("更新 5.1", Path(temporary))
+            state["turns"] = [{"summary": "已确认", "scope": {"goal": "更新 5.1"}, "assumptions": [], "risks": []}]
+            prompt = _artifact_prompt(state, "prd.md")
+        self.assertIn("this Agent writes only prd.md", prompt)
+        self.assertIn("The controller renders and validates prd.html", prompt)
+        self.assertIn("not a conflict", prompt)
+
     def test_stream_disconnected_agent_write_is_not_promoted_without_terminal_completion(self) -> None:
         calls = 0
         with tempfile.TemporaryDirectory() as temporary:

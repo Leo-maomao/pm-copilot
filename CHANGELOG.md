@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.68] - 2026-09-03
+
+### Fixed
+
+- Clarify that the PRD Agent writes only `prd.md`; the controller owns downstream `prd.html` rendering and validation, preventing a false artifact-scope refusal during fallback execution.
+
 ## [6.2.67] - 2026-09-03
 
 ### Fixed
