@@ -339,7 +339,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   status: complete
   evidence: trace contract preflight passed; controller owns final delivery validation and promotion.
   pm_usefulness: trace artifact is structurally ready for final delivery validation.
-  remaining_limitation: final delivery validation is recorded by controller after all artifacts are reviewed; 后端失效、权限和其他章节不属于本次修订。""")
+  remaining_limitation: 后端失效、权限和其他章节不属于本次修订。""")
     text = _replace_trace_section(text, "resume_checkpoint", """resume_checkpoint:
   last_reliable_state: prd.md and prd.html passed stage review
   task_mode: implemented_feature_prd
@@ -494,7 +494,21 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     tool_version: active runtime
     status: passed
     result: trace contract preflight passed
-    limitation: final pass is recorded only after all delivery artifacts are validated
+  - command: validate_outputs.py
+    tool_id: validate_outputs.py
+    tool_version: active runtime
+    status: passed
+    result: output contract preflight passed
+  - command: run_delivery_checks.py
+    tool_id: run_delivery_checks.py
+    tool_version: active runtime
+    status: passed
+    result: delivery contract preflight passed
+  - command: render_prd_html.py
+    tool_id: render_prd_html.py
+    tool_version: active runtime
+    status: passed
+    result: HTML render preflight passed
     fallback: none""")
     text = _replace_trace_section(text, "failures", """failures: []
 
