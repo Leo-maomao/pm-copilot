@@ -509,6 +509,10 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertIn("mode: in_place_revision", text)
             self.assertIn("revision_evidence_path: revision-evidence.json", text)
             self.assertIn("target_ref: '5.1'", text)
+            self.assertIn("path: assets/报错提示-失败.png", text)
+            self.assertIn("- 节点执行失败，请稍后重试。", text)
+            self.assertNotIn("音频", text)
+            self.assertNotIn("三张图示", text)
             self.assertTrue((folder / "revision-evidence.json").is_file())
             target.write_text(baseline, encoding="utf-8")
 

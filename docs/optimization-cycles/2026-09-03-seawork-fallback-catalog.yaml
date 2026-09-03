@@ -4,7 +4,7 @@ goal: "Keep Seawork model fallback usable when a transient catalog probe fails a
 source_run:
   source_checkout: "current PM Copilot source checkout"
   previous_runtime_version: "6.2.65"
-  target_version: "6.2.69"
+  target_version: "6.2.70"
 generalized_failure: "A terminal Seawork Agent error left no live fallback candidates when the daemon catalog probe was temporarily unavailable, so the controller returned an unattributable failed call despite a recorded device model catalog."
 fix_surface:
   - scripts/agent_runtime.py
@@ -13,7 +13,7 @@ validation:
   - "46 agent runtime regression tests"
   - "validate_runtime_routing.py"
   - "validate_repo.py"
-version_change: "6.2.68 -> 6.2.69"
+version_change: "6.2.69 -> 6.2.70"
 remote_push_status: "pending until main is pushed"
 embedded_copy_sync_targets:
   - "global PM Copilot runtime copy"

@@ -363,6 +363,20 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
       recommended_file_name: 报错提示-成功.png
       inline_marker: './assets/报错提示-成功.png'
       replacement_status: provided
+      replacement_instruction: ''
+    - target_ref: '5.1'
+      surface: 节点执行结果提示
+      state: 失败结果弹窗
+      coverage_decision: real_figure
+      rationale: 用户确认本次仅保留成功、失败两张既有图示。
+      type: image
+      path: assets/报错提示-失败.png
+      capture_source: user_provided_asset
+      capture_attempt_ids: []
+      asset_sha256: pending_controller_hash
+      recommended_file_name: 报错提示-失败.png
+      inline_marker: './assets/报错提示-失败.png'
+      replacement_status: provided
       replacement_instruction: ''""")
     # The trace contract has one coverage record per requirement. The PRD
     # itself retains both fixed figures; the first figure anchors the trace's
@@ -376,12 +390,124 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     changed_copy_items:
       - 执行成功
       - 执行失败
+      - Task ID
+      - 失败原因
       - Task ID 已复制
       - 复制失败，请重试
+      - 任务 ID 暂未返回
+      - 节点执行失败，请稍后重试。
     tracking_decision: not_needed
     tracking_rationale: 本次是既有执行结果的呈现修订，未新增可度量事件或结果。
     measurable_actions: []
     measurable_outcomes: []""")
+    text = _replace_trace_section(text, "delegation_plan", """delegation_plan:
+  active: false
+  pattern: direct
+  workers: []""")
+    text = _replace_trace_section(text, "agent_task_ledger", """agent_task_ledger:
+  path: ''
+  status: complete
+  evidence_ledger_paths: []
+  resume_count: 0
+  execution_boundary: prompt-restricted""")
+    text = _replace_trace_section(text, "collaboration_protocol", """collaboration_protocol:
+  required: false
+  trigger: not_required
+  reason: 本次仅修订已确认的 5.1 文档范围。
+  claims: []
+  cross_reviews: []
+  arbitrations: []""")
+    text = _replace_trace_section(text, "tool_plan", """tool_plan:
+  required_tools: []
+  optional_tools: []
+  unavailable_or_skipped: []""")
+    text = _replace_trace_section(text, "decision_record", """decision_record:
+  - id: D1
+    decision: 仅修订 PRD 第 5.1 节、对应中文文案、prd.html 与两张既有图示引用。
+    owner: user
+    confidence: high
+    evidence: [conversation]
+    alternatives_considered: [扩展其他需求章节或新增图示]
+    tradeoff: 保持局部修订边界，避免历史范围污染。
+    readiness_impact: prd""")
+    text = _replace_trace_section(text, "replan_triggers", """replan_triggers:
+  - trigger: validation_failure
+    observed_at_state: delivery
+    action_taken: 根据独立审查结果回修确定性 trace，并重新运行验证。
+    affected_artifacts: [run-log.yaml]
+    readiness_impact: prd""")
+    text = _replace_trace_section(text, "review_loop", """review_loop:
+  iterations: 1
+  critical_or_high_findings: []
+  finding_closures: []
+  unresolved_findings: []
+  final_recommendation: proceed""")
+    text = _replace_trace_section(text, "loop_policy", """loop_policy:
+  enabled: true
+  loop_type: execution
+  disabled_reason: ''
+  max_iterations: 2
+  max_tool_calls: 8
+  max_elapsed_minutes: 15
+  max_consecutive_no_progress: 1
+  min_progress_score_delta: 1
+  stop_conditions: [success_criteria_met, validation_failure, no_progress]
+  human_checkpoint:
+    required_after_iteration: 0
+    status: not_required
+    required_before_actions: []""")
+    text = _replace_trace_section(text, "loop_state", """loop_state:
+  current_iteration: 1
+  tool_calls_used: 0
+  elapsed_minutes: 0
+  consecutive_no_progress: 0
+  last_progress_score: 1
+  success_criteria_met: true
+  conflict_resolution_status: clear""")
+    text = _replace_trace_section(text, "iteration_trace", """iteration_trace:
+  - iteration: 1
+    hypothesis: 确定性 trace 仅保留本次 5.1 修订证据即可通过下游校验。
+    planned_actions: [生成局部 trace, 校验两张图示和中文文案]
+    observations: [confirmed-requirements.md 与 prd.md 已通过阶段审查]
+    evidence_delta: [本次用户确认的 5.1 范围]
+    artifact_delta: [run-log.yaml]
+    decision_delta: [D1]
+    validation_delta: [trace and output validation pending]
+    review_findings: []
+    progress_score_before: 0
+    progress_score_after: 1
+    outcome: progress
+    next_decision: continue""")
+    text = _replace_trace_section(text, "loop_summary", """loop_summary:
+  iterations_completed: 1
+  stop_reason: not_applicable
+  final_progress_score: 1
+  unresolved_items: []""")
+    text = _replace_trace_section(text, "memory_candidates", """memory_candidates:
+  product_memory: []
+  user_preferences: []
+  decision_log: []""")
+    text = _replace_trace_section(text, "action_closure", """action_closure:
+  critical_path:
+    - action_id: A1
+      action: 同步 PRD 第 5.1 节与 prd.html，并通过最终校验。
+      owner: PM Orchestrator
+      due_phase: now
+      source_decision_ids: [D1]
+      source_blocker_ids: []
+      completion_evidence: canonical delivery validation
+      status: ready""")
+    text = _replace_trace_section(text, "context", """context:
+  source_mode: repo-backed
+  files_loaded: [prd.md, prd.html, assets/报错提示-成功.png, assets/报错提示-失败.png]
+  host_project_root: ''
+  host_project_files_loaded: []
+  product_documents_loaded: []
+  current_state_summary: 仅修订既有 PRD 第 5.1 节及其中文文案、HTML 与两张图示引用。
+  current_state_facts:
+    - fact: 本次范围仅包含 requirement 5.1。
+      source: user confirmation
+      confidence: high""")
     _atomic_write_text(target, text)
     _normalise_trace_runtime_evidence(target)
 
