@@ -517,6 +517,27 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertEqual(result["model"], "codex/usable")
         self.assertEqual([item["status"] for item in result["fallback_attempts"]], ["failed", "complete"])
 
+    def test_transport_fallback_uses_last_known_catalog_when_probe_is_unavailable(self) -> None:
+        failed = {
+            "provider": "seawork",
+            "model": "codex/gpt-5.6-terra",
+            "available_models": ["codex/gpt-5.6-terra", "codex/gpt-5.6-luna"],
+            "status": "failed",
+            "failure_category": "seawork_agent_error",
+            "error": "Agent terminal state: error",
+        }
+        with patch("agent_runtime.discover_runtimes", return_value=[]), patch(
+            "agent_runtime.execute",
+            return_value={"provider": "seawork", "model": "codex/gpt-5.6-luna", "status": "complete", "error": ""},
+        ) as execute:
+            result = agent_runtime._fallback_from_transport(
+                failed, "write", Path.cwd(), 3, 100, None,
+            )
+        self.assertTrue(result["fallback_used"])
+        self.assertEqual(execute.call_args.args[0], "seawork")
+        self.assertEqual(execute.call_args.args[4], "codex/gpt-5.6-luna")
+        self.assertEqual(result["fallback_selection_source"], "failed-call-model-catalog")
+
     def test_transport_candidates_include_an_authenticated_cli_default(self) -> None:
         statuses = [runtime("codex"), runtime("claude")]
         def catalog(provider, cwd):

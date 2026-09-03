@@ -804,6 +804,7 @@ def _is_stream_disconnected(result: dict[str, Any]) -> bool:
 
 def _transport_fallback_candidates(
     failed_provider: str, failed_model: str | None, cwd: Path,
+    advertised_models: Sequence[str] | None = None,
 ) -> list[tuple[str, str | None, str]]:
     """Discover auditable local alternatives in preference order at failure time."""
     ranked: list[tuple[int, int, tuple[str, str | None, str]]] = []
@@ -824,9 +825,27 @@ def _transport_fallback_candidates(
             capability_rank = 0 if "judgment" in option.capabilities else 1
             default_rank = 1 if option.model is None else 0
             ranked.append((capability_rank + default_rank, index, (status.provider, option.model, option.source)))
-    # Prefer explicit device-discovered models. Provider/default fallbacks are
-    # safe only when their completion payload reveals the actual model.
-    return [candidate for _, _, candidate in sorted(ranked, key=lambda item: (item[0], item[1]))]
+    candidates = [candidate for _, _, candidate in sorted(ranked, key=lambda item: (item[0], item[1]))]
+    # Preserve the model catalog captured by the failed dispatch. A transient
+    # daemon/catalog probe must not erase all fallback options; the failed call
+    # already recorded the device-advertised choices for auditability.
+    seen = {(provider, model) for provider, model, _ in candidates}
+    failed_name = (failed_model or "").rsplit("/", 1)[-1]
+    for index, option in enumerate(advertised_models or ()):
+        if not isinstance(option, str) or not option.strip():
+            continue
+        model = option.strip()
+        if model.rsplit("/", 1)[-1] == failed_name:
+            continue
+        key = (failed_provider, model)
+        if key in seen:
+            continue
+        candidates.append((failed_provider, model, "failed-call-model-catalog"))
+        seen.add(key)
+    # Prefer explicit device-discovered models, then the last known-good
+    # catalog in its reported order. Provider/default fallbacks are safe only
+    # when their completion payload reveals the actual model.
+    return candidates
 
 
 def _fallback_from_transport(
@@ -834,7 +853,10 @@ def _fallback_from_transport(
     output_limit: int, first_artifact_seconds: int | None,
 ) -> dict[str, Any]:
     """Try bounded distinct current-device models after a transport failure."""
-    candidates = _transport_fallback_candidates(str(result.get("provider", "")), str(result.get("model", "")), cwd)
+    candidates = _transport_fallback_candidates(
+        str(result.get("provider", "")), str(result.get("model", "")), cwd,
+        result.get("available_models") if isinstance(result.get("available_models"), list) else None,
+    )
     if not candidates:
         return result
     attempts: list[dict[str, Any]] = []
