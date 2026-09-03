@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.64] - 2026-09-03
+
+### Fixed
+
+- Normalize the confirmed failure fallback copy in `prd.md` after every model write so section text and the Chinese localization table cannot drift on punctuation.
+
 ## [6.2.63] - 2026-09-03
 
 ### Fixed

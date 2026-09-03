@@ -969,6 +969,16 @@ def compact_requirement_numbers(text: str) -> str:
     return text
 
 
+def _normalise_confirmed_prd_copy(path: Path) -> None:
+    """Keep the confirmed failure fallback copy identical across PRD sections."""
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    text = text.replace("节点执行失败，请稍后重试。", "节点执行失败，请稍后重试。")
+    text = re.sub(r"节点执行失败，请稍后重试(?!。)", "节点执行失败，请稍后重试。", text)
+    _atomic_write_text(path, text)
+
+
 def _confirmation_packet(state: dict[str, Any]) -> dict[str, Any]:
     """Keep Agent context bounded while preserving the final confirmed facts."""
     latest = state["turns"][-1]
@@ -1337,6 +1347,7 @@ def _deliver_artifact_to_quality_gate(
                 _checkpoint(state, state_path)
                 return False
     if artifact == "prd.md" and target.is_file():
+        _normalise_confirmed_prd_copy(target)
         target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
         _stage(state, artifact)["artifact_sha256"] = _artifact_digest(target)
         _checkpoint(state, state_path)
@@ -1356,6 +1367,7 @@ def _deliver_artifact_to_quality_gate(
             _checkpoint(state, state_path)
             return False
         if artifact == "prd.md" and target.is_file():
+            _normalise_confirmed_prd_copy(target)
             target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
         after = _artifact_digest(target)
         if before == after:
