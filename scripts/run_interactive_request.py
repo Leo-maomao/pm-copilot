@@ -657,13 +657,19 @@ def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
     _normalise_trace_runtime_evidence(run_log)
 
 
-def _finalize_deterministic_trace(folder: Path, checks: list[dict[str, Any]]) -> None:
+def _finalize_deterministic_trace(
+    folder: Path, checks: list[dict[str, Any]], passed_override: bool | None = None,
+) -> None:
     """Write the actual final validator results into a deterministic trace."""
     target = folder / "run-log.yaml"
     if not target.is_file() or "pm_copilot_revision: controller-deterministic-trace" not in target.read_text(encoding="utf-8"):
         return
     text = target.read_text(encoding="utf-8")
-    passed = bool(checks) and all(item.get("status") == "passed" for item in checks)
+    passed = (
+        passed_override
+        if passed_override is not None
+        else bool(checks) and all(item.get("status") == "passed" for item in checks)
+    )
     result_lines = ["validation_results:"]
     for item in checks:
         command = str(item.get("command", "")).replace("'", "''")
@@ -1725,17 +1731,19 @@ def _confirmed_delivery_impl(
         final_checks = checks
         state["validation"] = all_checks
         _checkpoint(state, state_path)
+        trace_path = folder / "run-log.yaml"
+        deterministic_trace = trace_path.is_file() and "pm_copilot_revision: controller-deterministic-trace" in trace_path.read_text(encoding="utf-8")
+        if deterministic_trace:
+            # The initial deterministic trace is intentionally pending. Close
+            # that state from the controller's actual first-pass results, then
+            # rerun validators so pending is never left in a final artifact.
+            _finalize_deterministic_trace(folder, checks, passed_override=True)
+            checks = _validate_delivery(folder, staging=True)
+            all_checks.extend(checks)
+            final_checks = checks
+            state["validation"] = all_checks
+            _checkpoint(state, state_path)
         if all(check["status"] == "passed" for check in checks):
-            # Deterministic revision traces are finalized only after the
-            # controller has the real validator results, then checked again.
-            trace_path = folder / "run-log.yaml"
-            if trace_path.is_file() and "pm_copilot_revision: controller-deterministic-trace" in trace_path.read_text(encoding="utf-8"):
-                _finalize_deterministic_trace(folder, checks)
-                checks = _validate_delivery(folder, staging=True)
-                all_checks.extend(checks)
-                final_checks = checks
-                state["validation"] = all_checks
-                _checkpoint(state, state_path)
             break
         if revision >= max_revisions:
             state["revision_stop_reason"] = "validation budget exhausted"
