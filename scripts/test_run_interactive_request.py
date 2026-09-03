@@ -115,6 +115,25 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertIn(f"pm_copilot_version: {active_version}", text)
             self.assertIn(hashlib.sha256(b"current image").hexdigest(), text)
 
+    def test_trace_normalisation_refreshes_nested_additional_asset_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            assets = folder / "assets"
+            assets.mkdir()
+            asset = assets / "secondary.png"
+            asset.write_bytes(b"secondary image")
+            trace = folder / "run-log.yaml"
+            trace.write_text(
+                "implemented_feature_prd:\n  screenshots_and_placeholders:\n"
+                "    - target_ref: '5.1'\n      coverage_decision: real_figure\n"
+                "      path: assets/primary.png\n      asset_sha256: pending\n"
+                "      additional_assets:\n        - path: assets/secondary.png\n"
+                "          asset_sha256: pending_controller_hash\n",
+                encoding="utf-8",
+            )
+            _normalise_trace_runtime_evidence(trace)
+            self.assertIn(hashlib.sha256(b"secondary image").hexdigest(), trace.read_text(encoding="utf-8"))
+
     def test_stream_disconnect_retries_once_and_preserves_the_failure_reason(self) -> None:
         calls = []
 

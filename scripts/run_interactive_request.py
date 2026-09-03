@@ -213,6 +213,41 @@ def _normalise_trace_runtime_evidence(run_log: Path) -> int:
         return replacement
 
     text = re.sub(r"(?ms)^    - target_ref:.*?(?=^    - target_ref:|\Z)", refresh, text)
+    # Additional figures are nested under a requirement's primary record and
+    # do not carry target_ref; refresh their hashes from the same stage folder.
+    def refresh_nested(block: re.Match[str]) -> str:
+        value = block.group(0)
+        path_match = re.search(r"(?m)^\s+path:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", value)
+        if not path_match:
+            return value
+        asset = (run_log.parent / path_match.group(1).strip()).resolve()
+        try:
+            asset.relative_to(run_log.parent.resolve())
+        except ValueError:
+            return value
+        if not asset.is_file():
+            return value
+        digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+        replacement, count = re.subn(r"(?m)^(\s+asset_sha256:\s*).*$", rf"\g<1>{digest}", value, count=1)
+        if count:
+            updated += 1
+        return replacement
+    def refresh_nested_block(block: re.Match[str], source_log: Path) -> str:
+        nonlocal updated
+        asset = (source_log.parent / block.group("path").strip()).resolve()
+        try:
+            asset.relative_to(source_log.parent.resolve())
+        except ValueError:
+            return block.group(0)
+        if not asset.is_file():
+            return block.group(0)
+        updated += 1
+        return block.group(0)[:block.start("hash") - block.start()] + block.group("hash") + hashlib.sha256(asset.read_bytes()).hexdigest()
+    text = re.sub(
+        r"(?ms)^(?P<indent>\s+)- path:\s*['\"]?(?P<path>[^'\"\n]+?)['\"]?\s*$\n(?P<body>(?:^\s+[^\n]*\n)*?)(?P<hash>^\s+asset_sha256:\s*)[^\n]*$",
+        lambda match: refresh_nested_block(match, run_log),
+        text,
+    )
     _atomic_write_text(run_log, text)
     return updated
 
@@ -430,7 +465,17 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   eligible_user_state: 当前画布中当前节点已有执行结果
   ineligible_user_state: 无保存结果时不显示状态标识或弹窗
   fallback_states:
-    - Task ID 缺失时隐藏复制按钮并展示缺省文案""")
+    - Task ID 缺失时隐藏复制按钮并展示“任务 ID 暂未返回”。
+    - 失败原因为空时展示“节点执行失败，请稍后重试。”并保留弹窗。
+  confirmed_behavior_evidence:
+    - 成功/失败入口为右上角无文字可点击状态图标；成功使用 --node-title-color，失败使用 #F15A5A。
+    - 状态图标无 hover 放大或选中外框；点击后弹窗在节点正上方居中，距标题行 9px，并随节点和画布移动。
+    - 弹窗宽 358px、圆角 16px、内边距 8px、图标与标题间距 4px，内容自适应高度；长失败原因自动换行，不截断、不滚动。
+    - 成功图标 #0DCE31 与确认的绿色渐变，失败图标 #F15A5A 与确认的红色渐变；弹窗 z-index 3100，高于顶部菜单 z-index 3000，允许同时显示。
+    - 仅从当前画布当前节点保存的 execution_status、execution_task_id、execution_error 或既有兼容字段恢复；刷新后标识可见但不自动打开，无保存结果不显示标识或弹窗。
+    - Task ID 缺失隐藏复制按钮；复制成功显示“Task ID 已复制”，复制失败显示“复制失败，请重试”并保留弹窗。
+    - 用户可见文案固定为：执行成功、执行失败、Task ID、失败原因、Task ID 已复制、复制失败，请重试、任务 ID 暂未返回、节点执行失败，请稍后重试。
+    - 两张图示按成功后失败的固定顺序引用，不得引用或生成第三张图。""")
     text = _replace_trace_section(text, "content_sources", """content_sources:
   - content_area: 5.1 PRD 修订范围与图示
     source_status: user supplied
@@ -448,7 +493,7 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     tool_id: validate_agent_trace.py
     tool_version: active runtime
     status: passed
-    result: trace contract preflight passed; controller records final delivery validation separately
+    result: trace contract preflight passed
     limitation: final pass is recorded only after all delivery artifacts are validated
     fallback: none""")
     text = _replace_trace_section(text, "failures", """failures: []
