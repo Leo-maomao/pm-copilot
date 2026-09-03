@@ -1,12 +1,13 @@
 cycle: interactive-delivery-budget
 date: 2026-09-03
 previous_runtime_version: "6.2.77"
-target_runtime_version: "6.2.78"
+target_runtime_version: "6.2.79"
 trigger: "A supervisor terminated a multi-stage PRD delivery after the shared 15-minute Agent timeout, leaving delivery/running."
 changes:
   - "Separate per-Agent execution timeout from the aggregate confirmed-delivery budget."
   - "Persist recovery_required/retry_required at aggregate budget boundaries."
   - "Add regression coverage for aggregate budget exhaustion."
+  - "Finalize deterministic trace termination and validation_results only from actual controller validator results."
 validation:
   - "python3 -m unittest test_runtime_limits test_run_interactive_request -q"
   - "python3 scripts/validate_runtime_routing.py"

@@ -301,10 +301,10 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
     next_actions_required: true
     memory_candidates_required: false""")
     text = _replace_trace_section(text, "termination_condition", """termination_condition:
-  status: complete
-  evidence: 5.1 局部修订、prd.html 同步、两张固定图示和全部校验均已完成。
-  pm_usefulness: 下游可按确认范围直接评审和联调本次 5.1 修订。
-  remaining_limitation: 后端失效、权限和其他章节不属于本次修订。""")
+  status: failed
+  evidence: 5.1 局部修订和阶段审查已完成，但最终校验尚未执行；controller 将在校验通过后回写终态。
+  pm_usefulness: 当前 trace 可供最终校验，尚未声明正式交付完成。
+  remaining_limitation: 最终 validation_results 尚待 controller 写入；后端失效、权限和其他章节不属于本次修订。""")
     text = _replace_trace_section(text, "resume_checkpoint", """resume_checkpoint:
   last_reliable_state: prd.md and prd.html passed stage review
   task_mode: implemented_feature_prd
@@ -447,8 +447,8 @@ def _materialize_revision_trace(state: dict[str, Any], target: Path) -> None:
   - command: validate_agent_trace.py
     tool_id: validate_agent_trace.py
     tool_version: active runtime
-    status: required
-    result: controller runs after trace materialization
+    status: pending
+    result: controller will run this validator after trace materialization
     limitation: final pass is recorded only after all delivery artifacts are validated
     fallback: none""")
     text = _replace_trace_section(text, "failures", """failures: []
@@ -519,7 +519,7 @@ final_status: deterministic trace ready for validation""")
   elapsed_minutes: 0
   consecutive_no_progress: 0
   last_progress_score: 1
-  success_criteria_met: true
+  success_criteria_met: false
   conflict_resolution_status: clear""")
     text = _replace_trace_section(text, "iteration_trace", """iteration_trace:
   - iteration: 1
@@ -533,11 +533,11 @@ final_status: deterministic trace ready for validation""")
     review_findings: []
     progress_score_before: 0
     progress_score_after: 1
-    outcome: success
-    next_decision: stop_success""")
+    outcome: failed
+    next_decision: stop_failed""")
     text = _replace_trace_section(text, "loop_summary", """loop_summary:
   iterations_completed: 1
-  stop_reason: success
+  stop_reason: failed
   final_progress_score: 1
   unresolved_items: []""")
     text = _replace_trace_section(text, "memory_candidates", """memory_candidates:
@@ -655,6 +655,41 @@ def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
         ])
     _atomic_write_text(run_log, run_log.read_text(encoding="utf-8").rstrip() + "\n" + "\n".join(lines) + "\n")
     _normalise_trace_runtime_evidence(run_log)
+
+
+def _finalize_deterministic_trace(folder: Path, checks: list[dict[str, Any]]) -> None:
+    """Write the actual final validator results into a deterministic trace."""
+    target = folder / "run-log.yaml"
+    if not target.is_file() or "pm_copilot_revision: controller-deterministic-trace" not in target.read_text(encoding="utf-8"):
+        return
+    text = target.read_text(encoding="utf-8")
+    passed = bool(checks) and all(item.get("status") == "passed" for item in checks)
+    result_lines = ["validation_results:"]
+    for item in checks:
+        command = str(item.get("command", "")).replace("'", "''")
+        result = _compact_trace_text(item.get("stdout", "") or item.get("stderr", ""), 240).replace("'", "''")
+        result_lines.extend([
+            f"  - command: '{command}'",
+            "    tool_id: controller.validation",
+            "    tool_version: active runtime",
+            f"    status: {item.get('status', 'failed')}",
+            f"    result: '{result or ('passed' if item.get('status') == 'passed' else 'failed')}'",
+        ])
+    text = _replace_trace_section(text, "validation_results", "\n".join(result_lines))
+    text = _replace_trace_section(text, "termination_condition", f"""termination_condition:
+  status: {'complete' if passed else 'failed'}
+  evidence: {'所有最终验证命令均返回 passed。' if passed else '最终验证至少有一项失败。'}
+  pm_usefulness: {'下游可按确认范围直接评审和联调本次 5.1 修订。' if passed else '交付不可提升，需按失败验证结果恢复。'}
+  remaining_limitation: 后端失效、权限和其他章节不属于本次修订。""")
+    text = re.sub(r"(?ms)(^loop_state:\n.*?^  success_criteria_met:) (?:true|false)", rf"\1 {'true' if passed else 'false'}", text, count=1)
+    text = _replace_trace_section(text, "loop_summary", f"""loop_summary:
+  iterations_completed: 1
+  stop_reason: {'success' if passed else 'failed'}
+  final_progress_score: 1
+  unresolved_items: []""")
+    text = re.sub(r"(?ms)(^    outcome:) (?:success|failed)\n    next_decision: (?:stop_success|stop_failed)", f"    outcome: {'success' if passed else 'failed'}\n    next_decision: {'stop_success' if passed else 'stop_failed'}", text, count=1)
+    _atomic_write_text(target, text)
+    _normalise_trace_runtime_evidence(target)
 
 
 _TRACE_EVIDENCE_PHASES = (
@@ -1691,6 +1726,16 @@ def _confirmed_delivery_impl(
         state["validation"] = all_checks
         _checkpoint(state, state_path)
         if all(check["status"] == "passed" for check in checks):
+            # Deterministic revision traces are finalized only after the
+            # controller has the real validator results, then checked again.
+            trace_path = folder / "run-log.yaml"
+            if trace_path.is_file() and "pm_copilot_revision: controller-deterministic-trace" in trace_path.read_text(encoding="utf-8"):
+                _finalize_deterministic_trace(folder, checks)
+                checks = _validate_delivery(folder, staging=True)
+                all_checks.extend(checks)
+                final_checks = checks
+                state["validation"] = all_checks
+                _checkpoint(state, state_path)
             break
         if revision >= max_revisions:
             state["revision_stop_reason"] = "validation budget exhausted"
