@@ -130,6 +130,23 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(calls[0][3], 5)
             self.assertIn("stream disconnected", state["last_error"])
 
+    def test_stage_agent_no_progress_is_retryable(self) -> None:
+        calls = []
+
+        def worker(*args, **kwargs):
+            calls.append(args)
+            return {
+                "provider": "codex", "model": "gpt-5.6-terra", "status": "timed_out",
+                "output": "", "error": "no first artifact within 30 second(s)",
+                "failure_category": "agent_no_progress",
+            }
+
+        with tempfile.TemporaryDirectory() as temporary:
+            state = create_state("做一个 PRD", Path(temporary))
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 15, worker=worker))
+            self.assertEqual(len(calls), 2)
+
     def test_idle_agent_with_an_unchanged_stage_artifact_cannot_promote(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
