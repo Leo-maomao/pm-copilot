@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -625,6 +626,23 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(persisted["status"], "recovery_required")
             self.assertEqual(persisted["termination"], "retry_required")
             self.assertNotEqual(persisted["status"], "delivery")
+
+    def test_confirmation_freezes_fact_packet_for_downstream_agents(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{
+                "turn": 1, "user_text": "完整确认规则", "summary": "完整摘要",
+                "scope": {"goal": "稳定目标", "in_scope": ["固定规则"]},
+                "assumptions": ["无猜测"], "decisions": ["D1"], "risks": [],
+                "buckets": {"can_draft_with_stated_assumption": [], "must_confirm_before_development_or_launch": []},
+            }]
+            state["user_confirmation"] = {"confirmed": True, "at": "now"}
+            from run_interactive_request import _confirmed_fact_source, _confirmation_packet
+            state["confirmed_fact_packet"] = json.loads(json.dumps(state["turns"][-1]))
+            state["turns"].append({"turn": 2, "summary": "丢失细节的后续摘要", "scope": {}})
+            self.assertEqual(_confirmed_fact_source(state)["scope"]["goal"], "稳定目标")
+            self.assertEqual(_confirmation_packet(state)["scope"]["goal"], "稳定目标")
 
     def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

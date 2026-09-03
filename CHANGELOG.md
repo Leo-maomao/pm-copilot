@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.85] - 2026-09-03
+
+- Freeze the complete confirmed fact packet at the human confirmation gate so downstream artifact and review Agents cannot lose clarified requirements between turns.
+
 ## [6.2.84] - 2026-09-03
 
 - Record structured artifact and validation deltas for deterministic revision trace handoffs, including HTML and fixed-figure evidence.

@@ -1322,7 +1322,7 @@ def _normalise_confirmed_prd_copy(path: Path) -> None:
 
 def _confirmation_packet(state: dict[str, Any]) -> dict[str, Any]:
     """Keep Agent context bounded while preserving the final confirmed facts."""
-    latest = state["turns"][-1]
+    latest = state.get("confirmed_fact_packet") or state["turns"][-1]
     return {
         "user_confirmation": state.get("user_confirmation"),
         "final_user_message": latest.get("user_text", ""),
@@ -1336,8 +1336,13 @@ def _confirmation_packet(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _confirmed_fact_source(state: dict[str, Any]) -> dict[str, Any]:
+    """Return the immutable fact packet selected at the confirmation gate."""
+    return state.get("confirmed_fact_packet") or state["turns"][-1]
+
+
 def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = "") -> str:
-    latest = state["turns"][-1]
+    latest = _confirmed_fact_source(state)
     role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
     target = _delivery_folder(state) / artifact
     available_assets = [Path(item).name for item in state.get("input_assets", [])]
@@ -1582,7 +1587,7 @@ Use pass only when blocking_findings is empty and acceptance_evidence proves
 the artifact's required handoff conditions. Empty proof is needs_revision.
 
 Original request: {state['raw_request']}
-Confirmed scope: {json.dumps(state['turns'][-1].get('scope', {}), ensure_ascii=False)}
+Confirmed scope: {json.dumps(_confirmed_fact_source(state).get('scope', {}), ensure_ascii=False)}
 Final user-confirmed evidence packet: {json.dumps(_confirmation_packet(state), ensure_ascii=False)}
 Artifact under review: {artifact}
 """
@@ -2041,6 +2046,12 @@ def main() -> int:
             "confirmed": True, "at": dt.datetime.now(dt.timezone.utc).isoformat(),
             "source": "explicit --confirm" if prior_status == "awaiting_confirmation" else "explicit --confirm resume",
         }
+        # Freeze the complete clarified turn at the human confirmation gate.
+        # Downstream artifact/review Agents must not reconstruct scope from a
+        # later, abbreviated turn summary.
+        confirmed_turn = state["turns"][-1] if state.get("turns") else {}
+        state["confirmed_fact_packet"] = json.loads(json.dumps(confirmed_turn, ensure_ascii=False))
+        state["confirmed_fact_packet"]["confirmed_at"] = state["user_confirmation"]["at"]
         state["resume_from_status"] = prior_status
         state["restart_delivery"] = prior_status in {"recovery_required", "failed"}
         state["status"] = "confirmed"
