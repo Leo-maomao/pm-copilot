@@ -674,9 +674,34 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
         shutil.rmtree(workspace.parent)
     workspace.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(canonical, workspace, ignore=shutil.ignore_patterns(".delivery-stage", ".DS_Store"))
+    if state.get("revision_history") and (workspace / "prd.md").is_file():
+        baseline = workspace / ".revision-baseline"
+        baseline.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(workspace / "prd.md", baseline / "prd.md")
     _copy_input_assets(state, workspace)
     state["delivery_workspace"] = str(workspace)
     return workspace
+
+
+def _revision_scope_violation(stage_target: Path, baseline: Path, allowed_ids: Sequence[str]) -> str | None:
+    """Reject in-place PRD edits outside IDs explicitly named by the revision."""
+    if not stage_target.is_file() or not baseline.is_file():
+        return None
+    candidate = stage_target.read_text(encoding="utf-8")
+    original = baseline.read_text(encoding="utf-8")
+    ids = {str(item).strip() for item in allowed_ids if str(item).strip()}
+    if not ids:
+        return "in-place revision has no explicit requirement IDs; provide a revision scope manifest"
+    id_pattern = "|".join(re.escape(item) for item in sorted(ids, key=len, reverse=True))
+    section_re = re.compile(rf"(?ms)^### (?:{id_pattern})\b.*?(?=^### |^## |\Z)")
+    row_re = re.compile(rf"(?m)^\|\s*(?:{id_pattern})\s*\|.*$\n?")
+    def outside_scope(text: str) -> str:
+        text = section_re.sub("", text)
+        text = row_re.sub("", text)
+        return text
+    if outside_scope(candidate) != outside_scope(original):
+        return "in-place revision changed PRD content outside confirmed requirement 5.1"
+    return None
 
 
 def _restart_delivery_attempt(state: dict[str, Any]) -> None:
@@ -712,6 +737,14 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> None:
     if (canonical / "assets").exists():
         shutil.rmtree(canonical / "assets")
     temporary_assets.replace(canonical / "assets")
+    # Controller diagnostics are execution evidence, not product artifacts.
+    # Never leave them in the canonical delivery workspace where validators
+    # interpret them as extra outputs.
+    for diagnostic in (canonical / "tool-results", canonical / "revision-evidence.json"):
+        if diagnostic.is_dir():
+            shutil.rmtree(diagnostic)
+        elif diagnostic.exists():
+            diagnostic.unlink()
     (canonical / ".DS_Store").unlink(missing_ok=True)
     (canonical / "assets" / ".DS_Store").unlink(missing_ok=True)
     state["delivery_promoted_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
@@ -1286,6 +1319,15 @@ def begin_in_place_revision(state: dict[str, Any], request: str) -> dict[str, An
         "html_before_sha256": _artifact_digest(folder / "prd.html"),
         "mode": "in_place_revision",
     })
+    ids = set(re.findall(r"\b\d+\.\d+\b", request))
+    if not ids:
+        baseline_trace = folder / "run-log.yaml"
+        if baseline_trace.is_file():
+            trace_text = baseline_trace.read_text(encoding="utf-8")
+            lineage = re.search(r"(?ms)^artifact_lineage:\n.*?(?=^[A-Za-z_][A-Za-z0-9_]*:\n|\Z)", trace_text)
+            if lineage:
+                ids.update(re.findall(r"(?m)^\s+- ['\"]?(\d+\.\d+)['\"]?\s*$", lineage.group(0)))
+    state["revision_requirement_ids"] = sorted(ids)
     state["revision_request"] = request
     state["raw_request"] = request
     state["turns"] = []
@@ -1504,6 +1546,16 @@ def _run_artifact_agent(
                 attributable = _record_agent_call(state, result, phase="delivery", artifact=artifact)
                 if attributable or attempt >= MAX_ATTRIBUTABLE_AGENT_ATTEMPTS or not _is_retryable_agent_failure(result):
                     break
+        if artifact == "prd.md" and state.get("revision_history"):
+            baseline = stage_folder / ".revision-baseline" / "prd.md"
+            violation = _revision_scope_violation(
+                stage_target, baseline, state.get("revision_requirement_ids", []),
+            )
+            if violation:
+                result.update({
+                    "status": "failed", "exit_code": 1,
+                    "failure_category": "revision_scope_violation", "error": violation,
+                })
         stage_after_sha256 = _artifact_digest(stage_target)
         promoted = (
             result.get("status") == "complete"

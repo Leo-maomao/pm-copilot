@@ -21,6 +21,7 @@ from run_interactive_request import (
     _delivery_worker,
     _ensure_runtime_current,
     _normalise_trace_runtime_evidence,
+    _revision_scope_violation,
     _materialize_revision_trace,
     _restart_delivery_attempt,
     _recover_interrupted_delivery,
@@ -643,6 +644,15 @@ class InteractiveRequestTest(unittest.TestCase):
             state["turns"].append({"turn": 2, "summary": "丢失细节的后续摘要", "scope": {}})
             self.assertEqual(_confirmed_fact_source(state)["scope"]["goal"], "稳定目标")
             self.assertEqual(_confirmation_packet(state)["scope"]["goal"], "稳定目标")
+
+    def test_revision_scope_guard_rejects_unapproved_heading_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            baseline = root / "baseline.md"
+            candidate = root / "candidate.md"
+            baseline.write_text("### 5.1 A\nold\n## 六、语言\nunchanged\n", encoding="utf-8")
+            candidate.write_text("### 5.1 A\nnew\n## 六、语言\nchanged\n", encoding="utf-8")
+            self.assertIsNotNone(_revision_scope_violation(candidate, baseline, ["5.1"]))
 
     def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
