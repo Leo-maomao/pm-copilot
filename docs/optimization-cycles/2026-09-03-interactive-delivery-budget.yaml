@@ -1,7 +1,7 @@
 cycle: interactive-delivery-budget
 date: 2026-09-03
 previous_runtime_version: "6.2.77"
-target_runtime_version: "6.2.96"
+target_runtime_version: "6.2.97"
 trigger: "A supervisor terminated a multi-stage PRD delivery after the shared 15-minute Agent timeout, leaving delivery/running."
 changes:
   - "Separate per-Agent execution timeout from the aggregate confirmed-delivery budget."
@@ -25,6 +25,7 @@ changes:
   - "Keep deterministic trace validation, review, and action-closure states pending until final controller validation completes."
   - "Align pending validation with non-final review, loop, readiness, and action-closure states before controller finalization."
   - "Align the temporary final-validation checkpoint with loop policy state and clear it after controller validation."
+  - "Finalize deterministic run-log validation before independent stage review so reviewers receive actual evidence."
 validation:
   - "python3 -m unittest test_runtime_limits test_run_interactive_request -q"
   - "python3 scripts/validate_runtime_routing.py"

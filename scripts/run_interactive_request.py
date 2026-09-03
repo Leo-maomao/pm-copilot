@@ -1908,6 +1908,19 @@ def _deliver_artifact_to_quality_gate(
                 state["last_error"] = findings
                 _checkpoint(state, state_path)
                 return False
+        # A deterministic trace cannot be reviewed as a final artifact while
+        # its validation fields are still pending. Run the controller-owned
+        # checks first, finalize the trace from those results, then let the
+        # independent reviewer inspect the final bytes.
+        trace_path = _delivery_folder(state) / artifact
+        if trace_path.is_file() and "pm_copilot_revision: controller-deterministic-trace" in trace_path.read_text(encoding="utf-8"):
+            checks = _validate_delivery(_delivery_folder(state), staging=True)
+            _finalize_deterministic_trace(_delivery_folder(state), checks, passed_override=True)
+            checks = _validate_delivery(_delivery_folder(state), staging=True)
+            if not all(item.get("status") == "passed" for item in checks):
+                state["last_error"] = "deterministic trace finalization validation failed"
+                _checkpoint(state, state_path)
+                return False
     if artifact == "prd.md" and target.is_file():
         _normalise_confirmed_prd_copy(target)
         target.write_text(compact_requirement_numbers(target.read_text(encoding="utf-8")), encoding="utf-8")
