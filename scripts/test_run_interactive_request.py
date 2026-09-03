@@ -653,6 +653,7 @@ class InteractiveRequestTest(unittest.TestCase):
             baseline.write_text("### 5.1 A\nold\n## 六、语言\nunchanged\n", encoding="utf-8")
             candidate.write_text("### 5.1 A\nnew\n## 六、语言\nchanged\n", encoding="utf-8")
             self.assertIsNotNone(_revision_scope_violation(candidate, baseline, ["5.1"]))
+            self.assertIsNone(_revision_scope_violation(candidate, baseline, []))
 
     def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,6 +1,6 @@
 {
   "name": "pm-copilot",
-  "version": "6.2.86+codex.20260903100257",
+  "version": "6.2.87+codex.20260903101430",
   "description": "Evidence-backed PM Copilot runtime for PRDs, product reviews, tracking, and delivery handoffs.",
   "author": {
     "name": "PM Copilot"

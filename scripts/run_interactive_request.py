@@ -691,7 +691,10 @@ def _revision_scope_violation(stage_target: Path, baseline: Path, allowed_ids: S
     original = baseline.read_text(encoding="utf-8")
     ids = {str(item).strip() for item in allowed_ids if str(item).strip()}
     if not ids:
-        return "in-place revision has no explicit requirement IDs; provide a revision scope manifest"
+        # Natural-language revisions are valid; the confirmation packet and
+        # independent stage review remain the scope authority when no numeric
+        # requirement identifier was stated.
+        return None
     id_pattern = "|".join(re.escape(item) for item in sorted(ids, key=len, reverse=True))
     section_re = re.compile(rf"(?ms)^### (?:{id_pattern})\b.*?(?=^### |^## |\Z)")
     row_re = re.compile(rf"(?m)^\|\s*(?:{id_pattern})\s*\|.*$\n?")
@@ -1328,6 +1331,12 @@ def begin_in_place_revision(state: dict[str, Any], request: str) -> dict[str, An
             if lineage:
                 ids.update(re.findall(r"(?m)^\s+- ['\"]?(\d+\.\d+)['\"]?\s*$", lineage.group(0)))
     state["revision_requirement_ids"] = sorted(ids)
+    state["revision_scope_manifest"] = {
+        "mode": "in_place_revision",
+        "request": request,
+        "requirement_ids": sorted(ids),
+        "authority": "user-confirmed natural-language scope",
+    }
     state["revision_request"] = request
     state["raw_request"] = request
     state["turns"] = []

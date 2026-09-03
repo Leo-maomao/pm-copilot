@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.87] - 2026-09-03
+
+- Support natural-language in-place revisions without requiring internal requirement IDs; persist a generic revision scope manifest at confirmation.
+
 ## [6.2.86] - 2026-09-03
 
 - Enforce generic in-place revision scope boundaries from explicit requirement IDs and remove controller diagnostics from canonical promotion.
