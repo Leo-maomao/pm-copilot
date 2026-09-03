@@ -1283,6 +1283,8 @@ def check_folder(path: Path, require_run_log: bool = True, staging: bool = False
         "dev-tasks.yaml",
         "launch-decision.yaml",
         "absorption-report.md",
+        # Controller-owned audit companion for deterministic in-place traces.
+        "revision-evidence.json",
     } | set(PROTOTYPE_FILE_NAMES) | set(CATALOG_FILE_NAMES)
     unexpected = sorted(item.name for item in path.iterdir() if item.is_file() and item.name not in allowed)
     if unexpected:

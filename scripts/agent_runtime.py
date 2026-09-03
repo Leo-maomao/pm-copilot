@@ -617,6 +617,7 @@ def _poll_seawork_terminal(
     control_plane_failures = 0
     observed_progress = False
     last_state = "unknown"
+    poll_interval = 1.0
     while True:
         _, last_state = _seawork_agent_record(executable, agent_id)
         if last_state.startswith("could not query Agent state"):
@@ -633,7 +634,12 @@ def _poll_seawork_terminal(
             return False, "no_progress_before_first_artifact"
         if time.monotonic() >= deadline:
             return False, last_state
-        time.sleep(min(2, max(0.1, deadline - time.monotonic())))
+        # Starting the Seawork CLI for every status query is comparatively
+        # expensive. Poll quickly once for terminal acknowledgement, then
+        # back off while preserving the hard deadline and artifact checks.
+        remaining = max(0.1, deadline - time.monotonic())
+        time.sleep(min(poll_interval, remaining))
+        poll_interval = min(8.0, poll_interval * 1.5)
 
 
 def _execute_seawork(

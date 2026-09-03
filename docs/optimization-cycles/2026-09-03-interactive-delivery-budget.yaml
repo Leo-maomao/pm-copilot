@@ -1,7 +1,7 @@
 cycle: interactive-delivery-budget
 date: 2026-09-03
 previous_runtime_version: "6.2.77"
-target_runtime_version: "6.2.98"
+target_runtime_version: "6.2.100"
 trigger: "A supervisor terminated a multi-stage PRD delivery after the shared 15-minute Agent timeout, leaving delivery/running."
 changes:
   - "Separate per-Agent execution timeout from the aggregate confirmed-delivery budget."

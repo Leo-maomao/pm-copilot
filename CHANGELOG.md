@@ -6,6 +6,14 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.100] - 2026-09-03
+
+- Treat controller-generated `revision-evidence.json` as an allowed audited PRD output.
+
+## [6.2.99] - 2026-09-03
+
+- Reduce Seawork status-query overhead with adaptive polling while retaining artifact checks and hard execution deadlines.
+
 ## [6.2.98] - 2026-09-03
 
 - Finalize deterministic trace asset hashes before validation and prevent remote repair loops from reintroducing legacy run-log state.
