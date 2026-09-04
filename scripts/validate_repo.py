@@ -92,8 +92,8 @@ def check_plugin() -> None:
     skill = (ROOT / "plugins/pm-copilot/skills/pm-copilot/SKILL.md").read_text(encoding="utf-8")
     if "_personal_plugin_runtime_home" not in wrapper or "prd_start_request" not in wrapper:
         fail("Codex plugin must resolve its installed source and expose PRD start")
-    if "PM_COPILOT_REPOSITORY" in skill:
-        fail("Codex plugin skill must not require user runtime-path configuration")
+    if "PM_COPILOT_REPOSITORY" in wrapper or "PM_COPILOT_REPOSITORY" in skill:
+        fail("Codex plugin must not allow a user or environment runtime-path override")
     if "append_implemented_feature" not in skill:
         fail("Codex plugin skill must document explicit implemented-feature append delivery")
     for legacy_fallback in ("PM_COPILOT_HOME", "os.getcwd", "~/.agents"):
@@ -105,6 +105,11 @@ def check_plugin() -> None:
         fail(f"Plugin MCP configuration is invalid JSON: {error}")
     if "env_vars" in mcp_config.get("mcpServers", {}).get("pm-copilot", {}):
         fail("Plugin MCP configuration must not require user environment variables")
+    server = mcp_config.get("mcpServers", {}).get("pm-copilot", {})
+    if server.get("command") != "python3":
+        fail("Plugin MCP server must start with python3")
+    if server.get("args") != ["./scripts/pm_copilot_mcp.py"]:
+        fail("Plugin MCP server must launch only the canonical bridge")
     try:
         manifest = json.loads((ROOT / "plugins/pm-copilot/.codex-plugin/plugin.json").read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:

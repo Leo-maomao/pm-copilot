@@ -17,8 +17,8 @@ from typing import Any
 
 # A plugin cache is not a writable or authoritative PM Copilot runtime. The
 # personal-marketplace source is linked to the selected checkout at install
-# time, so the bridge can resolve it without asking product users for a path.
-_REPOSITORY_ENV = "PM_COPILOT_REPOSITORY"
+# time, so the bridge can resolve the sole supported runtime without user or
+# process-environment configuration.
 _PERSONAL_PLUGIN_SOURCE = Path.home() / "plugins" / "pm-copilot"
 
 
@@ -32,13 +32,12 @@ def _personal_plugin_runtime_home() -> Path | None:
 
 
 def _selected_runtime_home() -> Path | None:
-    """Use an explicit override only when present; otherwise use the installed source."""
-    selected = os.environ.get(_REPOSITORY_ENV, "").strip()
-    return Path(selected).expanduser() if selected else _personal_plugin_runtime_home()
+    """Resolve only the repository behind the installed personal plugin source."""
+    return _personal_plugin_runtime_home()
 
 
 def _runtime_selection() -> str:
-    return "environment_override" if os.environ.get(_REPOSITORY_ENV, "").strip() else "personal_marketplace_source"
+    return "personal_marketplace_source"
 
 
 _CACHE_PATH_MARKER = (".codex", "plugins", "cache")

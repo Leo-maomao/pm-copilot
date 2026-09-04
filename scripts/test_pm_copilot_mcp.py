@@ -106,16 +106,18 @@ class PmCopilotMcpTest(unittest.TestCase):
         config = json.loads(
             (REPOSITORY_ROOT / "plugins" / "pm-copilot" / ".mcp.json").read_text(encoding="utf-8")
         )
-        self.assertNotIn("env_vars", config["mcpServers"]["pm-copilot"])
+        server = config["mcpServers"]["pm-copilot"]
+        self.assertNotIn("env_vars", server)
+        self.assertEqual(server["command"], "python3")
+        self.assertEqual(server["args"], ["./scripts/pm_copilot_mcp.py"])
 
-    def test_legacy_runtime_environment_variable_cannot_select_a_checkout(self) -> None:
-        with patch.dict(
-            MCP.os.environ,
-            {"PM_COPILOT_HOME": "/tmp/legacy-runtime"},
-            clear=True,
+    def test_environment_cannot_override_the_installed_plugin_source(self) -> None:
+        installed_runtime = Path("/tmp/installed-runtime")
+        with patch.dict(MCP.os.environ, {"PM_COPILOT_REPOSITORY": "/tmp/legacy-runtime"}), patch.object(
+            MCP, "_personal_plugin_runtime_home", return_value=installed_runtime,
         ):
-            with patch.object(MCP, "_personal_plugin_runtime_home", return_value=None):
-                self.assertIsNone(MCP._selected_runtime_home())
+            self.assertEqual(MCP._selected_runtime_home(), installed_runtime)
+        self.assertEqual(MCP._runtime_selection(), "personal_marketplace_source")
 
     def test_installed_personal_plugin_source_resolves_the_repository_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -124,9 +126,7 @@ class PmCopilotMcpTest(unittest.TestCase):
             source = root / "plugins" / "pm-copilot"
             (source / ".codex-plugin").mkdir(parents=True)
             (source / ".codex-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
-            with patch.dict(MCP.os.environ, {}, clear=True), patch.object(
-                MCP, "_PERSONAL_PLUGIN_SOURCE", source,
-            ):
+            with patch.object(MCP, "_PERSONAL_PLUGIN_SOURCE", source):
                 self.assertEqual(MCP._selected_runtime_home(), root.resolve())
 
     def test_status_reports_missing_checkout_without_falling_back_to_the_working_directory(self) -> None:
@@ -182,6 +182,7 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertTrue(result["ok"])
             self.assertEqual(result["status"], "awaiting_confirmation")
             self.assertEqual(execute.call_args.kwargs["cwd"], project.resolve())
+            self.assertEqual(execute.call_args.args[0][0], sys.executable)
             self.assertEqual(execute.call_args.args[0][-2:], ["--request", "还原已实现功能 PRD"])
 
     def test_status_reports_matching_cached_wrapper_and_runtime_provenance(self) -> None:

@@ -19,4 +19,4 @@ python3 scripts/prd_request_controller.py --request "Create a PRD for approval r
 
 Host repositories are read-only evidence. PM Copilot does not modify host code, ship independent UI prototypes, create engineering handoffs, or decide launches.
 
-The Codex plugin uses `PM_COPILOT_REPOSITORY` to select this checkout; it does not depend on a copied global runtime.
+The Codex plugin resolves this checkout only from its installed personal-marketplace source. It does not use a copied global runtime or an environment-variable override.

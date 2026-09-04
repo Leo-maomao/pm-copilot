@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.0.3 - 2026-09-04
+
+- Removed the legacy runtime environment override from the Codex plugin. It
+  now resolves only the installed personal-marketplace source and launches its
+  MCP bridge with Python 3, preventing stale global runtimes from being used.
+
 ## 7.0.2 - 2026-09-04
 
 - Removed the user-visible Codex runtime-path requirement. The plugin now
