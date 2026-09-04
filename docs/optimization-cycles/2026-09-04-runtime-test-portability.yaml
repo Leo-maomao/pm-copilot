@@ -1,0 +1,23 @@
+id: runtime-test-portability-2026-09-04
+date: 2026-09-04
+goal: "Keep runtime-selection regression tests deterministic across devices with different optional local CLIs."
+source_run:
+  source_checkout: "current PM Copilot source checkout"
+  previous_runtime_version: "6.2.101"
+  target_version: "6.2.102"
+  evidence: "GitHub Actions validate run #203 failed only where tests implicitly relied on a locally installed Codex CLI."
+generalized_failure: "Two independent runtime-readiness probes can disagree with a test's modeled device inventory. When the result depends on optional executables installed on the host, a deterministic regression can become environment-dependent."
+fix_surface:
+  - scripts/agent_runtime.py
+  - scripts/test_agent_runtime.py
+validation:
+  - "Focused agent runtime regression tests with direct Codex availability both present and absent"
+  - "python3 -m unittest discover -s scripts -p 'test_*.py' under the CI Python environment"
+  - "python3 scripts/validate_runtime_routing.py"
+  - "python3 scripts/validate_repo.py"
+version_change: "6.2.101 -> 6.2.102"
+remote_push_status: "pending until main is pushed"
+embedded_copy_sync_targets:
+  - "global PM Copilot runtime copy"
+  - "Codex PM Copilot plugin cache"
+stop_condition: "Runtime selection tests pass whether or not the machine exposes a direct Codex CLI, while production selection still rejects unavailable executables."

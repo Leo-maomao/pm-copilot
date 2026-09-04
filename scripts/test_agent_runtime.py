@@ -59,8 +59,31 @@ class AgentRuntimeTest(unittest.TestCase):
         with patch("agent_runtime.discover_runtimes", return_value=statuses), patch(
             "agent_runtime.active_runtime",
             return_value=agent_runtime.ActiveRuntime("seawork", "codex/gpt-5.6", "active test session"),
+        ), patch(
+            "agent_runtime._ready_direct_codex_runtime", return_value=runtime("codex"),
         ):
             self.assertEqual(agent_runtime.select_runtime().provider, "codex")
+
+    def test_auto_keeps_seawork_when_equivalent_direct_codex_is_unavailable(self) -> None:
+        statuses = [runtime("seawork"), runtime("codex", "unavailable")]
+        with patch("agent_runtime.discover_runtimes", return_value=statuses), patch(
+            "agent_runtime.active_runtime",
+            return_value=agent_runtime.ActiveRuntime("seawork", "codex/gpt-5.6", "active test session"),
+        ), patch("agent_runtime._ready_direct_codex_runtime", return_value=None):
+            self.assertEqual(agent_runtime.select_runtime().provider, "seawork")
+
+    def test_ready_direct_codex_runtime_uses_codex_only_verified_discovery(self) -> None:
+        direct = runtime("codex")
+        with patch("agent_runtime.discover_runtimes", return_value=[direct]) as discover:
+            self.assertIs(agent_runtime._ready_direct_codex_runtime(), direct)
+        discover.assert_called_once_with(("codex",))
+
+    def test_ready_direct_codex_runtime_requires_an_executable(self) -> None:
+        unavailable = agent_runtime.RuntimeStatus(
+            "codex", None, "ready", False, True, False, "incomplete test runtime",
+        )
+        with patch("agent_runtime.discover_runtimes", return_value=[unavailable]):
+            self.assertIsNone(agent_runtime._ready_direct_codex_runtime())
 
     def test_active_runtime_uses_verified_direct_model_cache_without_seawork_listing(self) -> None:
         cwd = Path.cwd()
@@ -163,6 +186,8 @@ class AgentRuntimeTest(unittest.TestCase):
         with patch("agent_runtime.discover_runtimes", return_value=statuses), patch(
             "agent_runtime.active_runtime",
             return_value=agent_runtime.ActiveRuntime("seawork", "codex/gpt-5.6-terra", "active test session"),
+        ), patch(
+            "agent_runtime._ready_direct_codex_runtime", return_value=runtime("codex"),
         ), patch("agent_runtime.discover_model_catalog", return_value=([terra], [])):
             result = agent_runtime.execute("auto", "write", Path.cwd(), 2, None, None, True)
         self.assertEqual(result["provider"], "codex")
@@ -844,7 +869,7 @@ class AgentRuntimeTest(unittest.TestCase):
         }
         direct = {"provider": "codex", "model": "gpt-5.6-terra", "status": "complete", "error": ""}
         catalog = [ModelOption("gpt-5.6-sol", "codex", frozenset({"standard"}), "provider-config")]
-        with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
+        with patch("agent_runtime._ready_direct_codex_runtime", return_value=runtime("codex")), patch(
             "agent_runtime.discover_model_catalog", return_value=(catalog, [])
         ), patch("agent_runtime.execute", return_value=direct) as execute:
             result = agent_runtime._attempt_direct_codex_fallback(
@@ -855,6 +880,26 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertEqual(execute.call_args.args[4], "gpt-5.6-terra")
         self.assertEqual(result["fallback_selection_source"], "seawork-discovered-or-operator-selected")
         self.assertEqual(result["fallback_from"]["transport_duration_seconds"], 4.2)
+
+    def test_direct_codex_fallback_records_unavailable_when_cli_is_not_ready(self) -> None:
+        failed = {
+            "provider": "seawork",
+            "model": "codex/gpt-5.6-terra",
+            "status": "timed_out",
+            "failure_category": "agent_no_progress",
+            "error": "no first artifact",
+        }
+        with patch("agent_runtime._ready_direct_codex_runtime", return_value=None), patch(
+            "agent_runtime.execute"
+        ) as execute:
+            result = agent_runtime._attempt_direct_codex_fallback(
+                failed, "write", Path.cwd(), 3, None, 100, None,
+            )
+        self.assertIs(result, failed)
+        self.assertNotIn("fallback_used", result)
+        self.assertEqual(result["fallback_attempt"]["status"], "unavailable")
+        self.assertIn("not ready", result["fallback_attempt"]["reason"])
+        execute.assert_not_called()
 
     def test_rejected_matching_direct_model_uses_one_distinct_declared_model(self) -> None:
         failed = {

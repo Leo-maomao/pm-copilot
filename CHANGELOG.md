@@ -6,6 +6,10 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.102] - 2026-09-04
+
+- Unify direct-Codex readiness with provider-scoped runtime discovery, and make its regressions declare device availability explicitly, so CI environments without the optional Codex CLI continue to verify the safe Seawork route instead of producing environment-dependent failures.
+
 ## [6.2.101] - 2026-09-04
 
 - Make PRD delivery provenance explicit for new documents, in-place revisions, and source-document extractions; validate staged snapshots, hashes, selected scope, and implementation evidence before promotion.

@@ -563,16 +563,10 @@ def _remember_seawork_model(cwd: Path, model: str | None) -> None:
 
 def _ready_direct_codex_runtime() -> RuntimeStatus | None:
     """Check direct Codex without touching the Seawork control plane."""
-    executable = _which("codex")
-    if not executable:
-        return None
-    ready, detail = _probe([executable, "exec", "--help"], executable)
-    if not ready:
-        return None
-    return RuntimeStatus(
-        "codex", executable, "ready", False, True, False,
-        "non-interactive exec available",
-    )
+    for status in discover_runtimes(("codex",)):
+        if status.provider == "codex" and status.status == "ready" and status.executable:
+            return status
+    return None
 
 
 def active_runtime(cwd: Path | None = None) -> ActiveRuntime:
