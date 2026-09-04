@@ -1,7 +1,7 @@
 # 贡献指南
 
 PM Copilot 欢迎对四条 PRD 流程、管理器、证据链、模板和文档进行改进。
-当前文档对应版本：`7.0.0`。
+当前文档对应版本：`7.0.1`。
 
 ## 分支策略
 
@@ -62,6 +62,10 @@ python3 scripts/validate_repo.py
 python3 scripts/validate_runtime_routing.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
+
+本地开发机首次使用时执行 `git config core.hooksPath .githooks`。之后提交包含
+`VERSION` 的变更会自动更新并暂存 Codex 插件 cachebuster，提交后会刷新本机
+个人市场中的 PM Copilot 插件缓存。
 
 ## Pull Request 清单
 

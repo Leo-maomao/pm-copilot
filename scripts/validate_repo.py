@@ -20,6 +20,7 @@ REQUIRED_FILES = (
     "scripts/validate_outputs.py", "scripts/prd_visual_contract.py",
     "scripts/validate_agent_trace.py", "scripts/collect_implemented_feature_evidence.py", "scripts/generate_reconstructed_figure.py",
     "scripts/capture_frontend_figure.py", "scripts/specialist_dispatch.py", "scripts/prd_manager.py",
+    "scripts/refresh_codex_plugin.py", ".githooks/pre-commit", ".githooks/post-commit",
     "tools/prd-manager/index.html", "tools/prd-manager/app.js", "tools/prd-manager/app.css",
     "tools/prd-manager/logo.svg",
     "plugins/pm-copilot/.codex-plugin/plugin.json",

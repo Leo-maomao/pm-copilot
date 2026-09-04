@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.0.1 - 2026-09-04
+
+- Restored the local Codex plugin release hook without restoring a copied
+  global runtime: version commits refresh the plugin cachebuster and reinstall
+  the personal-marketplace plugin from the repository checkout.
+
 ## 7.0.0 - 2026-09-04
 
 - Reduced PM Copilot to four PRD workflows: new PRD, implemented-feature PRD,

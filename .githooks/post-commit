@@ -1,0 +1,6 @@
+#!/bin/sh
+
+repo_root="$(git rev-parse --show-toplevel)" || exit 0
+python3 "$repo_root/scripts/refresh_codex_plugin.py" --if-head-changed || \
+  printf '%s\n' 'PM Copilot plugin refresh failed; run scripts/refresh_codex_plugin.py manually.' >&2
+exit 0

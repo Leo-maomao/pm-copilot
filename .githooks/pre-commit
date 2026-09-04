@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+if git diff --cached --name-only | grep -Fxq VERSION; then
+  repo_root="$(git rev-parse --show-toplevel)"
+  python3 "$repo_root/scripts/sync_plugin_version.py"
+  git add "$repo_root/plugins/pm-copilot/.codex-plugin/plugin.json"
+fi
