@@ -1,0 +1,145 @@
+cycle_id: "2026-09-04-prd-delivery-transport-and-lineage"
+date: "2026-09-04"
+goal: "Make PRD delivery reliable across new, in-place revision, and extract-to-new requests without treating remote stream state or an old staged file as delivery evidence."
+practice_source:
+  source_type: "user_feedback"
+  source_run_id: "not_available"
+  source_output_folder: ""
+  user_corrections:
+    - "Fix the general delivery failure rather than adding a scenario-specific patch."
+    - "Prefer work that can run locally; external transport must not block ordinary PRD work."
+  delivery_check_report: "Repeated delivery retries exposed stream disconnects, stale staging state, and ambiguous source lineage."
+  artifacts_reviewed:
+    - "run-log.yaml"
+    - "prd.md"
+    - "prd.html"
+observed_corrections:
+  - correction: "Remote Agent completion text, idle state, and target-file existence are insufficient promotion evidence."
+    affected_artifact: "PRD staging workspace"
+    evidence: "A trace Agent could reconnect or stop while the controller still reviewed an unchanged earlier run log."
+    severity: "High"
+  - correction: "A natural-language PRD request must preserve its delivery lineage: create, revise in place, or extract into a new document."
+    affected_artifact: "run-log.yaml"
+    evidence: "Source snapshots, revision scope, and implementation evidence previously had no single deterministic validation boundary."
+    severity: "High"
+generalized_failures:
+  - failure_code: "transport_state_mistaken_for_artifact_commit"
+    generalized_symptom: "A detached transport can disconnect, reconnect, or report idle independently of whether its assigned staged artifact changed."
+    host_specific_details_removed: true
+    reusable_rule: "Promotion requires a post-dispatch content hash change inside the controller-owned staging workspace and a terminal, attributable execution result."
+  - failure_code: "prd_lineage_not_verifiable"
+    generalized_symptom: "Different request intents can converge on a PRD without immutable evidence of their source and scope."
+    host_specific_details_removed: true
+    reusable_rule: "New, in-place, and extraction deliveries require different validated lineage records before final validation."
+input_cases:
+  - eval_case: "controller-staging-integrity"
+    run_id: "not_available"
+    context_mode: "user_feedback"
+    output_folder: ""
+scenario_portfolio:
+  context_mode: "mixed"
+  product_type: "other"
+  pm_task_type: "prd"
+  risk_profile: "operations"
+  platform: "non_ui"
+  pm_user_maturity: "senior_pm"
+artifact_expectations:
+  prd: true
+  ui_delivery: false
+  tracking_plan: false
+  dev_tasks: false
+  launch_decision: false
+  pre_clarification_only: false
+generalization_boundary:
+  reference_projects_are_fixtures: true
+  host_specific_terms_allowed_only_in:
+    - "outputs/<run-id>/"
+    - "fixture-scoped eval case"
+  host_specific_terms_must_not_enter:
+    - "PM_COPILOT.md"
+    - "README*.md"
+    - "workflow/"
+    - "prompts/"
+    - "agents/"
+    - "skills/"
+    - "templates/"
+    - "tools/"
+    - "artifacts/"
+    - "guardrails/"
+    - "docs/"
+    - "context/*.example.yaml"
+baseline:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures:
+    - "Stream reconnection could leave a controller unable to distinguish a real staged write from an old artifact."
+results:
+  generated_artifacts: []
+  validation_commands:
+    - "Focused runtime, controller, trace, output, and integrity regressions"
+    - "python3 scripts/validate_runtime_routing.py"
+    - "python3 scripts/validate_repo.py"
+  validation_reports: []
+  review_scores:
+    delivery: null
+    prd: null
+    metrics_tracking: null
+    ui_delivery: null
+    delivery_review: null
+failure_classification:
+  - failure_code: "transport_state_mistaken_for_artifact_commit"
+    severity: "High"
+    area: "runtime-delivery"
+    symptom: "A remote stream failure can race with staging and promotion."
+    evidence: "Controller and validator regressions cover disconnected streams, wrong-directory writes, stale targets, and post-stop convergence."
+    first_surface_to_fix: "runtime"
+  - failure_code: "prd_lineage_not_verifiable"
+    severity: "High"
+    area: "delivery-contract"
+    symptom: "A PRD delivery could not always prove whether it was new, a scoped revision, or an extraction."
+    evidence: "Lineage validation and controller input regressions cover all three paths."
+    first_surface_to_fix: "validator"
+fixes:
+  - path: "scripts/agent_runtime.py"
+    change: "Use direct local runtime readiness for ordinary Codex stages; bound and isolate Seawork transport failures before fallback."
+    rationale: "A control-plane stream is no longer a prerequisite for normal local artifact work."
+    fix_surface: "agent"
+  - path: "scripts/run_interactive_request.py"
+    change: "Validate staging changes, deterministic trace materialization, delivery inputs, source snapshots, revision selectors, and implementation evidence."
+    rationale: "The controller owns artifact proof and does not infer it from Agent narration."
+    fix_surface: "workflow"
+  - path: "scripts/validate_agent_trace.py"
+    change: "Validate the source lineage and durable evidence required by each PRD delivery mode."
+    rationale: "Final validation rejects an incorrect or ambiguous delivery path."
+    fix_surface: "validator"
+  - path: "scripts/validate_outputs.py"
+    change: "Apply the same structured lineage gate during output validation."
+    rationale: "Output checks and trace checks cannot disagree about delivery provenance."
+    fix_surface: "validator"
+regression_updates:
+  evals_added_or_updated: []
+  validators_added_or_updated:
+    - "scripts/test_agent_runtime.py"
+    - "scripts/test_run_interactive_request.py"
+    - "scripts/test_prd_request_controller.py"
+    - "scripts/test_validate_agent_trace.py"
+    - "scripts/test_validate_outputs.py"
+    - "scripts/test_prd_generation_integrity.py"
+versioning:
+  previous_version: "6.2.100"
+  new_version: "6.2.101"
+  changelog_updated: true
+sync:
+  embedded_copies_checked:
+    - "Repository checkout is the current PM Copilot source of truth."
+  embedded_copies_updated: []
+  skipped_targets:
+    - path: "global PM Copilot runtime copy"
+      reason: "Synchronize only after repository validation, plugin version sync, commit, and push succeed."
+after:
+  scorecard_report: ""
+  validation_pass_rate: null
+  high_severity_failures: []
+decision:
+  status: "improved"
+  next_action: "Run a real PRD update after the release is installed; any remaining failure must retain the exact staged artifact and attributable terminal result."

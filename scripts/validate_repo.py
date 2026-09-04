@@ -196,6 +196,14 @@ REFERENCE_FIXTURE_ALLOWED_PREFIXES = (
     "outputs/",
 )
 
+# These files are generated only in an installed runtime, not authored source.
+# They legitimately record the local installation root, so exempt them from
+# this one source-fixture leakage scan without weakening the other validators.
+RUNTIME_INSTALLATION_METADATA = frozenset({
+    "install-state.json",
+    "install-manifest.json",
+})
+
 LOCAL_MACHINE_PATH_RE = re.compile(
     r"(?<![A-Za-z0-9_])"
     r"("
@@ -1052,6 +1060,8 @@ def check_reference_fixture_boundary() -> None:
             continue
         relative_path = path.relative_to(ROOT).as_posix()
         if relative_path.startswith(REFERENCE_FIXTURE_ALLOWED_PREFIXES):
+            continue
+        if relative_path in RUNTIME_INSTALLATION_METADATA:
             continue
         try:
             text = path.read_text(encoding="utf-8")

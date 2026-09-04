@@ -106,6 +106,17 @@ deliveries use the highest-judgment model. Independent stage reviews always
 use the highest-judgment model. Deterministic rendering and validation do not
 call a model.
 
+For ordinary single-Agent work, prefer the ready local CLI for the active
+model family. A Seawork-backed Codex session alone is not a reason to launch a
+Seawork Agent: its daemon, control plane, background watchers, and stream
+bridge add failure and latency modes that do not improve a normal artifact or
+review stage. Use Seawork only when the task actually needs its detached
+multi-Agent scheduler/verifier contract, an operator explicitly requires it,
+or the selected model is unavailable through the matching direct CLI. Record
+the capability that justified that external route. When its control plane is
+unhealthy, do not repeatedly retry it; use the verified matching direct CLI
+where safe and retain the fallback provenance.
+
 A validator-identified artifact repair may escalate from the standard model to
 the highest-judgment model once. It must record the failure category, upgrade
 source, and selection reason. Repeating the same model after no progress is

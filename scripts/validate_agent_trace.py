@@ -4,11 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
+
+import yaml
 
 from agent_event_ledger import validate_file as validate_event_ledger
 from implemented_feature_contract import (
@@ -57,6 +61,26 @@ TERMINATION_STATUSES = {
     "degraded",
     "failed",
 }
+
+PRD_TRACE_TASK_MODES = {"prd_delivery", "implemented_feature_prd"}
+NEW_LINEAGE_MODES = {"new", "new_run", "replacement_run"}
+EXTRACTION_LINEAGE_MODES = {"extract_to_new", "extraction_run"}
+IN_PLACE_LINEAGE_MODE = "in_place_revision"
+SOURCE_LINEAGE_FIELDS = (
+    "source_snapshot_path",
+    "source_prd_display_name",
+    "source_prd_sha256",
+    "selected_source_scope",
+    "source_scope_resolution",
+)
+IMPLEMENTED_EVIDENCE_PACKET_PATH = Path("source-material") / "implemented-feature-evidence.json"
+NUMERIC_REQUIREMENT_RANGE_RE = re.compile(
+    r"(?<![\d.])(\d+)\.(\d+)\s*(?:-|~|–|—|至|到|to|through|until)\s*(\d+)\.(\d+)(?![\d.])",
+    re.IGNORECASE,
+)
+SOURCE_REQUIREMENT_ID_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-])(?:\d+(?:\.\d+)+|[A-Za-z][A-Za-z0-9_]*-\d+)(?![A-Za-z0-9_.-])"
+)
 
 REQUIRED_TRACE_SECTIONS = (
     "agent_strategy",
@@ -366,6 +390,697 @@ def has_local_result_file(run_log: Path, result_ref: str) -> bool:
     return candidate.is_file() and candidate.stat().st_size > 0
 
 
+def _load_trace_mapping(text: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Parse the trace once for provenance checks that cannot trust regexes."""
+    try:
+        trace = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None, "run-log.yaml must be valid YAML to validate artifact lineage"
+    if not isinstance(trace, dict):
+        return None, "run-log.yaml must contain a YAML mapping to validate artifact lineage"
+    return trace, None
+
+
+def _mapping_value(mapping: dict[str, Any], key: str) -> dict[str, Any]:
+    value = mapping.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _trace_task_mode(trace: dict[str, Any]) -> str:
+    value = _mapping_value(trace, "agent_strategy").get("task_mode")
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _requires_lineage_from_text(text: str) -> bool:
+    """Keep non-PRD legacy traces compatible while rejecting malformed PRD logs."""
+    return bool(
+        re.search(
+            r"^\s*task_mode:\s*(?:prd_delivery|implemented_feature_prd)\s*(?:#.*)?$",
+            text,
+            re.MULTILINE,
+        )
+        or re.search(r"^artifact_lineage:\s*$", text, re.MULTILINE)
+    )
+
+
+def _nonempty_string_list(value: Any) -> list[str] | None:
+    if not isinstance(value, list):
+        return None
+    if any(not isinstance(item, str) or not item.strip() for item in value):
+        return None
+    return [item.strip() for item in value]
+
+
+def _unique_string_list(value: Any, *, allow_empty: bool = True) -> list[str] | None:
+    """Return a deterministic string list without silently accepting aliases."""
+    values = _nonempty_string_list(value)
+    if values is None or (not allow_empty and not values):
+        return None
+    if len(values) != len(set(values)):
+        return None
+    return values
+
+
+def _normalise_source_selector(value: str) -> str:
+    """Normalize a human selector without treating unrelated request text as proof."""
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return re.sub(r"[^\w\u3400-\u9fff]+", "", normalized)
+
+
+def _snapshot_requirement_ids(source_text: str) -> list[str]:
+    """Read stable requirement identifiers from source headings and table rows."""
+    candidates: list[str] = []
+    for line in source_text.splitlines():
+        if not re.match(r"\s*(?:#{1,6}\s+|\|)", line):
+            continue
+        candidates.extend(SOURCE_REQUIREMENT_ID_RE.findall(line))
+    return list(dict.fromkeys(candidates))
+
+
+def _snapshot_headings(source_text: str) -> list[tuple[str, str]]:
+    """Return both full and identifier-free headings for verified source lookup."""
+    headings: list[tuple[str, str]] = []
+    for raw_heading in re.findall(r"(?m)^#{1,6}\s+(.+?)\s*$", source_text):
+        heading = raw_heading.strip()
+        without_identifier = re.sub(
+            r"^(?:(?:需求|requirement)\s*)?(?:\d+(?:\.\d+)+|[A-Za-z][A-Za-z0-9_-]*-\d+)[.、:：\-\s]*",
+            "",
+            heading,
+            flags=re.IGNORECASE,
+        ).strip()
+        for candidate in (heading, without_identifier):
+            normalized = _normalise_source_selector(candidate)
+            if normalized:
+                headings.append((normalized, heading))
+    return headings
+
+
+def _snapshot_text_spans(source_text: str) -> list[str]:
+    """Collect source prose fragments usable as a uniquely cited extraction scope."""
+    spans: list[str] = []
+    for line in source_text.splitlines():
+        if re.match(r"\s*#{1,6}\s+", line):
+            continue
+        cleaned = re.sub(r"^\s*(?:[-*+]\s+|\|\s*)", "", line).strip(" |\t")
+        for fragment in re.split(r"[。！？!?；;]+", cleaned):
+            normalized = _normalise_source_selector(fragment)
+            if normalized:
+                spans.append(normalized)
+    return spans
+
+
+def _is_substantive_source_selector(selector: str) -> bool:
+    """Do not accept generic fragments as a durable source boundary."""
+    cjk_count = len(re.findall(r"[\u3400-\u9fff]", selector))
+    latin_words = re.findall(r"[a-z0-9]+", selector, flags=re.IGNORECASE)
+    return cjk_count >= 3 or len("".join(latin_words)) >= 8 or len(latin_words) >= 2
+
+
+def _resolve_extraction_scope(
+    source_text: str, selected_scope: Sequence[str],
+) -> tuple[list[dict[str, object]], str | None]:
+    """Independently resolve each persisted selector against immutable source bytes.
+
+    The controller may already have resolved the scope before delivery, but a
+    final validator must repeat that work from the staged snapshot.  A selector
+    is valid only when it names existing IDs, one heading, or one substantive
+    source fragment; unknown and ambiguous selectors are delivery blockers.
+    """
+    source_ids = set(_snapshot_requirement_ids(source_text))
+    headings = _snapshot_headings(source_text)
+    text_spans = _snapshot_text_spans(source_text)
+    resolutions: list[dict[str, object]] = []
+
+    for raw_selector in selected_scope:
+        selector = str(raw_selector).strip()
+        normalized = _normalise_source_selector(selector)
+        if not normalized:
+            return [], "contains an empty selector"
+
+        ranges = list(NUMERIC_REQUIREMENT_RANGE_RE.finditer(selector))
+        if ranges:
+            for match in ranges:
+                start_major, start_minor, end_major, end_minor = map(int, match.groups())
+                if start_major != end_major or start_minor > end_minor:
+                    return [], f"has an invalid requirement-ID range: {selector}"
+                expected = [f"{start_major}.{minor}" for minor in range(start_minor, end_minor + 1)]
+                missing = [item for item in expected if item not in source_ids]
+                if missing:
+                    return [], f"references IDs absent from the source snapshot: {', '.join(missing)}"
+                resolutions.append({
+                    "selector": selector,
+                    "kind": "requirement_id_range",
+                    "matches": expected,
+                })
+            continue
+
+        selected_ids = list(dict.fromkeys(SOURCE_REQUIREMENT_ID_RE.findall(selector)))
+        if selected_ids:
+            unknown = [item for item in selected_ids if item not in source_ids]
+            if unknown:
+                return [], f"references IDs absent from the source snapshot: {', '.join(unknown)}"
+            resolutions.append({
+                "selector": selector,
+                "kind": "requirement_id",
+                "matches": selected_ids,
+            })
+            continue
+
+        matched_headings = {
+            original for candidate, original in headings if candidate and candidate in normalized
+        }
+        if len(matched_headings) == 1:
+            resolutions.append({
+                "selector": selector,
+                "kind": "heading",
+                "matches": sorted(matched_headings),
+            })
+            continue
+        if len(matched_headings) > 1:
+            return [], f"matches multiple source headings: {selector}"
+
+        if _is_substantive_source_selector(selector):
+            matched_spans = [
+                span for span in text_spans
+                if normalized in span or (len(span) >= 8 and span in normalized)
+            ]
+            if len(matched_spans) == 1:
+                resolutions.append({
+                    "selector": selector,
+                    "kind": "source_text",
+                    "matches": sorted(set(matched_spans)),
+                })
+                continue
+            if len(matched_spans) > 1:
+                return [], f"matches multiple source text locations: {selector}"
+
+        return [], f"cannot be uniquely resolved against the source snapshot: {selector}"
+    return resolutions, None
+
+
+def _validate_extraction_resolution_evidence(
+    snapshot: Path,
+    selected_scope: list[str],
+    evidence: Any,
+    failures: list[str],
+) -> None:
+    """Require trace resolution evidence to agree with a fresh snapshot lookup."""
+    try:
+        expected, problem = _resolve_extraction_scope(
+            snapshot.read_text(encoding="utf-8"), selected_scope,
+        )
+    except (OSError, UnicodeError):
+        failures.append("extraction source_snapshot_path must remain readable during scope validation")
+        return
+    if problem:
+        failures.append(f"extraction selected_source_scope {problem}")
+        return
+    if not isinstance(evidence, list) or len(evidence) != len(expected):
+        failures.append(
+            "extraction lineage requires source_scope_resolution for every selected_source_scope item"
+        )
+        return
+    for index, (actual, expected_item) in enumerate(zip(evidence, expected), start=1):
+        if not isinstance(actual, dict):
+            failures.append(f"extraction source_scope_resolution item {index} must be a mapping")
+            continue
+        actual_selector = actual.get("selector")
+        actual_kind = actual.get("kind")
+        actual_matches = _unique_string_list(actual.get("matches"), allow_empty=False)
+        if (
+            actual_selector != expected_item["selector"]
+            or actual_kind != expected_item["kind"]
+            or actual_matches != expected_item["matches"]
+        ):
+            failures.append(
+                "extraction source_scope_resolution must exactly match the immutable source snapshot"
+            )
+
+
+def _current_prd_requirement_ids(run_log: Path) -> set[str]:
+    """Read the final staged/canonical requirement IDs without trusting trace prose."""
+    prd_path = run_log.parent / "prd.md"
+    if not prd_path.is_file():
+        return set()
+    try:
+        return set(_snapshot_requirement_ids(prd_path.read_text(encoding="utf-8")))
+    except (OSError, UnicodeError):
+        return set()
+
+
+def _safe_run_file(
+    run_log: Path,
+    value: Any,
+    field: str,
+    failures: list[str],
+) -> Path | None:
+    if not isinstance(value, str) or not value.strip():
+        failures.append(f"artifact_lineage.{field} must name a non-empty relative file path")
+        return None
+    relative = Path(value)
+    if relative.is_absolute():
+        failures.append(f"artifact_lineage.{field} must stay inside the run folder")
+        return None
+    try:
+        candidate = (run_log.parent / relative).resolve()
+        candidate.relative_to(run_log.parent.resolve())
+    except ValueError:
+        failures.append(f"artifact_lineage.{field} must stay inside the run folder")
+        return None
+    if not candidate.is_file():
+        failures.append(f"artifact_lineage.{field} must reference an existing file inside the run folder")
+        return None
+    return candidate
+
+
+def _value_is_present(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return bool(value)
+    return value is not None
+
+
+def _source_provenance_is_present(lineage: dict[str, Any]) -> bool:
+    if any(_value_is_present(lineage.get(field)) for field in SOURCE_LINEAGE_FIELDS):
+        return True
+    historical = lineage.get("historical_artifacts")
+    if not isinstance(historical, list):
+        return False
+    return any(
+        isinstance(item, dict)
+        and item.get("role") == "user_provided_input"
+        and item.get("excluded_from_current_facts") is False
+        for item in historical
+    )
+
+
+def _validate_revision_evidence(
+    evidence_path: Path,
+    revised_requirement_ids: list[str],
+    deleted_requirement_ids: list[str],
+    final_requirement_ids: set[str],
+    failures: list[str],
+) -> None:
+    """Bind revision scope, baseline, and explicit deletions to final PRD bytes."""
+    if evidence_path.suffix.lower() != ".json":
+        failures.append("in_place_revision revision evidence must be JSON")
+        return
+    try:
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        failures.append("in_place_revision revision evidence JSON must be readable")
+        return
+    if not isinstance(evidence, dict) or evidence.get("mode") != IN_PLACE_LINEAGE_MODE:
+        failures.append("in_place_revision revision evidence must record mode: in_place_revision")
+        return
+    recorded_scope = _unique_string_list(evidence.get("controller_scope_ids"), allow_empty=False)
+    if recorded_scope is None or set(recorded_scope) != set(revised_requirement_ids):
+        failures.append(
+            "in_place_revision revision evidence controller_scope_ids must match revised_requirement_ids"
+        )
+    recorded_deleted = _unique_string_list(evidence.get("deleted_requirement_ids"))
+    if recorded_deleted is None or set(recorded_deleted) != set(deleted_requirement_ids):
+        failures.append(
+            "in_place_revision revision evidence deleted_requirement_ids must match artifact_lineage"
+        )
+    baseline_ids = _unique_string_list(evidence.get("baseline_requirement_ids"), allow_empty=False)
+    if baseline_ids is None:
+        failures.append("in_place_revision revision evidence requires baseline_requirement_ids")
+        return
+    baseline_set = set(baseline_ids)
+    revised_set = set(revised_requirement_ids)
+    deleted_set = set(deleted_requirement_ids)
+    if not revised_set <= baseline_set:
+        failures.append(
+            "in_place_revision revised_requirement_ids must be present in revision evidence baseline_requirement_ids"
+        )
+    if not deleted_set <= revised_set:
+        failures.append("in_place_revision deleted_requirement_ids must be a subset of revised_requirement_ids")
+    if not deleted_set <= baseline_set:
+        failures.append("in_place_revision deleted_requirement_ids must be present in the revision baseline")
+    if deleted_set & final_requirement_ids:
+        failures.append("in_place_revision deleted_requirement_ids must be absent from the final PRD")
+    remaining_ids = revised_set - deleted_set
+    missing_remaining = sorted(remaining_ids - final_requirement_ids)
+    if missing_remaining:
+        failures.append(
+            "in_place_revision non-deleted revised_requirement_ids must exist in the final PRD: "
+            + ", ".join(missing_remaining)
+        )
+
+
+def validate_artifact_lineage(
+    run_log: Path,
+    text: str | None = None,
+    task_mode: str | None = None,
+) -> list[str]:
+    """Validate the durable source relationship of a PRD delivery trace.
+
+    A PRD can be created from scratch, revised in place, or extracted from a
+    prior document. Those paths have different proof requirements, and a
+    model-written status line is not sufficient evidence for any of them.
+    """
+    text = text if text is not None else run_log.read_text(encoding="utf-8")
+    trace, parse_failure = _load_trace_mapping(text)
+    if trace is None:
+        return [parse_failure] if parse_failure and _requires_lineage_from_text(text) else []
+
+    trace_task_mode = _trace_task_mode(trace)
+    effective_task_mode = trace_task_mode or (task_mode or "")
+    lineage_value = trace.get("artifact_lineage")
+    has_lineage = isinstance(lineage_value, dict)
+    if effective_task_mode not in PRD_TRACE_TASK_MODES and not has_lineage:
+        return []
+
+    failures: list[str] = []
+    if effective_task_mode not in PRD_TRACE_TASK_MODES:
+        failures.append("artifact_lineage is only valid for a PRD delivery task_mode")
+        return failures
+    if task_mode and trace_task_mode and task_mode != trace_task_mode:
+        failures.append("artifact_lineage task_mode does not match agent_strategy.task_mode")
+    if not has_lineage:
+        return [*failures, "PRD delivery requires an artifact_lineage mapping"]
+    lineage = lineage_value
+
+    resume = _mapping_value(trace, "resume_checkpoint")
+    resume_task_mode = resume.get("task_mode")
+    if not isinstance(resume_task_mode, str) or resume_task_mode.strip() != effective_task_mode:
+        failures.append(
+            "artifact_lineage requires resume_checkpoint.task_mode to match agent_strategy.task_mode"
+        )
+
+    mode = lineage.get("mode")
+    if not isinstance(mode, str) or not mode.strip():
+        return [*failures, "artifact_lineage.mode must identify new, in-place, or extraction delivery"]
+    mode = mode.strip()
+
+    if mode in NEW_LINEAGE_MODES:
+        if lineage.get("output_folder_reset") is not True:
+            failures.append("new PRD lineage requires output_folder_reset: true")
+        if any(
+            _value_is_present(lineage.get(field))
+            for field in (
+                "target_prd_path",
+                "target_html_path",
+                "revision_evidence_path",
+                "revised_requirement_ids",
+                "deleted_requirement_ids",
+            )
+        ):
+            failures.append("new PRD lineage must not claim in-place revision targets or revision evidence")
+        # Delivery semantics come from durable source provenance, not a word in
+        # a request such as "extract", which may describe ordinary drafting.
+        if _source_provenance_is_present(lineage):
+            failures.append(
+                "source-backed extraction must use artifact_lineage.mode: extraction_run, not new_run"
+            )
+        return failures
+
+    if mode == IN_PLACE_LINEAGE_MODE:
+        if lineage.get("output_folder_reset") is not False:
+            failures.append("in_place_revision requires output_folder_reset: false")
+        _safe_run_file(run_log, lineage.get("target_prd_path"), "target_prd_path", failures)
+        _safe_run_file(run_log, lineage.get("target_html_path"), "target_html_path", failures)
+        evidence = _safe_run_file(
+            run_log,
+            lineage.get("revision_evidence_path"),
+            "revision_evidence_path",
+            failures,
+        )
+        revised_requirement_ids = _unique_string_list(
+            lineage.get("revised_requirement_ids"), allow_empty=False,
+        )
+        if not revised_requirement_ids:
+            failures.append("in_place_revision requires non-empty revised_requirement_ids")
+            revised_requirement_ids = []
+        deleted_requirement_ids = _unique_string_list(lineage.get("deleted_requirement_ids"))
+        if deleted_requirement_ids is None:
+            failures.append("in_place_revision requires deleted_requirement_ids as a unique list")
+            deleted_requirement_ids = []
+        elif not set(deleted_requirement_ids) <= set(revised_requirement_ids):
+            failures.append("in_place_revision deleted_requirement_ids must be a subset of revised_requirement_ids")
+        if _source_provenance_is_present(lineage):
+            failures.append("in_place_revision must not mix extraction source provenance into its lineage")
+        historical = lineage.get("historical_artifacts")
+        if not isinstance(historical, list) or not any(
+            isinstance(item, dict)
+            and item.get("path") == lineage.get("target_prd_path")
+            and item.get("role") == "comparison_only"
+            and item.get("excluded_from_current_facts") is True
+            for item in historical
+        ):
+            failures.append(
+                "in_place_revision requires historical_artifacts comparison evidence for target_prd_path"
+            )
+        if evidence is not None and revised_requirement_ids:
+            _validate_revision_evidence(
+                evidence,
+                revised_requirement_ids,
+                deleted_requirement_ids,
+                _current_prd_requirement_ids(run_log),
+                failures,
+            )
+        return failures
+
+    if mode in EXTRACTION_LINEAGE_MODES:
+        if lineage.get("output_folder_reset") is not True:
+            failures.append("extraction lineage requires output_folder_reset: true")
+        snapshot = _safe_run_file(
+            run_log,
+            lineage.get("source_snapshot_path"),
+            "source_snapshot_path",
+            failures,
+        )
+        display_name = lineage.get("source_prd_display_name")
+        if not isinstance(display_name, str) or not display_name.strip():
+            failures.append("extraction lineage requires source_prd_display_name")
+        declared_digest = lineage.get("source_prd_sha256")
+        if not isinstance(declared_digest, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", declared_digest):
+            failures.append("extraction lineage requires a valid source_prd_sha256")
+        elif snapshot is not None:
+            protected_artifacts = {
+                run_log.resolve(),
+                (run_log.parent / "prd.md").resolve(),
+                (run_log.parent / "prd.html").resolve(),
+            }
+            if snapshot in protected_artifacts:
+                failures.append(
+                    "extraction source_snapshot_path must be distinct from current delivery artifacts"
+                )
+            try:
+                actual_digest = hashlib.sha256(snapshot.read_bytes()).hexdigest()
+            except OSError:
+                failures.append("extraction source_snapshot_path must remain readable during validation")
+            else:
+                if actual_digest.lower() != declared_digest.lower():
+                    failures.append("extraction source_prd_sha256 does not match the source snapshot")
+        selected_scope = _unique_string_list(lineage.get("selected_source_scope"), allow_empty=False)
+        if not selected_scope:
+            failures.append("extraction lineage requires a non-empty selected_source_scope list")
+        elif snapshot is not None:
+            _validate_extraction_resolution_evidence(
+                snapshot,
+                selected_scope,
+                lineage.get("source_scope_resolution"),
+                failures,
+            )
+        if any(
+            _value_is_present(lineage.get(field))
+            for field in (
+                "target_prd_path",
+                "target_html_path",
+                "revision_evidence_path",
+                "revised_requirement_ids",
+                "deleted_requirement_ids",
+            )
+        ):
+            failures.append("extraction lineage must not claim in-place revision targets or revision evidence")
+        context = _mapping_value(trace, "context")
+        if context.get("source_mode") != "document-backed":
+            failures.append("extraction lineage requires context.source_mode: document-backed")
+        product_documents = _nonempty_string_list(context.get("product_documents_loaded"))
+        source_path = lineage.get("source_snapshot_path")
+        if product_documents is None or source_path not in product_documents:
+            failures.append(
+                "extraction lineage requires context.product_documents_loaded to include source_snapshot_path"
+            )
+        historical = lineage.get("historical_artifacts")
+        if not isinstance(historical, list) or not any(
+            isinstance(item, dict)
+            and item.get("path") == source_path
+            and item.get("role") == "user_provided_input"
+            and item.get("excluded_from_current_facts") is False
+            for item in historical
+        ):
+            failures.append(
+                "extraction lineage requires historical_artifacts user_provided_input evidence for source_snapshot_path"
+            )
+        return failures
+
+    failures.append(
+        "artifact_lineage.mode must be one of: new_run, in_place_revision, extraction_run"
+    )
+    return failures
+
+
+def _safe_trace_file(
+    run_log: Path,
+    value: Any,
+    field: str,
+    failures: list[str],
+) -> Path | None:
+    """Resolve a trace-owned file while rejecting path traversal and symlink escapes."""
+    if not isinstance(value, str) or not value.strip():
+        failures.append(f"{field} must name a non-empty relative file path")
+        return None
+    relative = Path(value)
+    if relative.is_absolute():
+        failures.append(f"{field} must stay inside the run folder")
+        return None
+    try:
+        candidate = (run_log.parent / relative).resolve()
+        candidate.relative_to(run_log.parent.resolve())
+    except ValueError:
+        failures.append(f"{field} must stay inside the run folder")
+        return None
+    if not candidate.is_file():
+        failures.append(f"{field} must reference an existing file inside the run folder")
+        return None
+    return candidate
+
+
+def _packet_result_refs(value: Any, failures: list[str]) -> list[str]:
+    """Read result references from the immutable JSON packet, not trace prose."""
+    refs: list[str] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, dict):
+            for key, child in item.items():
+                if key == "result_ref":
+                    if not isinstance(child, str) or not child.strip():
+                        failures.append("implemented-feature evidence packet contains an empty result_ref")
+                    else:
+                        refs.append(child.strip())
+                else:
+                    visit(child)
+        elif isinstance(item, list):
+            for child in item:
+                visit(child)
+
+    visit(value)
+    return list(dict.fromkeys(refs))
+
+
+def validate_implemented_feature_evidence_packet(
+    run_log: Path,
+    text: str | None = None,
+    task_mode: str | None = None,
+) -> list[str]:
+    """Verify portable implemented-feature evidence against the current workspace.
+
+    Evidence packets are controller-owned, immutable inputs.  The final trace
+    cannot merely repeat a path and hash: it must point to the canonical packet,
+    match its exact bytes, retain every packet-declared local result, and expose
+    the same behavior evidence that the packet contains.
+    """
+    text = text if text is not None else run_log.read_text(encoding="utf-8")
+    trace, parse_failure = _load_trace_mapping(text)
+    if trace is None:
+        return [parse_failure] if parse_failure and _requires_lineage_from_text(text) else []
+    effective_task_mode = _trace_task_mode(trace) or (task_mode or "")
+    if effective_task_mode != "implemented_feature_prd":
+        return []
+
+    failures: list[str] = []
+    implemented = trace.get("implemented_feature_prd")
+    if not isinstance(implemented, dict):
+        return ["implemented_feature_prd task_mode requires an implemented_feature_prd evidence mapping"]
+    evidence_packet = implemented.get("evidence_packet")
+    if not isinstance(evidence_packet, dict):
+        return ["implemented_feature_prd requires an evidence_packet mapping"]
+
+    expected_path = IMPLEMENTED_EVIDENCE_PACKET_PATH.as_posix()
+    packet_path = evidence_packet.get("path")
+    if packet_path != expected_path:
+        failures.append(
+            "implemented_feature_prd evidence_packet.path must be " + expected_path
+        )
+    packet = _safe_trace_file(
+        run_log,
+        packet_path,
+        "implemented_feature_prd.evidence_packet.path",
+        failures,
+    )
+    declared_digest = evidence_packet.get("sha256")
+    if not isinstance(declared_digest, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", declared_digest):
+        failures.append("implemented_feature_prd evidence_packet.sha256 must be a valid SHA-256")
+    elif packet is not None:
+        try:
+            actual_digest = hashlib.sha256(packet.read_bytes()).hexdigest()
+        except OSError:
+            failures.append("implemented_feature_prd evidence_packet must remain readable during validation")
+        else:
+            if actual_digest.lower() != declared_digest.lower():
+                failures.append(
+                    "implemented_feature_prd evidence_packet.sha256 does not match the referenced packet"
+                )
+
+    packet_payload: dict[str, Any] | None = None
+    if packet is not None:
+        try:
+            loaded_packet = json.loads(packet.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            failures.append("implemented_feature_prd evidence_packet must contain readable JSON")
+        else:
+            if not isinstance(loaded_packet, dict):
+                failures.append("implemented_feature_prd evidence_packet JSON must be an object")
+            else:
+                packet_payload = loaded_packet
+
+    imported_refs = _unique_string_list(evidence_packet.get("imported_result_refs"))
+    if imported_refs is None:
+        failures.append("implemented_feature_prd evidence_packet.imported_result_refs must be a unique list")
+        imported_refs = []
+
+    if packet_payload is None:
+        return failures
+    for key, packet_value in packet_payload.items():
+        if implemented.get(key) != packet_value:
+            failures.append(
+                "implemented_feature_prd evidence must match the immutable evidence_packet contents"
+            )
+            break
+
+    packet_refs = _packet_result_refs(packet_payload, failures)
+    if imported_refs != packet_refs:
+        failures.append(
+            "implemented_feature_prd evidence_packet.imported_result_refs must match packet result_ref values"
+        )
+    root = run_log.parent.resolve()
+    for result_ref in imported_refs:
+        relative = Path(result_ref)
+        if relative.is_absolute():
+            failures.append("implemented-feature evidence result_ref must stay inside the run folder")
+            continue
+        try:
+            candidate = (root / relative).resolve()
+            portable = candidate.relative_to(root)
+        except ValueError:
+            failures.append("implemented-feature evidence result_ref must stay inside the run folder")
+            continue
+        if portable.parts[:2] != ("tool-results", "implemented-evidence"):
+            failures.append(
+                "implemented-feature evidence result_ref must be under tool-results/implemented-evidence/"
+            )
+            continue
+        if not candidate.is_file() or candidate.stat().st_size <= 0:
+            failures.append(
+                "implemented-feature evidence result_ref must reference a non-empty staged file"
+            )
+    return failures
+
+
 def validate_visual_capture_capability(run_log: Path, implemented: str) -> list[str]:
     visual_coverage = mapping_item_blocks(
         nested_section_text(implemented, "screenshots_and_placeholders"),
@@ -429,6 +1144,7 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
         failures.append("implemented_feature_prd task_mode requires implemented_feature_prd.active: true")
     if scalar_value(implemented, "mode") not in {"implemented_feature_prd", "implemented_feature_prd_review"}:
         failures.append("implemented_feature_prd task_mode requires a matching implemented_feature_prd.mode")
+    failures.extend(validate_artifact_lineage(run_log, text, task_mode))
 
     current_run = run_log.parent.name
     task_body = section_text(text, "task")
@@ -440,20 +1156,6 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
 
     lineage = section_text(text, "artifact_lineage")
     lineage_mode = scalar_value(lineage, "mode")
-    if lineage_mode not in {"new_run", "replacement_run", "in_place_revision"}:
-        failures.append("implemented-feature PRD requires artifact_lineage.mode")
-    if "historical_artifacts:" not in lineage:
-        failures.append("implemented-feature PRD requires artifact_lineage.historical_artifacts")
-    if lineage_mode == "in_place_revision":
-        target_prd = scalar_value(lineage, "target_prd_path")
-        target_html = scalar_value(lineage, "target_html_path")
-        revision_evidence = scalar_value(lineage, "revision_evidence_path")
-        if not target_prd or not target_html or not revision_evidence:
-            failures.append("in_place_revision requires target PRD, target HTML, and revision evidence paths")
-        elif not (run_log.parent / revision_evidence).is_file():
-            failures.append("in_place_revision revision evidence path must exist inside the run folder")
-    elif boolean_value(lineage, "output_folder_reset") is not True:
-        failures.append("implemented-feature PRD requires output_folder_reset: true")
 
     prd_path = run_log.parent / "prd.md"
     requirement_ids = set()
@@ -469,7 +1171,7 @@ def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mo
             if match:
                 requirement_bodies[requirement_id] = match.group("body")
     covered_requirement_ids = requirement_ids
-    if lineage_mode == "in_place_revision":
+    if lineage_mode == IN_PLACE_LINEAGE_MODE:
         revised_ids = set(list_field_values(lineage, "revised_requirement_ids"))
         if not revised_ids:
             failures.append("in_place_revision requires artifact_lineage.revised_requirement_ids")
@@ -648,7 +1350,11 @@ def validate_run_log(run_log: Path) -> dict[str, Any]:
                 f"{RUNTIME_VERSION}, got {reported_version or '<empty>'}"
             )
 
-    failures.extend(validate_implemented_feature_prd_integrity(run_log, text, task_mode))
+    if task_mode == "implemented_feature_prd":
+        failures.extend(validate_implemented_feature_prd_integrity(run_log, text, task_mode))
+        failures.extend(validate_implemented_feature_evidence_packet(run_log, text, task_mode))
+    else:
+        failures.extend(validate_artifact_lineage(run_log, text, task_mode))
 
     for field in STRICT_REQUIRED_FIELDS:
         if field in {"success_criteria", "selected_path"}:

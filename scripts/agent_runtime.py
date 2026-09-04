@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import select
 import signal
 import shutil
 import subprocess
@@ -30,6 +31,7 @@ from runtime_limits import (
 EXECUTABLE_PROVIDERS = (
     "seawork", "seawork-claude", "codex", "claude", "qwen", "kimi", "qoder", "codebuddy",
 )
+SEAWORK_TRANSPORT_PROVIDERS = frozenset({"seawork", "seawork-claude"})
 CANDIDATE_TOOLS = ("gemini", "aider", "opencode", "cursor-agent", "trae", "comate")
 SECRET_PATTERN = re.compile(
     r"(?i)(?P<label>api[_ -]?key|token|password)\s*[:=]\s*[^\s,;]+"
@@ -48,6 +50,24 @@ STAGE_TARGET_PATTERN = re.compile(
 FIRST_ARTIFACT_SECONDS = 30
 POST_ARTIFACT_GRACE_SECONDS = 5
 SEAWORK_CONTROL_PLANE_FAILURE_LIMIT = 2
+# A transport failure normally means the local Seawork control plane is not a
+# useful path for the next stage either. Keep the breaker process-local and
+# short-lived so a recovered daemon is probed again without carrying a stale
+# failure into a later controller invocation.
+SEAWORK_CIRCUIT_BREAKER_SECONDS = 90
+_SEAWORK_CIRCUIT_OPEN_UNTIL = 0.0
+# Per-agent inspection must fail promptly. A stalled control-plane query is
+# neither evidence of a model mismatch nor a reason to consume a full stage.
+SEAWORK_AGENT_INSPECT_TIMEOUT_SECONDS = 5
+# Reusing a known-healthy daemon probe avoids repeated process startup during
+# a burst of stage dispatches. Agent records and model catalogs are never
+# cached, so an Agent state or model change is always observed directly.
+SEAWORK_HEALTH_CACHE_SECONDS = 2.0
+SEAWORK_CONTROL_PLANE_FAILURE_PREFIX = "could not query Agent state:"
+_SEAWORK_HEALTH_CACHE: tuple[str, float, str] | None = None
+ACTIVE_MODEL_CACHE_SECONDS = 30.0
+_DIRECT_CODEX_MODEL_CACHE: dict[str, tuple[str, float, str]] = {}
+_SEAWORK_ACTIVE_MODEL_CACHE: dict[str, tuple[str, float]] = {}
 
 
 @dataclass(frozen=True)
@@ -80,16 +100,36 @@ def _run(
     stderr_file.close()
     stdout_handle = stdout_path.open("w", encoding="utf-8")
     stderr_handle = stderr_path.open("w", encoding="utf-8")
-    process = subprocess.Popen(
-        list(command), cwd=str(cwd) if cwd else None, text=True,
-        stdin=subprocess.DEVNULL,
-        stdout=stdout_handle, stderr=stderr_handle, start_new_session=True, env=env,
-    )
+    def wait_for_exit(wait_seconds: float) -> bool:
+        """Poll without ``time.sleep`` so an interrupt cannot abort cleanup."""
+        wait_deadline = time.monotonic() + wait_seconds
+        while process.poll() is None and time.monotonic() < wait_deadline:
+            select.select([], [], [], min(0.05, max(0.0, wait_deadline - time.monotonic())))
+        return process.poll() is not None
+
+    try:
+        process = subprocess.Popen(
+            list(command), cwd=str(cwd) if cwd else None, text=True,
+            stdin=subprocess.DEVNULL,
+            stdout=stdout_handle, stderr=stderr_handle, start_new_session=True, env=env,
+        )
+    except BaseException:
+        # Failed short-lived probes are common when a local runtime is being
+        # restarted. They must not leak two descriptors and their temporary
+        # output files on every failed attempt.
+        stdout_handle.close()
+        stderr_handle.close()
+        stdout_path.unlink(missing_ok=True)
+        stderr_path.unlink(missing_ok=True)
+        raise
     stdout_handle.close()
     stderr_handle.close()
     timed_out = False
     deadline = time.monotonic() + timeout
-    progress_deadline = time.monotonic() + no_progress_timeout if progress_path and no_progress_timeout else None
+    progress_deadline = (
+        time.monotonic() + max(0, no_progress_timeout)
+        if progress_path and no_progress_timeout is not None else None
+    )
     post_progress_deadline: float | None = None
     observed_progress = False
     try:
@@ -102,7 +142,13 @@ def _run(
             ):
                 if not observed_progress:
                     observed_progress = True
-                    post_progress_deadline = time.monotonic() + POST_ARTIFACT_GRACE_SECONDS
+                    # Content stages deliberately disable the first-write
+                    # watchdog. In that mode a durable first write is useful
+                    # progress, not permission to cut the Agent off five
+                    # seconds later; the caller's full stage deadline remains
+                    # the only execution bound.
+                    if no_progress_timeout is not None:
+                        post_progress_deadline = time.monotonic() + POST_ARTIFACT_GRACE_SECONDS
             if progress_deadline is not None and not observed_progress and time.monotonic() >= progress_deadline:
                 timed_out = True
                 break
@@ -118,13 +164,20 @@ def _run(
             os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
+        if not wait_for_exit(2):
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+            if not wait_for_exit(2):
+                # The caller still receives its interrupt promptly, but make a
+                # final parent-only kill attempt so Popen cannot be discarded
+                # while its process remains alive.
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                wait_for_exit(1)
         raise
     if process.poll() is None:
         timed_out = True
@@ -146,12 +199,29 @@ def _run(
             kill_deadline = time.monotonic() + 2
             while process.poll() is None and time.monotonic() < kill_deadline:
                 time.sleep(0.05)
+        if process.poll() is None:
+            # A detached child can survive an unavailable group leader on
+            # some platforms. Bound one final wait on the direct process so
+            # timeout handling never leaks a live Popen object.
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
     stdout = stdout_path.read_text(encoding="utf-8", errors="replace")
     stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
     stdout_path.unlink(missing_ok=True)
     stderr_path.unlink(missing_ok=True)
     if timed_out:
-        raise subprocess.TimeoutExpired(list(command), timeout, output=stdout, stderr=stderr)
+        timeout_error = subprocess.TimeoutExpired(list(command), timeout, output=stdout, stderr=stderr)
+        # Callers must not start a second writer in the same workspace unless
+        # this local process has actually exited. ``TimeoutExpired`` supports
+        # dynamic attributes and keeps the public exception contract intact.
+        timeout_error.cleanup_blocked = process.poll() is None  # type: ignore[attr-defined]
+        raise timeout_error
     return subprocess.CompletedProcess(list(command), process.returncode, stdout, stderr)
 
 
@@ -269,56 +339,101 @@ def _which(name: str) -> str | None:
     return shutil.which(name)
 
 
-def _probe(command: Sequence[str], executable: str) -> tuple[bool, str]:
+def _probe(command: Sequence[str], executable: str, timeout: int = 15) -> tuple[bool, str]:
     try:
-        result = _run(command)
+        result = _run(command, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as error:
         return False, str(error)
     detail = _clean(result.stdout or result.stderr)
     return result.returncode == 0, detail
 
 
-def discover_runtimes() -> list[RuntimeStatus]:
-    """Return only verified executable providers plus safely detected candidates."""
+def _seawork_daemon_health(executable: str) -> tuple[bool, str]:
+    """Return a very short-lived healthy daemon observation.
+
+    Only a positive health result is cached. A degraded daemon is always
+    re-probed so recovery is visible on the next dispatch, while per-Agent
+    status and model data remain uncached for exact attribution.
+    """
+    global _SEAWORK_HEALTH_CACHE
+    now = time.monotonic()
+    cached = _SEAWORK_HEALTH_CACHE
+    if cached is not None:
+        cached_executable, observed_at, detail = cached
+        age = now - observed_at
+        if cached_executable == executable and 0 <= age < SEAWORK_HEALTH_CACHE_SECONDS:
+            return True, detail
+    ready, detail = _probe([executable, "status"], executable, timeout=5)
+    connected = ready and bool(re.search(r"Connected Daemon\s+reachable", detail))
+    if connected:
+        # The probe itself can take longer than the cache TTL. Timestamp the
+        # observation after it completes so the next stage can actually reuse
+        # the successful health result instead of immediately probing again.
+        _SEAWORK_HEALTH_CACHE = (executable, time.monotonic(), detail)
+    else:
+        _SEAWORK_HEALTH_CACHE = None
+    return connected, detail
+
+
+def discover_runtimes(providers: Sequence[str] | None = None) -> list[RuntimeStatus]:
+    """Return verified runtimes, optionally probing only explicit providers.
+
+    An explicit direct CLI request must not start an unrelated Seawork daemon
+    probe. Besides reducing latency, that keeps a degraded external scheduler
+    from becoming a dependency of a normal local Codex stage.
+    """
     statuses: list[RuntimeStatus] = []
+    requested = set(providers) if providers is not None else None
 
-    seawork = _which("seawork")
-    if not seawork:
-        statuses.append(RuntimeStatus("seawork", None, "unavailable", True, True, True, "CLI not found"))
-    else:
-        ready, detail = _probe([seawork, "status"], seawork)
-        connected = bool(re.search(r"Connected Daemon\s+reachable", detail))
-        seawork_status = RuntimeStatus(
-            "seawork", seawork, "ready" if ready and connected else "degraded",
-            True, True, True,
-            "local daemon reachable" if ready and connected else (detail or "daemon probe failed"),
-        )
-        statuses.append(seawork_status)
-        statuses.append(RuntimeStatus(
-            "seawork-claude", seawork, seawork_status.status,
-            True, True, True,
-            "Seawork-managed Claude runtime" if seawork_status.status == "ready" else seawork_status.detail,
-        ))
+    def includes(provider: str) -> bool:
+        return requested is None or provider in requested
 
-    codex = _which("codex")
-    if not codex:
-        statuses.append(RuntimeStatus("codex", None, "unavailable", False, True, False, "CLI not found"))
-    else:
-        ready, detail = _probe([codex, "exec", "--help"], codex)
-        statuses.append(RuntimeStatus(
-            "codex", codex, "ready" if ready else "degraded", False, True, False,
-            "non-interactive exec available" if ready else (detail or "exec probe failed"),
-        ))
+    if includes("seawork") or includes("seawork-claude"):
+        seawork = _which("seawork")
+        if not seawork:
+            seawork_status = RuntimeStatus("seawork", None, "unavailable", True, True, True, "CLI not found")
+        elif _seawork_circuit_remaining() > 0:
+            seawork_status = RuntimeStatus(
+                "seawork", seawork, "degraded", True, True, True,
+                "Seawork transport circuit is temporarily open; control-plane probing is suppressed",
+            )
+        else:
+            connected, detail = _seawork_daemon_health(seawork)
+            seawork_status = RuntimeStatus(
+                "seawork", seawork, "ready" if connected else "degraded",
+                True, True, True,
+                "local daemon reachable" if connected else (detail or "daemon probe failed"),
+            )
+        if includes("seawork"):
+            statuses.append(seawork_status)
+        if includes("seawork-claude"):
+            statuses.append(RuntimeStatus(
+                "seawork-claude", seawork_status.executable, seawork_status.status,
+                True, True, True,
+                "Seawork-managed Claude runtime" if seawork_status.status == "ready" else seawork_status.detail,
+            ))
 
-    claude = _which("claude")
-    if not claude:
-        statuses.append(RuntimeStatus("claude", None, "unavailable", False, True, False, "CLI not found"))
-    else:
-        ready, detail = _probe([claude, "-p", "--help"], claude)
-        statuses.append(RuntimeStatus(
-            "claude", claude, "ready" if ready else "degraded", False, True, False,
-            "non-interactive print mode available" if ready else (detail or "print probe failed"),
-        ))
+    if includes("codex"):
+        codex = _which("codex")
+        if not codex:
+            statuses.append(RuntimeStatus("codex", None, "unavailable", False, True, False, "CLI not found"))
+        else:
+            ready, detail = _probe([codex, "exec", "--help"], codex)
+            statuses.append(RuntimeStatus(
+                "codex", codex, "ready" if ready else "degraded", False, True, False,
+                "non-interactive exec available" if ready else (detail or "exec probe failed"),
+            ))
+
+    if includes("claude"):
+        claude = _which("claude")
+        if not claude:
+            statuses.append(RuntimeStatus("claude", None, "unavailable", False, True, False, "CLI not found"))
+        else:
+            ready, detail = _probe([claude, "-p", "--help"], claude)
+            statuses.append(RuntimeStatus(
+                "claude", claude, "ready" if ready else "degraded", False, True, False,
+                "non-interactive print mode available" if ready else (detail or "print probe failed"),
+            ))
 
     for provider, executable_name, help_command, detail in (
         ("qwen", "qwen", ["--help"], "Qwen Code headless prompt mode available"),
@@ -326,6 +441,8 @@ def discover_runtimes() -> list[RuntimeStatus]:
         ("qoder", "qodercli", ["--help"], "Qoder CLI headless prompt mode available"),
         ("codebuddy", "codebuddy", ["--help"], "CodeBuddy Code print mode available"),
     ):
+        if not includes(provider):
+            continue
         executable = _which(executable_name)
         if not executable:
             statuses.append(RuntimeStatus(provider, None, "unavailable", False, True, False, "CLI not found"))
@@ -337,6 +454,8 @@ def discover_runtimes() -> list[RuntimeStatus]:
         ))
 
     for name in CANDIDATE_TOOLS:
+        if not includes(name):
+            continue
         executable = _which(name)
         statuses.append(RuntimeStatus(
             name, executable, "detected_unverified" if executable else "unavailable", False, False, False,
@@ -366,28 +485,130 @@ def _parent_commands(limit: int = 8) -> list[str]:
     return commands
 
 
+def _direct_codex_model(value: str | None) -> str | None:
+    """Normalize a model only when it can be passed to the direct Codex CLI."""
+    candidate = str(value or "").strip()
+    if candidate.startswith("codex/"):
+        candidate = candidate.split("/", 1)[1]
+    return candidate if candidate and "/" not in candidate else None
+
+
+def _model_provider_family(value: str | None) -> str | None:
+    """Return an explicit model's provider family without inventing one."""
+    candidate = str(value or "").strip()
+    if "/" not in candidate:
+        return None
+    provider, _, model_name = candidate.partition("/")
+    return provider.lower() if provider and model_name else None
+
+
+def _model_for_runtime(provider: str, model: str | None) -> str | None:
+    """Keep provider-qualified IDs at the boundary that understands them."""
+    if not model:
+        return None
+    if provider == "codex":
+        direct_model = _direct_codex_model(model)
+        if not direct_model:
+            raise RuntimeError(
+                f"model '{model}' is not compatible with the direct Codex CLI; "
+                "select Seawork explicitly for a non-Codex model"
+            )
+        return direct_model
+    family = _model_provider_family(model)
+    if family == provider:
+        return str(model).split("/", 1)[1]
+    return model
+
+
+def _cached_direct_codex_model(cwd: Path) -> tuple[str | None, str]:
+    cached = _DIRECT_CODEX_MODEL_CACHE.get(str(cwd.resolve()))
+    if cached is None:
+        return None, ""
+    model, observed_at, source = cached
+    if 0 <= time.monotonic() - observed_at < ACTIVE_MODEL_CACHE_SECONDS:
+        return model, source
+    _DIRECT_CODEX_MODEL_CACHE.pop(str(cwd.resolve()), None)
+    return None, ""
+
+
+def _remember_direct_codex_model(cwd: Path, model: str | None, source: str) -> None:
+    direct_model = _direct_codex_model(model)
+    if direct_model:
+        _DIRECT_CODEX_MODEL_CACHE[str(cwd.resolve())] = (direct_model, time.monotonic(), source)
+
+
+def _declared_direct_codex_model(cwd: Path) -> str | None:
+    """Use a local declared Codex model without consulting Seawork."""
+    catalog, _warnings = discover_model_catalog("codex", cwd)
+    selection = select_model("standard", "codex", catalog)
+    return _direct_codex_model(selection.option.model if selection.option else None)
+
+
+def _cached_seawork_model(cwd: Path) -> str | None:
+    cached = _SEAWORK_ACTIVE_MODEL_CACHE.get(str(cwd.resolve()))
+    if cached is None:
+        return None
+    model, observed_at = cached
+    if 0 <= time.monotonic() - observed_at < ACTIVE_MODEL_CACHE_SECONDS:
+        return model
+    _SEAWORK_ACTIVE_MODEL_CACHE.pop(str(cwd.resolve()), None)
+    return None
+
+
+def _remember_seawork_model(cwd: Path, model: str | None) -> None:
+    value = str(model or "").strip()
+    if value and "/" in value:
+        _SEAWORK_ACTIVE_MODEL_CACHE[str(cwd.resolve())] = (value, time.monotonic())
+
+
+def _ready_direct_codex_runtime() -> RuntimeStatus | None:
+    """Check direct Codex without touching the Seawork control plane."""
+    executable = _which("codex")
+    if not executable:
+        return None
+    ready, detail = _probe([executable, "exec", "--help"], executable)
+    if not ready:
+        return None
+    return RuntimeStatus(
+        "codex", executable, "ready", False, True, False,
+        "non-interactive exec available",
+    )
+
+
 def active_runtime(cwd: Path | None = None) -> ActiveRuntime:
     """Infer the active host/model from the process tree and matching Seawork agent."""
     commands = "\n".join(_parent_commands())
     seawork_provider = re.search(r'X-Seawork-Agent-Provider"="([^" ]+)', commands)
     if seawork_provider or 'model_provider="seawork"' in commands:
-        model = None
-        seawork = _which("seawork")
-        if seawork:
-            try:
-                result = _run([seawork, "ls", "--json"], timeout=8)
-                agents = json.loads(result.stdout) if result.returncode == 0 else []
-                target = str((cwd or Path.cwd()).resolve())
-                matches = [
-                    agent for agent in agents
-                    if str(agent.get("cwd", "")).replace("~", str(Path.home()), 1) == target
-                    and agent.get("status") == "running"
-                ]
-                if len(matches) == 1:
-                    model = str(matches[0].get("provider") or "") or None
-            except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
-                pass
-        return ActiveRuntime("seawork", model, "current Seawork-backed host session")
+        target = (cwd or Path.cwd()).resolve()
+        declared_model = seawork_provider.group(1).strip() if seawork_provider else ""
+        if "/" in declared_model:
+            _remember_seawork_model(target, declared_model)
+            return ActiveRuntime("seawork", declared_model, "current Seawork-backed host session declared its model")
+        cached_direct, direct_source = _cached_direct_codex_model(target)
+        if cached_direct and _ready_direct_codex_runtime() is not None:
+            return ActiveRuntime("codex", cached_direct, f"{direct_source} direct Codex model cache")
+        direct_model = _declared_direct_codex_model(target)
+        if direct_model and _ready_direct_codex_runtime() is not None:
+            return ActiveRuntime("codex", direct_model, "locally declared direct Codex model")
+        cached_seawork = _cached_seawork_model(target)
+        if cached_seawork:
+            return ActiveRuntime("seawork", cached_seawork, "short-lived Seawork model cache")
+        if _seawork_circuit_remaining() > 0:
+            return ActiveRuntime(
+                "seawork", None,
+                "Seawork transport circuit is open; control-plane model lookup is suppressed",
+            )
+        # A full daemon listing is neither a stable model-attribution source
+        # nor a cheap health check. It can block ordinary local dispatch for
+        # seconds while the daemon is reconnecting, so only an explicit parent
+        # signal, a fresh cache, or the configured direct runtime may select a
+        # model here. A later dispatch will either use its catalog or ask for
+        # an explicit model instead of guessing from unrelated Agents.
+        return ActiveRuntime(
+            "seawork", None,
+            "current Seawork-backed host session; no attributable model declaration",
+        )
     for provider, executable_name, label in (
         ("claude", "claude", "Claude"),
         ("codex", "codex", "Codex"),
@@ -414,9 +635,16 @@ def runtime_capabilities(cwd: Path | None = None) -> dict[str, object]:
     except RuntimeError as error:
         single_status, selected_provider, selection_reason = "unavailable", None, str(error)
     seawork = statuses.get("seawork")
-    model_options, model_warnings = discover_model_catalog(
-        selected_provider or (context.runtime or "codex"), cwd,
-    )
+    catalog_provider = selected_provider or (context.runtime or "codex")
+    # Model discovery is itself a Seawork control-plane call. The breaker must
+    # cover that path too; otherwise a harmless capability query recreates the
+    # same stalled provider/models traffic the dispatcher just suppressed.
+    if catalog_provider in {"seawork", "seawork-claude"} and _seawork_circuit_remaining() > 0:
+        model_options, model_warnings = [], [
+            "Seawork model discovery is temporarily suppressed while its transport circuit is open"
+        ]
+    else:
+        model_options, model_warnings = discover_model_catalog(catalog_provider, cwd)
     return {
         "active_runtime": asdict(context),
         "single_agent_auto": {
@@ -429,7 +657,7 @@ def runtime_capabilities(cwd: Path | None = None) -> dict[str, object]:
             "reason": "Seawork daemon reachable" if seawork and seawork.status == "ready" else "Seawork worker/verifier loop requires a reachable daemon",
         },
         "model_catalog": {
-            "provider": selected_provider or context.runtime or "codex",
+            "provider": catalog_provider,
             "models": [item.model for item in model_options if item.model],
             "capabilities": [
                 {"model": item.model, "provider": item.provider, "capabilities": sorted(item.capabilities), "source": item.source}
@@ -441,8 +669,14 @@ def runtime_capabilities(cwd: Path | None = None) -> dict[str, object]:
 
 
 def select_runtime(requested: str = "auto", cwd: Path | None = None) -> RuntimeStatus:
-    statuses = {status.provider: status for status in discover_runtimes()}
+    cwd = (cwd or Path.cwd()).resolve()
     if requested != "auto":
+        if requested in SEAWORK_TRANSPORT_PROVIDERS and _seawork_circuit_remaining() > 0:
+            raise RuntimeError("Seawork transport circuit is temporarily open; control-plane probing is suppressed")
+        # An explicit provider is an operator-selected local route. Probe only
+        # that executable rather than turning a normal Codex stage into a
+        # Seawork daemon health check.
+        statuses = {status.provider: status for status in discover_runtimes((requested,))}
         status = statuses.get(requested)
         if not status or status.status != "ready":
             detail = status.detail if status else "unknown provider"
@@ -451,6 +685,27 @@ def select_runtime(requested: str = "auto", cwd: Path | None = None) -> RuntimeS
             raise RuntimeError(f"runtime '{requested}' is detected but has no stable headless adapter")
         return status
     active = active_runtime(cwd)
+    if active.runtime == "codex":
+        direct_codex = _ready_direct_codex_runtime()
+        if direct_codex is not None:
+            return direct_codex
+        if _seawork_circuit_remaining() > 0:
+            raise RuntimeError("direct Codex is not ready while Seawork transport circuit is open")
+    if active.runtime == "seawork" and (active.model or "").startswith("codex/"):
+        direct_codex = _ready_direct_codex_runtime()
+        if direct_codex is not None:
+            return direct_codex
+    if active.runtime == "seawork" and _seawork_circuit_remaining() > 0:
+        direct_codex = _ready_direct_codex_runtime()
+        if direct_codex is not None:
+            return direct_codex
+        raise RuntimeError("Seawork transport circuit is temporarily open; control-plane probing is suppressed")
+    statuses = {status.provider: status for status in discover_runtimes()}
+    # Ordinary PM stages do not need Seawork's scheduler when its active Agent
+    # is already backed by the same Codex family. Prefer the direct CLI, whose
+    # isolated execution avoids Seawork control-plane, metadata, and plugin
+    # startup overhead. Explicit ``--provider seawork`` and execute_loop keep
+    # their operator-requested orchestration behavior above.
     if active.runtime and statuses.get(active.runtime) and statuses[active.runtime].status == "ready":
         return statuses[active.runtime]
     if active.runtime == "seawork" and active.model and "/" in active.model:
@@ -569,23 +824,74 @@ def _agent_id(value: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _seawork_inspected_record(payload: Any, agent_id: str) -> dict[str, Any] | None:
+    """Extract exactly the requested Agent record from inspect JSON."""
+    candidates: list[Any] = []
+    if isinstance(payload, dict):
+        candidates.extend([payload, payload.get("agent"), payload.get("data")])
+    elif isinstance(payload, list):
+        # Older Seawork releases returned a one-element list for inspect.
+        # Accept it only when it contains the exact requested ID.
+        candidates.extend(payload)
+    for candidate in candidates:
+        if isinstance(candidate, dict) and str(candidate.get("id", "")) == agent_id:
+            return candidate
+    return None
+
+
+def _seawork_missing_agent(detail: str) -> bool:
+    """Distinguish an explicit deleted Agent from a broken control plane."""
+    normalized = detail.lower()
+    return "agent_not_found" in normalized or "agent not found" in normalized
+
+
+def _seawork_control_plane_failure(detail: str) -> bool:
+    return detail.startswith(SEAWORK_CONTROL_PLANE_FAILURE_PREFIX)
+
+
+def _is_seawork_transport(provider: str | None) -> bool:
+    """Return whether a runtime shares Seawork's daemon and stream bridge."""
+    return str(provider or "") in SEAWORK_TRANSPORT_PROVIDERS
+
+
 def _seawork_agent_record(executable: str, agent_id: str) -> tuple[dict[str, Any] | None, str]:
     """Read the daemon's record for an attributable Agent ID."""
     try:
-        listed = _run([executable, "ls", "--json"], timeout=15)
-        agents = json.loads(listed.stdout or "[]") if listed.returncode == 0 else []
-    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+        inspected = _run(
+            [executable, "inspect", agent_id, "--json"],
+            timeout=SEAWORK_AGENT_INSPECT_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
         return None, f"could not query Agent state: {error}"
-    agent = next((item for item in agents if item.get("id") == agent_id), None)
-    return agent if isinstance(agent, dict) else None, str(agent.get("status", "missing")) if isinstance(agent, dict) else "missing"
+    detail = _clean((inspected.stdout or "") + "\n" + (inspected.stderr or ""), 1000)
+    if inspected.returncode != 0:
+        if _seawork_missing_agent(detail):
+            return None, "missing"
+        return None, f"could not query Agent state: {detail or f'inspect exited {inspected.returncode}'}"
+    try:
+        payload = json.loads(inspected.stdout or "")
+    except json.JSONDecodeError as error:
+        return None, f"could not query Agent state: malformed inspect JSON ({error.msg})"
+    agent = _seawork_inspected_record(payload, agent_id)
+    if agent is None:
+        return None, "could not query Agent state: inspect response did not contain the requested Agent"
+    status = str(agent.get("status", "")).strip()
+    if not status:
+        return None, "could not query Agent state: inspect response omitted Agent status"
+    return agent, status.lower()
 
 
 def _seawork_agent_is_terminal(executable: str, agent_id: str) -> tuple[bool, str]:
-    """Accept only an explicit terminal state; stale or missing state is unsafe."""
+    """Accept explicit terminal states, including a confirmed deleted Agent."""
     _, status = _seawork_agent_record(executable, agent_id)
     # Seawork keeps completed tasks as reusable records with status ``idle``.
     # An idle task has no active execution and is safe to clean up around.
-    return status in {"completed", "complete", "closed", "failed", "error", "interrupted", "stopped", "archived", "idle"}, status
+    # ``missing`` is safe only because _seawork_agent_record maps an explicit
+    # agent_not_found response to it. Malformed or unavailable inspect replies
+    # retain their control-plane failure text and therefore remain nonterminal.
+    return status in {
+        "completed", "complete", "closed", "failed", "error", "interrupted", "stopped", "archived", "idle", "missing",
+    }, status
 
 
 def _stage_target_from_command(command: Sequence[str]) -> Path | None:
@@ -620,6 +926,12 @@ def _poll_seawork_terminal(
     poll_interval = 1.0
     while True:
         _, last_state = _seawork_agent_record(executable, agent_id)
+        # A successful exact-ID lookup that says the Agent no longer exists is
+        # evidence that it cannot still write into this stage. Do not spend the
+        # remainder of the delivery budget treating absence as a transient
+        # running state.
+        if last_state == "missing":
+            return False, "missing"
         if last_state.startswith("could not query Agent state"):
             control_plane_failures += 1
             if control_plane_failures >= SEAWORK_CONTROL_PLANE_FAILURE_LIMIT:
@@ -650,23 +962,36 @@ def _execute_seawork(
     target = _stage_target_from_command(command)
     target_baseline = _artifact_digest(target) if target is not None else None
     detached = _seawork_detached_command(command)
+    result["launch_command"] = _portable_command(detached[:-1], cwd) + ["[PROMPT REDACTED]"]
     try:
         launch = _run(detached, cwd=cwd, timeout=30)
     except subprocess.TimeoutExpired:
+        # ``--detach`` may have reached the daemon even though the CLI's
+        # acknowledgement stream did not. With no attributable Agent ID there
+        # is no safe way to stop or exclude that writer, so never reuse this
+        # stage workspace for a direct fallback.
         result.update({
-            "status": "failed",
+            "status": "orphaned",
             "error": "Seawork did not acknowledge detached launch within 30 seconds",
-            "failure_category": "seawork_launch_error",
+            "failure_category": "seawork_launch_unconfirmed",
+            "cleanup_blocked": True,
+            "agent_state_after_stop": "unknown",
+            "launch_acknowledged": False,
         })
         return result
     launch_output = (launch.stdout or "") + "\n" + (launch.stderr or "")
     agent_id = _agent_id(launch_output)
-    result["launch_command"] = _portable_command(detached[:-1], cwd) + ["[PROMPT REDACTED]"]
     if launch.returncode != 0 or not agent_id:
         detail = _clean(launch.stderr or launch.stdout, 2000) or "Seawork detached launch did not return an Agent ID"
+        # A process exit or malformed acknowledgement does not prove that a
+        # detached daemon task was not created. Treat it as ambiguous until a
+        # future isolated retry rather than racing an unknown writer in place.
         result.update({
-            "status": "failed", "error": detail, "exit_code": launch.returncode,
-            "failure_category": "seawork_launch_error",
+            "status": "orphaned", "error": detail, "exit_code": launch.returncode,
+            "failure_category": "seawork_launch_unconfirmed",
+            "cleanup_blocked": True,
+            "agent_state_after_stop": "unknown",
+            "launch_acknowledged": False,
         })
         return result
     result["agent_id"] = agent_id
@@ -683,6 +1008,32 @@ def _execute_seawork(
     result["actual_model"] = actual_model or None
     if actual_model:
         result["model"] = actual_model
+    if _seawork_control_plane_failure(state):
+        # The launch returned an attributable ID, but a malformed or
+        # unavailable inspect response cannot prove either the model or the
+        # Agent's lifecycle. Do not mislabel it as a model mismatch or issue
+        # an unverified stop; the caller retains the ID for safe recovery.
+        result.update({
+            "status": "orphaned",
+            "error": f"Seawork control plane unavailable while verifying Agent {agent_id}: {state}",
+            "failure_category": "seawork_control_plane_unavailable",
+            "cleanup_blocked": True,
+            "agent_state_after_stop": state,
+        })
+        return result
+    if state == "missing":
+        # The daemon definitively no longer has this exact Agent record. This
+        # is a failed stage, never a successful one, but it is safe to leave
+        # the workspace and try a bounded local fallback because no detached
+        # writer remains to race it.
+        result.update({
+            "status": "failed",
+            "error": f"Seawork Agent {agent_id} disappeared before model verification",
+            "failure_category": "seawork_agent_missing",
+            "agent_state_after_stop": "missing",
+            "control_plane_terminal_state": "missing",
+        })
+        return result
     model_mismatch = (
         not record
         or (bool(explicit_model) and actual_model != expected_model)
@@ -741,6 +1092,15 @@ def _execute_seawork(
                 "error": "",
             })
             return result
+        if final_state == "missing":
+            result.update({
+                "status": "failed",
+                "error": f"Seawork Agent {agent_id} disappeared before terminal completion",
+                "failure_category": "seawork_agent_missing",
+                "agent_state_after_stop": "missing",
+                "control_plane_terminal_state": "missing",
+            })
+            return result
         stop_output = ""
         try:
             stopped = _run([executable, "stop", agent_id], cwd=cwd, timeout=30)
@@ -748,28 +1108,25 @@ def _execute_seawork(
         except (OSError, subprocess.TimeoutExpired) as stop_error:
             stop_output = f"stop command failed: {stop_error}"
         stopped_terminal, state = _seawork_agent_is_terminal(executable, agent_id)
-        if (
-            stopped_terminal
-            and state in {"completed", "complete", "closed", "idle"}
-            and _stage_artifact_updated(target, target_baseline)
-        ):
-            output = f"Agent {agent_id} wrote its target and reached terminal control-plane state {state} after stop."
-            result.update({
-                "status": "complete",
-                "exit_code": 0,
-                "completion_basis": "artifact_checkpoint_after_stop",
-                "control_plane_refresh_state": state,
-                "stop_evidence": stop_output,
-                "agent_state_after_stop": state,
-                "output": _clean(output, output_limit),
-                "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
-                "output_truncated": False,
-                "error": "",
-            })
-            return result
+        artifact_sha256_after_stop = _artifact_digest(target) if target is not None else None
+        artifact_changed_after_stop = bool(
+            target is not None
+            and _stage_artifact_written(target)
+            and artifact_sha256_after_stop != target_baseline
+        )
+        timeout_error = f"Agent exceeded {timeout_minutes} minute(s); control-plane state was {polled_state}"
+        if stopped_terminal:
+            timeout_error += f"; stop reached terminal control-plane state {state}"
+        if artifact_changed_after_stop:
+            # A write observed only after the controller had already timed
+            # out is not proof of a complete handoff. It can be a partial
+            # write interrupted by ``stop``. Keep the checkpoint as recovery
+            # evidence, but require a fresh attributable Agent call before
+            # any controller can promote bytes from this stage workspace.
+            timeout_error += "; staged artifact changed after stop and was not accepted as completion"
         result.update({
             "status": "timed_out" if stopped_terminal else "orphaned",
-            "error": f"Agent exceeded {timeout_minutes} minute(s); control-plane state was {polled_state}",
+            "error": timeout_error,
             "failure_category": (
                 "seawork_control_plane_timeout" if polled_state == "control_plane_unavailable"
                 else "agent_no_progress" if polled_state == "no_progress_before_first_artifact"
@@ -777,21 +1134,39 @@ def _execute_seawork(
             ),
             "stop_evidence": stop_output,
             "agent_state_after_stop": state,
+            "artifact_checkpoint": artifact_changed_after_stop,
+            "artifact_checkpoint_after_stop": artifact_changed_after_stop,
+            "artifact_sha256_after_stop": artifact_sha256_after_stop,
+            "artifact_baseline_sha256": target_baseline,
+            **({"control_plane_terminal_state": state} if stopped_terminal else {}),
             **({"cleanup_blocked": True} if not stopped_terminal else {}),
         })
         return result
     # Artifacts and daemon state are the evidence needed by the stage gate.
     # ``seawork wait`` only supplies conversational text and has repeatedly
     # leaked a detached CLI on macOS, so it must not govern execution.
+    successful_terminal = polled_state in {"completed", "complete", "closed", "idle"}
+    artifact_updated = _stage_artifact_updated(target, target_baseline) if target is not None else True
     output = f"Agent {agent_id} reached terminal control-plane state {polled_state}."
     result.update({
-        "status": "complete" if polled_state in {"completed", "complete", "closed", "idle"} else "failed",
-        "exit_code": 0 if polled_state in {"completed", "complete", "closed", "idle"} else 1,
+        "status": "complete" if successful_terminal and artifact_updated else "failed",
+        "exit_code": 0 if successful_terminal and artifact_updated else 1,
+        "control_plane_terminal_state": polled_state,
+        "artifact_checkpoint": artifact_updated,
         "output": _clean(output, output_limit),
         "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
         "output_truncated": False,
-        "error": "" if polled_state in {"completed", "complete", "closed", "idle"} else f"Agent terminal state: {polled_state}",
-        "failure_category": "seawork_agent_error" if polled_state == "error" else None,
+        "error": (
+            "" if successful_terminal and artifact_updated
+            else f"Agent reached terminal state {polled_state} without changing its promised artifact"
+            if successful_terminal
+            else f"Agent terminal state: {polled_state}"
+        ),
+        "failure_category": (
+            None if successful_terminal and artifact_updated
+            else "agent_no_progress" if successful_terminal
+            else "seawork_agent_error"
+        ),
     })
     return result
 
@@ -807,6 +1182,7 @@ def _requires_direct_codex_fallback(result: dict[str, Any]) -> bool:
         # can promote any fallback output.
         "agent_timeout",
         "seawork_agent_error",
+        "seawork_agent_missing",
         # Detached launch can stall before an Agent ID is returned. Treat it
         # as a transport failure so the next device-available model is tried.
         "seawork_launch_error",
@@ -818,15 +1194,349 @@ def _is_stream_disconnected(result: dict[str, Any]) -> bool:
     return "stream disconnected" in detail or "stream_disconnected" in detail
 
 
+def _seawork_circuit_remaining() -> float:
+    """Return the remaining local cooldown without persisting a stale failure."""
+    return max(0.0, _SEAWORK_CIRCUIT_OPEN_UNTIL - time.monotonic())
+
+
+def _open_seawork_circuit() -> float:
+    """Avoid repeating a known-bad local Seawork path for a bounded interval."""
+    global _SEAWORK_CIRCUIT_OPEN_UNTIL
+    _SEAWORK_CIRCUIT_OPEN_UNTIL = max(
+        _SEAWORK_CIRCUIT_OPEN_UNTIL,
+        time.monotonic() + SEAWORK_CIRCUIT_BREAKER_SECONDS,
+    )
+    return _seawork_circuit_remaining()
+
+
+def _close_seawork_circuit() -> None:
+    """Let a proven healthy Seawork stage immediately restore the normal path."""
+    global _SEAWORK_CIRCUIT_OPEN_UNTIL
+    _SEAWORK_CIRCUIT_OPEN_UNTIL = 0.0
+
+
+def _reset_seawork_circuit() -> None:
+    """Test-only reset for the process-local Seawork circuit breaker."""
+    global _SEAWORK_HEALTH_CACHE
+    _close_seawork_circuit()
+    _SEAWORK_HEALTH_CACHE = None
+    _DIRECT_CODEX_MODEL_CACHE.clear()
+    _SEAWORK_ACTIVE_MODEL_CACHE.clear()
+
+
+def _direct_codex_model_name(model: str | None) -> str | None:
+    """Translate a Seawork ``codex/<model>`` identifier for the Codex CLI."""
+    return _direct_codex_model(model)
+
+
+def _matching_ready_direct_codex(
+    cwd: Path, seawork_model: str | None,
+) -> tuple[str | None, str, list[str]]:
+    """Find an auditable direct-Codex route for the same or ready catalog model.
+
+    The Seawork-selected ``codex/<model>`` is itself evidence that the current
+    device exposed that model. When the direct Codex CLI is ready, pass that
+    same ID explicitly even if its local configuration catalog omits it; a
+    direct rejection remains a recorded fallback failure rather than a silent
+    model substitution. If dispatch failed before Seawork reported a model,
+    choose an actually declared direct-Codex catalog entry instead of turning
+    a transient control-plane failure into ``no_available_model``.
+    """
+    raw_model = str(seawork_model or "").strip()
+    # Only a provider-qualified Codex ID proves that an upstream Seawork model
+    # can be passed unchanged to the direct Codex CLI. An unqualified or
+    # non-Codex model must use the local catalog selection below.
+    direct_model = _direct_codex_model_name(raw_model) if raw_model.startswith("codex/") else None
+    if _ready_direct_codex_runtime() is None:
+        return None, "direct Codex CLI is not ready on this device", []
+    catalog, warnings = discover_model_catalog("codex", cwd)
+    eligible: list[tuple[int, str]] = []
+    for index, option in enumerate(catalog):
+        if option.provider != "codex" or not option.model:
+            continue
+        candidate = _direct_codex_model_name(option.model)
+        if not candidate or not {"standard", "judgment"}.intersection(option.capabilities):
+            continue
+        if direct_model and candidate == direct_model:
+            return direct_model, "direct-codex-catalog", warnings
+        # Prefer an explicit judgment capability, then the runtime-declared
+        # quality rank; retain catalog order as the final deterministic tie.
+        score = (
+            (1 if "judgment" in option.capabilities else 0) * 1_000_000
+            + option.quality_rank * 1_000
+            - index
+        )
+        eligible.append((score, candidate))
+    if direct_model:
+        return direct_model, "seawork-discovered-or-operator-selected", warnings
+    if eligible:
+        return max(eligible, key=lambda item: item[0])[1], "direct-codex-catalog", warnings
+    return None, "no ready direct Codex model is declared", warnings
+
+
+def _distinct_ready_direct_codex(
+    cwd: Path, excluded_model: str,
+) -> tuple[str | None, str, list[str]]:
+    """Choose one declared direct-Codex alternative without returning to Seawork."""
+    if _ready_direct_codex_runtime() is None:
+        return None, "direct Codex CLI is not ready on this device", []
+    catalog, warnings = discover_model_catalog("codex", cwd)
+    for option in catalog:
+        if option.provider != "codex" or not option.model:
+            continue
+        candidate = _direct_codex_model_name(option.model)
+        if not candidate or candidate == excluded_model:
+            continue
+        if not {"standard", "judgment"}.intersection(option.capabilities):
+            continue
+        return candidate, "direct-codex-catalog-distinct", warnings
+    return None, "no distinct ready direct Codex model is declared", warnings
+
+
+def _direct_model_rejected(result: dict[str, Any]) -> bool:
+    """Limit a second model attempt to explicit model-selection failures."""
+    if result.get("failure_category") == "no_available_model" or result.get("status") == "blocked":
+        return True
+    detail = " ".join(str(result.get(key, "")) for key in ("error", "output")).lower()
+    return "model" in detail and any(
+        marker in detail for marker in ("unavailable", "not found", "unsupported", "rejected", "not allowed")
+    )
+
+
+def _direct_model_retryable(result: dict[str, Any]) -> bool:
+    """Allow one distinct direct model after an infrastructure-level failure."""
+    if _direct_model_rejected(result) or _is_stream_disconnected(result):
+        return True
+    return result.get("failure_category") in {
+        "agent_no_output",
+        "agent_no_progress",
+        "agent_timeout",
+        "seawork_control_plane_timeout",
+        "seawork_launch_error",
+    }
+
+
+def _retry_distinct_direct_codex(
+    result: dict[str, Any], prompt: str, cwd: Path, timeout_minutes: int,
+    schema_path: str | None, output_limit: int, first_artifact_seconds: int | None,
+) -> dict[str, Any]:
+    """Retry one different local Codex model after a safe local failure."""
+    failed_model = _direct_codex_model(str(result.get("model") or ""))
+    if not failed_model or not _direct_model_retryable(result):
+        return result
+    alternate_model, source, warnings = _distinct_ready_direct_codex(cwd, failed_model)
+    if not alternate_model:
+        result["fallback_attempts"] = [{
+            "provider": "codex", "model": failed_model, "status": result.get("status"),
+            "reason": _clean(str(result.get("error", "")), 240),
+            "source": "initial-direct-dispatch",
+        }]
+        result["fallback_unavailable_reason"] = source
+        result["model_catalog_warnings"] = [
+            *list(result.get("model_catalog_warnings") or []), *warnings,
+        ]
+        return result
+    try:
+        alternate = execute(
+            "codex", prompt, cwd, timeout_minutes, alternate_model, schema_path, False,
+            output_limit, first_artifact_seconds, allow_transport_fallback=False,
+        )
+    except (OSError, RuntimeError) as error:
+        alternate = {
+            "provider": "codex", "model": alternate_model, "status": "unavailable", "error": str(error),
+        }
+    attempts = [
+        {
+            "provider": "codex", "model": failed_model, "status": result.get("status"),
+            "reason": _clean(str(result.get("error", "")), 240),
+            "source": "initial-direct-dispatch",
+        },
+        {
+            "provider": "codex", "model": alternate_model, "status": alternate.get("status"),
+            "reason": _clean(str(alternate.get("error", "")), 240), "source": source,
+        },
+    ]
+    if alternate.get("status") != "complete":
+        result["fallback_attempts"] = attempts
+        return result
+    alternate["fallback_used"] = True
+    alternate["fallback_selection_source"] = source
+    alternate["fallback_attempts"] = attempts
+    alternate["fallback_from"] = {
+        "provider": "codex", "model": result.get("model"),
+        "failure_category": result.get("failure_category"), "error": result.get("error"),
+    }
+    alternate["runtime_selection_reason"] = "distinct local Codex retry after a retryable direct failure"
+    return alternate
+
+
+def _seawork_failure_result(
+    model: str | None, failure_category: str, error: str,
+    *, provider: str = "seawork", transport_duration_seconds: float | None = None,
+) -> dict[str, Any]:
+    """Represent a pre-dispatch Seawork failure with the same audit shape as a stage failure."""
+    result: dict[str, Any] = {
+        "provider": provider,
+        "model": model,
+        "status": "blocked",
+        "failure_category": failure_category,
+        "error": error,
+        "output": "",
+        "runtime_selection_reason": "Seawork was unavailable before stage dispatch",
+        # This result is created before an Agent launch command is attempted,
+        # so a same-workspace local fallback cannot race an unknown writer.
+        "dispatch_proven_not_started": True,
+    }
+    if transport_duration_seconds is not None:
+        result["transport_duration_seconds"] = round(max(0.0, transport_duration_seconds), 3)
+    return result
+
+
+def _attempt_direct_codex_fallback(
+    seawork_result: dict[str, Any], prompt: str, cwd: Path, timeout_minutes: int,
+    schema_path: str | None, output_limit: int, first_artifact_seconds: int | None,
+) -> dict[str, Any]:
+    """Try the matching direct model, then one distinct retryable alternative."""
+    fallback_started = time.monotonic()
+    direct_model, selection_reason, catalog_warnings = _matching_ready_direct_codex(
+        cwd, str(seawork_result.get("model") or "") or None,
+    )
+    if not direct_model:
+        seawork_result["fallback_attempt"] = {
+            "provider": "codex",
+            "status": "unavailable",
+            "reason": selection_reason,
+            "model_catalog_warnings": catalog_warnings,
+            "fallback_duration_seconds": round(max(0.0, time.monotonic() - fallback_started), 3),
+        }
+        return seawork_result
+    attempts: list[dict[str, Any]] = []
+    try:
+        fallback = execute(
+            "codex", prompt, cwd, timeout_minutes, direct_model, schema_path, False,
+            output_limit, first_artifact_seconds, allow_transport_fallback=False,
+        )
+    except (OSError, RuntimeError) as error:
+        seawork_result["fallback_attempt"] = {
+            "provider": "codex", "model": direct_model, "status": "unavailable",
+            "reason": str(error), "model_catalog_warnings": catalog_warnings,
+            "fallback_duration_seconds": round(max(0.0, time.monotonic() - fallback_started), 3),
+        }
+        return seawork_result
+    first_attempt = {
+        "provider": "codex", "model": direct_model, "source": selection_reason,
+        "status": fallback.get("status"),
+        "reason": _clean(str(fallback.get("error", "")), 240),
+        "fallback_duration_seconds": round(max(0.0, time.monotonic() - fallback_started), 3),
+    }
+    attempts.append(first_attempt)
+    if fallback.get("status") != "complete":
+        if not _direct_model_retryable(fallback):
+            seawork_result["fallback_attempt"] = {**first_attempt, "model_catalog_warnings": catalog_warnings}
+            seawork_result["fallback_attempts"] = attempts
+            return seawork_result
+        alternate_model, alternate_source, alternate_warnings = _distinct_ready_direct_codex(cwd, direct_model)
+        if not alternate_model:
+            seawork_result["fallback_attempt"] = {**first_attempt, "model_catalog_warnings": catalog_warnings}
+            seawork_result["fallback_attempts"] = attempts
+            return seawork_result
+        alternate_started = time.monotonic()
+        try:
+            alternate = execute(
+                "codex", prompt, cwd, timeout_minutes, alternate_model, schema_path, False,
+                output_limit, first_artifact_seconds, allow_transport_fallback=False,
+            )
+        except (OSError, RuntimeError) as error:
+            alternate = {"provider": "codex", "model": alternate_model, "status": "unavailable", "error": str(error)}
+        alternate_attempt = {
+            "provider": "codex", "model": alternate_model, "source": alternate_source,
+            "status": alternate.get("status"),
+            "reason": _clean(str(alternate.get("error", "")), 240),
+            "fallback_duration_seconds": round(max(0.0, time.monotonic() - alternate_started), 3),
+        }
+        attempts.append(alternate_attempt)
+        if alternate.get("status") != "complete":
+            seawork_result["fallback_attempt"] = {
+                **alternate_attempt, "model_catalog_warnings": alternate_warnings,
+            }
+            seawork_result["fallback_attempts"] = attempts
+            return seawork_result
+        fallback = alternate
+        selection_reason = alternate_source
+    fallback["fallback_used"] = True
+    fallback["fallback_reason"] = seawork_result.get("failure_category")
+    fallback["fallback_selection_source"] = selection_reason
+    fallback["fallback_duration_seconds"] = round(max(0.0, time.monotonic() - fallback_started), 3)
+    fallback["fallback_attempts"] = attempts
+    fallback["fallback_from"] = {
+        "provider": seawork_result.get("provider", "seawork"),
+        "model": seawork_result.get("model"),
+        "failure_category": seawork_result.get("failure_category"),
+        "error": seawork_result.get("error"),
+        "agent_id": seawork_result.get("agent_id"),
+        "transport_duration_seconds": seawork_result.get("transport_duration_seconds"),
+    }
+    fallback["runtime_selection_reason"] = (
+        f"direct Codex fallback after Seawork {seawork_result.get('failure_category', 'failure')}"
+    )
+    return fallback
+
+
+def _opens_seawork_circuit(result: dict[str, Any]) -> bool:
+    """Limit the breaker to transport/control-plane/no-progress conditions."""
+    return result.get("failure_category") in {
+        "seawork_runtime_unhealthy",
+        "seawork_circuit_open",
+        "seawork_control_plane_timeout",
+        "agent_no_progress",
+        "agent_timeout",
+        "seawork_agent_error",
+        "seawork_agent_missing",
+        "seawork_launch_error",
+        "seawork_launch_unconfirmed",
+    } or _is_stream_disconnected(result)
+
+
+def _safe_to_direct_codex_fallback(result: dict[str, Any]) -> bool:
+    """Do not share a target workspace with a Seawork Agent that may still write.
+
+    A control-plane loss after a detached Agent ID exists is intentionally
+    recoverable, not eligible for an in-place direct retry. A pre-dispatch
+    failure, or a confirmed terminal/stop state, is safe to route elsewhere.
+    """
+    if not _opens_seawork_circuit(result) or result.get("cleanup_blocked"):
+        return False
+    if not result.get("agent_id"):
+        # A missing ID is safe only for a failure observed *before* dispatch.
+        # A disconnected synchronous structured-output call has no ID by CLI
+        # design, but may still leave a remote Agent running.
+        return result.get("dispatch_proven_not_started") is True
+    terminal_state = str(
+        result.get("agent_state_after_stop")
+        or result.get("control_plane_terminal_state")
+        or ""
+    ).lower()
+    return terminal_state in {
+        "completed", "complete", "closed", "failed", "error", "interrupted",
+        "stopped", "archived", "idle", "missing",
+    }
+
+
 def _transport_fallback_candidates(
     failed_provider: str, failed_model: str | None, cwd: Path,
-    advertised_models: Sequence[str] | None = None,
+    advertised_models: Sequence[str] | None = None, *,
+    excluded_providers: Sequence[str] = (),
 ) -> list[tuple[str, str | None, str]]:
     """Discover auditable local alternatives in preference order at failure time."""
     ranked: list[tuple[int, int, tuple[str, str | None, str]]] = []
+    excluded = {str(provider) for provider in excluded_providers}
     failed_name = (failed_model or "").rsplit("/", 1)[-1]
     for status in discover_runtimes():
-        if status.status != "ready" or status.provider not in EXECUTABLE_PROVIDERS:
+        if (
+            status.status != "ready"
+            or status.provider not in EXECUTABLE_PROVIDERS
+            or status.provider in excluded
+        ):
             continue
         catalog, _ = discover_model_catalog(status.provider, cwd)
         for index, option in enumerate(catalog):
@@ -848,6 +1558,8 @@ def _transport_fallback_candidates(
     seen = {(provider, model) for provider, model, _ in candidates}
     failed_name = (failed_model or "").rsplit("/", 1)[-1]
     for index, option in enumerate(advertised_models or ()):
+        if failed_provider in excluded:
+            break
         if not isinstance(option, str) or not option.strip():
             continue
         model = option.strip()
@@ -866,23 +1578,37 @@ def _transport_fallback_candidates(
 
 def _fallback_from_transport(
     result: dict[str, Any], prompt: str, cwd: Path, timeout_minutes: int,
-    output_limit: int, first_artifact_seconds: int | None,
+    output_limit: int, first_artifact_seconds: int | None, schema_path: str | None = None, *,
+    excluded_providers: Sequence[str] = (), prior_attempts: Sequence[dict[str, Any]] = (),
 ) -> dict[str, Any]:
     """Try bounded distinct current-device models after a transport failure."""
     candidates = _transport_fallback_candidates(
         str(result.get("provider", "")), str(result.get("model", "")), cwd,
         result.get("available_models") if isinstance(result.get("available_models"), list) else None,
+        excluded_providers=excluded_providers,
     )
+    attempts = [dict(item) for item in prior_attempts if isinstance(item, dict)]
     if not candidates:
+        if attempts:
+            result["fallback_attempts"] = attempts
         return result
-    attempts: list[dict[str, Any]] = []
+    attempted = {
+        (str(item.get("provider", "")), str(item.get("model") or ""))
+        for item in attempts
+    }
+    dispatched = 0
     # A device may advertise a model that the upstream rejects at dispatch
     # time. Try a small, ordered set instead of treating that single 403 as a
     # product-artifact failure. Each candidate retains normal SHA attribution.
-    for provider, fallback_model, source in candidates[:3]:
+    for provider, fallback_model, source in candidates:
+        if (provider, str(fallback_model or "")) in attempted:
+            continue
+        if dispatched >= 3:
+            break
+        dispatched += 1
         try:
             fallback = execute(
-                provider, prompt, cwd, timeout_minutes, fallback_model, None, False, output_limit,
+                provider, prompt, cwd, timeout_minutes, fallback_model, schema_path, False, output_limit,
                 first_artifact_seconds=first_artifact_seconds, allow_transport_fallback=False,
             )
         except (OSError, RuntimeError) as error:
@@ -901,7 +1627,7 @@ def _fallback_from_transport(
         fallback["fallback_from"] = {
             "provider": result.get("provider"),
             "model": result.get("model"),
-            "failure_category": "stream_disconnected",
+            "failure_category": result.get("failure_category") or "stream_disconnected",
             "error": result.get("error"),
         }
         fallback["fallback_selection_source"] = source
@@ -909,6 +1635,37 @@ def _fallback_from_transport(
         return fallback
     result["fallback_attempts"] = attempts
     return result
+
+
+def _attempt_safe_seawork_fallback(
+    seawork_result: dict[str, Any], prompt: str, cwd: Path, timeout_minutes: int,
+    schema_path: str | None, output_limit: int, first_artifact_seconds: int | None,
+) -> dict[str, Any]:
+    """Replace a confirmed-terminal Seawork stage without reusing its transport.
+
+    Prefer a directly compatible Codex model for a Codex-backed Seawork Agent.
+    If no direct Codex route is ready, continue with distinct current-device
+    providers, but never reintroduce either Seawork transport alias while its
+    circuit is open. Callers must already have proved that no remote writer can
+    still modify this stage workspace.
+    """
+    if not _safe_to_direct_codex_fallback(seawork_result):
+        return seawork_result
+    direct = _attempt_direct_codex_fallback(
+        seawork_result, prompt, cwd, timeout_minutes, schema_path, output_limit,
+        first_artifact_seconds,
+    )
+    if direct is not seawork_result:
+        return direct
+    existing_attempts = list(seawork_result.get("fallback_attempts") or [])
+    fallback_attempt = seawork_result.get("fallback_attempt")
+    if isinstance(fallback_attempt, dict) and fallback_attempt not in existing_attempts:
+        existing_attempts.append(fallback_attempt)
+    return _fallback_from_transport(
+        seawork_result, prompt, cwd, timeout_minutes, output_limit, first_artifact_seconds,
+        schema_path, excluded_providers=tuple(SEAWORK_TRANSPORT_PROVIDERS),
+        prior_attempts=existing_attempts,
+    )
 
 
 def _actual_provider_model(provider: str, output: str) -> str | None:
@@ -944,10 +1701,129 @@ def execute(
 ) -> dict[str, Any]:
     _reject_credential_prompt(prompt)
     cwd = cwd.resolve()
-    status = select_runtime(requested_provider, cwd)
+    dispatch_started = time.monotonic()
     context = active_runtime(cwd)
+    explicit_model_family = _model_provider_family(model)
+    # A provider-qualified non-Codex model must never be sent to the direct
+    # Codex CLI just because the current host happens to use Codex. Seawork is
+    # the generic provider boundary for these IDs; its normal readiness and
+    # fallback checks still apply.
+    auto_requires_seawork_model_route = (
+        requested_provider == "auto"
+        and explicit_model_family is not None
+        and explicit_model_family != "codex"
+    )
+    auto_equivalent_direct_codex_context = (
+        requested_provider == "auto"
+        and context.runtime == "seawork"
+        and (context.model or "").startswith("codex/")
+        and not auto_requires_seawork_model_route
+    )
+    requested_seawork = (
+        _is_seawork_transport(requested_provider)
+        or (requested_provider == "auto" and context.runtime == "seawork")
+        or auto_requires_seawork_model_route
+    )
+    requested_seawork_model = model or (
+        context.model if context.runtime == "seawork" else None
+    )
+    requested_seawork_provider = (
+        requested_provider if _is_seawork_transport(requested_provider) else "seawork"
+    )
+    remaining_cooldown = _seawork_circuit_remaining()
+    # An auto-selected Codex-backed Seawork session may use the equivalent
+    # direct Codex CLI. Resolve that route before applying a Seawork cooldown;
+    # otherwise a prior Seawork fault turns a normal direct dispatch into a
+    # misleading fallback and adds unnecessary transport work.
+    if (
+        requested_seawork
+        and not auto_equivalent_direct_codex_context
+        and not dry_run
+        and remaining_cooldown > 0
+    ):
+        unavailable = _seawork_failure_result(
+            requested_seawork_model,
+            "seawork_circuit_open",
+            "Seawork transport circuit is temporarily open after a recent failure",
+            provider=requested_seawork_provider,
+            transport_duration_seconds=time.monotonic() - dispatch_started,
+        )
+        unavailable["circuit_cooldown_seconds"] = round(remaining_cooldown, 3)
+        return _attempt_safe_seawork_fallback(
+            unavailable, prompt, cwd, timeout_minutes, schema_path, output_limit,
+            first_artifact_seconds,
+        )
+    try:
+        status = select_runtime("seawork" if auto_requires_seawork_model_route else requested_provider, cwd)
+    except RuntimeError as error:
+        if not requested_seawork or dry_run:
+            raise
+        unavailable = _seawork_failure_result(
+            requested_seawork_model,
+            "seawork_runtime_unhealthy",
+            str(error),
+            provider=requested_seawork_provider,
+            transport_duration_seconds=time.monotonic() - dispatch_started,
+        )
+        unavailable["circuit_cooldown_seconds"] = round(_open_seawork_circuit(), 3)
+        return _attempt_safe_seawork_fallback(
+            unavailable, prompt, cwd, timeout_minutes, schema_path, output_limit,
+            first_artifact_seconds,
+        )
+    auto_equivalent_direct_codex = (
+        auto_equivalent_direct_codex_context
+        and status.provider == "codex"
+    )
+    # The direct CLI may be unavailable even though the active Seawork Agent
+    # uses Codex. In that case selection remains Seawork-backed and must still
+    # honor the existing cooldown rather than relaunching a known-bad path.
+    if (
+        requested_seawork
+        and _is_seawork_transport(status.provider)
+        and not dry_run
+        and remaining_cooldown > 0
+    ):
+        unavailable = _seawork_failure_result(
+            requested_seawork_model,
+            "seawork_circuit_open",
+            "Seawork transport circuit is temporarily open after a recent failure",
+            provider=requested_seawork_provider,
+            transport_duration_seconds=time.monotonic() - dispatch_started,
+        )
+        unavailable["circuit_cooldown_seconds"] = round(remaining_cooldown, 3)
+        return _attempt_safe_seawork_fallback(
+            unavailable, prompt, cwd, timeout_minutes, schema_path, output_limit,
+            first_artifact_seconds,
+        )
+    # ``select_runtime(auto)`` can correctly identify a Seawork-backed host
+    # and choose direct Codex after its daemon health probe fails. Route that
+    # failure through strict matching and provenance. A healthy Codex-backed
+    # Seawork session instead takes the normal Codex-first route above.
+    if (
+        not dry_run
+        and requested_provider == "auto"
+        and context.runtime == "seawork"
+        and status.provider == "codex"
+        and not auto_equivalent_direct_codex
+    ):
+        unavailable = _seawork_failure_result(
+            requested_seawork_model,
+            "seawork_runtime_unhealthy",
+            "Seawork was not ready; auto selection chose direct Codex",
+            provider=requested_seawork_provider,
+            transport_duration_seconds=time.monotonic() - dispatch_started,
+        )
+        unavailable["circuit_cooldown_seconds"] = round(_open_seawork_circuit(), 3)
+        return _attempt_safe_seawork_fallback(
+            unavailable, prompt, cwd, timeout_minutes, schema_path, output_limit,
+            first_artifact_seconds,
+        )
     schema_path = _load_schema(schema_path)
-    selected_model = model or (context.model if status.provider == "seawork" else None)
+    selected_model = _model_for_runtime(status.provider, model) or (
+        context.model
+        if _is_seawork_transport(status.provider) or (status.provider == "codex" and context.runtime == "codex")
+        else None
+    )
     if not selected_model and context.model and "/" in context.model:
         provider_family, provider_model = context.model.split("/", 1)
         if provider_family == status.provider:
@@ -955,13 +1831,13 @@ def execute(
     catalog, catalog_warnings = discover_model_catalog(status.provider, cwd, selected_model)
     configured_model = next((item.model for item in catalog if item.source == "provider-config" and item.model), None)
     selected_model = selected_model or configured_model
-    model_requirement = "judgment" if status.provider in {"seawork", "seawork-claude"} else "standard"
+    model_requirement = "judgment" if _is_seawork_transport(status.provider) else "standard"
     model_selection = select_model(model_requirement, status.provider, catalog, selected_model)
     # Seawork has no implicit model contract. A discovered capability-selected
     # model must become the actual launch argument before command construction.
     if not selected_model and model_selection.option and model_selection.option.model:
         selected_model = model_selection.option.model
-    if status.provider in {"seawork", "seawork-claude"} and not selected_model:
+    if _is_seawork_transport(status.provider) and not selected_model:
         return {
             "provider": status.provider, "model": None, "status": "blocked",
             "failure_category": "no_available_model",
@@ -999,7 +1875,11 @@ def execute(
         "selection_status": model_selection.status,
         "selection_reason": model_selection.reason,
         "runtime_selection_reason": (
-            context.source if requested_provider == "auto" and status.provider == context.runtime
+            "Codex-first direct route for an equivalent Seawork-backed Codex session"
+            if auto_equivalent_direct_codex
+            else "explicit provider-qualified model requires the Seawork model boundary"
+            if auto_requires_seawork_model_route
+            else context.source if requested_provider == "auto" and status.provider == context.runtime
             else f"fallback from {context.runtime or 'unknown'} active runtime" if requested_provider == "auto"
             else "explicit provider request"
         ),
@@ -1013,39 +1893,29 @@ def execute(
     if dry_run:
         return result
     try:
-        if status.provider in {"seawork", "seawork-claude"} and not schema_path:
+        if _is_seawork_transport(status.provider) and not schema_path:
+            seawork_started = time.monotonic()
             seawork_result = _execute_seawork(
                 command, status.executable or status.provider, cwd, timeout_minutes, result, output_limit,
                 first_artifact_seconds,
             )
-            if status.provider != "seawork" or not _requires_direct_codex_fallback(seawork_result):
+            seawork_result["transport_duration_seconds"] = round(
+                max(0.0, time.monotonic() - seawork_started), 3,
+            )
+            if seawork_result.get("status") == "complete":
+                _close_seawork_circuit()
                 return seawork_result
-            if seawork_result.get("failure_category") in {"agent_timeout", "seawork_agent_error"}:
-                return _fallback_from_transport(
-                    seawork_result, prompt, cwd, timeout_minutes, output_limit, first_artifact_seconds,
+            if _opens_seawork_circuit(seawork_result):
+                seawork_result["circuit_cooldown_seconds"] = round(_open_seawork_circuit(), 3)
+            if _safe_to_direct_codex_fallback(seawork_result):
+                return _attempt_safe_seawork_fallback(
+                    seawork_result, prompt, cwd, timeout_minutes, schema_path, output_limit,
+                    first_artifact_seconds,
                 )
-            # One alternate path is useful after a transport/no-progress stop;
-            # another detached Seawork launch would repeat the same condition.
-            direct_model = selected_model.split("/", 1)[-1] if selected_model and "/" in selected_model else selected_model
-            try:
-                fallback = execute("codex", prompt, cwd, timeout_minutes, direct_model, None, False, output_limit)
-            except (OSError, RuntimeError) as error:
-                seawork_result["fallback_attempt"] = {
-                    "provider": "codex",
-                    "status": "unavailable",
-                    "reason": str(error),
-                }
-                return seawork_result
-            fallback["fallback_used"] = True
-            fallback["fallback_from"] = {
-                "provider": "seawork",
-                "model": selected_model,
-                "failure_category": seawork_result.get("failure_category"),
-                "error": seawork_result.get("error"),
-                "agent_id": seawork_result.get("agent_id"),
-            }
-            return fallback
+            return seawork_result
         execution_environment = None
+        progress_path: Path | None = None
+        progress_baseline: str | None = None
         environment_context = _isolated_codex_environment() if status.provider == "codex" else None
         if environment_context is not None:
             execution_environment = environment_context.__enter__()
@@ -1061,7 +1931,7 @@ def execute(
             output = output_path.read_text(encoding="utf-8") if output_path and output_path.exists() else completed.stdout
             fallback_used = False
             if (
-                status.provider == "seawork"
+                _is_seawork_transport(status.provider)
                 and completed.returncode != 0
                 and selected_model
                 and "OUTPUT_SCHEMA_FAILED" in (completed.stderr or "")
@@ -1090,24 +1960,66 @@ def execute(
         finally:
             if environment_context is not None:
                 environment_context.__exit__(None, None, None)
+        artifact_updated = _stage_artifact_updated(progress_path, progress_baseline) if progress_path else True
+        completed_successfully = completed.returncode == 0 and artifact_updated
+        completed_error = _diagnostic(completed.stderr, 2000)
+        if completed.returncode == 0 and not artifact_updated:
+            completed_error = "runtime exited without changing its promised artifact in the staging workspace"
         result.update({
-            "status": "complete" if completed.returncode == 0 else "failed",
-            "exit_code": completed.returncode,
+            "status": "complete" if completed_successfully else "failed",
+            "exit_code": 0 if completed_successfully else (completed.returncode or 1),
+            "artifact_checkpoint": artifact_updated,
+            "failure_category": "agent_no_output" if completed.returncode == 0 and not artifact_updated else None,
             "output": _clean(output, output_limit),
             "output_sha256": hashlib.sha256(_clean(output, output_limit).encode("utf-8")).hexdigest(),
             "output_truncated": len(_clean(output, output_limit)) < len(SECRET_PATTERN.sub(_redact_secret, output.strip())),
-            "error": _diagnostic(completed.stderr, 2000),
+            "error": completed_error,
         })
         actual_model = _actual_provider_model(status.provider, output)
         if actual_model:
             result["model"] = actual_model
+        if status.provider == "codex" and result["status"] == "complete":
+            _remember_direct_codex_model(cwd, str(result.get("model") or ""), "verified")
+        if allow_transport_fallback and status.provider == "codex" and result["status"] == "failed":
+            retried = _retry_distinct_direct_codex(
+                result, prompt, cwd, timeout_minutes, schema_path, output_limit, first_artifact_seconds,
+            )
+            if retried is not result:
+                return retried
         if allow_transport_fallback and result["status"] == "failed" and _is_stream_disconnected(result):
+            if _is_seawork_transport(status.provider) and schema_path:
+                # Seawork documents structured output as a synchronous
+                # operation that cannot be detached. A broken response stream
+                # therefore gives us neither an Agent ID nor proof that the
+                # daemon discarded the request. Treat this as an unknown
+                # writer and let the controller quarantine before any retry
+                # instead of sharing its workspace with Codex.
+                result.update({
+                    "status": "orphaned",
+                    "failure_category": "seawork_stream_unconfirmed",
+                    "cleanup_blocked": True,
+                    "dispatch_proven_not_started": False,
+                })
+                result["circuit_cooldown_seconds"] = round(_open_seawork_circuit(), 3)
+                return result
+            if _is_seawork_transport(status.provider):
+                result["transport_duration_seconds"] = round(
+                    max(0.0, time.monotonic() - dispatch_started), 3,
+                )
+                if _safe_to_direct_codex_fallback(result):
+                    result["circuit_cooldown_seconds"] = round(_open_seawork_circuit(), 3)
+                    return _attempt_safe_seawork_fallback(
+                        result, prompt, cwd, timeout_minutes, schema_path, output_limit,
+                        first_artifact_seconds,
+                    )
+                return result
             return _fallback_from_transport(
-                result, prompt, cwd, timeout_minutes, output_limit, first_artifact_seconds,
+                result, prompt, cwd, timeout_minutes, output_limit, first_artifact_seconds, schema_path,
             )
         if fallback_used:
             result["fallback_used"] = True
     except subprocess.TimeoutExpired as error:
+        cleanup_blocked = bool(getattr(error, "cleanup_blocked", False))
         artifact_changed = bool(
             progress_path
             and _artifact_digest(progress_path) is not None
@@ -1124,21 +2036,52 @@ def execute(
             # completed write that is visible at timeout, but label it so the
             # independent quality gate, rather than process exit alone,
             # decides whether the stage can advance.
-            "status": "complete" if artifact_checkpoint else "timed_out",
+            "status": "orphaned" if cleanup_blocked else "complete" if artifact_checkpoint else "timed_out",
             "failure_category": (
-                "agent_no_progress" if progress_missing
+                "agent_cleanup_unconfirmed" if cleanup_blocked
+                else "agent_no_progress" if progress_missing
                 else "agent_post_write_timeout" if artifact_checkpoint
                 else "agent_timeout"
             ),
-            "completion_basis": "artifact_checkpoint_before_process_timeout" if artifact_checkpoint else None,
+            "completion_basis": "artifact_checkpoint_before_process_timeout" if artifact_checkpoint and not cleanup_blocked else None,
             "post_write_timeout": artifact_checkpoint,
+            "cleanup_blocked": cleanup_blocked,
             "error": (
-                f"no first artifact within {FIRST_ARTIFACT_SECONDS} second(s)"
+                f"local runtime cleanup was not confirmed after {timeout_minutes} minute(s)"
+                if cleanup_blocked
+                else f"no first artifact within {first_artifact_seconds} second(s)"
                 if progress_missing else f"execution exceeded {timeout_minutes} minute(s)"
             ) + (f"; runtime stderr: {stderr}" if stderr else ""),
             "output": output,
             "output_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
         })
+        if _is_seawork_transport(status.provider) and schema_path:
+            # Structured Seawork output cannot use --detach, so a local
+            # timeout has no attributable Agent ID. It is unsafe to infer that
+            # nothing was launched from the vanished stream.
+            result.update({
+                "status": "orphaned",
+                "failure_category": "seawork_stream_unconfirmed",
+                "cleanup_blocked": True,
+                "dispatch_proven_not_started": False,
+            })
+            result["circuit_cooldown_seconds"] = round(_open_seawork_circuit(), 3)
+        if _is_seawork_transport(status.provider):
+            result["transport_duration_seconds"] = round(
+                max(0.0, time.monotonic() - dispatch_started), 3,
+            )
+            if _safe_to_direct_codex_fallback(result):
+                result["circuit_cooldown_seconds"] = round(_open_seawork_circuit(), 3)
+                return _attempt_safe_seawork_fallback(
+                    result, prompt, cwd, timeout_minutes, schema_path, output_limit,
+                    first_artifact_seconds,
+                )
+        elif status.provider == "codex" and allow_transport_fallback and not cleanup_blocked:
+            retried = _retry_distinct_direct_codex(
+                result, prompt, cwd, timeout_minutes, schema_path, output_limit, first_artifact_seconds,
+            )
+            if retried is not result:
+                return retried
     finally:
         if output_path:
             output_path.unlink(missing_ok=True)

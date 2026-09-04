@@ -24,6 +24,8 @@ def make_run_log(run_name: str, *, active: bool = True, self_reference: bool = F
   brief_path: {reference}
 agent_strategy:
   task_mode: implemented_feature_prd
+resume_checkpoint:
+  task_mode: implemented_feature_prd
 context:
   files_loaded: []
 artifact_lineage:

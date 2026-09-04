@@ -267,11 +267,17 @@ context:
   conflict_resolution: []
 
 artifact_lineage:
-  mode: "" # new_run | replacement_run | in_place_revision
+  mode: "" # new_run | replacement_run | in_place_revision | extraction_run
   target_prd_path: "" # required for in_place_revision; user-identified Markdown PRD updated in place
   target_html_path: "" # required for in_place_revision; sibling browser-rendered PRD updated in place
   revision_evidence_path: "" # required for in_place_revision; relative snapshot or diff retained in this run folder
   revised_requirement_ids: [] # required for partial in_place_revision; only these IDs require fresh coverage evidence
+  deleted_requirement_ids: [] # in_place_revision only; confirmed IDs intentionally absent from the final PRD and proven by revision evidence
+  source_snapshot_path: "" # required for extraction_run; immutable source PRD snapshot inside this run folder
+  source_prd_display_name: "" # required for extraction_run; source document name without relying on an external path
+  source_prd_sha256: "" # required for extraction_run; SHA-256 of source_snapshot_path
+  selected_source_scope: [] # required for extraction_run; user-confirmed source requirement IDs, headings, or bounded scope
+  source_scope_resolution: [] # required for extraction_run; controller/validator-verifiable source anchors for every selected scope item
   historical_artifacts:
     - path: ""
       role: "" # comparison_only | user_provided_input

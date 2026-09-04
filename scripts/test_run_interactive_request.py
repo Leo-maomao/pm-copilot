@@ -12,33 +12,86 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import yaml
+
 from run_interactive_request import (
+    _active_runtime_version,
     _atomic_copy,
     _artifact_prompt,
     _confirmed_delivery,
+    _confirmed_scope_fingerprint,
     _artifact_review_prompt,
     _confirmation_packet,
     _delivery_worker,
+    _delivery_input_problem,
     _ensure_runtime_current,
+    _finalize_deterministic_trace,
+    _materialize_controller_trace,
+    _materialize_revision_evidence,
     _normalise_trace_runtime_evidence,
+    _prepare_delivery_workspace,
+    _promote_delivery_workspace,
+    _rollback_delivery_promotion,
     _revision_scope_violation,
-    _materialize_revision_trace,
     _restart_delivery_attempt,
     _recover_interrupted_delivery,
+    _review_artifact,
+    _retry_reuse_cache_folder,
+    _snapshot_reusable_delivery_artifacts,
+    _trace_lineage,
     _write_json,
     _normalise_intake,
+    _request_looks_like_extraction,
     _run_artifact_agent,
+    apply_revision_requirement_ids,
     begin_in_place_revision,
     compact_requirement_numbers,
     create_state,
     main,
     new_requirement_folder,
+    register_extraction_source,
+    register_implemented_feature_evidence,
     run_intake,
     write_discussion,
 )
 
 
 class InteractiveRequestTest(unittest.TestCase):
+    def _eligible_retry_reuse_state(self, root: Path) -> tuple[dict[str, object], Path, Path]:
+        canonical = root / "pm-copilot-outputs" / "example"
+        workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+        canonical.mkdir(parents=True)
+        workspace.mkdir(parents=True)
+        artifacts = {
+            "confirmed-requirements.md": "# Confirmed requirements\n",
+            "prd.md": "# Staged PRD\n\n### 5.1 Staged requirement\n",
+            "prd.html": "<!doctype html><html><body>staged</body></html>\n",
+            "run-log.yaml": "unverified: trace\n",
+        }
+        for name, content in artifacts.items():
+            (workspace / name).write_text(content, encoding="utf-8")
+        state = create_state("Create a reusable PRD", canonical)
+        state["confirmed_fact_packet"] = {
+            "summary": "Confirmed scope", "scope": {"goal": "Reusable delivery", "in_scope": ["5.1"]},
+            "assumptions": [], "risks": [],
+        }
+        state["delivery_workspace"] = str(workspace)
+        fingerprint = _confirmed_scope_fingerprint(state)
+        version = _active_runtime_version()
+        stages: dict[str, dict[str, object]] = {}
+        for artifact in ("confirmed-requirements.md", "prd.md"):
+            digest = hashlib.sha256((workspace / artifact).read_bytes()).hexdigest()
+            stages[artifact] = {
+                "artifact_status": "promoted",
+                "review_status": "passed",
+                "artifact_sha256": digest,
+                "reviewed_sha256": digest,
+                "scope_fingerprint": fingerprint,
+                "pm_copilot_version": version,
+            }
+        state["delivery_stages"] = stages
+        return state, canonical, workspace
+
     def test_global_runtime_sync_restarts_the_controller_before_argument_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             runtime_root = Path(temporary)
@@ -81,6 +134,25 @@ class InteractiveRequestTest(unittest.TestCase):
                 new_requirement_folder("团队权限", root)
             self.assertFalse((root / f"{folder.name}-2").exists())
 
+    def test_extraction_intent_recognizes_new_prd_requests_in_english_and_chinese(self) -> None:
+        extraction_requests = (
+            "Extract requirements 5.3 through 5.10 from the existing PRD into a new independent PRD.",
+            "Create a standalone PRD from a section of the legacy product requirements document.",
+            "将已有 PRD 中的画布优化章节拆分为一份新的独立 PRD。",
+            "把旧的部分内容提取到新的 PRD 下。",
+            "把旧 PRD 的结算内容单独整理成一份新需求文档。",
+        )
+        for request in extraction_requests:
+            with self.subTest(request=request):
+                self.assertTrue(_request_looks_like_extraction(request))
+
+        for request in (
+            "Update requirement 5.3 in the existing PRD.",
+            "为一个全新的画布能力创建 PRD。",
+        ):
+            with self.subTest(request=request):
+                self.assertFalse(_request_looks_like_extraction(request))
+
     def test_revision_reopens_the_same_canonical_folder(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
@@ -104,6 +176,414 @@ class InteractiveRequestTest(unittest.TestCase):
             state = create_state("原需求", folder)
             revised = begin_in_place_revision(state, "修改需求 5.1 的状态提示，保留 rgba(0, 0, 0, 0.12) 和 13.97px")
             self.assertEqual(revised["revision_requirement_ids"], ["5.1"])
+
+    def test_revision_never_reuses_scope_ids_from_a_prior_trace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "prd.md").write_text(
+                "| 5.1 | 状态提示 |\n| 5.2 | 其他能力 |\n### 5.1 状态提示\n### 5.2 其他能力\n",
+                encoding="utf-8",
+            )
+            (folder / "prd.html").write_text("<html></html>\n", encoding="utf-8")
+            (folder / "run-log.yaml").write_text(
+                "artifact_lineage:\n  mode: in_place_revision\n  revised_requirement_ids:\n    - '5.1'\n",
+                encoding="utf-8",
+            )
+            state = create_state("原需求", folder)
+            state["status"] = "complete"
+            revised = begin_in_place_revision(state, "更新 PRD 的错误文案")
+            self.assertEqual(revised["revision_requirement_ids"], [])
+            revised["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            revised["user_confirmation"] = {"confirmed": True, "source": "test"}
+
+            _confirmed_delivery(
+                revised,
+                "test",
+                1,
+                worker=lambda *args: self.fail("ambiguous revision must not dispatch an Agent"),
+            )
+
+            self.assertEqual(revised["status"], "needs_input")
+            self.assertEqual(revised["required_input"]["field"], "revision_selector")
+            self.assertEqual(revised["agent_calls"], [])
+
+    def test_revision_source_drift_pauses_before_staging_or_agent_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            original_prd = "| 5.1 | 状态提示 |\n### 5.1 状态提示\n"
+            original_html = "<html>before</html>\n"
+            (folder / "prd.md").write_text(original_prd, encoding="utf-8")
+            (folder / "prd.html").write_text(original_html, encoding="utf-8")
+            state = create_state("原需求", folder)
+            state["status"] = "complete"
+            revised = begin_in_place_revision(state, "修改需求 5.1 的状态提示")
+            (folder / "prd.md").write_text("| 5.1 | 被其他人更新 |\n### 5.1 被其他人更新\n", encoding="utf-8")
+            revised["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            revised["user_confirmation"] = {"confirmed": True, "source": "test"}
+
+            _confirmed_delivery(
+                revised,
+                "test",
+                1,
+                worker=lambda *args: self.fail("source drift must stop before Agent dispatch"),
+            )
+
+            self.assertEqual(revised["status"], "needs_input")
+            self.assertEqual(revised["required_input"]["field"], "revision_source_drift")
+            self.assertEqual(revised["agent_calls"], [])
+            self.assertIn("被其他人更新", (folder / "prd.md").read_text(encoding="utf-8"))
+
+    def test_explicit_revision_selector_rejects_unknown_requirement_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "prd.md").write_text("| 5.1 | 状态提示 |\n### 5.1 状态提示\n", encoding="utf-8")
+            state = create_state("原需求", folder)
+            with self.assertRaisesRegex(ValueError, "not present in the canonical PRD"):
+                apply_revision_requirement_ids(state, ["5.9"])
+
+    def test_implemented_evidence_file_sets_implemented_feature_mode(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            source = folder / "implemented-evidence.json"
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            state = create_state("为已实现功能生成 PRD", folder)
+            register_implemented_feature_evidence(state, source)
+            self.assertEqual(state["task_mode"], "implemented_feature_prd")
+            self.assertEqual(state["delivery_variant"], "new")
+            self.assertEqual(state["context_source"]["mode"], "repo-backed")
+            self.assertEqual(state["implemented_feature_evidence"], evidence)
+            self.assertEqual(
+                state["implemented_feature_evidence_source"]["sha256"],
+                hashlib.sha256(source.read_bytes()).hexdigest(),
+            )
+            packet = folder / "source-material" / "implemented-feature-evidence.json"
+            self.assertEqual(json.loads(packet.read_text(encoding="utf-8")), evidence)
+            self.assertEqual(
+                state["implemented_feature_evidence_source"]["packet_path"],
+                "source-material/implemented-feature-evidence.json",
+            )
+            self.assertEqual(
+                state["implemented_feature_evidence_source"]["packet_sha256"],
+                hashlib.sha256(packet.read_bytes()).hexdigest(),
+            )
+
+    def test_implemented_evidence_packages_local_result_references(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+            "visual_runtime_capability": {
+                "runtime_discovery": [{
+                    "capability": "existing_preview_discovery",
+                    "result_ref": "tool-results/discovery.json",
+                }],
+            },
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / "evidence-bundle"
+            result = bundle / "tool-results" / "discovery.json"
+            result.parent.mkdir(parents=True)
+            result.write_text('{"preview":"not found"}\n', encoding="utf-8")
+            source = bundle / "implemented-evidence.json"
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            folder = root / "canonical"
+            folder.mkdir()
+            state = create_state("为已实现功能生成 PRD", folder)
+
+            register_implemented_feature_evidence(state, source)
+
+            imported = "tool-results/implemented-evidence/tool-results/discovery.json"
+            self.assertEqual(
+                state["implemented_feature_evidence"]["visual_runtime_capability"]["runtime_discovery"][0]["result_ref"],
+                imported,
+            )
+            self.assertEqual(
+                (folder / imported).read_text(encoding="utf-8"),
+                '{"preview":"not found"}\n',
+            )
+            self.assertEqual(state["implemented_feature_evidence_source"]["imported_result_refs"], [imported])
+
+    def test_implemented_evidence_packet_is_copied_to_staging_and_bounds_the_prd_prompt(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "evidence-bundle" / "implemented-evidence.json"
+            source.parent.mkdir()
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            folder = root / "canonical"
+            folder.mkdir()
+            state = create_state("为已实现功能生成 PRD", folder)
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "还原已实现功能", "in_scope": ["画布保存"]},
+                "assumptions": [], "risks": [], "buckets": {},
+            }]
+            register_implemented_feature_evidence(state, source)
+
+            workspace = _prepare_delivery_workspace(state)
+            packet_relative = "source-material/implemented-feature-evidence.json"
+            staged_packet = workspace / packet_relative
+            self.assertTrue(staged_packet.is_file())
+            self.assertEqual(json.loads(staged_packet.read_text(encoding="utf-8")), evidence)
+            self.assertEqual(
+                hashlib.sha256(staged_packet.read_bytes()).hexdigest(),
+                state["implemented_feature_evidence_source"]["packet_sha256"],
+            )
+
+            prompt = _artifact_prompt(state, "prd.md")
+            self.assertIn(packet_relative, prompt)
+            self.assertIn("Use only that packet as observed implementation", prompt)
+            self.assertIn("do not inspect repository files", prompt)
+
+    def test_implemented_evidence_packet_hash_mismatch_stops_before_a_writer_runs(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            source = folder / "input.json"
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            state = create_state("为已实现功能生成 PRD", folder)
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "还原已实现功能", "in_scope": ["画布保存"]},
+                "assumptions": [], "risks": [], "buckets": {},
+            }]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            register_implemented_feature_evidence(state, source)
+            (folder / "source-material" / "implemented-feature-evidence.json").write_text(
+                "{}\n", encoding="utf-8",
+            )
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                self.fail("a changed implementation-evidence packet must stop before delivery")
+
+            _confirmed_delivery(state, "codex", 1, worker=worker)
+
+            self.assertFalse(worker_called)
+            self.assertEqual(state["status"], "needs_input")
+            self.assertEqual(state["required_input"]["field"], "implementation_evidence")
+            self.assertIn("哈希不一致", state["last_error"])
+
+    def test_implemented_evidence_missing_imported_result_stops_before_a_writer_runs(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+            "visual_runtime_capability": {
+                "runtime_discovery": [{"result_ref": "tool-results/discovery.json"}],
+            },
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "evidence-bundle" / "implemented-evidence.json"
+            result = source.parent / "tool-results" / "discovery.json"
+            result.parent.mkdir(parents=True)
+            result.write_text('{"preview":"not found"}\n', encoding="utf-8")
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            folder = root / "canonical"
+            folder.mkdir()
+            state = create_state("为已实现功能生成 PRD", folder)
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "还原已实现功能", "in_scope": ["画布保存"]},
+                "assumptions": [], "risks": [], "buckets": {},
+            }]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            register_implemented_feature_evidence(state, source)
+            imported = folder / "tool-results" / "implemented-evidence" / "tool-results" / "discovery.json"
+            imported.unlink()
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                self.fail("a missing imported result_ref must stop before delivery")
+
+            _confirmed_delivery(state, "codex", 1, worker=worker)
+
+            self.assertFalse(worker_called)
+            self.assertEqual(state["status"], "needs_input")
+            self.assertEqual(state["required_input"]["field"], "implementation_evidence")
+            self.assertIn("结果文件不存在", state["last_error"])
+
+    def test_controller_trace_records_the_canonical_implemented_evidence_packet(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            source = folder / "input.json"
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            (folder / "prd.md").write_text("# 已实现功能\n\n### 5.1 保存草稿\n", encoding="utf-8")
+            state = create_state("为已实现功能生成 PRD", folder)
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "还原已实现功能", "in_scope": ["画布保存"]},
+                "assumptions": [], "risks": [], "buckets": {},
+            }]
+            register_implemented_feature_evidence(state, source)
+
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "codex", 1))
+
+            trace = yaml.safe_load((folder / "run-log.yaml").read_text(encoding="utf-8"))
+            packet = trace["implemented_feature_prd"]["evidence_packet"]
+            self.assertEqual(packet["path"], "source-material/implemented-feature-evidence.json")
+            self.assertEqual(packet["sha256"], state["implemented_feature_evidence_source"]["packet_sha256"])
+            self.assertIn(packet["path"], trace["context"]["files_loaded"])
+
+    def test_implemented_evidence_rejects_result_references_outside_its_bundle(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+            "visual_capture_recovery": [{"result_ref": "../unrelated.json"}],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / "evidence-bundle"
+            bundle.mkdir()
+            (root / "unrelated.json").write_text('{"private":"do not import"}\n', encoding="utf-8")
+            source = bundle / "implemented-evidence.json"
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            folder = root / "canonical"
+            folder.mkdir()
+            state = create_state("为已实现功能生成 PRD", folder)
+
+            with self.assertRaisesRegex(ValueError, "must stay inside the evidence bundle"):
+                register_implemented_feature_evidence(state, source)
+
+            self.assertNotIn("implemented_feature_evidence", state)
+            self.assertFalse((folder / "tool-results").exists())
+
+    def test_cli_extraction_source_recovers_confirmed_needs_input_to_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "extraction-run"
+            folder.mkdir()
+            source = Path(temporary) / "legacy-prd.md"
+            source.write_text("# 旧 PRD\n\n### 5.7 结算流程\n", encoding="utf-8")
+            state = create_state("从旧 PRD 提取结算流程，形成独立 PRD", folder)
+            turn = {
+                "turn": 1, "user_text": state["raw_request"], "summary": "已确认提取结算流程",
+                "scope": {"goal": "提取结算流程", "in_scope": ["5.7 结算流程"]},
+                "assumptions": [], "decisions": [], "risks": [], "buckets": {},
+            }
+            state.update({
+                "status": "needs_input", "termination": "needs_input", "turns": [turn],
+                "confirmed_fact_packet": json.loads(json.dumps(turn)),
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "required_input": {"field": "extraction_source", "question": "请提供旧 PRD", "reason": "missing source"},
+            })
+            _write_json(folder / "interactive-run.json", state)
+            with patch("run_interactive_request._ensure_runtime_current"), patch.object(
+                sys, "argv", [
+                    "run_interactive_request.py", "--run-folder", str(folder), "--extract-from", str(source),
+                ],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 3)
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["status"], "awaiting_confirmation")
+            self.assertEqual(resumed["termination"], "human_checkpoint")
+            self.assertEqual(resumed["extraction_source"]["display_name"], "legacy-prd.md")
+            self.assertTrue((folder / "source-material" / "source-prd.md").is_file())
+
+    def test_cli_implemented_evidence_recovers_confirmed_needs_input_to_confirmation(self) -> None:
+        evidence = {
+            "branch_name": "feature/canvas",
+            "diff_commands": ["git diff --stat"],
+            "changed_files": ["src/canvas.ts"],
+            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
+            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "implemented-run"
+            folder.mkdir()
+            source = Path(temporary) / "implemented-evidence.json"
+            source.write_text(json.dumps(evidence), encoding="utf-8")
+            state = create_state("为已实现功能生成 PRD", folder)
+            turn = {
+                "turn": 1, "user_text": state["raw_request"], "summary": "已确认功能范围",
+                "scope": {"goal": "还原已实现功能", "in_scope": ["画布保存"]},
+                "assumptions": [], "decisions": [], "risks": [], "buckets": {},
+            }
+            state.update({
+                "task_mode": "implemented_feature_prd",
+                "context_source": {"mode": "repo-backed", "files_loaded": []},
+                "status": "needs_input", "termination": "needs_input", "turns": [turn],
+                "confirmed_fact_packet": json.loads(json.dumps(turn)),
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "required_input": {"field": "implementation_evidence", "question": "请提供实施证据", "reason": "missing evidence"},
+            })
+            _write_json(folder / "interactive-run.json", state)
+            with patch("run_interactive_request._ensure_runtime_current"), patch.object(
+                sys, "argv", [
+                    "run_interactive_request.py", "--run-folder", str(folder), "--implemented-evidence", str(source),
+                ],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 3)
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["status"], "awaiting_confirmation")
+            self.assertEqual(resumed["implemented_feature_evidence"], evidence)
+            self.assertEqual(resumed["context_source"]["mode"], "repo-backed")
+
+    def test_cli_revision_selector_recovers_confirmed_needs_input_to_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            (folder / "prd.md").write_text("| 5.1 | 状态提示 |\n### 5.1 状态提示\n", encoding="utf-8")
+            state = create_state("更新现有 PRD", folder)
+            turn = {
+                "turn": 1, "user_text": state["raw_request"], "summary": "已确认需要修订",
+                "scope": {"goal": "更新状态提示", "in_scope": ["状态提示"]},
+                "assumptions": [], "decisions": [], "risks": [], "buckets": {},
+            }
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_history": [{"request": state["raw_request"], "mode": "in_place_revision"}],
+                "status": "needs_input", "termination": "needs_input", "turns": [turn],
+                "confirmed_fact_packet": json.loads(json.dumps(turn)),
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "required_input": {"field": "revision_selector", "question": "请指定需求 ID", "reason": "missing selector"},
+            })
+            _write_json(folder / "interactive-run.json", state)
+            with patch("run_interactive_request._ensure_runtime_current"), patch.object(
+                sys, "argv", [
+                    "run_interactive_request.py", "--run-folder", str(folder),
+                    "--revision-requirement-id", "5.1",
+                ],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 3)
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["status"], "awaiting_confirmation")
+            self.assertEqual(resumed["revision_requirement_ids"], ["5.1"])
+            self.assertEqual(resumed["revision_scope_manifest"]["authority"], "explicit command-line selector")
 
     def test_trace_normalisation_replaces_stale_version_and_asset_hash(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -147,7 +627,7 @@ class InteractiveRequestTest(unittest.TestCase):
             _normalise_trace_runtime_evidence(trace)
             self.assertIn(hashlib.sha256(b"secondary image").hexdigest(), trace.read_text(encoding="utf-8"))
 
-    def test_stream_disconnect_retries_once_and_preserves_the_failure_reason(self) -> None:
+    def test_stream_disconnect_retries_prd_agent_and_preserves_the_failure_reason(self) -> None:
         calls = []
 
         def worker(*args, **kwargs):
@@ -157,9 +637,9 @@ class InteractiveRequestTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             state = create_state("做一个 PRD", Path(temporary))
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
-            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "test", 15, worker=worker))
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "test", 15, worker=worker))
             self.assertEqual(len(calls), 2)
-            self.assertEqual(calls[0][3], 5)
+            self.assertEqual(calls[0][3], 15)
             self.assertIn("stream disconnected", state["last_error"])
 
     def test_stage_agent_no_progress_is_retryable(self) -> None:
@@ -182,55 +662,263 @@ class InteractiveRequestTest(unittest.TestCase):
     def test_idle_agent_with_an_unchanged_stage_artifact_cannot_promote(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            target = folder / "run-log.yaml"
-            target.write_text("old trace\n", encoding="utf-8")
+            target = folder / "prd.md"
+            target.write_text("old PRD\n", encoding="utf-8")
             state = create_state("做一个 PRD", folder)
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
 
             def idle_worker(*args, **kwargs):
                 return {"provider": "seawork", "model": "codex/gpt-5.6-terra", "status": "complete", "output": "idle", "error": ""}
 
-            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "seawork", 5, worker=idle_worker))
-            self.assertEqual(target.read_text(encoding="utf-8"), "old trace\n")
-            self.assertEqual(len(state["agent_calls"]), 2)
-            self.assertEqual(state["agent_calls"][-1]["failure_category"], "agent_no_output")
-            self.assertEqual(state["delivery_stages"]["run-log.yaml"]["artifact_status"], "failed")
-            self.assertIn("Trace Agent reached terminal state without changing", state["last_error"])
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 5, worker=idle_worker))
+            self.assertEqual(target.read_text(encoding="utf-8"), "old PRD\n")
+            self.assertEqual(len(state["agent_calls"]), 1)
+            self.assertEqual(state["delivery_stages"]["prd.md"]["artifact_status"], "failed")
+            self.assertIn("prd.md was not changed in the project staging directory", state["last_error"])
 
-    def test_trace_prompt_uses_only_a_compact_controller_evidence_packet(self) -> None:
+    def test_unattributable_stage_write_cannot_promote_or_be_reused(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            state = create_state("very long raw request that must not be duplicated", Path(temporary))
-            state["turns"] = [{"summary": "已澄清", "scope": {"goal": "更新 5.1"}, "assumptions": [], "risks": []}]
-            prompt = _artifact_prompt(state, "run-log.yaml")
-            self.assertNotIn("Original request:", prompt)
-            self.assertNotIn(state["raw_request"], prompt)
-            self.assertIn("Do not read PM_COPILOT.md", prompt)
-            self.assertIn("Controller evidence:", prompt)
+            folder = Path(temporary)
+            target = folder / "prd.md"
+            target.write_text("old PRD\n", encoding="utf-8")
+            state = create_state("做一个 PRD", folder)
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
 
-    def test_trace_prompt_does_not_replay_historical_agent_transcripts(self) -> None:
+            def unattributable_worker(provider, prompt, cwd, *args):
+                staged_target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                staged_target.write_text("new but unattributable PRD\n", encoding="utf-8")
+                return {"status": "complete", "output": "written", "error": ""}
+
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "test", 5, worker=unattributable_worker))
+            self.assertEqual(target.read_text(encoding="utf-8"), "old PRD\n")
+            self.assertEqual(state["delivery_stages"]["prd.md"]["artifact_status"], "failed")
+            self.assertNotIn("prd.md", state["artifacts"])
+
+    def test_controller_trace_is_materialized_without_a_remote_worker_for_new_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            state = create_state("更新 5.1", Path(temporary))
+            folder = Path(temporary)
+            (folder / "prd.md").write_text("# 新需求\n\n### 5.1 新能力\n", encoding="utf-8")
+            state = create_state("新增一个能力的 PRD", folder)
             state["turns"] = [{
-                "summary": "已确认", "scope": {"goal": "更新 5.1", "in_scope": [], "out_of_scope": []},
+                "summary": "已澄清", "scope": {"goal": "新增能力", "in_scope": ["核心流程"]},
                 "assumptions": [], "risks": [],
             }]
-            historical_error = "historical provider transcript " * 6000
-            state["agent_calls"] = [
-                {
-                    "phase": "delivery", "artifact": "prd.md", "provider": "seawork",
-                    "model": "codex/gpt-5.6-terra", "status": "complete", "agent_id": "old",
-                    "error": historical_error,
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                raise AssertionError("controller-owned run-log must not invoke a remote worker")
+
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "seawork", 1, worker=worker))
+            self.assertFalse(worker_called)
+            trace = (folder / "run-log.yaml").read_text(encoding="utf-8")
+            self.assertIn("pm_copilot_revision: controller-deterministic-trace", trace)
+            self.assertEqual(state["delivery_stages"]["run-log.yaml"]["artifact_status"], "promoted")
+            self.assertEqual(state["agent_calls"][-1]["execution_mode"], "deterministic_trace_materialization")
+
+    def test_controller_trace_records_extraction_snapshot_hash_and_confirmed_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "extracted-prd"
+            folder.mkdir()
+            source = root / "legacy-prd.md"
+            source.write_text(
+                "# 旧 PRD\n\n### 5.7 结算流程\n仅提取该流程。\n",
+                encoding="utf-8",
+            )
+            (folder / "prd.md").write_text("# 独立提取需求\n\n### 5.7 提取后的流程\n", encoding="utf-8")
+            state = create_state("从旧 PRD 提取结算流程，形成一份新的独立 PRD", folder)
+            register_extraction_source(state, source)
+            state["extraction_source"]["selected_scope"] = ["5.7 结算流程"]
+            state["turns"] = [{
+                "summary": "已确认", "scope": {
+                    "goal": "提取结算流程", "in_scope": ["旧 PRD 的结算流程"], "out_of_scope": ["原 PRD 其余内容"],
                 },
-                {
-                    "phase": "delivery", "artifact": "prd.md", "provider": "seawork",
-                    "model": "codex/gpt-5.6-terra", "status": "complete", "agent_id": "new",
-                    "error": "",
-                },
-            ]
-            prompt = _artifact_prompt(state, "run-log.yaml")
-            self.assertIn('"agent_id":"new"', prompt)
-            self.assertNotIn("historical provider transcript", prompt)
-            self.assertLess(len(prompt), 10000)
+                "assumptions": [], "risks": [],
+            }]
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                raise AssertionError("controller-owned run-log must not invoke a remote worker")
+
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "codex", 1, worker=worker))
+            self.assertFalse(worker_called)
+            trace_text = (folder / "run-log.yaml").read_text(encoding="utf-8")
+            trace = yaml.safe_load(trace_text)
+            lineage = trace["artifact_lineage"]
+            self.assertEqual(lineage["mode"], "extraction_run")
+            self.assertEqual(lineage["source_snapshot_path"], "source-material/source-prd.md")
+            self.assertEqual(lineage["source_prd_display_name"], "legacy-prd.md")
+            self.assertEqual(
+                lineage["source_prd_sha256"],
+                hashlib.sha256(source.read_bytes()).hexdigest(),
+            )
+            self.assertEqual(lineage["selected_source_scope"], ["5.7 结算流程"])
+            self.assertEqual(lineage["source_scope_resolution"], [{
+                "selector": "5.7 结算流程",
+                "kind": "requirement_id",
+                "matches": ["5.7"],
+            }])
+            self.assertEqual(
+                (folder / "source-material" / "source-prd.md").read_text(encoding="utf-8"),
+                source.read_text(encoding="utf-8"),
+            )
+            self.assertEqual(trace["context"]["source_mode"], "document-backed")
+            self.assertIn("source-material/source-prd.md", trace["context"]["product_documents_loaded"])
+            self.assertNotIn(str(source.resolve()), trace_text)
+
+    def test_extraction_scope_must_resolve_in_the_snapshot_before_delivery(self) -> None:
+        source_text = (
+            "# 旧 PRD\n\n"
+            "### 5.3 画布性能优化\n提升大画布渲染性能。\n\n"
+            "### 5.4 画布渲染优化\n减少重绘。\n\n"
+            "### 5.5 画布导出优化\n改善导出队列。\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "legacy-prd.md"
+            source.write_text(source_text, encoding="utf-8")
+            folder = root / "extracted"
+            folder.mkdir()
+            state = create_state("从旧 PRD 提取画布优化内容，创建新的独立 PRD", folder)
+            register_extraction_source(state, source)
+            state["confirmed_fact_packet"] = {
+                "summary": "已确认范围", "scope": {"goal": "提取画布优化", "in_scope": ["5.3 至 5.5"]},
+                "assumptions": [], "risks": [],
+            }
+            self.assertIsNone(_delivery_input_problem(state))
+
+            state["confirmed_fact_packet"]["scope"]["in_scope"] = ["不存在的画布功能"]
+            state["turns"] = [state["confirmed_fact_packet"]]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                self.fail("an unresolved extraction selector must stop before writers run")
+
+            _confirmed_delivery(state, "codex", 1, worker=worker)
+
+            self.assertFalse(worker_called)
+            self.assertEqual(state["status"], "needs_input")
+            self.assertEqual(state["termination"], "needs_input")
+            self.assertEqual(state["required_input"]["field"], "extraction_scope")
+            self.assertIn("无法在旧 PRD 快照中唯一定位", state["last_error"])
+
+    def test_extraction_scope_accepts_a_heading_or_unique_text_but_rejects_repeated_text(self) -> None:
+        source_text = (
+            "# 旧 PRD\n\n"
+            "### 5.1 实时协作\n离线状态下保留本地草稿。\n\n"
+            "### 5.2 导出\n共享反馈。\n\n"
+            "### 5.3 审核\n共享反馈。\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "legacy-prd.md"
+            source.write_text(source_text, encoding="utf-8")
+            folder = root / "extracted"
+            folder.mkdir()
+            state = create_state("从旧 PRD 拆出一份新的独立 PRD", folder)
+            register_extraction_source(state, source)
+            state["confirmed_fact_packet"] = {
+                "summary": "已确认范围", "scope": {"goal": "提取范围", "in_scope": ["实时协作"]},
+                "assumptions": [], "risks": [],
+            }
+
+            self.assertIsNone(_delivery_input_problem(state))
+
+            state["confirmed_fact_packet"]["scope"]["in_scope"] = ["离线状态下保留本地草稿"]
+            self.assertIsNone(_delivery_input_problem(state))
+
+            state["confirmed_fact_packet"]["scope"]["in_scope"] = ["共享反馈"]
+            self.assertIn("匹配多个旧 PRD 文本位置", _delivery_input_problem(state) or "")
+
+    def test_implemented_feature_without_evidence_pauses_before_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            state = create_state("把已实现功能还原成 PRD", folder)
+            state["task_mode"] = "implemented_feature_prd"
+            state["context_source"] = {"mode": "repo-backed", "files_loaded": []}
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "还原已实现功能", "in_scope": ["当前功能"]},
+                "assumptions": [], "risks": [], "buckets": {},
+            }]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                self.fail("missing implementation evidence must stop before any delivery Agent runs")
+
+            _confirmed_delivery(state, "codex", 1, worker=worker)
+
+            self.assertFalse(worker_called)
+            self.assertEqual(state["status"], "needs_input")
+            self.assertEqual(state["termination"], "needs_input")
+            self.assertEqual(state["required_input"]["field"], "implementation_evidence")
+            self.assertIn("实施证据包", state["last_error"])
+            self.assertEqual(state["agent_calls"], [])
+            self.assertFalse((folder / "prd.md").exists())
+            self.assertFalse((folder / "run-log.yaml").exists())
+
+    def test_extraction_source_drift_blocks_delivery_and_invalidates_reuse_after_resnapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            state, canonical, _ = self._eligible_retry_reuse_state(root)
+            source = root / "legacy-prd.md"
+            source.write_text("# 旧 PRD\n\n### 5.7 结算流程\n第一版。\n", encoding="utf-8")
+            state["raw_request"] = "从旧 PRD 提取结算流程，形成独立 PRD"
+            register_extraction_source(state, source)
+            state["extraction_source"]["selected_scope"] = ["5.7 结算流程"]
+            state["confirmed_fact_packet"] = {
+                "summary": "已确认提取范围",
+                "scope": {"goal": "提取结算流程", "in_scope": ["5.7 结算流程"]},
+                "assumptions": [], "risks": [],
+            }
+            initial_fingerprint = _confirmed_scope_fingerprint(state)
+            for stage in state["delivery_stages"].values():
+                stage["scope_fingerprint"] = initial_fingerprint
+            _snapshot_reusable_delivery_artifacts(state)
+            cache = _retry_reuse_cache_folder(state)
+            self.assertTrue(cache.is_dir())
+
+            source.write_text("# 旧 PRD\n\n### 5.7 结算流程\n第二版，规则已变化。\n", encoding="utf-8")
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "提取结算流程", "in_scope": ["5.7 结算流程"]},
+                "assumptions": [], "risks": [], "buckets": {},
+            }]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            worker_called = False
+
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                self.fail("a changed extraction source must stop before cached artifacts or delivery Agents are used")
+
+            _confirmed_delivery(state, "codex", 1, worker=worker)
+
+            self.assertFalse(worker_called)
+            self.assertEqual(state["status"], "needs_input")
+            self.assertEqual(state["termination"], "needs_input")
+            self.assertIn("原始旧 PRD 在确认后已发生变化", state["last_error"])
+            self.assertEqual(state["retry_reuse"]["status"], "available")
+            self.assertTrue(cache.is_dir())
+
+            register_extraction_source(state, source)
+            self.assertNotEqual(_confirmed_scope_fingerprint(state), initial_fingerprint)
+            restored = _prepare_delivery_workspace(state)
+
+            self.assertFalse((restored / "confirmed-requirements.md").exists())
+            self.assertFalse((restored / "prd.md").exists())
+            self.assertEqual(state["retry_reuse"]["status"], "discarded")
+            self.assertEqual(state["retry_reuse"]["reason"], "scope_or_runtime_changed")
+            self.assertFalse(cache.exists())
+            self.assertEqual(canonical, Path(state["folder"]))
 
     def test_prd_prompt_assigns_html_rendering_to_the_controller(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -245,8 +933,8 @@ class InteractiveRequestTest(unittest.TestCase):
         calls = 0
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            target = folder / "run-log.yaml"
-            target.write_text("old trace\n", encoding="utf-8")
+            target = folder / "prd.md"
+            target.write_text("old PRD\n", encoding="utf-8")
             state = create_state("做一个 PRD", folder)
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
 
@@ -254,29 +942,29 @@ class InteractiveRequestTest(unittest.TestCase):
                 nonlocal calls
                 calls += 1
                 staged_target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
-                staged_target.write_text("new but unconfirmed trace\n", encoding="utf-8")
+                staged_target.write_text("new but unconfirmed PRD\n", encoding="utf-8")
                 return {"provider": provider, "model": "codex/gpt-5.6-terra", "status": "failed", "output": "", "error": "stream disconnected"}
 
-            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "seawork", 5, worker=reconnecting_worker))
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 5, worker=reconnecting_worker))
             self.assertEqual(calls, 2)
-            self.assertEqual(target.read_text(encoding="utf-8"), "old trace\n")
-            self.assertEqual(state["delivery_stages"]["run-log.yaml"]["artifact_status"], "failed")
+            self.assertEqual(target.read_text(encoding="utf-8"), "old PRD\n")
+            self.assertEqual(state["delivery_stages"]["prd.md"]["artifact_status"], "failed")
 
     def test_agent_write_in_the_wrong_workspace_cannot_promote_or_pollute_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            target = folder / "run-log.yaml"
-            target.write_text("old trace\n", encoding="utf-8")
+            target = folder / "prd.md"
+            target.write_text("old PRD\n", encoding="utf-8")
             state = create_state("做一个 PRD", folder)
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
 
             def wrong_workspace_worker(provider, prompt, cwd, *args):
-                target.write_text("wrong workspace trace\n", encoding="utf-8")
+                target.write_text("wrong workspace PRD\n", encoding="utf-8")
                 return {"provider": provider, "model": "codex/gpt-5.6-terra", "status": "complete", "output": "idle", "error": ""}
 
-            self.assertFalse(_run_artifact_agent(state, "run-log.yaml", "seawork", 5, worker=wrong_workspace_worker))
-            self.assertEqual(target.read_text(encoding="utf-8"), "old trace\n")
-            stage = state["delivery_stages"]["run-log.yaml"]
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 5, worker=wrong_workspace_worker))
+            self.assertEqual(target.read_text(encoding="utf-8"), "old PRD\n")
+            stage = state["delivery_stages"]["prd.md"]
             self.assertEqual(stage["artifact_status"], "failed")
             self.assertTrue(state["agent_calls"][-1]["artifact_changed_in_workspace"] is False)
 
@@ -427,7 +1115,7 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(len(state["agent_calls"]), 8)
             self.assertTrue((Path(temporary) / "prd.md").is_file())
 
-    def test_confirmed_delivery_revises_after_failed_validation(self) -> None:
+    def test_confirmed_delivery_converges_after_failed_validation(self) -> None:
         writes = 0
 
         def worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
@@ -460,9 +1148,12 @@ class InteractiveRequestTest(unittest.TestCase):
             ):
                 _confirmed_delivery(state, "test", 1, worker=worker, max_revisions=1)
             self.assertEqual(state["status"], "complete")
-            self.assertGreaterEqual(state["revision_loops"], 1)
-            self.assertEqual(len(state["agent_calls"]), 10)
-            self.assertEqual(state["revision_trace"][-1]["outcome"], "changed")
+            self.assertTrue(any(check["status"] == "failed" for check in state["validation"]))
+            self.assertTrue(any(
+                call.get("artifact") == "run-log.yaml"
+                and call.get("execution_mode") == "deterministic_trace_materialization"
+                for call in state["agent_calls"]
+            ))
 
     def test_delivery_exposes_retry_recovery_when_agent_evidence_is_missing(self) -> None:
         def unauthenticated_worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
@@ -486,7 +1177,7 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(state["recovery"]["failed_stage"], "confirmed-requirements.md")
             self.assertEqual(state["recovery"]["retry_entry"], "--confirm")
             self.assertIn("--confirm --provider test", state["recovery"]["retry_action"])
-            self.assertEqual(state["recovery"]["completed_artifacts"][0]["artifact"], "confirmed-requirements.md")
+            self.assertEqual(state["recovery"]["completed_artifacts"], [])
             self.assertFalse((Path(temporary) / "prd.md").exists())
 
     def test_delivery_agent_uses_project_staging_directory_as_workspace(self) -> None:
@@ -506,47 +1197,59 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertTrue(_run_artifact_agent(state, "confirmed-requirements.md", "test", 1, worker=worker))
             self.assertTrue((folder / "confirmed-requirements.md").is_file())
 
-    def test_run_log_promotes_canonical_path_not_staging_path(self) -> None:
+    def test_controller_trace_promotes_only_controller_materialized_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / "pm-copilot-outputs" / "example"
             folder.mkdir(parents=True)
             state = create_state("做一个 PRD", folder)
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            (folder / "prd.md").write_text("# 新需求\n\n### 5.1 新能力\n", encoding="utf-8")
+            (folder / "run-log.yaml").write_text("legacy: stale\n", encoding="utf-8")
+            worker_called = False
 
-            def worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
-                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
-                target.write_text(f"context:\n  folder: {cwd}\n", encoding="utf-8")
-                return {"provider": "test", "model": "test", "status": "complete", "output": "written", "error": ""}
+            def worker(*args, **kwargs):
+                nonlocal worker_called
+                worker_called = True
+                raise AssertionError("controller-owned run-log must not invoke a remote worker")
 
             self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "test", 1, worker=worker))
+            self.assertFalse(worker_called)
             promoted = (folder / "run-log.yaml").read_text(encoding="utf-8")
-            self.assertIn(str(folder.resolve()), promoted)
+            self.assertIn("pm_copilot_revision: controller-deterministic-trace", promoted)
+            self.assertNotIn("legacy: stale", promoted)
             self.assertNotIn(".example.stage-", promoted)
 
     def test_in_place_revision_trace_is_materialized_without_a_remote_writer(self) -> None:
-        baseline = (Path(__file__).resolve().parents[1] / "templates" / "agent-run-log-template.yaml").read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
             target = folder / "run-log.yaml"
-            target.write_text(baseline, encoding="utf-8")
+            target.write_text("legacy: stale\n", encoding="utf-8")
+            (folder / "prd.md").write_text(
+                "# 修订需求\n\n| 5.1 | 状态规则 |\n\n### 5.1 状态规则\n",
+                encoding="utf-8",
+            )
             state = create_state("修订 5.1", folder)
+            state["turns"] = [{
+                "summary": "已确认", "scope": {"goal": "修订状态规则", "in_scope": ["5.1"]},
+                "assumptions": [], "risks": [],
+            }]
+            state["revision_requirement_ids"] = ["5.1"]
             state["revision_history"] = [{
                 "request": "仅修订 5.1",
                 "prd_before_sha256": "old-prd",
                 "html_before_sha256": "old-html",
                 "at": "2026-09-03T00:00:00+00:00",
             }]
-            _materialize_revision_trace(state, target)
-            text = target.read_text(encoding="utf-8")
-            self.assertIn("mode: in_place_revision", text)
-            self.assertIn("revision_evidence_path: revision-evidence.json", text)
-            self.assertIn("target_ref: '5.1'", text)
-            self.assertIn("path: assets/报错提示-失败.png", text)
-            self.assertIn("- 节点执行失败，请稍后重试。", text)
-            self.assertNotIn("音频", text)
-            self.assertNotIn("三张图示", text)
-            self.assertTrue((folder / "revision-evidence.json").is_file())
-            target.write_text(baseline, encoding="utf-8")
+            state["delivery_variant"] = "in_place_revision"
+            _materialize_controller_trace(state, target)
+            trace = yaml.safe_load(target.read_text(encoding="utf-8"))
+            self.assertEqual(trace["artifact_lineage"]["mode"], "in_place_revision")
+            self.assertEqual(trace["artifact_lineage"]["revised_requirement_ids"], ["5.1"])
+            self.assertEqual(trace["artifact_lineage"]["revision_evidence_path"], "revision-evidence.json")
+            self.assertNotIn("legacy", target.read_text(encoding="utf-8"))
+            evidence = json.loads((folder / "revision-evidence.json").read_text(encoding="utf-8"))
+            self.assertEqual(evidence["controller_scope_ids"], ["5.1"])
+            target.write_text("legacy: stale\n", encoding="utf-8")
 
             worker_called = False
 
@@ -572,11 +1275,477 @@ class InteractiveRequestTest(unittest.TestCase):
             state = create_state("修订 5.1", folder)
             state["revision_history"] = [{"request": "仅修订 5.1", "at": "2026-09-03T00:00:00+00:00"}]
 
-            _materialize_revision_trace(state, target)
+            _materialize_controller_trace(state, target)
             text = target.read_text(encoding="utf-8")
             self.assertIn("agent_task_ledger:", text)
             self.assertIn("loop_state:", text)
             self.assertIn("readiness:", text)
+            self.assertNotIn("schema_version: 1", text)
+
+    def test_controller_trace_finalization_never_marks_failed_checks_as_passed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "prd.md").write_text("# 新需求\n\n### 5.1 新能力\n", encoding="utf-8")
+            target = folder / "run-log.yaml"
+            state = create_state("新增能力", folder)
+            state["turns"] = [{"summary": "已确认", "scope": {"goal": "新增能力"}, "assumptions": [], "risks": []}]
+            _materialize_controller_trace(state, target)
+
+            finalized = _finalize_deterministic_trace(folder, [{
+                "command": "scripts/validate_outputs.py", "status": "failed",
+                "stdout": "required marker missing", "stderr": "",
+            }])
+
+            trace = yaml.safe_load(target.read_text(encoding="utf-8"))
+            self.assertFalse(finalized)
+            self.assertIs(trace["quality_decision"]["passed"], False)
+            self.assertNotEqual(trace["termination_condition"]["status"], "complete")
+            self.assertTrue(all(item["status"] != "passed" for item in trace["validation_results"]))
+
+    def test_revision_evidence_is_promoted_with_the_validated_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            (workspace / "confirmed-requirements.md").write_text("# confirmed\n", encoding="utf-8")
+            (workspace / "prd.md").write_text("# revised\n", encoding="utf-8")
+            (workspace / "prd.html").write_text("<!doctype html><html></html>", encoding="utf-8")
+            (workspace / "run-log.yaml").write_text("trace: current\n", encoding="utf-8")
+            (workspace / "assets").mkdir()
+            (workspace / "revision-evidence.json").write_text(
+                '{"mode":"in_place_revision","prd_before_sha256":"old"}\n', encoding="utf-8",
+            )
+            state = create_state("修订需求", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            _promote_delivery_workspace(state)
+
+            self.assertEqual(
+                (canonical / "revision-evidence.json").read_text(encoding="utf-8"),
+                '{"mode":"in_place_revision","prd_before_sha256":"old"}\n',
+            )
+            self.assertEqual((canonical / "confirmed-requirements.md").read_text(encoding="utf-8"), "# confirmed\n")
+
+    def test_promotion_replaces_source_material_from_the_validated_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            for name, content in {
+                "confirmed-requirements.md": "# confirmed\n",
+                "prd.md": "# current\n",
+                "prd.html": "<!doctype html><html></html>\n",
+                "run-log.yaml": "trace: current\n",
+            }.items():
+                (workspace / name).write_text(content, encoding="utf-8")
+            (workspace / "assets").mkdir()
+            canonical_packet = canonical / "source-material" / "implemented-feature-evidence.json"
+            canonical_packet.parent.mkdir()
+            canonical_packet.write_text('{"state":"tampered canonical"}\n', encoding="utf-8")
+            staged_packet = workspace / "source-material" / "implemented-feature-evidence.json"
+            staged_packet.parent.mkdir()
+            staged_packet.write_text('{"state":"validated staging"}\n', encoding="utf-8")
+            state = create_state("还原已实现功能 PRD", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            _promote_delivery_workspace(state)
+
+            self.assertEqual(
+                canonical_packet.read_text(encoding="utf-8"),
+                '{"state":"validated staging"}\n',
+            )
+
+    def test_promotion_rejects_a_staged_implemented_evidence_packet_that_no_longer_matches_trace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            for name, content in {
+                "confirmed-requirements.md": "# confirmed\n",
+                "prd.md": "# current\n",
+                "prd.html": "<!doctype html><html></html>\n",
+            }.items():
+                (workspace / name).write_text(content, encoding="utf-8")
+            (workspace / "assets").mkdir()
+            packet_payload = {"branch_name": "feature/canvas", "changed_files": ["src/canvas.ts"]}
+            staged_packet = workspace / "source-material" / "implemented-feature-evidence.json"
+            staged_packet.parent.mkdir()
+            staged_packet.write_text(json.dumps(packet_payload), encoding="utf-8")
+            expected_digest = hashlib.sha256(staged_packet.read_bytes()).hexdigest()
+            (workspace / "run-log.yaml").write_text(
+                yaml.safe_dump({
+                    "agent_strategy": {"task_mode": "implemented_feature_prd"},
+                    "resume_checkpoint": {"task_mode": "implemented_feature_prd"},
+                    "artifact_lineage": {
+                        "mode": "new_run",
+                        "output_folder_reset": True,
+                        "target_prd_path": "",
+                        "target_html_path": "",
+                        "revision_evidence_path": "",
+                        "revised_requirement_ids": [],
+                        "source_snapshot_path": "",
+                        "source_prd_display_name": "",
+                        "source_prd_sha256": "",
+                        "selected_source_scope": [],
+                        "source_scope_resolution": [],
+                        "historical_artifacts": [],
+                    },
+                    "implemented_feature_prd": {
+                        "active": True,
+                        "mode": "implemented_feature_prd",
+                        **packet_payload,
+                        "evidence_packet": {
+                            "path": "source-material/implemented-feature-evidence.json",
+                            "sha256": expected_digest,
+                            "imported_result_refs": [],
+                        },
+                    },
+                }, allow_unicode=True, sort_keys=False),
+                encoding="utf-8",
+            )
+            canonical_packet = canonical / "source-material" / "implemented-feature-evidence.json"
+            canonical_packet.parent.mkdir()
+            canonical_packet.write_text('{"state":"old canonical"}\n', encoding="utf-8")
+            # Simulate a concurrent staged input mutation after final staging
+            # validation but before the publish transaction begins.
+            staged_packet.write_text('{"state":"tampered staging"}\n', encoding="utf-8")
+            state = create_state("还原已实现功能 PRD", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            with self.assertRaisesRegex(RuntimeError, "candidate delivery provenance validation failed"):
+                _promote_delivery_workspace(state)
+
+            self.assertEqual(
+                canonical_packet.read_text(encoding="utf-8"),
+                '{"state":"old canonical"}\n',
+            )
+
+    def test_promotion_retains_only_trace_referenced_tool_results(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            for name, content in {
+                "confirmed-requirements.md": "# confirmed\n",
+                "prd.md": "# current\n",
+                "prd.html": "<!doctype html><html></html>\n",
+                "run-log.yaml": (
+                    "implemented_feature_prd:\n"
+                    "  visual_capture_recovery:\n"
+                    "    - attempt_id: capture-1\n"
+                    "      result_ref: tool-results/capture-1.json\n"
+                ),
+            }.items():
+                (workspace / name).write_text(content, encoding="utf-8")
+            (workspace / "assets").mkdir()
+            results = workspace / "tool-results"
+            results.mkdir()
+            (results / "capture-1.json").write_text('{"status":"failed"}\n', encoding="utf-8")
+            (results / "stale-controller.log").write_text("discard me\n", encoding="utf-8")
+            old_results = canonical / "tool-results"
+            old_results.mkdir()
+            (old_results / "old.json").write_text("obsolete\n", encoding="utf-8")
+            state = create_state("还原已实现功能 PRD", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            _promote_delivery_workspace(state)
+
+            self.assertEqual(
+                (canonical / "tool-results" / "capture-1.json").read_text(encoding="utf-8"),
+                '{"status":"failed"}\n',
+            )
+            self.assertFalse((canonical / "tool-results" / "stale-controller.log").exists())
+            self.assertFalse((canonical / "tool-results" / "old.json").exists())
+
+    def test_promotion_rejects_trace_result_reference_outside_staging(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            for name, content in {
+                "confirmed-requirements.md": "# confirmed\n",
+                "prd.md": "# current\n",
+                "prd.html": "<!doctype html><html></html>\n",
+                "run-log.yaml": "evidence:\n  result_ref: ../outside.json\n",
+            }.items():
+                (workspace / name).write_text(content, encoding="utf-8")
+            (workspace / "assets").mkdir()
+            state = create_state("Create a PRD", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            with self.assertRaisesRegex(RuntimeError, "escapes the staged run folder"):
+                _promote_delivery_workspace(state)
+
+            self.assertFalse((canonical / "prd.md").exists())
+
+    def test_promotion_rolls_back_every_official_artifact_after_later_rejection(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            for name, content in {
+                "confirmed-requirements.md": "old confirmed\n",
+                "prd.md": "old prd\n",
+                "prd.html": "<html>old</html>\n",
+                "run-log.yaml": "old: trace\n",
+            }.items():
+                (canonical / name).write_text(content, encoding="utf-8")
+                (workspace / name).write_text("new " + content, encoding="utf-8")
+            (canonical / "assets").mkdir()
+            (canonical / "assets" / "old.png").write_bytes(b"old asset")
+            (workspace / "assets").mkdir()
+            (workspace / "assets" / "new.png").write_bytes(b"new asset")
+            old_results = canonical / "tool-results"
+            old_results.mkdir()
+            (old_results / "old.json").write_text('{"old":true}\n', encoding="utf-8")
+
+            def snapshot(folder: Path) -> dict[str, bytes]:
+                return {
+                    path.relative_to(folder).as_posix(): path.read_bytes()
+                    for path in folder.rglob("*") if path.is_file()
+                }
+
+            before = snapshot(canonical)
+            state = create_state("更新 PRD", canonical)
+            state["delivery_workspace"] = str(workspace)
+            backup = _promote_delivery_workspace(state)
+            self.assertNotEqual(snapshot(canonical), before)
+
+            _rollback_delivery_promotion(canonical, backup)
+
+            self.assertEqual(snapshot(canonical), before)
+
+    def test_promotion_copy_failure_leaves_canonical_artifacts_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            for name, content in {
+                "confirmed-requirements.md": "old confirmed\n",
+                "prd.md": "old prd\n",
+                "prd.html": "<html>old</html>\n",
+                "run-log.yaml": "old: trace\n",
+            }.items():
+                (canonical / name).write_text(content, encoding="utf-8")
+                (workspace / name).write_text("new " + content, encoding="utf-8")
+            (canonical / "assets").mkdir()
+            (canonical / "assets" / "old.png").write_bytes(b"old asset")
+            (workspace / "assets").mkdir()
+            (workspace / "assets" / "new.png").write_bytes(b"new asset")
+            before = {
+                path.relative_to(canonical).as_posix(): path.read_bytes()
+                for path in canonical.rglob("*") if path.is_file()
+            }
+            state = create_state("更新 PRD", canonical)
+            state["delivery_workspace"] = str(workspace)
+            original_copy = _atomic_copy
+            calls = 0
+
+            def failing_copy(source: Path, destination: Path) -> None:
+                nonlocal calls
+                calls += 1
+                if calls == 3:
+                    raise OSError("simulated publish copy failure")
+                original_copy(source, destination)
+
+            with patch("run_interactive_request._atomic_copy", side_effect=failing_copy):
+                with self.assertRaisesRegex(OSError, "simulated publish copy failure"):
+                    _promote_delivery_workspace(state)
+
+            after = {
+                path.relative_to(canonical).as_posix(): path.read_bytes()
+                for path in canonical.rglob("*") if path.is_file()
+            }
+            self.assertEqual(after, before)
+
+    def test_stage_review_records_the_delivery_workspace_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            delivery = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            delivery.mkdir(parents=True)
+            (canonical / "prd.md").write_text("# stale canonical\n", encoding="utf-8")
+            staged_prd = delivery / "prd.md"
+            staged_prd.write_text("# reviewed staged PRD\n", encoding="utf-8")
+            state = create_state("修订需求", canonical)
+            state["delivery_workspace"] = str(delivery)
+            state["turns"] = [{"summary": "已确认", "scope": {"goal": "修订需求"}, "assumptions": [], "risks": []}]
+
+            def worker(provider, prompt, cwd, timeout, model, schema, dry_run, output_limit):
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                review_path.write_text(
+                    '{"status":"pass","summary":"checked","blocking_findings":[],"acceptance_evidence":["staged bytes"]}',
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
+
+            passed, _ = _review_artifact(state, "prd.md", "test", 1, worker=worker)
+            self.assertTrue(passed)
+            self.assertEqual(
+                state["delivery_stages"]["prd.md"]["reviewed_sha256"],
+                hashlib.sha256(staged_prd.read_bytes()).hexdigest(),
+            )
+
+    def test_retry_reuse_restores_only_fully_reviewed_content_stages(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, canonical, workspace = self._eligible_retry_reuse_state(Path(temporary))
+            _snapshot_reusable_delivery_artifacts(state)
+            cache = _retry_reuse_cache_folder(state)
+            self.assertTrue(cache.is_dir())
+
+            # A malicious or obsolete trace cache entry must never cross the
+            # retry boundary; every run creates fresh controller provenance.
+            cached_trace = cache / "run-log.yaml"
+            cached_trace.write_text("untrusted: old trace\n", encoding="utf-8")
+            manifest_path = cache / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"].append({
+                "artifact": "run-log.yaml",
+                "sha256": hashlib.sha256(cached_trace.read_bytes()).hexdigest(),
+            })
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            restored = _prepare_delivery_workspace(state)
+
+            self.assertEqual(
+                (restored / "confirmed-requirements.md").read_text(encoding="utf-8"),
+                "# Confirmed requirements\n",
+            )
+            self.assertEqual(
+                (restored / "prd.md").read_text(encoding="utf-8"),
+                "# Staged PRD\n\n### 5.1 Staged requirement\n",
+            )
+            self.assertEqual(
+                (restored / "prd.html").read_text(encoding="utf-8"),
+                "<!doctype html><html><body>staged</body></html>\n",
+            )
+            self.assertFalse((restored / "run-log.yaml").exists())
+            self.assertEqual(state["retry_reuse"]["status"], "consumed")
+            self.assertEqual(
+                state["retry_reuse"]["artifacts"],
+                ["confirmed-requirements.md", "prd.md"],
+            )
+            self.assertEqual(
+                state["delivery_stages"]["prd.md"]["reuse_source"],
+                "prior_verified_delivery_workspace",
+            )
+            self.assertFalse(cache.exists())
+            self.assertEqual(canonical, Path(state["folder"]))
+            self.assertEqual(restored.resolve(), workspace.resolve())
+
+    def test_retry_reuse_rejects_fingerprint_version_review_and_hash_mismatches(self) -> None:
+        with self.subTest("review mismatch is never snapshotted"):
+            with tempfile.TemporaryDirectory() as temporary:
+                state, _, _ = self._eligible_retry_reuse_state(Path(temporary))
+                for stage in state["delivery_stages"].values():
+                    stage["review_status"] = "needs_revision"
+                _snapshot_reusable_delivery_artifacts(state)
+                self.assertNotIn("retry_reuse", state)
+                self.assertFalse(_retry_reuse_cache_folder(state).exists())
+
+        with self.subTest("confirmed scope mismatch is never restored"):
+            with tempfile.TemporaryDirectory() as temporary:
+                state, _, _ = self._eligible_retry_reuse_state(Path(temporary))
+                _snapshot_reusable_delivery_artifacts(state)
+                state["raw_request"] = "Changed confirmed request"
+                restored = _prepare_delivery_workspace(state)
+                self.assertFalse((restored / "confirmed-requirements.md").exists())
+                self.assertFalse((restored / "prd.md").exists())
+                self.assertEqual(state["retry_reuse"]["status"], "discarded")
+                self.assertEqual(state["retry_reuse"]["reason"], "scope_or_runtime_changed")
+
+        with self.subTest("runtime version mismatch is never restored"):
+            with tempfile.TemporaryDirectory() as temporary:
+                state, _, _ = self._eligible_retry_reuse_state(Path(temporary))
+                _snapshot_reusable_delivery_artifacts(state)
+                with patch("run_interactive_request._active_runtime_version", return_value="different-runtime"):
+                    restored = _prepare_delivery_workspace(state)
+                self.assertFalse((restored / "confirmed-requirements.md").exists())
+                self.assertFalse((restored / "prd.md").exists())
+                self.assertEqual(state["retry_reuse"]["status"], "discarded")
+                self.assertEqual(state["retry_reuse"]["reason"], "scope_or_runtime_changed")
+
+        with self.subTest("cached hash mismatch is never restored"):
+            with tempfile.TemporaryDirectory() as temporary:
+                state, _, _ = self._eligible_retry_reuse_state(Path(temporary))
+                _snapshot_reusable_delivery_artifacts(state)
+                cache = _retry_reuse_cache_folder(state)
+                (cache / "confirmed-requirements.md").write_text("tampered\n", encoding="utf-8")
+                (cache / "prd.md").write_text("tampered\n", encoding="utf-8")
+                restored = _prepare_delivery_workspace(state)
+                self.assertFalse((restored / "confirmed-requirements.md").exists())
+                self.assertFalse((restored / "prd.md").exists())
+                self.assertEqual(state["retry_reuse"]["status"], "discarded")
+                self.assertEqual(state["retry_reuse"]["reason"], "cache_hash_mismatch")
+
+    def test_quality_decision_validation_failure_regenerates_trace_locally(self) -> None:
+        failed_quality_check = [{
+            "command": "scripts/validate_outputs.py",
+            "status": "failed",
+            "stdout": "Quality decision must explicitly pass for final generated artifacts",
+            "stderr": "",
+        }]
+        passed_checks = [{
+            "command": "scripts/validate_outputs.py", "status": "passed", "stdout": "", "stderr": "",
+        }]
+        with tempfile.TemporaryDirectory() as temporary:
+            canonical = Path(temporary) / "pm-copilot-outputs" / "example"
+            canonical.mkdir(parents=True)
+            state = create_state("Create a PRD", canonical)
+            state["turns"] = [{"summary": "Confirmed", "scope": {"goal": "Create a PRD"}, "assumptions": [], "risks": []}]
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+            regenerated: list[str] = []
+            original_runner = _run_artifact_agent
+
+            def worker(*args, **kwargs):
+                self.fail("controller-owned run-log generation and review must not invoke a remote worker")
+
+            def deliver(state_arg, artifact, *args, **kwargs):
+                target = Path(state_arg["delivery_workspace"]) / artifact
+                if artifact == "run-log.yaml":
+                    _materialize_controller_trace(state_arg, target)
+                else:
+                    target.write_text(f"# {artifact}\n", encoding="utf-8")
+                return True
+
+            def record_and_run(*args, **kwargs):
+                regenerated.append(args[1])
+                return original_runner(*args, **kwargs)
+
+            with patch("run_interactive_request._deliver_artifact_to_quality_gate", side_effect=deliver), patch(
+                "run_interactive_request._run_artifact_agent", side_effect=record_and_run,
+            ), patch(
+                "run_interactive_request._validate_delivery",
+                side_effect=[failed_quality_check, failed_quality_check, passed_checks, passed_checks],
+            ), patch(
+                "run_interactive_request._trace_contract_findings", return_value="",
+            ), patch(
+                "run_interactive_request._required_production_evidence", return_value=(False, "test stop"),
+            ):
+                _confirmed_delivery(state, "codex", 1, worker=worker, max_revisions=1)
+
+            self.assertEqual(regenerated, ["run-log.yaml"])
+            self.assertTrue(any(
+                call.get("artifact") == "run-log.yaml"
+                and call.get("execution_mode") == "deterministic_trace_materialization"
+                for call in state["agent_calls"]
+            ))
+            self.assertFalse(any(call.get("artifact") == "prd.md" for call in state["agent_calls"]))
 
     def test_delivery_checkpoint_survives_interruption_after_artifact_promotion(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -656,7 +1825,7 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(_confirmed_fact_source(state)["scope"]["goal"], "稳定目标")
             self.assertEqual(_confirmation_packet(state)["scope"]["goal"], "稳定目标")
 
-    def test_revision_scope_guard_rejects_unapproved_heading_changes(self) -> None:
+    def test_revision_scope_guard_rejects_missing_or_unapproved_heading_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             baseline = root / "baseline.md"
@@ -664,7 +1833,164 @@ class InteractiveRequestTest(unittest.TestCase):
             baseline.write_text("### 5.1 A\nold\n## 六、语言\nunchanged\n", encoding="utf-8")
             candidate.write_text("### 5.1 A\nnew\n## 六、语言\nchanged\n", encoding="utf-8")
             self.assertIsNotNone(_revision_scope_violation(candidate, baseline, ["5.1"]))
-            self.assertIsNone(_revision_scope_violation(candidate, baseline, []))
+            self.assertIn(
+                "no confirmed requirement selector",
+                _revision_scope_violation(candidate, baseline, []) or "",
+            )
+
+    def test_revision_skips_global_controller_transforms_outside_confirmed_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            canonical = Path(temporary) / "canonical"
+            canonical.mkdir()
+            original = (
+                "| 5.1 | 已选需求 |\n| 5.3 | 未选需求 |\n\n"
+                "### 5.1 已选需求\n节点执行失败，请稍后重试。\n\n"
+                "### 5.3 未选需求\n节点执行失败，请稍后重试\n"
+            )
+            (canonical / "prd.md").write_text(original, encoding="utf-8")
+            (canonical / "prd.html").write_text("<html>before</html>\n", encoding="utf-8")
+            state = create_state("修订需求 5.1", canonical)
+            state["delivery_variant"] = "in_place_revision"
+            state["revision_requirement_ids"] = ["5.1"]
+            state["revision_history"] = [{
+                "mode": "in_place_revision",
+                "prd_before_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+                "html_before_sha256": hashlib.sha256(b"<html>before</html>\n").hexdigest(),
+            }]
+            state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
+            workspace = _prepare_delivery_workspace(state)
+
+            def worker(provider, prompt, cwd, *args):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                target.write_text(original.replace("### 5.1 已选需求", "### 5.1 已更新需求"), encoding="utf-8")
+                return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
+            updated = (workspace / "prd.md").read_text(encoding="utf-8")
+            self.assertIn("### 5.1 已更新需求", updated)
+            self.assertIn("### 5.3 未选需求\n节点执行失败，请稍后重试\n", updated)
+            self.assertNotIn("### 5.3 未选需求\n节点执行失败，请稍后重试。\n", updated)
+
+    def test_revision_deletion_preserves_confirmed_scope_and_numbering_holes(self) -> None:
+        names = {"5.1": "需求一", "5.2": "需求二", "5.3": "需求三"}
+        rules = {"5.1": "规则一", "5.2": "规则二", "5.3": "规则三"}
+        original = (
+            "| 5.1 | 需求一 |\n| 5.2 | 需求二 |\n| 5.3 | 需求三 |\n\n"
+            "### 5.1 需求一\n规则一\n\n"
+            "### 5.2 需求二\n规则二\n\n"
+            "### 5.3 需求三\n规则三\n"
+        )
+        for deleted_id, expected_ids in (("5.2", ["5.1", "5.3"]), ("5.3", ["5.1", "5.2"])):
+            with self.subTest(deleted_id=deleted_id):
+                with tempfile.TemporaryDirectory() as temporary:
+                    canonical = Path(temporary) / "canonical"
+                    canonical.mkdir()
+                    (canonical / "prd.md").write_text(original, encoding="utf-8")
+                    (canonical / "prd.html").write_text("<html>before</html>\n", encoding="utf-8")
+                    state = create_state(f"删除需求 {deleted_id}", canonical)
+                    state["delivery_variant"] = "in_place_revision"
+                    state["revision_requirement_ids"] = [deleted_id]
+                    state["revision_history"] = [{
+                        "mode": "in_place_revision",
+                        "prd_before_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+                        "html_before_sha256": hashlib.sha256(b"<html>before</html>\n").hexdigest(),
+                        "baseline_requirement_ids": ["5.1", "5.2", "5.3"],
+                    }]
+                    state["turns"] = [{
+                        "summary": "已确认删除范围", "scope": {"goal": f"删除 {deleted_id}"},
+                        "assumptions": [], "risks": [],
+                    }]
+                    workspace = _prepare_delivery_workspace(state)
+                    candidate = original.replace(f"| {deleted_id} | {names[deleted_id]} |\n", "")
+                    section = f"### {deleted_id} {names[deleted_id]}\n{rules[deleted_id]}\n"
+                    if deleted_id != "5.3":
+                        section += "\n"
+                    candidate = candidate.replace(section, "")
+
+                    def worker(provider, prompt, cwd, *args):
+                        target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                        target.write_text(candidate, encoding="utf-8")
+                        return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
+
+                    self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
+                    staged_prd = workspace / "prd.md"
+                    staged_text = staged_prd.read_text(encoding="utf-8")
+                    observed_ids = [
+                        requirement_id for requirement_id in ("5.1", "5.2", "5.3")
+                        if f"| {requirement_id} |" in staged_text
+                    ]
+                    self.assertEqual(observed_ids, expected_ids)
+                    lineage = _trace_lineage(state, staged_prd)
+                    self.assertEqual(lineage["revised_requirement_ids"], [deleted_id])
+                    self.assertEqual(lineage["deleted_requirement_ids"], [deleted_id])
+                    _materialize_revision_evidence(state, workspace / "run-log.yaml")
+                    evidence = json.loads((workspace / "revision-evidence.json").read_text(encoding="utf-8"))
+                    self.assertEqual(evidence["controller_scope_ids"], [deleted_id])
+                    self.assertEqual(evidence["deleted_requirement_ids"], [deleted_id])
+                    self.assertEqual(evidence["baseline_requirement_ids"], ["5.1", "5.2", "5.3"])
+
+    def test_promotion_time_revision_source_drift_requires_a_fresh_revision(self) -> None:
+        for changed_name in ("prd.md", "prd.html"):
+            with self.subTest(changed_name=changed_name):
+                with tempfile.TemporaryDirectory() as temporary:
+                    canonical = Path(temporary) / "canonical"
+                    canonical.mkdir()
+                    original_prd = "| 5.1 | 状态提示 |\n\n### 5.1 状态提示\n原始规则\n"
+                    original_html = "<html>before</html>\n"
+                    (canonical / "prd.md").write_text(original_prd, encoding="utf-8")
+                    (canonical / "prd.html").write_text(original_html, encoding="utf-8")
+                    (canonical / "assets").mkdir()
+                    state = create_state("修改需求 5.1", canonical)
+                    state.update({
+                        "delivery_variant": "in_place_revision",
+                        "revision_requirement_ids": ["5.1"],
+                        "revision_history": [{
+                            "mode": "in_place_revision",
+                            "prd_before_sha256": hashlib.sha256(original_prd.encode("utf-8")).hexdigest(),
+                            "html_before_sha256": hashlib.sha256(original_html.encode("utf-8")).hexdigest(),
+                            "baseline_requirement_ids": ["5.1"],
+                        }],
+                        "turns": [{"summary": "已确认", "scope": {"goal": "修改状态提示"}, "assumptions": [], "risks": []}],
+                        "user_confirmation": {"confirmed": True, "source": "test"},
+                    })
+
+                    def deliver(state_arg, artifact, *args, **kwargs):
+                        target = Path(state_arg["delivery_workspace"]) / artifact
+                        if artifact == "confirmed-requirements.md":
+                            target.write_text("# confirmed\n", encoding="utf-8")
+                        elif artifact == "prd.md":
+                            target.write_text("| 5.1 | 状态提示 |\n\n### 5.1 状态提示\n更新规则\n", encoding="utf-8")
+                            target.with_name("prd.html").write_text("<html>staged</html>\n", encoding="utf-8")
+                        else:
+                            target.write_text("trace: staged\n", encoding="utf-8")
+                        return True
+
+                    actual_promote = _promote_delivery_workspace
+
+                    def mutate_source_then_promote(state_arg):
+                        (canonical / changed_name).write_text(
+                            f"external concurrent update to {changed_name}\n", encoding="utf-8",
+                        )
+                        return actual_promote(state_arg)
+
+                    passed = [{"command": "test validation", "status": "passed", "stdout": "", "stderr": ""}]
+                    with patch(
+                        "run_interactive_request._deliver_artifact_to_quality_gate", side_effect=deliver,
+                    ), patch(
+                        "run_interactive_request._validate_delivery", return_value=passed,
+                    ), patch(
+                        "run_interactive_request._required_production_evidence", return_value=(True, ""),
+                    ), patch(
+                        "run_interactive_request._promote_delivery_workspace", side_effect=mutate_source_then_promote,
+                    ):
+                        _confirmed_delivery(state, "test", 1)
+
+                    self.assertEqual(state["status"], "needs_input")
+                    self.assertEqual(state["termination"], "needs_input")
+                    self.assertEqual(state["required_input"]["field"], "revision_source_drift")
+                    self.assertIn("重新发起原地修订", state["required_input"]["question"])
+                    self.assertIn("external concurrent update", (canonical / changed_name).read_text(encoding="utf-8"))
+                    self.assertFalse(state.get("delivery_promoted_at"))
 
     def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

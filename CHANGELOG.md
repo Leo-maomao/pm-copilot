@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.101] - 2026-09-04
+
+- Make PRD delivery provenance explicit for new documents, in-place revisions, and source-document extractions; validate staged snapshots, hashes, selected scope, and implementation evidence before promotion.
+- Keep normal artifact stages Codex-first, and make Seawork transport failures bounded, attributable, and safely isolated before a compatible locally ready fallback is considered.
+- Materialize and validate the controller-owned run log from staged state so a disconnected remote trace writer cannot promote stale or unrelated content.
+
 ## [6.2.100] - 2026-09-03
 
 - Treat controller-generated `revision-evidence.json` as an allowed audited PRD output.

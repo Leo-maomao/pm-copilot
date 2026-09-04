@@ -16,8 +16,14 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote
 
+import yaml
+
 from implemented_feature_contract import VISUAL_CAPTURE_METHODS, VISUAL_CAPTURE_STATUSES
 from prd_visual_contract import PLACEHOLDER_DECLARATION_RE, is_controlled_placeholder_value
+from validate_agent_trace import (
+    validate_artifact_lineage,
+    validate_implemented_feature_evidence_packet,
+)
 
 
 FORBIDDEN_DEFAULT_FILES = {
@@ -450,16 +456,36 @@ def yaml_bool_field_value(block: str, key: str) -> bool | None:
     return None
 
 
+def _run_log_mapping(run_log: str) -> dict[str, object]:
+    """Load structured trace state for gates that must not trust YAML snippets."""
+    try:
+        parsed = yaml.safe_load(run_log)
+    except yaml.YAMLError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _run_log_task_mode(run_log: str) -> str:
+    strategy = _run_log_mapping(run_log).get("agent_strategy")
+    if not isinstance(strategy, dict):
+        return ""
+    task_mode = strategy.get("task_mode")
+    return task_mode.strip() if isinstance(task_mode, str) else ""
+
+
+def _implemented_feature_mapping(run_log: str) -> dict[str, object]:
+    section = _run_log_mapping(run_log).get("implemented_feature_prd")
+    return section if isinstance(section, dict) else {}
+
+
 def implemented_feature_prd_is_active(run_log: str) -> bool:
+    structured = _implemented_feature_mapping(run_log)
+    if structured:
+        return structured.get("active") is True
     section = extract_yaml_block(run_log, "implemented_feature_prd")
     if not section:
         return False
-    active = yaml_bool_field_value(section, "active")
-    mode = yaml_scalar_field_value(section, "mode")
-    return active is True or mode in {
-        "implemented_feature_prd",
-        "implemented_feature_prd_review",
-    }
+    return yaml_bool_field_value(section, "active") is True
 
 
 def yaml_list_item_blocks(block: str) -> list[str]:
@@ -1387,7 +1413,51 @@ def check_stale_validation(path: Path) -> None:
             fail(f"Stale validation placeholder found in {file_name}")
 
 
-def check_readiness_trace(path: Path) -> None:
+def _top_level_yaml_scalar_value(text: str, key: str) -> str:
+    """Return one scalar declared at the root of a run-log YAML document."""
+    match = re.search(
+        rf"^{re.escape(key)}:\s*(?P<value>.+?)\s*(?:#.*)?$",
+        text,
+        re.MULTILINE,
+    )
+    if not match:
+        return ""
+    value = match.group("value").strip()
+    if value in ("[]", "{}", '\"\"', "''"):
+        return ""
+    return value.strip("\"'")
+
+
+def _is_controller_deterministic_pre_final_trace(path: Path, run_log: str) -> bool:
+    """Recognize the controller-owned trace state before final validation.
+
+    A delivery workspace is deliberately separate from the canonical output
+    folder. The controller can validate a trace there before it has truthful
+    final validator results, but that state must never be accepted after
+    promotion.
+    """
+    if path.parent.name != f".{path.name}.delivery-stage":
+        return False
+    if _top_level_yaml_scalar_value(run_log, "pm_copilot_revision") != "controller-deterministic-trace":
+        return False
+
+    termination = extract_yaml_block(run_log, "termination_condition")
+    quality_decision = extract_yaml_block(run_log, "quality_decision")
+    validation_results = extract_yaml_block(run_log, "validation_results")
+    if yaml_scalar_field_value(termination, "status") != "degraded":
+        return False
+    if yaml_bool_field_value(quality_decision, "passed") is not False:
+        return False
+    statuses = [
+        yaml_field_value(item, "status")
+        for item in yaml_list_item_blocks(validation_results)
+    ]
+    if not statuses or any(status != "pending" for status in statuses):
+        return False
+    return _top_level_yaml_scalar_value(run_log, "final_status") == "deterministic trace ready for validation"
+
+
+def check_readiness_trace(path: Path, staging: bool = False) -> None:
     run_log = read(path / "run-log.yaml")
     required = (
         "readiness:",
@@ -1403,7 +1473,11 @@ def check_readiness_trace(path: Path) -> None:
     for marker in ("review_scores:", "quality_thresholds:", "quality_decision:"):
         if marker not in run_log:
             fail(f"Run log missing quality marker: {marker}")
-    if "quality_decision:" in run_log and "passed: true" not in run_log:
+    quality_decision = extract_yaml_block(run_log, "quality_decision")
+    quality_passed = yaml_bool_field_value(quality_decision, "passed")
+    if quality_passed is not True and not (
+        staging and _is_controller_deterministic_pre_final_trace(path, run_log)
+    ):
         fail("Quality decision must explicitly pass for final generated artifacts")
     if "failures:" not in run_log:
         fail("Run log missing failures section")
@@ -1615,8 +1689,28 @@ def check_scope_and_surface_trace(path: Path) -> None:
         fail("Run log missing scope/surface marker: navigation_visibility:")
 
 
+def check_artifact_lineage_trace(path: Path) -> None:
+    """Enforce the same source-proof contract when only output validation runs."""
+    run_log_path = path / "run-log.yaml"
+    if not run_log_path.is_file():
+        return
+    for failure in validate_artifact_lineage(run_log_path):
+        fail(failure)
+
+
 def check_implemented_feature_prd_trace(path: Path) -> None:
     run_log = read(path / "run-log.yaml")
+    task_mode = _run_log_task_mode(run_log)
+    structured = _implemented_feature_mapping(run_log)
+    if task_mode == "implemented_feature_prd":
+        if not structured:
+            fail("implemented_feature_prd task_mode requires an implemented_feature_prd evidence mapping")
+        if structured.get("active") is not True:
+            fail("implemented_feature_prd task_mode requires implemented_feature_prd.active: true")
+        if structured.get("mode") not in {"implemented_feature_prd", "implemented_feature_prd_review"}:
+            fail("implemented_feature_prd task_mode requires a matching implemented_feature_prd.mode")
+        for failure in validate_implemented_feature_evidence_packet(path / "run-log.yaml", run_log):
+            fail(failure)
     section = extract_yaml_block(run_log, "implemented_feature_prd")
     if not section:
         return
@@ -3735,12 +3829,13 @@ def main() -> None:
         return
 
     check_stale_validation(folder)
-    check_readiness_trace(folder)
+    check_readiness_trace(folder, staging=args.staging)
     check_context_trace(folder)
     check_structured_run_log_trace(folder)
     check_default_option_trace(folder)
     check_scope_and_surface_trace(folder)
     check_run_log_agent_evidence(folder)
+    check_artifact_lineage_trace(folder)
     check_implemented_feature_prd_trace(folder)
     check_visual_validation_trace(folder)
     check_prototype_agent_and_style_trace(folder, language)
