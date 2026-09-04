@@ -17,7 +17,7 @@ REQUIRED_FILES = (
     "templates/agent-run-log-template.yaml", "scripts/prd_request_controller.py",
     "scripts/run_interactive_request.py", "scripts/agent_runtime.py", "scripts/project_workspace.py",
     "scripts/revision_scope.py", "scripts/render_prd_html.py", "scripts/setup_prd_renderer.py",
-    "scripts/validate_outputs.py", "scripts/implemented_feature_contract.py", "scripts/prd_visual_contract.py",
+    "scripts/validate_outputs.py", "scripts/prd_visual_contract.py",
     "scripts/validate_agent_trace.py", "scripts/collect_implemented_feature_evidence.py", "scripts/generate_reconstructed_figure.py",
     "scripts/capture_frontend_figure.py", "scripts/specialist_dispatch.py", "scripts/prd_manager.py",
     "tools/prd-manager/index.html", "tools/prd-manager/app.js", "tools/prd-manager/app.css",
