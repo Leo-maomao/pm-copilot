@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Build and capture an isolated frontend figure for one PRD state.
 
 The script deliberately writes only below ``--run-folder``.  It uses the

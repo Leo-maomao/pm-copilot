@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Run the production, user-driven PM Copilot clarification gate.
 
 This entry point deliberately does not use ``evals/scenario-confirmations.json``.

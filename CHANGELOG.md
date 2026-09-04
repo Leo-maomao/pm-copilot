@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.0.5 - 2026-09-04
+
+- Declared UTF-8 for every active runtime source containing non-ASCII content
+  and added a direct-controller execution regression test for the plugin's
+  Python interpreter.
+
 ## 7.0.4 - 2026-09-04
 
 - Required the Codex plugin to use MCP-returned controller evidence before

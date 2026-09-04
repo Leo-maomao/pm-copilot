@@ -40,6 +40,12 @@ REMOVED_PATHS = (
     "scripts/install_adapter.py", "scripts/install_pm_copilot.py",
     "scripts/ensure_runtime_current.py", "scripts/sync_embedded_copies.py",
 )
+UTF8_RUNTIME_SOURCES = (
+    "scripts/run_interactive_request.py", "scripts/revision_scope.py",
+    "scripts/render_prd_html.py", "scripts/validate_outputs.py",
+    "scripts/prd_visual_contract.py", "scripts/generate_reconstructed_figure.py",
+    "scripts/specialist_dispatch.py", "scripts/prd_manager.py",
+)
 LOCAL_MACHINE_PATH_RE = re.compile(
     r"(?<![A-Za-z0-9_])(?:/Users/(?!<you>)[A-Za-z0-9._-]+/[^\s`'\"<>)]*|/home/(?!<you>)[A-Za-z0-9._-]+/[^\s`'\"<>)]*)"
 )
@@ -57,6 +63,13 @@ def check_required_paths() -> None:
     for relative in REMOVED_PATHS:
         if (ROOT / relative).exists():
             fail(f"Removed legacy surface is still present: {relative}")
+
+
+def check_runtime_source_encoding() -> None:
+    for relative in UTF8_RUNTIME_SOURCES:
+        lines = (ROOT / relative).read_text(encoding="utf-8").splitlines()
+        if not any("coding: utf-8" in line.lower() for line in lines[:2]):
+            fail(f"UTF-8 runtime source lacks a declared encoding: {relative}")
 
 
 def check_prd_positioning() -> None:
@@ -140,6 +153,7 @@ def check_reference_fixture_boundary() -> None:
 
 def main() -> None:
     check_required_paths()
+    check_runtime_source_encoding()
     check_prd_positioning()
     check_agents()
     check_skills()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Render `prd.md` into a browser-readable `prd.html` with PM Copilot defaults."""
 
 from __future__ import annotations

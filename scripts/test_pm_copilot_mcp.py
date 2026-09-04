@@ -193,6 +193,17 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertEqual(execute.call_args.args[0][0], sys.executable)
             self.assertEqual(execute.call_args.args[0][-2:], ["--request", "还原已实现功能 PRD"])
 
+    def test_controller_script_runs_directly_with_the_plugin_python(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(REPOSITORY_ROOT / "scripts" / "run_interactive_request.py"), "--help"],
+            cwd=REPOSITORY_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Run the production", result.stdout)
+
     def test_status_reports_matching_cached_wrapper_and_runtime_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

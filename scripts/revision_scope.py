@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Controller-owned scope contracts for in-place PRD revisions.
 
 The controller keeps global document integrity checks intact, but a revision's

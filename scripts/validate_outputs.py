@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Validate the PRD, rendered HTML, figures, and compact delivery evidence."""
 
 from __future__ import annotations

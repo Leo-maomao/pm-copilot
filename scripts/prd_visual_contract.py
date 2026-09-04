@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Machine-readable projection of the PRD visual naming rule.
 
 The active human-readable owner is ``artifacts/prd-contract.md``. Runtime code
