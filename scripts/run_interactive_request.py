@@ -2305,7 +2305,7 @@ def _record_agent_call(
 def _mark_attribution_recovery(
     state: dict[str, Any], failed_stage: str, provider: str, model: str | None = None,
 ) -> None:
-    """Keep a confirmed run resumable when execution provenance is incomplete."""
+    """Keep a confirmed run resumable without replaying a failed transport."""
     completed = []
     for artifact, stage in state.get("delivery_stages", {}).items():
         if stage.get("artifact_status") == "promoted":
@@ -2320,9 +2320,13 @@ def _mark_attribution_recovery(
         "retry_entry": "--confirm",
         "retry_action": (
             f"python3 scripts/run_interactive_request.py --run-folder {_canonical_folder(state)} "
-            f"--confirm --provider {provider}"
-            + (f" --model {model}" if model else "")
+            "--confirm"
         ),
+        "failed_runtime": {
+            "provider": provider,
+            "model": model,
+            "retry_policy": "reselect_from_current_device",
+        },
     }
 
 
@@ -3620,7 +3624,10 @@ def main() -> int:
     parser.add_argument("--answers", help="the user's answer for the current needs_input state")
     parser.add_argument("--confirm", action="store_true", help="explicitly confirm the clarified scope")
     parser.add_argument("--asset", action="append", default=[], help="user-provided screenshot or video to copy into canonical assets/")
-    parser.add_argument("--provider", default="codex", help="Agent runtime; use seawork only when its remote model or scheduler is required")
+    parser.add_argument(
+        "--provider", default="auto",
+        help="Agent runtime; default auto selects the current device's ready route",
+    )
     parser.add_argument("--model", help="explicitly select a model reported by the chosen runtime")
     parser.add_argument("--timeout-minutes", type=int, default=DEFAULT_EXECUTION_TIMEOUT_MINUTES)
     parser.add_argument("--interactive-timeout-minutes", type=int, default=DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,

@@ -45,13 +45,72 @@ class AgentRuntimeTest(unittest.TestCase):
         ):
             self.assertEqual(agent_runtime.select_runtime().provider, "codex")
 
-    def test_auto_does_not_assume_a_runtime_without_a_session_signal(self) -> None:
-        statuses = [runtime("seawork"), runtime("codex"), runtime("claude")]
-        with patch("agent_runtime.discover_runtimes", return_value=statuses), patch(
+    def test_auto_without_a_session_signal_prefers_a_verified_direct_runtime(self) -> None:
+        statuses = [runtime("claude"), runtime("codex")]
+        codex = ModelOption("gpt-5.6-terra", "codex", frozenset({"standard"}), "provider-config")
+        with patch("agent_runtime.discover_runtimes", return_value=statuses) as discover, patch(
             "agent_runtime.active_runtime",
             return_value=agent_runtime.ActiveRuntime(None, None, "no signal"),
-        ):
-            with self.assertRaisesRegex(RuntimeError, "no active local agent runtime"):
+        ), patch("agent_runtime.discover_model_catalog", return_value=([codex], [])):
+            self.assertEqual(agent_runtime.select_runtime().provider, "codex")
+        discover.assert_called_once_with(agent_runtime.DIRECT_EXECUTABLE_PROVIDERS)
+
+    def test_auto_without_a_session_signal_uses_seawork_only_when_no_direct_cli_is_ready(self) -> None:
+        seawork = ModelOption("codex/gpt-5.6-terra", "seawork", frozenset({"judgment"}), "device")
+
+        def runtimes(providers=None):
+            if providers == agent_runtime.DIRECT_EXECUTABLE_PROVIDERS:
+                return [runtime("codex", "unavailable"), runtime("claude", "unavailable")]
+            self.assertEqual(set(providers or ()), agent_runtime.SEAWORK_TRANSPORT_PROVIDERS)
+            return [runtime("seawork")]
+
+        with patch("agent_runtime.discover_runtimes", side_effect=runtimes), patch(
+            "agent_runtime.active_runtime",
+            return_value=agent_runtime.ActiveRuntime(None, None, "no signal"),
+        ), patch("agent_runtime.discover_model_catalog", return_value=([seawork], [])):
+            self.assertEqual(agent_runtime.select_runtime().provider, "seawork")
+
+    def test_auto_without_a_session_signal_records_the_verified_local_selection(self) -> None:
+        codex = ModelOption("gpt-5.6-terra", "codex", frozenset({"standard"}), "provider-config")
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]), patch(
+            "agent_runtime.active_runtime",
+            return_value=agent_runtime.ActiveRuntime(None, None, "no signal"),
+        ), patch("agent_runtime.discover_model_catalog", return_value=([codex], [])):
+            result = agent_runtime.execute("auto", "write", Path.cwd(), 2, None, None, True)
+        self.assertEqual(result["provider"], "codex")
+        self.assertEqual(result["model"], "gpt-5.6-terra")
+        self.assertEqual(
+            result["runtime_selection_reason"],
+            "verified ready local runtime without an active parent session",
+        )
+
+    def test_auto_honors_an_explicit_codex_model_without_a_parent_session(self) -> None:
+        with patch("agent_runtime.discover_runtimes", return_value=[runtime("codex")]) as discover, patch(
+            "agent_runtime.active_runtime",
+            return_value=agent_runtime.ActiveRuntime(None, None, "no signal"),
+        ), patch("agent_runtime.discover_model_catalog", return_value=([], [])):
+            result = agent_runtime.execute(
+                "auto", "write", Path.cwd(), 2, "codex/gpt-5.6-terra", None, True,
+            )
+        self.assertEqual(result["provider"], "codex")
+        self.assertEqual(result["model"], "gpt-5.6-terra")
+        self.assertEqual(
+            result["runtime_selection_reason"],
+            "explicit Codex model override on a verified direct runtime",
+        )
+        discover.assert_called_once_with(("codex",))
+
+    def test_auto_without_a_session_signal_rejects_ready_cli_without_model_evidence(self) -> None:
+        def runtimes(providers=None):
+            if providers == agent_runtime.DIRECT_EXECUTABLE_PROVIDERS:
+                return [runtime("codex")]
+            return [runtime("seawork", "unavailable")]
+
+        with patch("agent_runtime.discover_runtimes", side_effect=runtimes), patch(
+            "agent_runtime.active_runtime",
+            return_value=agent_runtime.ActiveRuntime(None, None, "no signal"),
+        ), patch("agent_runtime.discover_model_catalog", return_value=([], [])):
+            with self.assertRaisesRegex(RuntimeError, "usable model"):
                 agent_runtime.select_runtime()
 
     def test_auto_prefers_direct_codex_for_an_equivalent_seawork_session(self) -> None:
@@ -169,7 +228,7 @@ class AgentRuntimeTest(unittest.TestCase):
             "agent_runtime.active_runtime",
             return_value=agent_runtime.ActiveRuntime("seawork", None, "active test session"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "no active local agent runtime"):
+            with self.assertRaisesRegex(RuntimeError, "no verified local agent runtime"):
                 agent_runtime.select_runtime()
 
     def test_seawork_session_falls_back_to_its_active_model_family(self) -> None:
@@ -480,8 +539,8 @@ class AgentRuntimeTest(unittest.TestCase):
 
     def test_seawork_detached_execution_records_agent_id(self) -> None:
         launched = subprocess.CompletedProcess([], 0, "e5fb49d8-5227-4a93-bba3-ded9b613bab5\n", "")
-        record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"running"}]', "")
-        terminal_record = subprocess.CompletedProcess([], 0, '[{"id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","provider":"claude/sonnet","status":"idle"}]', "")
+        record = subprocess.CompletedProcess([], 0, '[{"Id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","Provider":"claude","Model":"sonnet","Status":"running"}]', "")
+        terminal_record = subprocess.CompletedProcess([], 0, '[{"Id":"e5fb49d8-5227-4a93-bba3-ded9b613bab5","Provider":"claude","Model":"sonnet","Status":"idle"}]', "")
         completed = subprocess.CompletedProcess([], 0, "completed", "")
         with patch("agent_runtime.discover_runtimes", return_value=[runtime("seawork-claude")]), patch(
             "agent_runtime.active_runtime", return_value=agent_runtime.ActiveRuntime(None, None, "test")
@@ -509,6 +568,47 @@ class AgentRuntimeTest(unittest.TestCase):
             ["seawork", "inspect", agent_id, "--json"],
         )
         self.assertNotIn("ls", run.call_args.args[0])
+
+    def test_seawork_agent_record_normalizes_pascal_case_provider_model_and_status(self) -> None:
+        agent_id = "e5fb49d8-5227-4a93-bba3-ded9b613bab5"
+        inspected = subprocess.CompletedProcess(
+            [], 0,
+            json.dumps({
+                "Id": agent_id,
+                "Provider": "codex",
+                "Model": "gpt-5.6-terra",
+                "Status": "RUNNING",
+                "Cwd": "/tmp/isolated-stage",
+            }),
+            "",
+        )
+        with patch("agent_runtime._run", return_value=inspected):
+            record, status = agent_runtime._seawork_agent_record("seawork", agent_id)
+        self.assertEqual(status, "running")
+        self.assertEqual(record["id"], agent_id)
+        self.assertEqual(record["provider"], "codex/gpt-5.6-terra")
+        self.assertEqual(record["model"], "gpt-5.6-terra")
+        self.assertEqual(record["cwd"], "/tmp/isolated-stage")
+
+    def test_seawork_agent_record_rejects_pascal_case_record_for_a_different_agent(self) -> None:
+        requested_agent_id = "e5fb49d8-5227-4a93-bba3-ded9b613bab5"
+        inspected = subprocess.CompletedProcess(
+            [], 0,
+            json.dumps({
+                "Id": "6b5f3ee3-1a2c-4f27-a839-1e0a8c53d410",
+                "Provider": "codex",
+                "Model": "gpt-5.6-terra",
+                "Status": "idle",
+            }),
+            "",
+        )
+        with patch("agent_runtime._run", return_value=inspected):
+            record, status = agent_runtime._seawork_agent_record("seawork", requested_agent_id)
+        self.assertIsNone(record)
+        self.assertEqual(
+            status,
+            "could not query Agent state: inspect response did not contain the requested Agent",
+        )
 
     def test_seawork_agent_record_treats_unavailable_or_malformed_inspect_as_control_plane_failure(self) -> None:
         agent_id = "e5fb49d8-5227-4a93-bba3-ded9b613bab5"

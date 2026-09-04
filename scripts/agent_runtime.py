@@ -32,6 +32,9 @@ EXECUTABLE_PROVIDERS = (
     "seawork", "seawork-claude", "codex", "claude", "qwen", "kimi", "qoder", "codebuddy",
 )
 SEAWORK_TRANSPORT_PROVIDERS = frozenset({"seawork", "seawork-claude"})
+DIRECT_EXECUTABLE_PROVIDERS = tuple(
+    provider for provider in EXECUTABLE_PROVIDERS if provider not in SEAWORK_TRANSPORT_PROVIDERS
+)
 CANDIDATE_TOOLS = ("gemini", "aider", "opencode", "cursor-agent", "trae", "comate")
 SECRET_PATTERN = re.compile(
     r"(?i)(?P<label>api[_ -]?key|token|password)\s*[:=]\s*[^\s,;]+"
@@ -662,6 +665,33 @@ def runtime_capabilities(cwd: Path | None = None) -> dict[str, object]:
     }
 
 
+def _automatic_ready_runtime(
+    statuses: dict[str, RuntimeStatus], providers: Sequence[str], cwd: Path, requirement: str,
+) -> RuntimeStatus | None:
+    """Choose a ready runtime only when its device-local model evidence is usable.
+
+    A binary probe such as ``codex exec --help`` proves that an adapter exists,
+    not that its configured model can produce attributable delivery evidence.
+    Keep the selection model-aware before dispatching an unattended PRD stage.
+    Claude's configured default is the sole deferred case: its structured
+    completion envelope reports the concrete model after execution.
+    """
+    for provider in providers:
+        status = statuses.get(provider)
+        if not status or status.status != "ready" or not status.executable:
+            continue
+        catalog, _ = discover_model_catalog(provider, cwd)
+        selection = select_model(requirement, provider, catalog)
+        option = selection.option
+        if selection.status == "blocked" or option is None:
+            continue
+        if option.model:
+            return status
+        if provider == "claude" and "configured_default" in option.capabilities:
+            return status
+    return None
+
+
 def select_runtime(requested: str = "auto", cwd: Path | None = None) -> RuntimeStatus:
     cwd = (cwd or Path.cwd()).resolve()
     if requested != "auto":
@@ -694,6 +724,34 @@ def select_runtime(requested: str = "auto", cwd: Path | None = None) -> RuntimeS
         if direct_codex is not None:
             return direct_codex
         raise RuntimeError("Seawork transport circuit is temporarily open; control-plane probing is suppressed")
+    if active.runtime is None:
+        # Normal MCP and terminal launches often have no inspectable parent
+        # process even though the device has a ready local CLI. Probe direct
+        # adapters first and require a usable local model selection. This
+        # avoids making a routine PRD stage wait on Seawork's daemon merely to
+        # discover that a direct runtime was already available.
+        direct_statuses = {
+            status.provider: status for status in discover_runtimes(DIRECT_EXECUTABLE_PROVIDERS)
+        }
+        direct = _automatic_ready_runtime(
+            direct_statuses, DIRECT_EXECUTABLE_PROVIDERS, cwd, "standard",
+        )
+        if direct is not None:
+            return direct
+        if _seawork_circuit_remaining() <= 0:
+            transport_statuses = {
+                status.provider: status
+                for status in discover_runtimes(tuple(SEAWORK_TRANSPORT_PROVIDERS))
+            }
+            transport = _automatic_ready_runtime(
+                transport_statuses, ("seawork", "seawork-claude"), cwd, "judgment",
+            )
+            if transport is not None:
+                return transport
+        raise RuntimeError(
+            "no verified local runtime has a usable model; specify --provider and --model explicitly "
+            "or start an authenticated agent session"
+        )
     statuses = {status.provider: status for status in discover_runtimes()}
     # Ordinary PM stages do not need Seawork's scheduler when its active Agent
     # is already backed by the same Codex family. Prefer the direct CLI, whose
@@ -708,7 +766,7 @@ def select_runtime(requested: str = "auto", cwd: Path | None = None) -> RuntimeS
         if fallback and fallback.status == "ready":
             return fallback
     raise RuntimeError(
-        "no active local agent runtime detected; specify --provider explicitly or start an authenticated agent session"
+        "no verified local agent runtime is available; specify --provider explicitly or start an authenticated agent session"
     )
 
 
@@ -818,18 +876,78 @@ def _agent_id(value: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _seawork_json_key(value: object) -> str:
+    """Compare Seawork JSON keys across snake, camel, and Pascal case."""
+    return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+
+def _seawork_json_value(record: dict[str, Any], *names: str) -> Any:
+    """Read a known field without assuming the daemon's JSON casing."""
+    expected = {_seawork_json_key(name) for name in names}
+    for key, value in record.items():
+        if _seawork_json_key(key) in expected:
+            return value
+    return None
+
+
+def _seawork_provider_model(provider: object, model: object) -> str:
+    """Normalize separate Seawork provider/model fields to one runtime ID."""
+    provider_name = str(provider or "").strip()
+    model_name = str(model or "").strip()
+    if model_name and "/" in model_name:
+        return model_name
+    if provider_name and model_name:
+        return provider_name if provider_name.endswith(f"/{model_name}") else f"{provider_name}/{model_name}"
+    return provider_name or model_name
+
+
+def _normalise_seawork_agent_record(candidate: dict[str, Any]) -> dict[str, Any]:
+    """Preserve raw inspect fields while exposing stable internal field names."""
+    normalized = dict(candidate)
+    agent_id = _seawork_json_value(candidate, "id", "agent_id")
+    provider = _seawork_json_value(candidate, "provider")
+    model = _seawork_json_value(candidate, "model")
+    status = _seawork_json_value(candidate, "status")
+    name = _seawork_json_value(candidate, "name")
+    cwd = _seawork_json_value(candidate, "cwd", "workdir", "working_directory")
+    if agent_id is not None:
+        normalized["id"] = str(agent_id).strip()
+    provider_model = _seawork_provider_model(provider, model)
+    if provider_model:
+        normalized["provider"] = provider_model
+    if model is not None:
+        normalized["model"] = str(model).strip()
+    if status is not None:
+        normalized["status"] = str(status).strip()
+    if name is not None:
+        normalized["name"] = str(name).strip()
+    if cwd is not None:
+        normalized["cwd"] = str(cwd).strip()
+    return normalized
+
+
 def _seawork_inspected_record(payload: Any, agent_id: str) -> dict[str, Any] | None:
     """Extract exactly the requested Agent record from inspect JSON."""
     candidates: list[Any] = []
     if isinstance(payload, dict):
-        candidates.extend([payload, payload.get("agent"), payload.get("data")])
+        candidates.append(payload)
+        for key, value in payload.items():
+            if _seawork_json_key(key) not in {"agent", "data", "result"}:
+                continue
+            if isinstance(value, list):
+                candidates.extend(value)
+            else:
+                candidates.append(value)
     elif isinstance(payload, list):
         # Older Seawork releases returned a one-element list for inspect.
         # Accept it only when it contains the exact requested ID.
         candidates.extend(payload)
     for candidate in candidates:
-        if isinstance(candidate, dict) and str(candidate.get("id", "")) == agent_id:
-            return candidate
+        if not isinstance(candidate, dict):
+            continue
+        record = _normalise_seawork_agent_record(candidate)
+        if record.get("id") == agent_id:
+            return record
     return None
 
 
@@ -1747,8 +1865,14 @@ def execute(
             unavailable, prompt, cwd, timeout_minutes, schema_path, output_limit,
             first_artifact_seconds,
         )
+    selection_provider = (
+        "seawork" if auto_requires_seawork_model_route
+        else "codex"
+        if requested_provider == "auto" and explicit_model_family == "codex"
+        else requested_provider
+    )
     try:
-        status = select_runtime("seawork" if auto_requires_seawork_model_route else requested_provider, cwd)
+        status = select_runtime(selection_provider, cwd)
     except RuntimeError as error:
         if not requested_seawork or dry_run:
             raise
@@ -1873,7 +1997,11 @@ def execute(
             if auto_equivalent_direct_codex
             else "explicit provider-qualified model requires the Seawork model boundary"
             if auto_requires_seawork_model_route
+            else "explicit Codex model override on a verified direct runtime"
+            if requested_provider == "auto" and explicit_model_family == "codex"
             else context.source if requested_provider == "auto" and status.provider == context.runtime
+            else "verified ready local runtime without an active parent session"
+            if requested_provider == "auto" and context.runtime is None
             else f"fallback from {context.runtime or 'unknown'} active runtime" if requested_provider == "auto"
             else "explicit provider request"
         ),

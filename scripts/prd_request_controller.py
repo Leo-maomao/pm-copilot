@@ -22,7 +22,7 @@ def is_prd_request(request: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", required=True)
-    parser.add_argument("--provider", default="codex")
+    parser.add_argument("--provider", default="auto")
     parser.add_argument("--timeout-minutes", type=int, default=15)
     parser.add_argument("--max-revisions", type=int, default=3)
     parser.add_argument("--run-folder", help="existing canonical PRD folder to revise")

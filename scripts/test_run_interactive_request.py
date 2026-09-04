@@ -719,7 +719,10 @@ class InteractiveRequestTest(unittest.TestCase):
             })
             _write_json(folder / "interactive-run.json", state)
 
-            def complete_delivery(replayed_state, *args, **kwargs):
+            selected_providers = []
+
+            def complete_delivery(replayed_state, provider, *args, **kwargs):
+                selected_providers.append(provider)
                 replayed_state["status"] = "complete"
                 replayed_state["termination"] = "complete"
 
@@ -731,6 +734,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 self.assertEqual(main(), 0)
             resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
             self.assertEqual(resumed["confirmed_fact_packet"], frozen)
+            self.assertEqual(selected_providers, ["auto"])
 
     def test_trace_normalisation_replaces_stale_version_and_asset_hash(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1323,7 +1327,13 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertIn("provider/model", state["last_error"])
             self.assertEqual(state["recovery"]["failed_stage"], "confirmed-requirements.md")
             self.assertEqual(state["recovery"]["retry_entry"], "--confirm")
-            self.assertIn("--confirm --provider test", state["recovery"]["retry_action"])
+            self.assertTrue(state["recovery"]["retry_action"].endswith(" --confirm"))
+            self.assertNotIn("--provider", state["recovery"]["retry_action"])
+            self.assertNotIn("--model", state["recovery"]["retry_action"])
+            self.assertEqual(
+                state["recovery"]["failed_runtime"],
+                {"provider": "test", "model": None, "retry_policy": "reselect_from_current_device"},
+            )
             self.assertEqual(state["recovery"]["completed_artifacts"], [])
             self.assertFalse((Path(temporary) / "prd.md").exists())
 

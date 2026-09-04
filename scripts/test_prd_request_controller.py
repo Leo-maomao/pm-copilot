@@ -11,6 +11,13 @@ class PrdRequestControllerTests(unittest.TestCase):
         self.assertTrue(is_prd_request("调用 pm-copilot 生成PRD"))
         self.assertTrue(is_prd_request("帮我写一份产品需求文档"))
 
+    def test_default_provider_is_auto_for_current_device_selection(self) -> None:
+        with patch.object(sys, "argv", [
+            "prd_request_controller.py", "--request", "生成一个产品需求文档",
+        ]), patch("prd_request_controller.interactive_main", return_value=0):
+            self.assertEqual(prd_request_controller.main(), 0)
+            self.assertEqual(sys.argv[sys.argv.index("--provider") + 1], "auto")
+
     def test_non_prd_request_is_not_routed_to_prd_controller(self) -> None:
         self.assertFalse(is_prd_request("检查一下当前测试结果"))
 

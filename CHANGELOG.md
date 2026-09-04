@@ -6,6 +6,11 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.104] - 2026-09-04
+
+- Normalize Seawork inspect records across lowercase, camelCase, and PascalCase field names before strict Agent ID, provider/model, terminal-state, and staged-artifact verification.
+- Retain failed runtime provenance for audit while retry guidance reselects the current device runtime instead of replaying a failed Seawork transport override; ordinary no-parent launches select only a verified direct runtime with usable local model evidence before considering Seawork.
+
 ## [6.2.103] - 2026-09-04
 
 - Recover legacy confirmed in-place revisions only when their frozen fact packet names one current requirement ID and their recorded PRD/HTML baseline hashes still match.
