@@ -40,7 +40,7 @@ PM Copilot 只读取宿主项目的代码、页面和资料作为证据，不修
 
 ## 运行时
 
-先读取 [PM_COPILOT.md](PM_COPILOT.md) 和 [运行时路由](indexes/runtime-routing.yaml)。Codex 插件通过 `PM_COPILOT_REPOSITORY` 指向本仓库 checkout；不再维护或同步全局运行时副本。
+先读取 [PM_COPILOT.md](PM_COPILOT.md) 和 [运行时路由](indexes/runtime-routing.yaml)。Codex 插件从个人市场安装来源自动解析本仓库 checkout；不再维护或同步全局运行时副本，也不要求用户配置运行时路径。
 
 验证：
 

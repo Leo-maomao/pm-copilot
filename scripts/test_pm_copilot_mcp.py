@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -101,14 +102,11 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertEqual(summary["delivery_calls"], [])
             self.assertNotIn("confirmed-requirements.md", summary["artifacts"])
 
-    def test_plugin_config_forwards_only_the_explicit_repository_selection(self) -> None:
+    def test_plugin_config_requires_no_user_runtime_environment(self) -> None:
         config = json.loads(
             (REPOSITORY_ROOT / "plugins" / "pm-copilot" / ".mcp.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(
-            config["mcpServers"]["pm-copilot"]["env_vars"],
-            ["PM_COPILOT_REPOSITORY"],
-        )
+        self.assertNotIn("env_vars", config["mcpServers"]["pm-copilot"])
 
     def test_legacy_runtime_environment_variable_cannot_select_a_checkout(self) -> None:
         with patch.dict(
@@ -116,7 +114,20 @@ class PmCopilotMcpTest(unittest.TestCase):
             {"PM_COPILOT_HOME": "/tmp/legacy-runtime"},
             clear=True,
         ):
-            self.assertIsNone(MCP._selected_runtime_home())
+            with patch.object(MCP, "_personal_plugin_runtime_home", return_value=None):
+                self.assertIsNone(MCP._selected_runtime_home())
+
+    def test_installed_personal_plugin_source_resolves_the_repository_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "repository"
+            (root / ".git").mkdir(parents=True)
+            source = root / "plugins" / "pm-copilot"
+            (source / ".codex-plugin").mkdir(parents=True)
+            (source / ".codex-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+            with patch.dict(MCP.os.environ, {}, clear=True), patch.object(
+                MCP, "_PERSONAL_PLUGIN_SOURCE", source,
+            ):
+                self.assertEqual(MCP._selected_runtime_home(), root.resolve())
 
     def test_status_reports_missing_checkout_without_falling_back_to_the_working_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -129,7 +140,7 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertTrue(summary["ok"])
             self.assertFalse(summary["runtime_provenance"]["selection"]["configured"])
             self.assertFalse(summary["runtime_provenance"]["selection"]["checkout_valid"])
-            self.assertIn("PM_COPILOT_REPOSITORY", summary["runtime_provenance"]["selection"]["error"])
+            self.assertIn("source checkout is unavailable", summary["runtime_provenance"]["selection"]["error"])
             self.assertFalse(result["ok"])
             self.assertEqual(result["error_code"], "checkout_not_configured")
 
@@ -145,8 +156,8 @@ class PmCopilotMcpTest(unittest.TestCase):
             cached_directory.mkdir(parents=True)
 
             for invalid_runtime, expected_error in (
-                (arbitrary_directory, "must point to a PM Copilot repository checkout"),
-                (cached_directory, "not a Codex plugin cache"),
+                (arbitrary_directory, "source must be a repository checkout"),
+                (cached_directory, "must not be a Codex plugin cache"),
             ):
                 with patch.object(MCP, "RUNTIME_HOME", invalid_runtime), patch.object(
                     MCP, "CONTROLLER", invalid_runtime / "scripts" / "run_interactive_request.py",
@@ -157,6 +168,21 @@ class PmCopilotMcpTest(unittest.TestCase):
                 self.assertEqual(result["error_code"], "checkout_invalid")
                 self.assertIn(expected_error, result["error"])
                 execute.assert_not_called()
+
+    def test_start_request_runs_the_controller_in_the_host_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary) / "host"
+            project.mkdir()
+            completed = subprocess.CompletedProcess(
+                [], 0, stdout='{"status":"awaiting_confirmation","run_folder":"/tmp/run"}', stderr="",
+            )
+            with patch.object(MCP.subprocess, "run", return_value=completed) as execute:
+                result = MCP.start_request("还原已实现功能 PRD", str(project))
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["status"], "awaiting_confirmation")
+            self.assertEqual(execute.call_args.kwargs["cwd"], project.resolve())
+            self.assertEqual(execute.call_args.args[0][-2:], ["--request", "还原已实现功能 PRD"])
 
     def test_status_reports_matching_cached_wrapper_and_runtime_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

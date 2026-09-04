@@ -3,8 +3,7 @@
     "pm-copilot": {
       "command": "python3",
       "args": ["./scripts/pm_copilot_mcp.py"],
-      "cwd": ".",
-      "env_vars": ["PM_COPILOT_REPOSITORY"]
+      "cwd": "."
     }
   }
 }

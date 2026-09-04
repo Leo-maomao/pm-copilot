@@ -90,20 +90,21 @@ def check_skills() -> None:
 def check_plugin() -> None:
     wrapper = (ROOT / "plugins/pm-copilot/scripts/pm_copilot_mcp.py").read_text(encoding="utf-8")
     skill = (ROOT / "plugins/pm-copilot/skills/pm-copilot/SKILL.md").read_text(encoding="utf-8")
-    if "PM_COPILOT_REPOSITORY" not in wrapper or "PM_COPILOT_REPOSITORY" not in skill:
-        fail("Codex plugin must require an explicit PM_COPILOT_REPOSITORY checkout")
-    if "--append-implemented-feature" not in skill:
+    if "_personal_plugin_runtime_home" not in wrapper or "prd_start_request" not in wrapper:
+        fail("Codex plugin must resolve its installed source and expose PRD start")
+    if "PM_COPILOT_REPOSITORY" in skill:
+        fail("Codex plugin skill must not require user runtime-path configuration")
+    if "append_implemented_feature" not in skill:
         fail("Codex plugin skill must document explicit implemented-feature append delivery")
-    for legacy_fallback in ("PM_COPILOT_HOME", "os.getcwd", "Path.home", "~/.agents"):
+    for legacy_fallback in ("PM_COPILOT_HOME", "os.getcwd", "~/.agents"):
         if legacy_fallback in wrapper or legacy_fallback in skill:
             fail(f"Codex plugin must not use the legacy runtime fallback: {legacy_fallback}")
     try:
         mcp_config = json.loads((ROOT / "plugins/pm-copilot/.mcp.json").read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         fail(f"Plugin MCP configuration is invalid JSON: {error}")
-    env_vars = mcp_config.get("mcpServers", {}).get("pm-copilot", {}).get("env_vars")
-    if env_vars != ["PM_COPILOT_REPOSITORY"]:
-        fail("Plugin MCP configuration must pass only PM_COPILOT_REPOSITORY")
+    if "env_vars" in mcp_config.get("mcpServers", {}).get("pm-copilot", {}):
+        fail("Plugin MCP configuration must not require user environment variables")
     try:
         manifest = json.loads((ROOT / "plugins/pm-copilot/.codex-plugin/plugin.json").read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:

@@ -16,19 +16,31 @@ from typing import Any
 
 
 # A plugin cache is not a writable or authoritative PM Copilot runtime. The
-# host must select a source checkout explicitly; neither a legacy installation
-# variable nor the MCP process working directory is a valid substitute.
+# personal-marketplace source is linked to the selected checkout at install
+# time, so the bridge can resolve it without asking product users for a path.
 _REPOSITORY_ENV = "PM_COPILOT_REPOSITORY"
+_PERSONAL_PLUGIN_SOURCE = Path.home() / "plugins" / "pm-copilot"
+
+
+def _personal_plugin_runtime_home() -> Path | None:
+    """Resolve the checkout behind the installed personal-marketplace source."""
+    source = _resolved_path(_PERSONAL_PLUGIN_SOURCE)
+    if _is_plugin_cache_path(source) or not (source / ".codex-plugin" / "plugin.json").is_file():
+        return None
+    runtime = source.parent.parent
+    return runtime if (runtime / ".git").exists() else None
 
 
 def _selected_runtime_home() -> Path | None:
+    """Use an explicit override only when present; otherwise use the installed source."""
     selected = os.environ.get(_REPOSITORY_ENV, "").strip()
-    return Path(selected).expanduser() if selected else None
+    return Path(selected).expanduser() if selected else _personal_plugin_runtime_home()
 
 
-RUNTIME_HOME = _selected_runtime_home()
-CONTROLLER = RUNTIME_HOME / "scripts" / "run_interactive_request.py" if RUNTIME_HOME else None
-WRAPPER_SCRIPT = Path(__file__).resolve()
+def _runtime_selection() -> str:
+    return "environment_override" if os.environ.get(_REPOSITORY_ENV, "").strip() else "personal_marketplace_source"
+
+
 _CACHE_PATH_MARKER = (".codex", "plugins", "cache")
 
 
@@ -53,19 +65,25 @@ def _is_plugin_cache_path(path: Path) -> bool:
     )
 
 
+RUNTIME_HOME = _selected_runtime_home()
+RUNTIME_SELECTION = _runtime_selection() if RUNTIME_HOME is not None else "unavailable"
+CONTROLLER = RUNTIME_HOME / "scripts" / "run_interactive_request.py" if RUNTIME_HOME else None
+WRAPPER_SCRIPT = Path(__file__).resolve()
+
+
 def _runtime_checkout_error(runtime_home: Path | None) -> str | None:
     """Return a diagnostic when the selected runtime is not a source checkout."""
     if runtime_home is None:
         return (
-            "PM Copilot checkout is not configured. Set PM_COPILOT_REPOSITORY "
-            "to an explicit PM Copilot repository checkout."
+            "PM Copilot source checkout is unavailable. Reinstall the PM Copilot "
+            "plugin from the personal marketplace, then start a new task."
         )
 
     runtime_path = _resolved_path(runtime_home)
     if _is_plugin_cache_path(runtime_path):
         return (
-            "PM_COPILOT_REPOSITORY must point to a source checkout, not a "
-            f"Codex plugin cache: {runtime_path}"
+            "PM Copilot source checkout must not be a Codex plugin cache: "
+            f"{runtime_path}"
         )
 
     required_paths = (
@@ -77,7 +95,7 @@ def _runtime_checkout_error(runtime_home: Path | None) -> str | None:
     missing = [relative for relative in required_paths if not (runtime_path / relative).exists()]
     if missing:
         return (
-            "PM_COPILOT_REPOSITORY must point to a PM Copilot repository checkout "
+            "PM Copilot source must be a repository checkout "
             f"with {', '.join(missing)}: {runtime_path}"
         )
     return None
@@ -248,7 +266,7 @@ def _runtime_provenance() -> tuple[dict[str, Any], bool]:
                 },
             },
             "selection": {
-                "environment_variable": _REPOSITORY_ENV,
+                "method": RUNTIME_SELECTION,
                 "configured": RUNTIME_HOME is not None,
                 "checkout_valid": False,
                 "error": configuration_error,
@@ -279,7 +297,7 @@ def _runtime_provenance() -> tuple[dict[str, Any], bool]:
             },
         },
         "selection": {
-            "environment_variable": _REPOSITORY_ENV,
+            "method": RUNTIME_SELECTION,
             "configured": True,
             "checkout_valid": True,
             "error": None,
@@ -487,8 +505,8 @@ def _invoke(run_folder: str, extra_args: list[str]) -> dict[str, Any]:
         }
     if CONTROLLER is None or not CONTROLLER.is_file():
         return _error(
-            "PM Copilot checkout controller is unavailable. Verify that "
-            "PM_COPILOT_REPOSITORY points to the selected checkout."
+            "PM Copilot source controller is unavailable. Reinstall the plugin "
+            "and start a new task."
         )
     assert RUNTIME_HOME is not None
     result = subprocess.run(
@@ -505,6 +523,62 @@ def _invoke(run_folder: str, extra_args: list[str]) -> dict[str, Any]:
         "controller_stderr": result.stderr[-2000:],
     })
     return summary
+
+
+def start_request(
+    request: str,
+    project_root: str,
+    run_folder: str = "",
+    append_implemented_feature: bool = False,
+) -> dict[str, Any]:
+    """Start a PRD workflow in the current host repository without shell setup."""
+    if not request.strip():
+        return _error("request must not be empty")
+    project = Path(project_root).expanduser().resolve()
+    if not project.is_dir():
+        return _error(f"project_root is not a directory: {project}")
+    if append_implemented_feature and not run_folder.strip():
+        return _error("append_implemented_feature requires run_folder")
+
+    runtime_provenance, restart_required = _runtime_provenance()
+    configuration_error = runtime_provenance["dispatch"]["configuration_error"]
+    if configuration_error:
+        return {
+            "ok": False,
+            "error": configuration_error,
+            "error_code": "runtime_unavailable",
+            "runtime_provenance": runtime_provenance,
+        }
+    if restart_required:
+        return {
+            "ok": False,
+            "error": "PM Copilot plugin restart required before starting a PRD request.",
+            "error_code": "restart_required",
+            "runtime_provenance": runtime_provenance,
+        }
+    if CONTROLLER is None or not CONTROLLER.is_file():
+        return _error("PM Copilot source controller is unavailable. Reinstall the plugin and start a new task.")
+
+    command = [sys.executable, str(CONTROLLER), "--request", request]
+    if run_folder.strip():
+        command.extend(["--run-folder", str(Path(run_folder).expanduser().resolve())])
+    if append_implemented_feature:
+        command.append("--append-implemented-feature")
+    result = subprocess.run(command, cwd=project, text=True, capture_output=True, check=False)
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    payload.update({
+        "ok": result.returncode == 0,
+        "controller_exit_code": result.returncode,
+        "controller_stdout": result.stdout[-4000:],
+        "controller_stderr": result.stderr[-2000:],
+        "runtime_provenance": runtime_provenance,
+    })
+    return payload
 
 
 def submit_answer(run_folder: str, answer: str) -> dict[str, Any]:
@@ -536,6 +610,21 @@ def confirm_delivery(run_folder: str) -> dict[str, Any]:
 
 
 TOOLS = [
+    {
+        "name": "prd_start_request",
+        "description": "Start a new, implemented-feature, revision, composition, or same-period append PRD request in the current host repository.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "request": {"type": "string"},
+                "project_root": {"type": "string"},
+                "run_folder": {"type": "string"},
+                "append_implemented_feature": {"type": "boolean"},
+            },
+            "required": ["request", "project_root"],
+            "additionalProperties": False,
+        },
+    },
     {
         "name": "prd_run_status",
         "description": "Read the canonical controller state for an interactive PRD run, recovering a dead controller lease before reporting progress.",
@@ -572,7 +661,12 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
         arguments = params.get("arguments", {})
         try:
             name = params.get("name")
-            if name == "prd_run_status":
+            if name == "prd_start_request":
+                payload = start_request(
+                    str(arguments["request"]), str(arguments["project_root"]),
+                    str(arguments.get("run_folder", "")), bool(arguments.get("append_implemented_feature", False)),
+                )
+            elif name == "prd_run_status":
                 payload = run_summary(str(arguments["run_folder"]))
             elif name == "prd_submit_answer":
                 payload = submit_answer(str(arguments["run_folder"]), str(arguments["answer"]))

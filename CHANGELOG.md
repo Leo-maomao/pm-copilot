@@ -1,5 +1,10 @@
 # Changelog
 
+## 7.0.2 - 2026-09-04
+
+- Removed the user-visible Codex runtime-path requirement. The plugin now
+  resolves its installed source checkout and starts PRD workflows through MCP.
+
 ## 7.0.1 - 2026-09-04
 
 - Restored the local Codex plugin release hook without restoring a copied
