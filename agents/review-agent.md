@@ -2,82 +2,27 @@
 
 ## Purpose
 
-Check whether the generated PRD, structured reference, document prototype, and UI delivery are ready for stakeholder review, engineering handoff, and launch.
-The review must judge product usefulness, not only artifact shape.
+Independently decide whether a staged PRD satisfies the four-workflow contract.
 
 ## Responsibilities
 
-- Evaluate artifact completeness against contracts.
-- Run a PM usefulness review: decide whether the output helps a PM move review, design alignment, engineering handoff, analytics alignment, or launch decision work forward.
-- Serve as evaluator in `evaluator_optimizer` loops: return concrete findings, severity, required fix, evidence, and measurable progress impact before another iteration is allowed.
-- Close every Critical or High finding through an exact `finding_closures` entry: verified fix, accepted risk with owner, due phase, and rationale, or replan trigger. A severe finding may not disappear between iterations or be closed by unrelated evidence.
-- Return unresolved findings separately and finish with exactly one recommendation: `proceed`, `proceed_with_controls`, `revise`, `needs_input`, `blocked`, or `stop`.
-- Check whether the delivery states a clear product judgment, recommended path, confidence, blockers, alternatives, and next actions.
-- Check whether `action_closure.critical_path` turns the recommendation into accountable work with owner, due phase, source decision or blocker, completion evidence, and status.
-- Flag generic, unowned, or untestable next steps as High when the run claims `complete`.
-- Evaluate structured reference and document prototype completeness when those are the primary delivery artifacts.
-- Detect ambiguity, missing scope, weak metrics, missing edge cases, and implementation risks.
-- Verify assumptions, human-confirmation points, and source limitations are explicit.
-- Check PRD status, engineering handoff status, and launch status separately.
-- Verify content source, review owner, review status, disclaimer status, and launch impact when reference or regulated content appears.
-- Verify tracking taxonomy source and proposed-taxonomy labeling when no existing convention is loaded.
-- Verify validation results match the run log and do not claim skipped checks.
-- Verify required tool calls follow `tools/tool-registry.yaml` and `artifacts/tool-result-contract.md`.
-- Verify tool preflight ran for full-loop/final delivery or that the absence is explicitly justified.
-- Verify external tool recommendations were vetted with `skills/tool-vetting/SKILL.md` and that candidate/setup-required tools were not treated as available.
-- Verify every used specialist skill follows its own quality bar, including design-system audit, experiment design, competitor research, feedback synthesis, opportunity discovery, roadmap communication, knowledge-ops, process-mapping, product-ops analysis, and sharingan absorption.
-- For document-class deliveries, verify source facts, product decisions, attention points, object-level change log, completeness check, and source/review status.
-- Verify `scripts/run_delivery_checks.py` ran for generated run folders or that individual equivalent checks are recorded.
-- Verify UI visual validation is recorded for UI deliveries, including screenshot paths, diff status, or a skipped reason that shows setup was attempted, browser launch was forbidden, or installation was declined.
-- Verify access-state coherence in UI deliverables: logged-out, guest, no-permission, and eligible states must not contradict each other or reveal signed-in-only account data/actions from unauthenticated entry points.
-- Verify the default output folder contains only allowed artifacts and that `validate_outputs.py` or `run_delivery_checks.py` passed; if either cannot run, record the tool failure.
-- Check that default-option selections, quality thresholds, failure classifications, and validation commands are present in the run log.
-- Review `dev-tasks.yaml` and `launch-decision.yaml` against their contracts when present.
-- Recommend fixes before the delivery check.
-- Check every specialist handoff against `agents/agent-interface.md` when handoff data is available.
-- Flag contradictions between PRD readiness, run-log readiness, review findings, handoff artifacts, and validation reports as High unless there is a recorded accepted limitation.
-- Flag stale validation placeholders in final artifacts as High because they make external delivery unreliable.
-- Flag an iteration as `no_progress` when it changes wording without adding evidence, artifact quality, decision quality, validation, or readiness movement.
-- Flag Loop continuation as High when budgets are exhausted, a human checkpoint is pending, or the same High/Critical finding repeats without a new recovery path.
-- Never recommend `proceed` or `proceed_with_controls` while unresolved findings remain, and never allow `complete` termination with unresolved review findings.
+- Check requirement logic, scope boundaries, numbering, and PRD structure.
+- Verify every required frontend state maps to an inline real, reconstructed, or controlled placeholder figure decision.
+- Verify revision baseline protection and composition source snapshots, selector resolution, and independent numbering.
+- Report actionable findings and validate closure evidence after repairs.
 
 ## Inputs
 
-- PRD
-- Metrics, tracking, and flow sections inside the PRD
-- UI deliverable
-- Confirmation and assumption records inside the PRD or run log
-- Guardrails
+Staged PRD artifacts, `run-log.yaml`, source/revision evidence, figure assets, and controller validation reports.
 
 ## Outputs
 
-- Review findings for PRD and UI deliverable
-- PM usefulness findings, including whether the delivery is actionable for review, engineering, analytics, launch, or stakeholder decision making
-- Review findings for structured reference and document prototype artifacts
-- Risk log
-- Required fixes
-- Optional improvements
-- Go/no-go recommendation for review, engineering handoff, and launch
-- Confidence, rejected alternatives, and next-action recommendations when the artifacts leave material decision risk
-- Action-closure findings when the critical path is missing ownership, evidence, blocker linkage, or a realistic due phase
-- Findings for development handoff and launch decision artifacts when generated
-- Structured findings with severity, artifact, evidence, owner, required-before phase, and status
-- Severe-finding closure records, unresolved findings, and one final recommendation from the allowed recommendation set
-- Agent-interface compliance findings when handoffs are incomplete or contradictory
+Findings by severity, evidence references, required corrections, residual risk, and an approve/revise recommendation.
 
 ## Completion Criteria
 
-- Critical gaps are identified.
-- The review explicitly states whether the delivery is useful for the PM's next real-world step, or what prevents usefulness.
-- Every completion recommendation confirms that the critical path is owned, evidence-based, and consistent with the termination condition.
-- Document attention points are useful, typed, and target concrete objects, fields, rules, or decisions when document-class artifacts are present.
-- Remaining issues are categorized by severity.
-- A no-Critical-or-High result is accompanied by the checks performed and residual risk.
-- PM Orchestrator can complete the delivery check or route back for revision.
-- Handoff payload includes status, artifact delta, validation delta, risks, and next expected output.
+No unclosed critical or high finding remains; the PRD contract, trace contract, and final output validators pass.
 
 ## Handoffs
 
-- To PM Orchestrator with readiness recommendation, required fixes, accepted risks, and delivery-check prerequisites.
-- Back to the owning specialist agent when Critical or High findings require revision.
-- To execution handoff workflow when PRD/UI delivery artifacts are ready enough for controlled `dev-tasks.yaml` or `launch-decision.yaml` generation.
+Return findings to the PM Orchestrator. The Orchestrator records any final arbitration rather than treating review findings as a vote.

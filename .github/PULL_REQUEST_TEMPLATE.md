@@ -12,9 +12,6 @@ What changed?
 - Workflow
 - Artifact contract
 - Template
-- Example scenario
-- Guardrail
-- Tool protocol
 - Validation script
 
 ## Validation
@@ -32,10 +29,8 @@ Result:
 - [ ] I used synthetic or anonymized data only.
 - [ ] I updated `CHANGELOG.md` for user-visible changes.
 - [ ] New or changed skills include `name` and `description` frontmatter.
-- [ ] New scenarios include required outputs.
-- [ ] Tracking plans parse as CSV.
-- [ ] Prototypes are labeled low fidelity.
-- [ ] Privacy, payment, legal, compliance, or source-backed research risks are called out when relevant.
+- [ ] The change maps to one of the four PRD workflows, PRD manager, frontend figures, Codex runtime, or multi-agent evidence/review.
+- [ ] PRD figures are represented as a real capture, isolated reconstruction, or controlled placeholder.
 
 ## Notes for reviewers
 

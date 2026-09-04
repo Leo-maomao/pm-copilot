@@ -11,16 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ROUTING_PATH = ROOT / "indexes" / "runtime-routing.yaml"
 EXPECTED_TASK_MODES = {
-    "prd_delivery",
+    "new_prd",
     "implemented_feature_prd",
-    "ui_delivery",
-    "tracking_plan",
-    "launch_readiness",
-    "dev_handoff",
-    "structured_reference",
-    "product_review",
-    "self_improvement",
-    "mixed_delivery",
+    "prd_revision",
+    "prd_composition",
 }
 DISALLOWED_RUNTIME_PREFIXES = ("docs/archive/", "outputs/", "context/")
 
@@ -67,7 +61,6 @@ def validate_registry(registry: dict[str, object]) -> None:
     routes = registry.get("routes")
     bootstrap = registry.get("bootstrap")
     capability_selectors = registry.get("capability_selectors")
-    memory_selection = registry.get("memory_selection")
     if not isinstance(documents, dict):
         fail("Routing registry must define documents")
     if not isinstance(routes, dict):
@@ -144,14 +137,6 @@ def validate_registry(registry: dict[str, object]) -> None:
             if not isinstance(document_id, str):
                 fail(f"Capability selector {selector_id} contains non-string document ID")
             require_active_document(document_id, documents, f"capability selector {selector_id}")
-
-    if not isinstance(memory_selection, dict):
-        fail("Routing registry must define memory_selection")
-    for field in ("allowed_files", "required_fields", "selection_fields"):
-        values = memory_selection.get(field)
-        if not isinstance(values, list) or not values:
-            fail(f"memory_selection.{field} must be a non-empty list")
-
 
 def main() -> None:
     validate_registry(load_registry())

@@ -1,2 +1,0 @@
-event_name,description,trigger,platform,actor,required_properties,optional_properties,success_criteria,validation_notes,privacy_notes
-feature_viewed,<localized event description>,<localized trigger timing>,<platform>,user,"user_id, platform, timestamp","source, experiment_id",<localized success criteria>,<localized validation note>,<localized privacy note>

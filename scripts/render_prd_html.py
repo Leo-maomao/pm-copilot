@@ -1279,9 +1279,14 @@ DETAIL_MEDIA_MARKER_RE = re.compile(
     r"\[\[prd-detail-media\s+(?P<attributes>.*?)\]\]",
     re.IGNORECASE | re.DOTALL,
 )
+DETAIL_MEDIA_MARKER_START_RE = re.compile(r"\[\[prd-detail-media\b", re.IGNORECASE)
 DETAIL_MEDIA_ATTRIBUTE_RE = re.compile(
     r'\b(?P<name>src|alt|copy)\s*=\s*"(?P<value>[^"]*)"',
     re.IGNORECASE | re.DOTALL,
+)
+REQUIREMENT_DETAIL_FIELD_LABEL_RE = re.compile(
+    r"^(?:需求详情|requirement details?)$",
+    re.IGNORECASE,
 )
 
 
@@ -1290,9 +1295,18 @@ def expand_requirement_detail_media_markers(html: str) -> str:
 
     Pandoc preserves the marker text inside a pipe-table cell, while block HTML
     in that position can terminate or re-parent the table. The replacement is
-    intentionally limited to a `需求详情` cell so marker-like business text in
-    other document sections remains untouched.
+    intentionally limited to a requirement-detail value cell so marker-like
+    business text in other document sections remains untouched. A marker left
+    in a requirement field/value table after expansion is malformed or
+    misplaced source media, so rendering fails instead of emitting the literal
+    marker into the HTML.
     """
+
+    def escape_detail_copy(copy: str) -> str:
+        """Escape marker copy while retaining its constrained line-break syntax."""
+
+        escaped = html_lib.escape(copy, quote=False)
+        return re.sub(r"&lt;br\s*/?&gt;", "<br>", escaped, flags=re.IGNORECASE)
 
     def replace_marker(marker: re.Match[str]) -> str:
         attributes = html_lib.unescape(marker.group("attributes"))
@@ -1311,15 +1325,31 @@ def expand_requirement_detail_media_markers(html: str) -> str:
             f'<img src="{html_lib.escape(values["src"], quote=True)}" '
             f'alt="{html_lib.escape(values["alt"], quote=True)}" />'
             "</div>"
-            f'<div class="prd-detail-copy">{html_lib.escape(copy, quote=False)}</div>'
+            f'<div class="prd-detail-copy">{escape_detail_copy(copy)}</div>'
             "</div>"
+        )
+
+    def is_requirement_detail_value_cell(cells: list[re.Match[str]]) -> bool:
+        return (
+            len(cells) == 2
+            and REQUIREMENT_DETAIL_FIELD_LABEL_RE.fullmatch(
+                visible_text_from_html(cells[0].group("body"))
+            ) is not None
+        )
+
+    def table_has_requirement_detail_row(table: str) -> bool:
+        """Recognize a requirement field/value table from its row structure."""
+
+        return any(
+            is_requirement_detail_value_cell(list(TABLE_CELL_RE.finditer(row.group(0))))
+            for row in TABLE_ROW_RE.finditer(table)
         )
 
     def replace_table(table_match: re.Match[str]) -> str:
         table = table_match.group(0)
         for row in TABLE_ROW_RE.finditer(table):
             cells = list(TABLE_CELL_RE.finditer(row.group(0)))
-            if len(cells) != 2 or visible_text_from_html(cells[0].group("body")) != "需求详情":
+            if not is_requirement_detail_value_cell(cells):
                 continue
             detail_cell = cells[1]
             body = detail_cell.group("body")
@@ -1337,7 +1367,23 @@ def expand_requirement_detail_media_markers(html: str) -> str:
             )
         return table
 
-    return re.sub(r"<table\b[^>]*>.*?</table>", replace_table, html, flags=re.IGNORECASE | re.DOTALL)
+    rendered = re.sub(
+        r"<table\b[^>]*>.*?</table>",
+        replace_table,
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    for table_match in re.finditer(
+        r"<table\b[^>]*>.*?</table>", rendered, re.IGNORECASE | re.DOTALL,
+    ):
+        table = table_match.group(0)
+        if table_has_requirement_detail_row(table) and DETAIL_MEDIA_MARKER_START_RE.search(table):
+            fail(
+                "prd-detail-media marker must appear only in the value cell of a requirement detail table; "
+                "an unexpanded marker remained after rendering"
+            )
+    return rendered
 
 
 def stable_heading_id(level: int, text: str, counters: dict[int, int], used_ids: set[str]) -> str:

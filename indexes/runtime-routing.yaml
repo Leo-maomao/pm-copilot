@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "purpose": "Route each PM task to the smallest active document set. Archived, example, output, and change-record documents are not runtime instructions.",
+    "purpose": "Route each professional PRD request to the smallest active document set. Archived, example, output, and change-record documents are not runtime instructions.",
   "bootstrap": [
     "policy.role_boundary",
     "runtime.routing",
@@ -8,75 +8,27 @@
   ],
   "documents": {
     "policy.role_boundary": {"path": "policies/role-boundary.md", "kind": "policy", "status": "active", "canonical_for": "pm_agent_role_boundary"},
-    "policy.rule_governance": {"path": "policies/rule-governance.md", "kind": "policy", "status": "active", "canonical_for": "runtime_rule_ownership"},
     "runtime.routing": {"path": "indexes/runtime-routing.yaml", "kind": "index", "status": "active", "canonical_for": "runtime_document_selection"},
     "workflow.context_loading": {"path": "workflow/context-loading.md", "kind": "workflow", "status": "active", "canonical_for": "context_selection"},
     "workflow.main": {"path": "workflow/main-workflow.md", "kind": "workflow", "status": "active", "canonical_for": "pm_loop"},
-    "workflow.handoff": {"path": "workflow/execution-handoff-workflow.md", "kind": "workflow", "status": "active", "canonical_for": "handoff_readiness"},
-    "contract.prd": {"path": "artifacts/prd-contract.md", "kind": "contract", "status": "active", "canonical_for": "prd_delivery"},
-    "contract.ui": {"path": "artifacts/ui-delivery-contract.md", "kind": "contract", "status": "active", "canonical_for": "ui_review_delivery"},
-    "contract.tracking": {"path": "artifacts/tracking-plan-contract.md", "kind": "contract", "status": "active", "canonical_for": "tracking_delivery"},
-    "contract.dev_tasks": {"path": "artifacts/dev-task-contract.md", "kind": "contract", "status": "active", "canonical_for": "development_handoff"},
-    "contract.launch": {"path": "artifacts/launch-decision-contract.md", "kind": "contract", "status": "active", "canonical_for": "launch_readiness_assessment"},
-    "contract.trace": {"path": "artifacts/trace-contract.md", "kind": "contract", "status": "active", "canonical_for": "run_trace"},
-    "skill.prd": {"path": "skills/prd-writing/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "prd_method"},
-    "skill.ui": {"path": "skills/multi-platform-ui-delivery/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "ui_review_method"},
-    "skill.tracking": {"path": "skills/tracking-plan/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "tracking_method"},
-    "skill.review": {"path": "skills/review-checklist/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "product_review_method"},
-    "skill.handoff": {"path": "skills/development-handoff/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "handoff_method"},
-    "skill.knowledge": {"path": "skills/knowledge-ops/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "structured_reference_method"},
-    "skill.requirement_intake": {"path": "skills/requirement-intake/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "requirement_clarification_method"},
-    "skill.design_system": {"path": "skills/design-system-audit/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "design_system_audit_method"},
-    "skill.test_first_maintenance": {"path": "skills/test-first-maintenance/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "pm_copilot_test_first_maintenance"},
-    "skill.repository_architecture_review": {"path": "skills/repository-architecture-review/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "pm_copilot_repository_architecture_review"},
-    "archive.real_run_ui_plan": {"path": "docs/archive/real-run-ui-delivery-improvement-plan.md", "kind": "change_record", "status": "archived", "canonical_for": ""}
+        "contract.prd": {"path": "artifacts/prd-contract.md", "kind": "contract", "status": "active", "canonical_for": "new_prd"},
+        "contract.trace": {"path": "artifacts/trace-contract.md", "kind": "contract", "status": "active", "canonical_for": "run_trace"},
+        "skill.prd": {"path": "skills/prd-writing/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "prd_method"},
+        "skill.frontend_evidence": {"path": "skills/multi-platform-ui-delivery/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "prd_frontend_figure_method"},
+        "skill.review": {"path": "skills/review-checklist/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "product_review_method"},
+        "skill.requirement_intake": {"path": "skills/requirement-intake/SKILL.md", "kind": "skill", "status": "active", "canonical_for": "requirement_clarification_method"}
   },
-  "routes": {
-    "prd_delivery": ["workflow.main", "contract.prd", "contract.trace", "skill.prd"],
-    "implemented_feature_prd": ["workflow.main", "contract.prd", "contract.trace", "skill.prd"],
-    "ui_delivery": ["workflow.main", "contract.ui", "contract.trace", "skill.ui"],
-    "tracking_plan": ["workflow.main", "contract.tracking", "contract.trace", "skill.tracking"],
-    "launch_readiness": ["workflow.main", "workflow.handoff", "contract.launch", "contract.trace", "skill.review"],
-    "dev_handoff": ["workflow.main", "workflow.handoff", "contract.dev_tasks", "contract.trace", "skill.handoff"],
-    "structured_reference": ["workflow.main", "contract.trace", "skill.knowledge"],
-    "product_review": ["workflow.main", "contract.trace", "skill.review"],
-    "self_improvement": ["policy.rule_governance", "workflow.main", "contract.trace"],
-    "mixed_delivery": ["workflow.main", "contract.trace"]
-  },
+    "routes": {
+        "new_prd": ["workflow.main", "contract.prd", "contract.trace", "skill.prd", "skill.frontend_evidence", "skill.review"],
+        "implemented_feature_prd": ["workflow.main", "contract.prd", "contract.trace", "skill.prd", "skill.frontend_evidence", "skill.review"],
+        "prd_revision": ["workflow.main", "contract.prd", "contract.trace", "skill.prd", "skill.frontend_evidence", "skill.review"],
+        "prd_composition": ["workflow.main", "contract.prd", "contract.trace", "skill.prd", "skill.frontend_evidence", "skill.review"]
+    },
   "capability_selectors": {
-    "ui_visual_direction": {
-      "triggers": ["visual direction", "视觉方向", "视觉设计", "design system", "设计系统"],
-      "task_modes": ["ui_delivery", "product_review"],
-      "documents": ["skill.design_system"]
-    },
-    "ui_quality_audit": {
-      "triggers": ["accessibility review", "accessibility", "无障碍", "UI audit", "UI 审查", "设计审查"],
-      "task_modes": ["ui_delivery", "product_review"],
-      "documents": ["skill.design_system", "skill.review"]
-    },
-    "decision_interview": {
-      "triggers": ["grill me", "grill with docs", "decision interview", "决策访谈", "深度澄清"],
-      "task_modes": ["prd_delivery", "implemented_feature_prd", "dev_handoff", "product_review", "mixed_delivery"],
-      "documents": ["skill.requirement_intake"]
-    },
-    "test_first_repo_maintenance": {
-      "triggers": ["test first", "TDD", "red green refactor", "测试先行"],
-      "task_modes": ["self_improvement"],
-      "documents": ["skill.test_first_maintenance"]
-    },
-    "repository_architecture_review": {
-      "triggers": ["improve codebase architecture", "repository architecture review", "仓库架构评审", "架构优化"],
-      "task_modes": ["self_improvement"],
-      "documents": ["skill.repository_architecture_review"]
-    }
-  },
-  "memory_selection": {
-    "allowed_files": [
-      "context/product-memory.local.yaml",
-      "context/user-preferences.local.yaml",
-      "context/decision-log.local.yaml"
-    ],
-    "required_fields": ["id", "source", "confidence", "last_updated"],
-    "selection_fields": ["scope", "tags", "status"]
+        "decision_interview": {
+            "triggers": ["grill me", "grill with docs", "decision interview", "决策访谈", "深度澄清"],
+            "task_modes": ["new_prd", "implemented_feature_prd", "prd_revision", "prd_composition"],
+            "documents": ["skill.requirement_intake"]
+        }
   }
 }

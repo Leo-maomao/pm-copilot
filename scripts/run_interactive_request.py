@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import errno
+import fcntl
 import hashlib
 import json
 import os
@@ -22,33 +24,46 @@ import sys
 import tempfile
 import time
 import unicodedata
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Literal, Mapping, Sequence
 
 import yaml
 
 from agent_runtime import execute
+from collect_implemented_feature_evidence import collect as collect_implemented_feature_evidence
+from specialist_dispatch import dispatch as dispatch_specialists
 from delivery_failure_guard import (
     build_delivery_failure_fingerprint,
     decide_delivery_failure_attempt,
     failure_attempt_record,
 )
-from ensure_runtime_current import ensure_current
 from project_workspace import resolve as resolve_project_workspace
-from runtime_limits import (
-    DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIVE_IDENTICAL_FAILURE_LIMIT,
-    DEFAULT_INTERACTIVE_MAX_REVISIONS, DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,
-)
 from revision_scope import (
+    aggregate_visual_evidence_by_requirement,
     asset_digests as _revision_asset_digests,
     build_revision_asset_attestation,
     build_revision_scope_manifest,
     constrain_revision_markdown,
     is_content_asset_relative_path,
+    requirement_ids,
+    requirement_linked_rows,
+    requirement_rows,
     requirement_sections,
+    resolve_multi_source_extraction_scope,
+    revision_artifact_set_snapshot,
+    revision_scope_manifest_digest,
     validate_rendered_html_scope,
     validate_revision_scope,
 )
+from runtime_identity_contract import (
+    RUNTIME_IDENTITY_MANIFEST_FILES,
+    RUNTIME_IDENTITY_MANIFEST_SCHEMA_VERSION,
+    complete_runtime_identity_failures,
+    runtime_manifest_digest,
+)
+from prd_visual_contract import PLACEHOLDER_DECLARATION_RE
 from validate_agent_trace import (
     validate_artifact_lineage,
     validate_implemented_feature_evidence_packet,
@@ -56,7 +71,12 @@ from validate_agent_trace import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MAX_REVISIONS = DEFAULT_INTERACTIVE_MAX_REVISIONS
+# Delivery defaults are local to the only production controller. They remain
+# CLI-overridable; no legacy portfolio, loop, or multi-runtime policy applies.
+DEFAULT_EXECUTION_TIMEOUT_MINUTES = 15
+DEFAULT_INTERACTIVE_TIMEOUT_MINUTES = 60
+DEFAULT_MAX_REVISIONS = 3
+DEFAULT_INTERACTIVE_IDENTICAL_FAILURE_LIMIT = 2
 MAX_ATTRIBUTABLE_AGENT_ATTEMPTS = 2
 # Remote stage reviews remain bounded, but run-log.yaml never uses this route:
 # its provenance is controller state and is generated locally.
@@ -68,11 +88,19 @@ CONTROLLER_TRACE_EXECUTION_MODES = {
     "deterministic_trace_materialization",
     "deterministic_trace_validation",
 }
+DERIVED_REFRESH_MUTABLE_FILES = frozenset({
+    "interactive-run.json",
+    "prd.html",
+    "revision-evidence.json",
+    "run-log.yaml",
+})
+DERIVED_REFRESH_TRANSACTION_SCHEMA_VERSION = 1
 TRACE_TEMPLATE = ROOT / "templates" / "agent-run-log-template.yaml"
 CLARIFICATION_COVERAGE_AREAS = (
     "goal", "users", "scope", "success_evidence", "constraints_and_risk",
 )
-DELIVERY_VARIANTS = {"new", "in_place_revision", "extract_to_new"}
+DELIVERY_VARIANTS = {"new", "in_place_revision", "compose_to_new"}
+LEGACY_DELIVERY_VARIANT_ALIASES = {"extract_to_new": "compose_to_new"}
 IMPLEMENTED_EVIDENCE_PACKET_PATH = Path("source-material") / "implemented-feature-evidence.json"
 INPUT_ASSET_SNAPSHOT_DIRECTORY = Path("source-material") / "input-assets"
 INPUT_ASSET_MANIFEST_PATH = INPUT_ASSET_SNAPSHOT_DIRECTORY / "manifest.json"
@@ -86,6 +114,9 @@ REVISION_REVIEWER_FINDING_TYPES = {
     "selected_acceptance_gap",
     "selected_media_semantics_gap",
 }
+PRD_MARKERS = (
+    "prd", "产品需求", "需求文档", "产品需求文档", "生成需求", "写需求",
+)
 
 # An extraction must have all three semantics: a source context, an operation
 # that separates material, and a new independent PRD target.  Keeping the
@@ -122,8 +153,13 @@ EXTRACTION_CONSTRUCTION_RE = re.compile(
     r"(?:\b(?:create|make|build|write|generate)\b|创建|新建|生成|形成|制作)",
     re.IGNORECASE,
 )
-NUMERIC_REQUIREMENT_RANGE_RE = re.compile(
-    r"(?<![\d.])(\d+)\.(\d+)\s*(?:-|~|–|—|至|到|to|through|until)\s*(\d+)\.(\d+)(?![\d.])",
+IMPLEMENTED_FEATURE_REQUEST_RE = re.compile(
+    r"(?:\b(?:already\s+)?implemented(?:[-\s]feature)?\b|"
+    r"\b(?:feature|functionality|capability)\s+(?:is\s+)?(?:already\s+)?(?:implemented|built|completed)\b|"
+    r"\b(?:already\s+(?:built|completed)|current\s+(?:branch|diff).{0,48}(?:implemented|built|complete))\b|"
+    r"(?:已实现|已经实现|已开发(?:完成)?|已经开发(?:完成)?|"
+    r"(?:功能|特性|能力|需求).{0,12}(?:已|已经)(?:实现|完成|开发完成)|"
+    r"当前分支.{0,24}(?:已完成|已实现)|已完成(?:的)?(?:功能|特性|能力|需求)))",
     re.IGNORECASE,
 )
 SOURCE_REQUIREMENT_ID_RE = re.compile(
@@ -135,24 +171,33 @@ class RevisionSourceDriftError(RuntimeError):
     """A confirmed in-place revision can no longer safely replace its source."""
 
 
-def _ensure_runtime_current() -> None:
-    """Synchronize a copied global runtime before it can run an old controller.
+class DerivedRefreshSourceDriftError(RuntimeError):
+    """A completed PRD changed while a derived-artifact refresh was staged."""
 
-    Plugin activation already performs this check, but direct invocation of the
-    global controller bypasses the plugin. Source checkouts have no install
-    metadata and deliberately skip the check.
+
+@dataclass(frozen=True)
+class PrdRequestPlan:
+    """One normalized CLI intent before the controller reads or mutates run state."""
+
+    args: argparse.Namespace
+    raw_request: str
+    folder: Path
+    task_mode: str
+    delivery_variant: str
+    entrypoint: Literal["interactive", "natural"]
+
+
+def _ensure_runtime_current(
+    argv: Sequence[str], *,
+    entrypoint: Literal["interactive", "natural"] = "interactive",
+) -> None:
+    """Keep the historical hook without maintaining a copied global runtime.
+
+    The controller now always runs from the repository checkout selected by the
+    caller or the Codex plugin.  There is therefore no second runtime tree to
+    synchronize or overwrite before a PRD run starts.
     """
-    if not (ROOT / "install-state.json").is_file():
-        return
-    result = ensure_current(ROOT, Path.home() / ".agents" / "skills", require_current=True)
-    status = str(result.get("status", ""))
-    if status == "up_to_date":
-        return
-    if status == "synced":
-        os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]])
-        return
-    reason = str(result.get("reason") or result.get("action_required") or "runtime synchronization failed")
-    raise RuntimeError(f"PM Copilot global runtime is not current: {reason}")
+    del argv, entrypoint
 
 
 def _artifact_digest(path: Path) -> str | None:
@@ -160,6 +205,43 @@ def _artifact_digest(path: Path) -> str | None:
     if not path.is_file():
         return None
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _capture_runtime_identity(root: Path = ROOT) -> dict[str, Any]:
+    """Capture the bytes loaded by this controller process at import time.
+
+    Runtime installation can replace files while a long delivery is running.
+    Reading those paths again at trace materialization would make the already
+    loaded process claim the later build.  The module-level snapshot below is
+    therefore the only source for controller provenance during this process.
+    """
+    runtime_root = root.resolve()
+    files: dict[str, str] = {}
+    for relative_path in RUNTIME_IDENTITY_MANIFEST_FILES:
+        digest = _artifact_digest(runtime_root / relative_path)
+        if digest is None:
+            raise RuntimeError(f"runtime identity source is missing: {relative_path}")
+        files[relative_path] = digest
+    return {
+        # Keep the existing public trace shape compatible.  Reuse requires the
+        # manifest below, so legacy v1 identities without it are fail-closed.
+        "identity_version": 1,
+        "runtime_root": str(runtime_root),
+        "version": (runtime_root / "VERSION").read_text(encoding="utf-8").strip(),
+        "controller_sha256": files["scripts/run_interactive_request.py"],
+        "plugin_entry_sha256": files["plugins/pm-copilot/scripts/pm_copilot_mcp.py"],
+        "runtime_manifest": {
+            "schema_version": RUNTIME_IDENTITY_MANIFEST_SCHEMA_VERSION,
+            "files": files,
+        },
+        "runtime_manifest_sha256": runtime_manifest_digest(files),
+    }
+
+
+# This snapshot is intentionally captured after all imported controller
+# dependencies have loaded but before command-line parsing or delivery work.
+# A later install can exec a fresh process; it cannot rewrite this provenance.
+_PROCESS_RUNTIME_IDENTITY = _capture_runtime_identity()
 
 
 def _request_looks_like_extraction(raw_request: str) -> bool:
@@ -173,12 +255,40 @@ def _request_looks_like_extraction(raw_request: str) -> bool:
     return has_source and (has_extraction_action or has_construction_action)
 
 
+def is_prd_request(request: str) -> bool:
+    """Classify the natural-language facade's scope without changing run state."""
+    lowered = request.casefold()
+    return any(marker.casefold() in lowered for marker in PRD_MARKERS)
+
+
+def _request_looks_like_implemented_feature(raw_request: str) -> bool:
+    """Recognize an explicit already-built-feature PRD request.
+
+    The request only selects the evidence-backed mode. It never stands in for
+    the required implementation evidence packet, which remains a controller
+    gate before delivery.
+    """
+    return bool(IMPLEMENTED_FEATURE_REQUEST_RE.search(unicodedata.normalize("NFKC", raw_request or "")))
+
+
 def _delivery_variant(state: dict[str, Any]) -> str:
     """Return the persisted delivery shape; history never selects a workflow."""
-    variant = str(state.get("delivery_variant", "")).strip()
+    raw_variant = str(state.get("delivery_variant", "")).strip()
+    variant = LEGACY_DELIVERY_VARIANT_ALIASES.get(raw_variant, raw_variant)
+    task_mode = str(state.get("task_mode", "")).strip()
+    if variant in {"", "new"}:
+        if task_mode == "prd_revision":
+            return "in_place_revision"
+        if task_mode in {"prd_composition", "extract_to_new"}:
+            return "compose_to_new"
     if variant in DELIVERY_VARIANTS:
         return variant
     return "new"
+
+
+def _is_implemented_feature_append(state: Mapping[str, Any]) -> bool:
+    """Keep append-to-current-PRD semantics distinct from a user revision."""
+    return bool(state.get("append_implemented_feature")) and _delivery_variant(dict(state)) == "in_place_revision"
 
 
 def _clear_inactive_revision_scope(state: dict[str, Any]) -> None:
@@ -188,6 +298,7 @@ def _clear_inactive_revision_scope(state: dict[str, Any]) -> None:
     for key in (
         "revision_requirement_ids",
         "revision_scope_manifest",
+        "revision_scope_precheck",
         "revision_scope_validation",
         "revision_request",
         "revision_stop_reason",
@@ -197,9 +308,19 @@ def _clear_inactive_revision_scope(state: dict[str, Any]) -> None:
 
 
 def _task_mode(state: dict[str, Any]) -> str:
-    """Keep ordinary PRD delivery as the only backwards-compatible default."""
+    """Return the four supported PRD workflow modes."""
     value = str(state.get("task_mode", "")).strip()
-    return value or "prd_delivery"
+    legacy = {
+        "prd_delivery": "new_prd",
+        "extract_to_new": "prd_composition",
+    }
+    value = legacy.get(value, value or "new_prd")
+    variant = _delivery_variant(state)
+    if value == "new_prd" and variant == "in_place_revision":
+        return "prd_revision"
+    if value == "new_prd" and variant == "compose_to_new":
+        return "prd_composition"
+    return value
 
 
 def _context_source_mode(state: dict[str, Any]) -> str:
@@ -208,7 +329,7 @@ def _context_source_mode(state: dict[str, Any]) -> str:
         value = str(source.get("mode", "")).strip()
         if value in {"brief-only", "document-backed", "repo-backed"}:
             return value
-    if _delivery_variant(state) == "extract_to_new":
+    if _delivery_variant(state) == "compose_to_new":
         return "document-backed"
     if _task_mode(state) == "implemented_feature_prd":
         return "repo-backed"
@@ -229,14 +350,99 @@ def _set_needs_input(
         turns[-1].setdefault("buckets", {})["must_answer_before_generation"] = [question]
 
 
-def _extraction_snapshot_path(state: dict[str, Any]) -> Path | None:
-    descriptor = state.get("extraction_source")
-    if not isinstance(descriptor, dict):
+def _extraction_sources(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return normalized plural source state while accepting legacy runs.
+
+    Older in-progress folders hold one ``extraction_source`` descriptor.  The
+    migration is deliberately in-place and idempotent so a resume gains the
+    plural representation without changing the old snapshot bytes or forcing
+    a new request.  A one-source run keeps the singular alias for older tools.
+    """
+    raw_sources = state.get("extraction_sources")
+    if isinstance(raw_sources, list):
+        sources = [item for item in raw_sources if isinstance(item, dict)]
+    else:
+        legacy = state.get("extraction_source")
+        sources = [legacy] if isinstance(legacy, dict) else []
+        if sources:
+            state["extraction_sources"] = sources
+    for index, descriptor in enumerate(sources, start=1):
+        source_id = str(descriptor.get("source_id", "")).strip()
+        if not source_id:
+            descriptor["source_id"] = f"source-{index}"
+    if len(sources) == 1:
+        state["extraction_source"] = sources[0]
+    elif len(sources) > 1:
+        state.pop("extraction_source", None)
+    return sources
+
+
+def _normalise_persisted_prd_mode(state: dict[str, Any]) -> bool:
+    """Upgrade known historical task-mode pairs without widening an active scope.
+
+    Older interactive states used ``prd_delivery`` for every workflow and
+    ``extract_to_new`` for a source-backed new PRD.  The delivery shape is the
+    durable authority for those generic records.  Revision history alone is
+    deliberately not enough to select a revision: the existing legacy
+    revision migration still has to verify its frozen baseline and selector.
+    """
+    raw_mode = str(state.get("task_mode", "")).strip()
+    raw_variant = str(state.get("delivery_variant", "")).strip()
+    variant = LEGACY_DELIVERY_VARIANT_ALIASES.get(raw_variant, raw_variant)
+    legacy_or_new_mode = raw_mode in {"", "prd_delivery", "new_prd"}
+    has_extraction_source = isinstance(state.get("extraction_source"), dict) or isinstance(
+        state.get("extraction_sources"), list,
+    )
+
+    if state.get("append_implemented_feature") and variant == "in_place_revision":
+        task_mode, delivery_variant = "implemented_feature_prd", "in_place_revision"
+    elif variant == "in_place_revision" or raw_mode == "prd_revision":
+        task_mode, delivery_variant = "prd_revision", "in_place_revision"
+    elif variant == "compose_to_new" or raw_mode in {"prd_composition", "extract_to_new"}:
+        task_mode, delivery_variant = "prd_composition", "compose_to_new"
+    elif raw_mode == "implemented_feature_prd":
+        task_mode, delivery_variant = "implemented_feature_prd", "new"
+    elif variant not in DELIVERY_VARIANTS and legacy_or_new_mode and has_extraction_source:
+        task_mode, delivery_variant = "prd_composition", "compose_to_new"
+    elif variant in {"", "new"} and legacy_or_new_mode:
+        task_mode, delivery_variant = "new_prd", "new"
+    else:
+        # Preserve an unknown persisted value for the normal failure path
+        # instead of relabeling a corrupted run as a new PRD.
+        return False
+
+    changed = (
+        state.get("task_mode") != task_mode
+        or state.get("delivery_variant") != delivery_variant
+    )
+    state["task_mode"] = task_mode
+    state["delivery_variant"] = delivery_variant
+    if delivery_variant == "compose_to_new":
+        before_source_state = json.dumps({
+            "extraction_source": state.get("extraction_source"),
+            "extraction_sources": state.get("extraction_sources"),
+        }, ensure_ascii=False, sort_keys=True)
+        _extraction_sources(state)
+        after_source_state = json.dumps({
+            "extraction_source": state.get("extraction_source"),
+            "extraction_sources": state.get("extraction_sources"),
+        }, ensure_ascii=False, sort_keys=True)
+        changed = changed or before_source_state != after_source_state
+    return changed
+
+
+def _extraction_snapshot_path(
+    state: dict[str, Any], descriptor: Mapping[str, Any] | None = None,
+) -> Path | None:
+    if descriptor is None:
+        sources = _extraction_sources(state)
+        descriptor = sources[0] if len(sources) == 1 else None
+    if not isinstance(descriptor, Mapping):
         return None
     relative = str(descriptor.get("snapshot_path", "")).strip()
     if not relative:
         return None
-    root = _canonical_folder(state)
+    root = _canonical_folder(state).resolve()
     candidate = (root / relative).resolve()
     try:
         candidate.relative_to(root)
@@ -245,12 +451,37 @@ def _extraction_snapshot_path(state: dict[str, Any]) -> Path | None:
     return candidate
 
 
+def _extraction_source_configuration_problem(
+    state: dict[str, Any], sources: Sequence[Mapping[str, Any]] | None = None,
+) -> str | None:
+    sources = list(sources if sources is not None else _extraction_sources(state))
+    if not sources:
+        return "未提供可验证的旧 PRD 来源。请指定要提取的源文档。"
+    source_ids = [str(item.get("source_id", "")).strip() for item in sources]
+    if not all(source_ids) or len(source_ids) != len(set(source_ids)):
+        return "提取来源标识无效或重复；请重新指定每份旧 PRD。"
+    return None
+
+
 def _extraction_selection(state: dict[str, Any]) -> list[str]:
-    descriptor = state.get("extraction_source")
-    if isinstance(descriptor, dict):
-        selected = _trace_values(descriptor.get("selected_scope"))
-        if selected:
-            return selected
+    persisted = _trace_values(state.get("extraction_selection"))
+    if persisted:
+        return persisted
+    sources = _extraction_sources(state)
+    selected_by_source = [
+        (str(source.get("source_id", "")).strip(), _trace_values(source.get("selected_scope")))
+        for source in sources
+    ]
+    if len(sources) == 1 and selected_by_source[0][1]:
+        return selected_by_source[0][1]
+    qualified = [
+        f"{source_id}: {selector}"
+        for source_id, selected in selected_by_source
+        for selector in selected
+        if source_id
+    ]
+    if qualified:
+        return qualified
     packet = state.get("confirmed_fact_packet")
     if not isinstance(packet, dict):
         turns = state.get("turns")
@@ -259,193 +490,236 @@ def _extraction_selection(state: dict[str, Any]) -> list[str]:
     return _trace_values(scope.get("in_scope") if isinstance(scope, dict) else [])
 
 
-def _normalise_source_selector(value: str) -> str:
-    """Compare user selectors to source text without punctuation or case noise."""
-    normalized = unicodedata.normalize("NFKC", value).casefold()
-    return re.sub(r"[^\w\u3400-\u9fff]+", "", normalized)
+def _extraction_source_texts(
+    state: dict[str, Any],
+) -> tuple[dict[str, str], dict[str, list[str]], str | None]:
+    sources = _extraction_sources(state)
+    configuration_problem = _extraction_source_configuration_problem(state, sources)
+    if configuration_problem:
+        return {}, {}, configuration_problem
+    source_texts: dict[str, str] = {}
+    source_aliases: dict[str, list[str]] = {}
+    for descriptor in sources:
+        source_id = str(descriptor["source_id"])
+        snapshot = _extraction_snapshot_path(state, descriptor)
+        if snapshot is None or not snapshot.is_file():
+            return {}, {}, "未提供可验证的旧 PRD 来源。请指定要提取的源文档。"
+        try:
+            source_texts[source_id] = snapshot.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return {}, {}, "旧 PRD 快照不可读取；请重新指定来源并确认提取范围。"
+        source_aliases[source_id] = [str(descriptor.get("display_name", "")).strip()]
+    return source_texts, source_aliases, None
 
 
-def _source_requirement_ids(source_text: str) -> list[str]:
-    """Read IDs from source PRD headings and requirement-list rows only."""
-    candidates: list[str] = []
-    for line in source_text.splitlines():
-        if not re.match(r"\s*(?:#{1,6}\s+|\|)", line):
-            continue
-        candidates.extend(SOURCE_REQUIREMENT_ID_RE.findall(line))
-    return list(dict.fromkeys(candidates))
-
-
-def _source_headings(source_text: str) -> list[tuple[str, str]]:
-    """Return stable heading labels, both with and without a leading ID."""
-    headings: list[tuple[str, str]] = []
-    for raw_heading in re.findall(r"(?m)^#{1,6}\s+(.+?)\s*$", source_text):
-        heading = raw_heading.strip()
-        body = re.sub(
-            r"^(?:(?:需求|requirement)\s*)?(?:\d+(?:\.\d+)+|[A-Za-z][A-Za-z0-9_-]*-\d+)[.、:：\-\s]*",
-            "",
-            heading,
-            flags=re.IGNORECASE,
-        ).strip()
-        for candidate in (heading, body):
-            normalized = _normalise_source_selector(candidate)
-            if normalized:
-                headings.append((normalized, heading))
-    return headings
-
-
-def _source_text_spans(source_text: str) -> list[str]:
-    """Collect source prose fragments that may be a uniquely cited scope."""
-    spans: list[str] = []
-    for line in source_text.splitlines():
-        if re.match(r"\s*#{1,6}\s+", line):
-            continue
-        cleaned = re.sub(r"^\s*(?:[-*+]\s+|\|\s*)", "", line).strip(" |\t")
-        for fragment in re.split(r"[。！？!?；;]+", cleaned):
-            normalized = _normalise_source_selector(fragment)
-            if normalized:
-                spans.append(normalized)
-    return spans
-
-
-def _is_substantive_free_text(selector: str) -> bool:
-    """Avoid treating a generic one-word fragment as a safe source selector."""
-    cjk_count = len(re.findall(r"[\u3400-\u9fff]", selector))
-    latin_words = re.findall(r"[a-z0-9]+", selector, flags=re.IGNORECASE)
-    return cjk_count >= 3 or len("".join(latin_words)) >= 8 or len(latin_words) >= 2
-
-
-def _resolve_extraction_selection(
-    source_text: str, selected_scope: Sequence[str],
-) -> tuple[list[dict[str, object]], str | None]:
-    """Resolve every extraction selector to one unambiguous source location.
-
-    A nonempty free-form scope is not enough to create a new canonical PRD:
-    each selected item must anchor to a requirement ID, a unique heading, or a
-    unique source phrase. Numeric ranges are accepted only when every ID in the
-    stated range exists in the immutable snapshot.
-    """
-    source_ids = set(_source_requirement_ids(source_text))
-    headings = _source_headings(source_text)
-    text_spans = _source_text_spans(source_text)
-    resolutions: list[dict[str, object]] = []
-
-    for raw_selector in selected_scope:
-        selector = str(raw_selector).strip()
-        normalized = _normalise_source_selector(selector)
-        if not normalized:
-            return [], "提取范围包含空选择；请提供需求 ID、完整章节标题或可唯一匹配的原文范围。"
-
-        ranges = list(NUMERIC_REQUIREMENT_RANGE_RE.finditer(selector))
-        if ranges:
-            for match in ranges:
-                start_major, start_minor, end_major, end_minor = map(int, match.groups())
-                if start_major != end_major or start_minor > end_minor:
-                    return [], f"提取范围“{selector}”不是可解析的同级需求 ID 范围。"
-                expected = [f"{start_major}.{minor}" for minor in range(start_minor, end_minor + 1)]
-                missing = [item for item in expected if item not in source_ids]
-                if missing:
-                    return [], (
-                        f"提取范围“{selector}”未完整匹配旧 PRD 快照中的需求 ID；"
-                        f"缺少 {', '.join(missing)}。"
-                    )
-                resolutions.append({"selector": selector, "kind": "requirement_id_range", "matches": expected})
-                continue
-            continue
-
-        selected_ids = list(dict.fromkeys(SOURCE_REQUIREMENT_ID_RE.findall(selector)))
-        if selected_ids:
-            unknown = [item for item in selected_ids if item not in source_ids]
-            if unknown:
-                return [], (
-                    f"提取范围“{selector}”引用的需求 ID 不在旧 PRD 快照中：{', '.join(unknown)}。"
-                )
-            resolutions.append({"selector": selector, "kind": "requirement_id", "matches": selected_ids})
-            continue
-
-        matched_headings = {
-            original for candidate, original in headings if candidate and candidate in normalized
-        }
-        if len(matched_headings) == 1:
-            resolutions.append({
-                "selector": selector,
-                "kind": "heading",
-                "matches": sorted(matched_headings),
-            })
-            continue
-        if len(matched_headings) > 1:
-            return [], f"提取范围“{selector}”匹配多个旧 PRD 章节；请提供完整章节标题或需求 ID。"
-
-        if _is_substantive_free_text(selector):
-            matched_spans = [
-                span for span in text_spans
-                if normalized in span or (len(span) >= 8 and span in normalized)
-            ]
-            if len(matched_spans) == 1:
-                resolutions.append({
-                    "selector": selector,
-                    "kind": "source_text",
-                    "matches": sorted(set(matched_spans)),
-                })
-                continue
-            if len(matched_spans) > 1:
-                return [], f"提取范围“{selector}”匹配多个旧 PRD 文本位置；请改用需求 ID 或章节标题。"
-
-        return [], (
-            f"提取范围“{selector}”无法在旧 PRD 快照中唯一定位；"
-            "请提供存在的需求 ID、完整章节标题或可唯一匹配的原文范围。"
+def _localize_extraction_resolution_problem(problem: str) -> str:
+    """Keep delivery pauses actionable while sharing canonical resolver logic."""
+    if "matches more than one extraction source" in problem:
+        return (
+            "提取范围同时匹配多份旧 PRD；请使用 source-1: 5.1 或 文件名.md: 5.1 "
+            "这类来源限定选择，系统不会猜测来源。"
         )
-    return resolutions, None
-
-
-def _extraction_selection_problem(state: dict[str, Any]) -> str | None:
-    """Return a stable input stop when the requested source subset is unclear."""
-    snapshot = _extraction_snapshot_path(state)
-    if snapshot is None or not snapshot.is_file():
-        return "未提供可验证的旧 PRD 来源。请指定要提取的源文档。"
-    selected = _extraction_selection(state)
-    if not selected:
-        return "未明确要从旧 PRD 提取哪些内容；请提供需求 ID、章节标题或可核验的范围。"
-    _, problem = _resolve_extraction_selection(
-        snapshot.read_text(encoding="utf-8"), selected,
-    )
+    if "uses an ambiguous source qualifier" in problem:
+        return "提取来源文件名不唯一；请使用 source-1: 5.1 这类稳定来源标识限定选择。"
+    if "matches multiple source text locations" in problem:
+        return "提取范围匹配多个旧 PRD 文本位置；请改用需求 ID、完整章节标题或来源限定选择。"
+    if "matches multiple source headings" in problem:
+        return "提取范围匹配多个旧 PRD 章节；请提供完整章节标题、需求 ID 或来源限定选择。"
+    if "cannot be uniquely resolved" in problem:
+        return (
+            "提取范围无法在旧 PRD 快照中唯一定位；请提供存在的需求 ID、完整章节标题、"
+            "可唯一匹配的原文范围或来源限定选择。"
+        )
+    if "references IDs absent" in problem or "invalid requirement-ID range" in problem:
+        return "提取范围未完整匹配旧 PRD 快照中的需求 ID；请检查来源和需求编号。"
+    if "contains an empty selector" in problem:
+        return "提取范围包含空选择；请提供需求 ID、完整章节标题或可唯一匹配的原文范围。"
     return problem
 
 
-def register_extraction_source(state: dict[str, Any], source: Path) -> None:
-    """Snapshot an explicitly identified source PRD before it can influence delivery.
+def _resolve_extraction_selection(
+    state: dict[str, Any], selected_scope: Sequence[str],
+) -> tuple[list[dict[str, object]], str | None]:
+    """Resolve selectors against every immutable snapshot through one helper."""
+    source_texts, source_aliases, source_problem = _extraction_source_texts(state)
+    if source_problem:
+        return [], source_problem
+    resolutions, problem = resolve_multi_source_extraction_scope(
+        source_texts, selected_scope, source_aliases=source_aliases,
+    )
+    return resolutions, _localize_extraction_resolution_problem(problem) if problem else None
 
-    The snapshot is the immutable document-backed context for this run. The
-    source's original path stays in controller state for drift detection; the
-    human-readable trace cites only the local snapshot and its content hash.
+
+def _extraction_resolution_groups(
+    state: dict[str, Any], resolutions: Sequence[Mapping[str, object]],
+) -> dict[str, dict[str, list[dict[str, object]] | list[str]]]:
+    groups: dict[str, dict[str, list[dict[str, object]] | list[str]]] = {
+        str(source.get("source_id", "")): {"selected_scope": [], "scope_resolution": []}
+        for source in _extraction_sources(state)
+        if str(source.get("source_id", ""))
+    }
+    for resolution in resolutions:
+        source_id = str(resolution.get("source_id", "")).strip()
+        selector = str(resolution.get("selector", "")).strip()
+        if not source_id or not selector or source_id not in groups:
+            continue
+        source_resolution = {
+            "selector": selector,
+            "kind": str(resolution.get("kind", "")),
+            "matches": list(resolution.get("matches", [])),
+        }
+        selected = groups[source_id]["selected_scope"]
+        evidence = groups[source_id]["scope_resolution"]
+        if isinstance(selected, list) and selector not in selected:
+            selected.append(selector)
+        if isinstance(evidence, list) and source_resolution not in evidence:
+            evidence.append(source_resolution)
+    return groups
+
+
+def _extraction_selection_problem(state: dict[str, Any]) -> str | None:
+    """Return a stable input stop when a source subset is unclear or ambiguous."""
+    sources = _extraction_sources(state)
+    configuration_problem = _extraction_source_configuration_problem(state, sources)
+    if configuration_problem:
+        return configuration_problem
+    selected = _extraction_selection(state)
+    if not selected:
+        return "未明确要从旧 PRD 提取哪些内容；请提供需求 ID、章节标题或可核验的范围。"
+    resolutions, problem = _resolve_extraction_selection(state, selected)
+    if problem:
+        return problem
+    if len(sources) > 1:
+        groups = _extraction_resolution_groups(state, resolutions)
+        missing = [
+            str(source.get("display_name") or source.get("source_id"))
+            for source in sources
+            if not groups.get(str(source.get("source_id", "")), {}).get("selected_scope")
+        ]
+        if missing:
+            return (
+                "多份旧 PRD 中仍有未明确提取范围的来源：" + "、".join(missing)
+                + "。请为每份来源指定需求 ID、章节标题或范围。"
+            )
+    return None
+
+
+def _next_extraction_source_id(sources: Sequence[Mapping[str, Any]]) -> str:
+    used = {str(source.get("source_id", "")).strip() for source in sources}
+    index = 1
+    while f"source-{index}" in used:
+        index += 1
+    return f"source-{index}"
+
+
+def _next_extraction_snapshot_path(
+    canonical: Path, source_id: str, sources: Sequence[Mapping[str, Any]],
+) -> Path:
+    existing = {str(source.get("snapshot_path", "")).strip() for source in sources}
+    legacy = Path("source-material") / "source-prd.md"
+    if not sources and legacy.as_posix() not in existing and not (canonical / legacy).exists():
+        return legacy
+    index = 1
+    while True:
+        suffix = "" if index == 1 else f"-{index}"
+        candidate = Path("source-material") / "extraction-sources" / f"{source_id}{suffix}.md"
+        if candidate.as_posix() not in existing and not (canonical / candidate).exists():
+            return candidate
+        index += 1
+
+
+def _clear_extraction_selection(state: dict[str, Any], sources: Sequence[Mapping[str, Any]]) -> None:
+    state.pop("extraction_selection", None)
+    for descriptor in sources:
+        if isinstance(descriptor, dict):
+            descriptor["selected_scope"] = []
+            descriptor.pop("selection_resolution", None)
+            descriptor.pop("selection_recorded_at", None)
+
+
+def _refresh_extraction_context(state: dict[str, Any], sources: Sequence[Mapping[str, Any]]) -> None:
+    context = state.get("context_source")
+    context = dict(context) if isinstance(context, dict) else {}
+    context.update({
+        "mode": "document-backed",
+        "files_loaded": [
+            str(source.get("snapshot_path", "")) for source in sources
+            if str(source.get("snapshot_path", "")).strip()
+        ],
+    })
+    state["context_source"] = context
+
+
+def register_extraction_source(state: dict[str, Any], source: Path) -> None:
+    """Append or refresh one immutable source PRD snapshot for extraction.
+
+    Repeating ``--extract-from`` appends distinct sources.  Supplying the same
+    unchanged file again is idempotent; supplying changed bytes creates a new
+    snapshot generation and invalidates all confirmed source selections.
     """
     source = source.expanduser().resolve()
     if not source.is_file():
         raise FileNotFoundError(f"Extraction source PRD not found: {source}")
     if source.suffix.lower() not in {".md", ".markdown", ".mdown", ".txt"}:
         raise ValueError("Extraction source must be a Markdown or text PRD")
+    source_digest = _artifact_digest(source)
+    if not source_digest:
+        raise ValueError("Extraction source PRD is empty")
+
     canonical = _canonical_folder(state)
-    snapshot = canonical / "source-material" / "source-prd.md"
+    sources = _extraction_sources(state)
+    matching = next(
+        (descriptor for descriptor in sources if str(descriptor.get("source_path", "")) == str(source)),
+        None,
+    )
+    if matching is not None:
+        snapshot = _extraction_snapshot_path(state, matching)
+        if snapshot is not None and snapshot.is_file() and str(matching.get("sha256", "")) == source_digest:
+            state["delivery_variant"] = "compose_to_new"
+            state["task_mode"] = "prd_composition"
+            _clear_inactive_revision_scope(state)
+            _refresh_extraction_context(state, sources)
+            state.pop("required_input", None)
+            return
+        source_id = str(matching.get("source_id", "")).strip() or _next_extraction_source_id(sources)
+        snapshot_relative = _next_extraction_snapshot_path(canonical, source_id, sources)
+        matching.update({
+            "source_id": source_id,
+            "display_name": source.name,
+            "snapshot_path": snapshot_relative.as_posix(),
+            "sha256": source_digest,
+            "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        })
+        _clear_extraction_selection(state, sources)
+    else:
+        source_id = _next_extraction_source_id(sources)
+        snapshot_relative = _next_extraction_snapshot_path(canonical, source_id, sources)
+        descriptor = {
+            "source_id": source_id,
+            "source_path": str(source),
+            "display_name": source.name,
+            "snapshot_path": snapshot_relative.as_posix(),
+            "sha256": source_digest,
+            "selected_scope": [],
+            "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+        sources.append(descriptor)
+        state["extraction_sources"] = sources
+        _clear_extraction_selection(state, sources)
+
+    snapshot = canonical / snapshot_relative
     snapshot.parent.mkdir(parents=True, exist_ok=True)
     _atomic_copy(source, snapshot)
-    digest = _artifact_digest(snapshot)
-    if not digest:
-        raise ValueError("Extraction source PRD is empty")
-    state["delivery_variant"] = "extract_to_new"
+    if _artifact_digest(snapshot) != source_digest:
+        raise ValueError("Extraction source snapshot hash does not match the supplied PRD")
+    if len(sources) == 1:
+        state["extraction_source"] = sources[0]
+    else:
+        state.pop("extraction_source", None)
+    state["delivery_variant"] = "compose_to_new"
+    state["task_mode"] = "prd_composition"
     _clear_inactive_revision_scope(state)
-    state["context_source"] = {
-        "mode": "document-backed",
-        "files_loaded": ["source-material/source-prd.md"],
-    }
-    state["extraction_source"] = {
-        "source_path": str(source),
-        "display_name": source.name,
-        "snapshot_path": "source-material/source-prd.md",
-        "sha256": digest,
-        # A replacement snapshot needs a fresh confirmation. Retaining a prior
-        # selector could silently apply an old source boundary to new bytes.
-        "selected_scope": [],
-        "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-    }
+    _refresh_extraction_context(state, sources)
     state.pop("required_input", None)
 
 
@@ -599,7 +873,8 @@ def register_implemented_feature_evidence(state: dict[str, Any], source: Path) -
     imported_result_refs = _import_implemented_evidence_result_files(state, source, evidence)
     packet_path, packet_sha256 = _write_implemented_evidence_packet(state, evidence)
     state["task_mode"] = "implemented_feature_prd"
-    state["delivery_variant"] = "new"
+    if not _is_implemented_feature_append(state):
+        state["delivery_variant"] = "new"
     _clear_inactive_revision_scope(state)
     context = state.get("context_source")
     context = dict(context) if isinstance(context, dict) else {}
@@ -629,6 +904,41 @@ def register_implemented_feature_evidence(state: dict[str, Any], source: Path) -
     state.pop("required_input", None)
 
 
+def register_automatic_implemented_feature_evidence(state: dict[str, Any], host_project_root: Path) -> None:
+    """Freeze host-repository evidence before clarification without a hand-authored JSON gate."""
+    canonical = _canonical_folder(state)
+    evidence = collect_implemented_feature_evidence(host_project_root, str(state.get("raw_request", "")), canonical)
+    packet_path, packet_sha256 = _write_implemented_evidence_packet(state, evidence)
+    context = state.get("context_source")
+    context = dict(context) if isinstance(context, dict) else {}
+    files_loaded = _trace_values(context.get("files_loaded"))
+    if packet_path not in files_loaded:
+        files_loaded.append(packet_path)
+    context.update({
+        "mode": "repo-backed",
+        "files_loaded": files_loaded,
+        "host_project_root": str(host_project_root.resolve()),
+        "host_project_files_loaded": _trace_values(evidence.get("changed_files")),
+        "product_documents_loaded": _trace_values(context.get("product_documents_loaded")),
+    })
+    state["task_mode"] = "implemented_feature_prd"
+    if not _is_implemented_feature_append(state):
+        state["delivery_variant"] = "new"
+    state["context_source"] = context
+    state["implemented_feature_evidence"] = evidence
+    state["implemented_feature_evidence_source"] = {
+        "display_name": "automatic-host-repository-collection",
+        "sha256": packet_sha256,
+        "source_sha256": packet_sha256,
+        "packet_path": packet_path,
+        "packet_sha256": packet_sha256,
+        "imported_result_refs": ["tool-results/implemented-evidence/collection.json"],
+        "host_project_root": str(host_project_root.resolve()),
+        "collection_mode": "automatic",
+    }
+    state.pop("required_input", None)
+
+
 def apply_revision_requirement_ids(
     state: dict[str, Any], selectors: object, *, authority: str = "explicit command-line selector",
 ) -> None:
@@ -645,6 +955,7 @@ def apply_revision_requirement_ids(
             "--revision-requirement-id is not present in the canonical PRD: " + ", ".join(unknown)
         )
     state["revision_requirement_ids"] = selected
+    state["task_mode"] = "prd_revision"
     manifest = state.get("revision_scope_manifest")
     manifest = dict(manifest) if isinstance(manifest, dict) else {}
     manifest.update({
@@ -656,6 +967,7 @@ def apply_revision_requirement_ids(
     })
     state["revision_scope_manifest"] = manifest
     state["delivery_variant"] = "in_place_revision"
+    state["task_mode"] = "prd_revision"
     state.pop("required_input", None)
 
 
@@ -725,6 +1037,7 @@ def _migrate_legacy_confirmed_revision_scope(state: dict[str, Any]) -> bool:
     if len(selected) != 1:
         return False
     state["delivery_variant"] = "in_place_revision"
+    state["task_mode"] = "prd_revision"
     state["revision_requirement_ids"] = selected
     state["revision_scope_manifest"] = {
         "mode": "in_place_revision",
@@ -802,16 +1115,15 @@ def _delivery_input_question(state: dict[str, Any]) -> tuple[str, str]:
             "已确认的图片或视频附件无法从控制器快照验证。请重新通过 --asset 附加原始文件；"
             "重新确认后才会继续生成，系统不会用现有图替代或猜测附件内容。",
         )
-    if _delivery_variant(state) == "extract_to_new":
-        descriptor = state.get("extraction_source")
-        if not isinstance(descriptor, dict):
+    if _delivery_variant(state) == "compose_to_new":
+        if _extraction_source_configuration_problem(state):
             return (
                 "extraction_source",
-                "请指定要提取的旧 PRD 文件并明确要保留的需求 ID、章节标题或范围。",
+                "请指定要提取的旧 PRD 文件，并为每份来源明确要保留的需求 ID、章节标题或范围。",
             )
         return (
             "extraction_scope",
-            "请明确旧 PRD 中要提取的需求 ID、章节标题或范围；确认后才会创建新的独立 PRD。",
+            "请明确每份旧 PRD 中要提取的需求 ID、章节标题或范围；同名需求请用 source-1: 5.1 或文件名.md: 5.1 区分。",
         )
     if _task_mode(state) == "implemented_feature_prd":
         return (
@@ -1014,18 +1326,22 @@ def _needs_input_questions(state: dict[str, Any]) -> list[str]:
 
 
 def _extraction_source_problem(state: dict[str, Any], *, require_selection: bool) -> str | None:
-    if _delivery_variant(state) != "extract_to_new":
+    if _delivery_variant(state) != "compose_to_new":
         return None
-    descriptor = state.get("extraction_source")
-    snapshot = _extraction_snapshot_path(state)
-    if not isinstance(descriptor, dict) or snapshot is None or not snapshot.is_file():
-        return "未提供可验证的旧 PRD 来源。请指定要提取的源文档。"
-    expected = str(descriptor.get("sha256", "")).strip()
-    if not expected or _artifact_digest(snapshot) != expected:
-        return "旧 PRD 快照与已确认来源不一致；请重新指定来源并确认提取范围。"
-    source_path = Path(str(descriptor.get("source_path", ""))).expanduser()
-    if source_path.is_file() and _artifact_digest(source_path) != expected:
-        return "原始旧 PRD 在确认后已发生变化；请重新确认要提取的范围。"
+    sources = _extraction_sources(state)
+    configuration_problem = _extraction_source_configuration_problem(state, sources)
+    if configuration_problem:
+        return configuration_problem
+    for descriptor in sources:
+        snapshot = _extraction_snapshot_path(state, descriptor)
+        if snapshot is None or not snapshot.is_file():
+            return "未提供可验证的旧 PRD 来源。请指定要提取的源文档。"
+        expected = str(descriptor.get("sha256", "")).strip()
+        if not expected or _artifact_digest(snapshot) != expected:
+            return "旧 PRD 快照与已确认来源不一致；请重新指定来源并确认提取范围。"
+        source_path = Path(str(descriptor.get("source_path", ""))).expanduser()
+        if source_path.is_file() and _artifact_digest(source_path) != expected:
+            return "原始旧 PRD 在确认后已发生变化；请重新确认要提取的范围。"
     if require_selection:
         return _extraction_selection_problem(state)
     return None
@@ -1072,29 +1388,28 @@ def _delivery_input_problem(state: dict[str, Any], *, require_selection: bool = 
 
 def _record_confirmed_extraction_selection(state: dict[str, Any]) -> None:
     """Freeze the source selection alongside the user's delivery confirmation."""
-    if _delivery_variant(state) != "extract_to_new":
+    if _delivery_variant(state) != "compose_to_new":
         return
-    descriptor = state.get("extraction_source")
-    if not isinstance(descriptor, dict):
+    sources = _extraction_sources(state)
+    if _extraction_source_configuration_problem(state, sources):
         return
     selected = _extraction_selection(state)
     if not selected:
         return
-    snapshot = _extraction_snapshot_path(state)
-    if snapshot is None or not snapshot.is_file():
-        return
-    resolutions, problem = _resolve_extraction_selection(
-        snapshot.read_text(encoding="utf-8"), selected,
-    )
+    resolutions, problem = _resolve_extraction_selection(state, selected)
     if problem:
         # Keep an unresolved selection in the current clarification packet, not
         # in immutable source state. A later user answer can then replace it.
-        descriptor.pop("selected_scope", None)
-        descriptor.pop("selection_resolution", None)
+        _clear_extraction_selection(state, sources)
         return
-    descriptor["selected_scope"] = selected
-    descriptor["selection_resolution"] = resolutions
-    descriptor["selection_recorded_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    groups = _extraction_resolution_groups(state, resolutions)
+    state["extraction_selection"] = selected
+    for descriptor in sources:
+        source_id = str(descriptor.get("source_id", ""))
+        group = groups.get(source_id, {"selected_scope": [], "scope_resolution": []})
+        descriptor["selected_scope"] = list(group["selected_scope"])
+        descriptor["selection_resolution"] = list(group["scope_resolution"])
+        descriptor["selection_recorded_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
 
 
 def _record_revision(
@@ -1545,8 +1860,8 @@ def _quarantine_unconfirmed_workspace(
 ) -> Path | None:
     """Keep an unknown detached writer away from both retries and cleanup.
 
-    A Seawork launch without a trustworthy Agent ID may still have been
-    accepted by the daemon. Moving its private stage aside preserves that
+    A launch without trustworthy terminal evidence may still have been
+    accepted by its executor. Moving its private stage aside preserves that
     evidence and ensures a later user-confirmed retry starts in a distinct
     workspace instead of racing the unconfirmed writer.
     """
@@ -1666,8 +1981,9 @@ def _is_retryable_agent_failure(result: dict[str, Any]) -> bool:
         "stream disconnected" in detail
         or "stream_disconnected" in detail
         or result.get("failure_category") == "agent_no_output"
-        or result.get("failure_category") == "seawork_agent_error"
-        or result.get("failure_category") in {"agent_no_progress", "agent_timeout", "seawork_launch_error"}
+        or result.get("failure_category") in {
+            "agent_execution_error", "agent_no_progress", "agent_timeout", "agent_launch_error",
+        }
     )
 
 
@@ -1682,7 +1998,9 @@ def _delivery_worker(
     )
 
 
-def _normalise_trace_runtime_evidence(run_log: Path) -> int:
+def _normalise_trace_runtime_evidence(
+    run_log: Path, runtime_identity: Mapping[str, Any] | None = None,
+) -> int:
     """Keep controller-owned runtime provenance and figure hashes tied to promoted bytes."""
     try:
         trace = yaml.safe_load(run_log.read_text(encoding="utf-8"))
@@ -1693,7 +2011,9 @@ def _normalise_trace_runtime_evidence(run_log: Path) -> int:
     if not isinstance(trace, dict):
         return 0
 
-    trace["pm_copilot_version"] = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    identity = dict(runtime_identity) if isinstance(runtime_identity, Mapping) else _runtime_identity()
+    trace["pm_copilot_version"] = str(identity["version"])
+    trace["runtime_identity"] = identity
     updated = 0
     root = run_log.parent.resolve()
 
@@ -1716,18 +2036,21 @@ def _normalise_trace_runtime_evidence(run_log: Path) -> int:
             record["asset_sha256"] = digest
             updated += 1
 
-    implemented = trace.get("implemented_feature_prd")
-    if isinstance(implemented, dict):
-        coverage = implemented.get("screenshots_and_placeholders")
-        if isinstance(coverage, list):
-            for item in coverage:
-                if not isinstance(item, dict) or item.get("coverage_decision") != "real_figure":
-                    continue
-                refresh_asset(item)
-                additional_assets = item.get("additional_assets")
-                if isinstance(additional_assets, list):
-                    for asset in additional_assets:
-                        refresh_asset(asset)
+    def refresh_figure_assets(record: object) -> None:
+        """Refresh the primary figure and any controller-declared variants."""
+        if not isinstance(record, dict) or record.get("kind") not in {"real_capture", "reconstructed"}:
+            return
+        refresh_asset(record)
+        for key in ("additional_assets", "asset_variants"):
+            children = record.get(key)
+            if isinstance(children, list):
+                for child in children:
+                    refresh_asset(child)
+
+    figures = trace.get("frontend_figure_evidence")
+    if isinstance(figures, list):
+        for item in figures:
+            refresh_figure_assets(item)
 
     _atomic_write_text(
         run_log,
@@ -1761,10 +2084,153 @@ def _trace_requirement_ids(prd_path: Path) -> list[str]:
     """Read only stable PRD requirement identifiers from the staged artifact."""
     if not prd_path.is_file():
         return []
-    text = prd_path.read_text(encoding="utf-8")
-    ids = re.findall(r"(?m)^\|\s*(\d+\.\d+)\s*\|", text)
-    ids.extend(re.findall(r"(?m)^###\s+(\d+\.\d+)(?:\s|$)", text))
-    return list(dict.fromkeys(ids))
+    return requirement_ids(prd_path.read_text(encoding="utf-8"))
+
+
+def _implemented_requirement_coverage_review(
+    prd_path: Path, implemented_evidence: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Build controller-owned coverage from final PRD rows and immutable evidence.
+
+    The trace must not infer a visual decision from a generated PRD.  For an
+    implemented-feature delivery, the immutable evidence packet is the sole
+    source for that decision and its rationale.  Localization and tracking are
+    delivery decisions expressed by final PRD sections, so those are derived
+    from the staged bytes rather than a model response.
+    """
+    if not prd_path.is_file():
+        return []
+    prd_text = prd_path.read_text(encoding="utf-8")
+    final_requirement_ids = requirement_ids(prd_text)
+    visual_evidence = implemented_evidence.get("screenshots_and_placeholders")
+    if not isinstance(visual_evidence, list):
+        raise ValueError(
+            "implemented-feature trace requires screenshots_and_placeholders in immutable evidence"
+        )
+    visual_by_requirement, visual_failures = aggregate_visual_evidence_by_requirement(
+        visual_evidence, final_requirement_ids,
+    )
+    if visual_failures:
+        raise ValueError("implemented-feature trace visual evidence is invalid: " + "; ".join(visual_failures))
+
+    localization_rows, unlinked_localization_rows = requirement_linked_rows(
+        prd_text,
+        ("多语言需求", "localization requirements", "i18n requirements"),
+    )
+    tracking_rows, unlinked_tracking_rows = requirement_linked_rows(
+        prd_text,
+        ("埋点需求", "tracking requirements", "analytics requirements"),
+    )
+    if unlinked_localization_rows:
+        raise ValueError(
+            "implemented-feature PRD localization rows must explicitly link to final requirement IDs"
+        )
+    if unlinked_tracking_rows:
+        raise ValueError(
+            "implemented-feature PRD tracking rows must explicitly link to final requirement IDs"
+        )
+    coverage: list[dict[str, Any]] = []
+    for requirement_id in final_requirement_ids:
+        visual = visual_by_requirement.get(requirement_id)
+        # Automatic repository collection happens before a writer determines
+        # final IDs. A missing final-ID capture stays an explicit manual-
+        # completion requirement rather than becoming an invented figure.
+        if visual is None:
+            visual = {
+                "decision": "required_placeholder",
+                "rationales": ["No final-ID-specific capture was available; retain a controlled manual-completion figure requirement."],
+                "records": [],
+            }
+        localization_count = len(localization_rows.get(requirement_id, []))
+        tracking_count = len(tracking_rows.get(requirement_id, []))
+        coverage.append({
+            "requirement_id": requirement_id,
+            "visual_decision": visual["decision"],
+            "visual_rationale": "；".join(visual["rationales"]),
+            "visual_evidence_count": len(visual["records"]),
+            "localization_decision": "included" if localization_count else "not_needed",
+            "localization_rationale": (
+                f"{localization_count} localization checklist row(s) explicitly link to requirement {requirement_id}."
+                if localization_count else
+                f"No localization checklist row explicitly links to requirement {requirement_id}."
+            ),
+            "tracking_decision": "included" if tracking_count else "not_needed",
+            "tracking_rationale": (
+                f"{tracking_count} tracking row(s) explicitly link to requirement {requirement_id}."
+                if tracking_count else
+                f"No tracking row explicitly links to requirement {requirement_id}."
+            ),
+            "measurable_actions": [],
+            "measurable_outcomes": [],
+        })
+    return coverage
+
+
+def _trace_frontend_figure_evidence(
+    state: Mapping[str, Any], implemented_evidence: Mapping[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Preserve auditable figure facts without copying the full evidence packet.
+
+    Implemented-feature evidence remains immutable in ``source-material``. The
+    trace carries only the packet reference plus a compact, final-artifact view
+    of figures created or retained for this delivery. This keeps reconstructed
+    captures visible while retaining the packet as the authority for coverage.
+    """
+    records: list[tuple[Mapping[str, Any], bool]] = []
+    if isinstance(implemented_evidence, Mapping):
+        supplied = implemented_evidence.get("screenshots_and_placeholders")
+        if isinstance(supplied, list):
+            records.extend((item, True) for item in supplied if isinstance(item, Mapping))
+    controller_records = state.get("frontend_figure_evidence")
+    if isinstance(controller_records, list):
+        records.extend((item, False) for item in controller_records if isinstance(item, Mapping))
+
+    kind_by_provenance = {
+        "real_figure": "real_capture",
+        "real_capture": "real_capture",
+        "reconstructed_figure": "reconstructed",
+        "reconstructed": "reconstructed",
+        "required_placeholder": "placeholder",
+        "placeholder": "placeholder",
+    }
+    figures: list[dict[str, Any]] = []
+    for record, from_immutable_packet in records:
+        provenance = str(
+            record.get("provenance") or record.get("kind") or record.get("coverage_decision") or ""
+        ).strip()
+        if provenance == "not_required":
+            continue
+        kind = kind_by_provenance.get(provenance, "placeholder")
+        figure: dict[str, Any] = {
+            "requirement_id": str(record.get("target_ref") or record.get("requirement_id") or "").strip(),
+            "kind": kind,
+            "path": str(record.get("path") or "").strip(),
+            "asset_sha256": str(record.get("asset_sha256") or "").strip(),
+            "source": str(
+                record.get("capture_source")
+                or record.get("capture_report")
+                or record.get("reconstruction_path")
+                or ""
+            ).strip(),
+            "rationale": str(record.get("rationale") or "").strip(),
+        }
+        if kind == "placeholder":
+            figure["missing_reason"] = str(
+                record.get("missing_reason")
+                or record.get("capture_error")
+                or (
+                    "No verified local frontend capture was supplied in the immutable evidence packet."
+                    if from_immutable_packet else
+                    "The isolated reconstruction did not produce a local figure."
+                )
+            ).strip()
+            figure["replacement_action"] = str(
+                record.get("replacement_action")
+                or record.get("replacement_instruction")
+                or "Capture the required frontend state and attach it to this PRD delivery."
+            ).strip()
+        figures.append(figure)
+    return figures
 
 
 def _trace_language(state: dict[str, Any], prd_path: Path) -> str:
@@ -1785,6 +2251,8 @@ def _trace_scope_ids(state: dict[str, Any], prd_path: Path) -> list[str]:
     scope history to only the IDs which happen to remain in the final file.
     """
     current_ids = _trace_requirement_ids(prd_path)
+    if _is_implemented_feature_append(state):
+        return _trace_values(state.get("append_requirement_ids"))
     requested = _trace_values(state.get("revision_requirement_ids"))
     if not requested and _delivery_variant(state) == "in_place_revision" and state.get("revision_history"):
         requested = _extract_requirement_ids(
@@ -1829,41 +2297,62 @@ def _trace_lineage(state: dict[str, Any], prd_path: Path) -> dict[str, Any]:
     revision = variant == "in_place_revision"
     scope_ids = _trace_scope_ids(state, prd_path)
     deleted_ids = _deleted_revision_requirement_ids(state, prd_path) if revision else []
-    extraction = state.get("extraction_source") if variant == "extract_to_new" else None
-    if variant == "extract_to_new":
-        snapshot = _extraction_snapshot_path(state)
-        if not isinstance(extraction, dict) or snapshot is None:
-            raise ValueError("extraction trace requires an immutable source PRD snapshot")
-        source_sha256 = str(extraction.get("sha256", "")).strip()
-        if not source_sha256 or _artifact_digest(snapshot) != source_sha256:
-            raise ValueError("extraction trace source PRD snapshot hash is not current")
+    if variant == "compose_to_new":
+        sources = _extraction_sources(state)
+        configuration_problem = _extraction_source_configuration_problem(state, sources)
+        if configuration_problem:
+            raise ValueError(configuration_problem)
         selected_scope = _extraction_selection(state)
         selection_problem = _extraction_selection_problem(state)
         if selection_problem:
             raise ValueError(selection_problem)
-        source_scope_resolution, resolution_problem = _resolve_extraction_selection(
-            snapshot.read_text(encoding="utf-8"), selected_scope,
-        )
+        resolutions, resolution_problem = _resolve_extraction_selection(state, selected_scope)
         if resolution_problem:
             raise ValueError(resolution_problem)
+        groups = _extraction_resolution_groups(state, resolutions)
+        source_prds: list[dict[str, Any]] = []
+        for descriptor in sources:
+            source_id = str(descriptor.get("source_id", "")).strip()
+            snapshot = _extraction_snapshot_path(state, descriptor)
+            source_sha256 = str(descriptor.get("sha256", "")).strip()
+            if not source_id or snapshot is None or not source_sha256:
+                raise ValueError("extraction trace requires immutable source PRD snapshots")
+            if _artifact_digest(snapshot) != source_sha256:
+                raise ValueError("extraction trace source PRD snapshot hash is not current")
+            group = groups.get(source_id, {"selected_scope": [], "scope_resolution": []})
+            local_scope = list(group["selected_scope"])
+            local_resolution = list(group["scope_resolution"])
+            if not local_scope:
+                raise ValueError(f"extraction trace source {source_id} has no confirmed selected scope")
+            source_prds.append({
+                "source_id": source_id,
+                "snapshot_path": str(descriptor.get("snapshot_path", "")),
+                "display_name": str(descriptor.get("display_name", "")),
+                "sha256": source_sha256,
+                "selected_scope": local_scope,
+                "scope_resolution": local_resolution,
+            })
+        legacy = source_prds[0] if len(source_prds) == 1 else None
         return {
-            "mode": "extraction_run",
+            "mode": "composition_run",
             "target_prd_path": "",
             "target_html_path": "",
             "revision_evidence_path": "",
             "revised_requirement_ids": [],
             "deleted_requirement_ids": [],
-            "source_snapshot_path": str(extraction["snapshot_path"]),
-            "source_prd_display_name": str(extraction.get("display_name", "")),
-            "source_prd_sha256": source_sha256,
-            "selected_source_scope": selected_scope,
-            "source_scope_resolution": source_scope_resolution,
+            # Keep the original one-source fields so an old installed
+            # validator can still inspect a newly generated one-source run.
+            "source_snapshot_path": legacy["snapshot_path"] if legacy else "",
+            "source_prd_display_name": legacy["display_name"] if legacy else "",
+            "source_prd_sha256": legacy["sha256"] if legacy else "",
+            "selected_source_scope": legacy["selected_scope"] if legacy else [],
+            "source_scope_resolution": legacy["scope_resolution"] if legacy else [],
+            "source_prds": source_prds,
             "historical_artifacts": [{
-                "path": str(extraction["snapshot_path"]),
+                "path": source["snapshot_path"],
                 "role": "user_provided_input",
                 "excluded_from_current_facts": False,
-            }],
-            "output_folder_reset": True,
+            } for source in source_prds],
         }
     return {
         "mode": "in_place_revision" if revision else "new_run",
@@ -1877,11 +2366,11 @@ def _trace_lineage(state: dict[str, Any], prd_path: Path) -> dict[str, Any]:
         "source_prd_sha256": "",
         "selected_source_scope": [],
         "source_scope_resolution": [],
+        "source_prds": [],
         "historical_artifacts": (
             [{"path": "prd.md", "role": "comparison_only", "excluded_from_current_facts": True}]
             if revision else []
         ),
-        "output_folder_reset": not revision,
     }
 
 
@@ -1892,6 +2381,14 @@ def _materialize_revision_evidence(state: dict[str, Any], target: Path) -> None:
     history = state.get("revision_history") or []
     if not history:
         return
+    manifest = state.get("revision_scope_manifest")
+    if isinstance(manifest, Mapping) and manifest.get("schema_version") == 1:
+        _, attestation_problems = _final_revision_scope_attestation_problems(state, target.parent)
+        if attestation_problems:
+            raise ValueError(
+                "cannot materialize revision evidence before final artifact-set attestation: "
+                + "; ".join(attestation_problems)
+            )
     latest = history[-1]
     prd_path = target.parent / "prd.md"
     _write_json(target.parent / "revision-evidence.json", {
@@ -1912,304 +2409,111 @@ def _materialize_revision_evidence(state: dict[str, Any], target: Path) -> None:
 
 
 def _materialize_controller_trace(state: dict[str, Any], target: Path) -> None:
-    """Create a controller-owned trace from current staged facts.
-
-    The run log is execution provenance, not a creative deliverable.  Keeping
-    it controller-owned removes an entire model/stream dependency while still
-    requiring the same staging hashes, trace contract, and final validators.
-    """
-    try:
-        trace = yaml.safe_load(TRACE_TEMPLATE.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as error:
-        raise ValueError(f"could not load the controller trace template: {error}") from error
-    if not isinstance(trace, dict):
-        raise ValueError("controller trace template must contain a YAML mapping")
-
+    """Write only the evidence needed to audit one of the four PRD workflows."""
     problem = _delivery_input_problem(state, require_selection=True)
     if problem:
         raise ValueError(problem)
+
     prd_path = target.parent / "prd.md"
     latest = _confirmed_fact_source(state) if state.get("turns") or state.get("confirmed_fact_packet") else {}
     scope = latest.get("scope", {}) if isinstance(latest, dict) else {}
-    if not isinstance(scope, dict):
-        scope = {}
-    language = _trace_language(state, prd_path)
+    scope = scope if isinstance(scope, dict) else {}
+    task_mode = _task_mode(state)
     lineage = _trace_lineage(state, prd_path)
     revision = lineage["mode"] == "in_place_revision"
-    extraction = lineage["mode"] == "extraction_run"
-    task_mode = _task_mode(state)
-    context_mode = _context_source_mode(state)
-    context_descriptor = state.get("context_source") if isinstance(state.get("context_source"), dict) else {}
-    raw_request = str(state.get("raw_request", "")).strip()
-    goal = str(scope.get("goal", "")).strip() or raw_request or "Produce the confirmed PRD delivery"
-    in_scope = _trace_values(scope.get("in_scope"))
-    out_of_scope = _trace_values(scope.get("out_of_scope"))
-    assumptions = _trace_values(latest.get("assumptions") if isinstance(latest, dict) else [])
-    risks = _trace_values(latest.get("risks") if isinstance(latest, dict) else [])
-    assets = sorted(
-        item.relative_to(target.parent).as_posix()
-        for item in (target.parent / "assets").glob("*")
-        if item.is_file()
-    ) if (target.parent / "assets").is_dir() else []
-    active_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    request_kind = (
-        "in-place revision" if revision else "extraction into a new PRD" if extraction else "new PRD delivery"
-    )
-    facts = [
-        {"fact": "The PRD scope was explicitly confirmed before delivery.", "source": "interactive confirmation", "confidence": "high"},
-        {"fact": "The controller generated this trace from the staged delivery workspace.", "source": "controller state", "confidence": "high"},
-    ]
-    if in_scope:
-        facts.append({"fact": "Confirmed in-scope items: " + "; ".join(in_scope), "source": "interactive confirmation", "confidence": "high"})
-    if extraction:
-        facts.append({
-            "fact": "The new PRD is limited to the user-confirmed selection from the immutable source snapshot.",
-            "source": lineage["source_snapshot_path"], "confidence": "high",
-        })
-    if task_mode == "implemented_feature_prd":
-        supplied_evidence = state.get("implemented_feature_evidence")
-        evidence_source = state.get("implemented_feature_evidence_source")
-        packet = _implemented_evidence_packet_path(state)
-        if not isinstance(supplied_evidence, dict) or not isinstance(evidence_source, dict) or packet is None:
-            raise ValueError("implemented-feature trace requires a verified implementation evidence packet")
-        implemented_trace = json.loads(json.dumps(supplied_evidence, ensure_ascii=False))
-        implemented_trace["active"] = True
-        implemented_trace["mode"] = str(implemented_trace.get("mode") or "implemented_feature_prd")
-        implemented_trace["evidence_packet"] = {
-            "path": str(evidence_source.get("packet_path", "")),
-            "sha256": str(evidence_source.get("packet_sha256", "")),
-            "imported_result_refs": _trace_values(evidence_source.get("imported_result_refs")),
-        }
-    else:
-        implemented_trace = {
-            "active": False, "mode": "not_applicable", "branch_name": "", "diff_commands": [],
-            "changed_files": [], "nearby_context_files": [], "ui_surfaces": [],
-            "visual_runtime_capability": {"runtime_discovery": []}, "visual_capture_recovery": [],
-            "behavior_evidence": [], "screenshots_and_placeholders": [], "validation_evidence": [],
-            "completeness_check": {"implementation_behaviors_checked": [], "represented_in_prd": [], "unresolved_product_intent": [], "omitted_as_non_goal": []},
-        }
+    runtime_identity = _state_runtime_identity(state)
+    goal = str(scope.get("goal") or state.get("raw_request") or "Produce the confirmed PRD delivery").strip()
+    confirmed_scope = _trace_values(scope.get("in_scope")) or [goal]
 
-    trace.update({
+    if task_mode == "implemented_feature_prd":
+        evidence = state.get("implemented_feature_evidence")
+        source = state.get("implemented_feature_evidence_source")
+        if not isinstance(evidence, dict) or not isinstance(source, dict):
+            raise ValueError("implemented-feature trace requires a verified implementation evidence packet")
+        implemented = {
+            "active": True,
+            "evidence_packet": {
+                "path": str(source.get("packet_path") or ""),
+                "sha256": str(source.get("packet_sha256") or ""),
+            },
+        }
+        requirement_coverage_review = _implemented_requirement_coverage_review(prd_path, evidence)
+    else:
+        implemented = {"active": False, "evidence_packet": {}}
+        evidence = None
+        requirement_coverage_review = []
+
+    specialist_evidence = [
+        dict(item) for item in state.get("specialist_evidence", [])
+        if isinstance(item, Mapping)
+    ]
+    figures = _trace_frontend_figure_evidence(state, evidence)
+    arbitration_sources = [
+        item for item in specialist_evidence
+        if (
+            str(item.get("status") or "") == "failed"
+            or item.get("adopted") is False
+            or bool(item.get("conflict"))
+            or item.get("requires_pm_arbitration") is True
+        )
+    ]
+    confirmation = state.get("user_confirmation")
+    confirmed_at = (
+        str(confirmation.get("at") or confirmation.get("confirmed_at") or "").strip()
+        if isinstance(confirmation, Mapping) else ""
+    )
+    if not confirmed_at:
+        packet_confirmed_at = latest.get("confirmed_at") if isinstance(latest, Mapping) else ""
+        confirmed_at = str(packet_confirmed_at or state.get("confirmed_at") or "").strip()
+
+    trace = {
         "run_id": target.parent.name,
         "date": dt.datetime.now(dt.timezone.utc).date().isoformat(),
-        "scenario": request_kind,
-        "language": language,
-        "agent_platform": "pm-copilot-controller",
-        "model": CONTROLLER_TRACE_MODEL,
-        "pm_copilot_version": active_version,
+        "language": _trace_language(state, prd_path),
+        "pm_copilot_version": str(runtime_identity["version"]),
         "pm_copilot_revision": CONTROLLER_TRACE_REVISION,
-        "task": {
-            "request_source": "conversation",
-            "brief_path": "",
-            "raw_request": raw_request,
-            "requested_artifacts": ["prd.md", "prd.html", "run-log.yaml", "assets/"],
+        "runtime_identity": runtime_identity,
+        "task": {"raw_request": str(state.get("raw_request") or ""), "request_source": "conversation"},
+        "agent_strategy": {"task_mode": task_mode, "goal": goal},
+        "confirmation": {
+            "status": "confirmed",
+            "scope": confirmed_scope,
+            "confirmed_at": confirmed_at,
         },
-        "agent_strategy": {
-            "task_mode": task_mode,
-            "secondary_modes": [],
-            "autonomy_level": "full-loop",
-            "goal": goal,
-            "success_criteria": [
-                "The staged PRD and HTML reflect the explicitly confirmed scope.",
-                "Every required final validator passes against the staged bytes.",
-                "The canonical output is promoted only after staging validation succeeds.",
-            ],
-            "effort_budget": "standard-loop",
-            "user_value": "A validated PRD can be reviewed and handed off without reconstructing execution history.",
-            "selected_path": [
-                "confirmed interactive scope",
-                "isolated staging delivery",
-                "independent artifact review",
-                "controller-owned trace and final validation",
-            ],
-            "skipped_path": [{
-                "state": "remote trace writer",
-                "reason": "Run-log provenance is deterministic controller state and does not require a model call.",
-                "readiness_impact": "none",
-            }],
-            "rejected_alternatives": [{
-                "option": "Generate the run log through a remote Agent stream",
-                "reason": "It adds a transport dependency without adding product judgment.",
-                "risk_avoided": "An interrupted stream cannot leave a stale trace marked as current.",
-            }],
-            "final_delivery_contract": {
-                "artifacts_required": ["prd.md", "prd.html", "run-log.yaml", "assets/"],
-                "judgment_required": True,
-                "blockers_required": True,
-                "validation_required": True,
-                "next_actions_required": True,
-                "memory_candidates_required": False,
-            },
+        "artifact_lineage": {
+            "mode": "implemented_feature_run" if task_mode == "implemented_feature_prd" else lineage["mode"],
+            "source_prds": lineage.get("source_prds", []),
+            "revision_baseline": (
+                state.get("revision_scope_manifest")
+                or (state.get("revision_history") or [{}])[-1]
+                if revision else {}
+            ),
+            "revised_requirement_ids": lineage.get("revised_requirement_ids", []),
+            "revision_evidence_path": "revision-evidence.json" if revision else "",
+            "linked_changes": [],
         },
-        "delegation_plan": {"active": False, "pattern": "direct", "workers": []},
-        "agent_task_ledger": {
-            "path": "", "status": "not_applicable", "evidence_ledger_paths": [],
-            "resume_count": len(state.get("delivery_attempts", [])), "execution_boundary": "not_applicable",
-        },
-        "collaboration_protocol": {
-            "required": False, "trigger": "not_required",
-            "reason": "This delivery has no controller-managed multi-agent conflict.",
-            "claims": [], "cross_reviews": [], "arbitrations": [],
-        },
-        "resume_checkpoint": {
-            "last_reliable_state": "staged artifacts accepted before final validation",
-            "task_mode": task_mode, "autonomy_level": "full-loop",
-            "artifacts_ready": [name for name in ("confirmed-requirements.md", "prd.md", "prd.html") if (target.parent / name).is_file()],
-            "artifacts_omitted": [], "blocking_questions": [],
-            "decisions_made": ["Use a controller-owned run log for deterministic execution provenance."],
-            "rejected_alternatives": ["Remote trace generation"],
-            "validation_completed": ["requirements and PRD stage reviews"],
-            "validation_required": ["render_prd_html.py", "validate_outputs.py", "validate_agent_trace.py", "run_delivery_checks.py"],
-            "next_safe_action": "run final validation in the isolated staging workspace",
-        },
-        "termination_condition": {
-            "status": "degraded",
-            "evidence": "The controller trace is materialized; final validators have not yet all passed.",
-            "pm_usefulness": "The trace is ready for deterministic validation, not for canonical promotion.",
-            "remaining_limitation": "Canonical delivery remains blocked until final staging validation passes.",
-        },
-        "tool_plan": {
-            "required_tools": [
-                {"tool_id": "render_prd_html.py", "purpose": "render the staged PRD HTML", "trigger": "before final validation", "fallback": "fail the delivery"},
-                {"tool_id": "validate_outputs.py", "purpose": "validate staged output bytes", "trigger": "before promotion", "fallback": "repair the rejected artifact"},
-                {"tool_id": "validate_agent_trace.py", "purpose": "validate execution provenance", "trigger": "before promotion", "fallback": "regenerate controller trace"},
-            ],
-            "optional_tools": [], "unavailable_or_skipped": [],
-        },
-        "decision_record": [{
-            "id": "D1", "decision": "Use the confirmed scope and staged artifacts as the only delivery source of truth.",
-            "owner": "PM Orchestrator", "confidence": "high",
-            "evidence": ["explicit user confirmation", "staged artifact hashes"],
-            "alternatives_considered": ["reuse an unverified historical staging directory"],
-            "tradeoff": "Fresh validation costs local execution time but prevents stale artifact promotion.",
-            "readiness_impact": "prd",
-        }],
-        "replan_triggers": [{
-            "trigger": "validation_failure", "observed_at_state": "delivery",
-            "action_taken": "Keep canonical output unchanged and repair only the rejected staged artifact.",
-            "affected_artifacts": ["prd.md", "run-log.yaml"], "readiness_impact": "prd",
-        }],
-        "review_loop": {"iterations": 0, "critical_or_high_findings": [], "finding_closures": [], "unresolved_findings": [], "final_recommendation": "revise"},
-        "loop_policy": {
-            "enabled": False, "loop_type": "direct",
-            "disabled_reason": "Run-log materialization is deterministic controller work, not an autonomous model loop.",
-            "max_iterations": 1, "max_tool_calls": 4, "max_elapsed_minutes": 5,
-            "max_consecutive_no_progress": 1, "min_progress_score_delta": 1,
-            "stop_conditions": ["success_criteria_met", "failed"],
-            "human_checkpoint": {"required_after_iteration": 0, "status": "not_required", "required_before_actions": []},
-        },
-        "loop_state": {
-            "current_iteration": 0, "tool_calls_used": 0, "elapsed_minutes": 0,
-            "consecutive_no_progress": 0, "last_progress_score": 0,
-            "success_criteria_met": False, "conflict_resolution_status": "clear",
-        },
-        "iteration_trace": [],
-        "loop_summary": {"iterations_completed": 0, "stop_reason": "not_applicable", "final_progress_score": 0, "unresolved_items": []},
-        "memory_candidates": {"none": True, "product_memory": [], "user_preferences": [], "decision_log": []},
-        "next_actions": {
-            "product": [], "design": [],
-            "engineering": ["Review the promoted PRD against the confirmed scope before implementation."],
-            "qa": ["Use the PRD acceptance evidence during downstream verification."],
-            "analytics": [], "launch": [],
-        },
-        "action_closure": {"critical_path": [{
-            "action_id": "A1", "action": "Complete final staging validation and promote only the verified delivery.",
-            "owner": "PM Orchestrator", "due_phase": "now", "source_decision_ids": ["D1"],
-            "source_blocker_ids": [], "completion_evidence": "canonical validation passes after promotion", "status": "ready",
-        }]},
-        "context": {
-            "source_mode": context_mode,
-            "files_loaded": ["discussion.md", "confirmed-requirements.md", "prd.md", *list(context_descriptor.get("files_loaded", []))],
-            "host_project_root": str(context_descriptor.get("host_project_root", "")),
-            "host_project_files_loaded": list(context_descriptor.get("host_project_files_loaded", [])),
-            "product_documents_loaded": [
-                *list(context_descriptor.get("product_documents_loaded", [])),
-                *([lineage["source_snapshot_path"]] if extraction else []),
-            ],
-            "current_state_summary": str(latest.get("summary", "")) if isinstance(latest, dict) else "",
-            "current_state_facts": facts,
-            "analytics_taxonomy_source": {"status": "not checked", "source": "", "implication": "tracking is evaluated in the PRD contract when applicable"},
-            "context_excluded": ["unverified historical delivery workspaces"], "conflicts_found": [], "conflict_resolution": [],
-        },
-        "artifact_lineage": lineage,
-        "external_research": {"status": "not_applicable", "question": "", "competitor_flows": [], "sources": [], "limitations": [], "recommendation_impact": ""},
-        "readiness": {
-            "prd_status": "ready for review", "engineering_handoff_status": "not applicable", "launch_status": "not applicable",
-            "status_rationale": "The delivery remains in staging until every final validator passes.",
-            "engineering_blockers": [], "launch_blockers": [],
-        },
-        "workflow": {
-            "states_completed": ["discussion", "clarification", "confirmation", "requirements delivery", "PRD stage review"],
-            "states_skipped": [], "skip_reasons": [], "last_reliable_state": "delivery",
-            "resume_source": "existing run-log" if revision else "source PRD snapshot" if extraction else "new run",
-            "clarification_gate": {
-                "required": True, "status": "confirmed", "stopped_before_generation": False,
-                "assumption_risk_accepted": False, "confirmation_risk_accepted": False,
-                "evidence": "explicit interactive confirmation",
-            },
-            "revision_loops": int(state.get("revision_loops", 0)),
-        },
-        "implemented_feature_prd": implemented_trace,
-        "requirement_coverage_review": [],
-        "agent_transitions": [{
-            "state": "delivery", "agent": "PM Orchestrator", "status": "complete", "confidence": "high",
-            "input_evidence": ["confirmed scope", "staged artifact hashes"],
-            "artifact_delta": {"files_created": ["run-log.yaml"], "files_changed": ["run-log.yaml"], "files_unchanged": assets},
-            "validation_delta": {"commands_run": [], "commands_skipped": [], "required_later": ["render_prd_html.py", "validate_outputs.py", "validate_agent_trace.py", "run_delivery_checks.py"]},
-            "readiness_impact": "prd", "conflict": "", "resolution": "", "next_expected_output": "final validation result",
-        }],
-        "agents_used": [{"name": "PM Orchestrator", "purpose": "controller-owned provenance", "inputs": ["controller state"], "outputs": ["run-log.yaml"], "handoff_to": "final validator"}],
-        "skills_used": [],
-        "tools_used": [{"tool_id": "controller.trace", "name": "controller trace materializer", "purpose": "write deterministic run-log.yaml", "trigger": "after PRD stage review", "command": "internal controller", "status": "passed", "result": "staged trace materialized", "artifacts_created": ["run-log.yaml"], "limitation": "final validation pending", "fallback_used": "not applicable"}],
-        "tool_preflight": {"command": "not required for controller trace materialization", "status": "skipped", "report_path": "", "available_tools": [], "setup_required_tools": [], "unavailable_tools": []},
-        "external_integrations": [],
-        "human_inputs": {
-            "clarification_questions": [],
-            "answers_received": _trace_values(latest.get("user_text") if isinstance(latest, dict) else []),
-            "default_options_selected": [], "unanswered_questions": [], "confirmations_required": [],
-        },
-        "assumptions": [{"id": "A1", "assumption": item, "reason": "recorded during clarification", "risk": "tracked in the confirmed scope", "source": "user confirmed", "blocks_generation": False} for item in assumptions],
-        "scope_decisions": {"confirmed_mvp": in_scope or [goal], "optional_or_conditional": [], "future_scope": [], "non_goals": out_of_scope},
-        "surface_decisions": {"entry_points": [], "navigation_visibility": "not specified", "eligible_user_state": "not specified", "ineligible_user_state": "not specified", "fallback_states": risks},
-        "host_frontend_inventory": {"platform": "not_applicable", "entry_files": [], "route_or_screen_files": [], "component_files": [], "style_files": [], "icon_asset_sources": [], "data_or_mock_sources": [], "render_entrypoint": "not applicable", "preview_surface": "", "preview_url": "", "source_rendering_decision": "not_required", "source_rendering_limitation": ""},
-        "style_evidence": {"source_files": [], "reused_components": [], "reused_tokens_or_classes": [], "icon_asset_sources": [], "ui_delta": "not applicable", "limitations": []},
-        "ui_delivery_trace": {"mode": "not_applicable", "host_mutation_policy": "not_applicable", "target_surface": "", "preview_files_changed": [], "implementation_files_changed": [], "baseline_import": {"imported_sources": [], "render_method": "not_applicable", "baseline_modification_policy": "not_applicable"}, "delta_patch": {"patch_files": [], "patch_strategy": "not_applicable", "mock_state_sources": [], "multi_turn_change_log": [], "next_delta_anchor": ""}, "source_to_demo_mapping": [], "backend_simulation": {"method": "not_applicable", "data_contract_source": "", "states_represented": [], "limitations": []}, "parity_claim": "not_applicable", "source_extract": {"source_target": "", "selector": "", "extraction_command": "", "extracted_html_path": "", "source_region_screenshot": "", "extracted_region_screenshot": "", "region_diff": "", "interaction_scope": "", "interaction_checks": [], "style_capture_method": "", "asset_handling": "", "annotation_layer": "", "annotation_config": "", "source_change_scope": "not_applicable", "validation_report": "", "limitations": []}, "limitations": []},
-        "existing_ui_visual_baseline": {"status": "not_applicable", "source": "unavailable", "target": "", "screenshots": [], "comparison_method": "not_run", "limitation": ""},
-        "image_reference_reconstruction": {"status": "not_applicable", "references": [], "visual_inventory_summary": [], "asset_handling": {"reused_assets": [], "generated_assets": [], "placeholders": []}, "comparison": {"method": "not_run", "implementation_screenshots": [], "mismatches_fixed": [], "remaining_mismatches": [], "skipped_reason": ""}, "fidelity_claim": "not_applicable"},
-        "design_calibration": {"visual_density": "not_applicable", "layout_variance": "not_applicable", "motion_intensity": "not_applicable", "anti_generic_choices": []},
-        "content_sources": [{"content_area": "confirmed product scope", "source_status": "user supplied", "source_reference": "interactive conversation", "review_owner": "PM Orchestrator", "review_status": "approved", "disclaimer_status": "not applicable", "launch_impact": "not applicable"}],
-        "structured_catalog": {"catalog_type": "not_applicable", "primary_artifact": "", "html_artifact": "", "source_status": "not_applicable", "review_status": "not_applicable", "owner": "", "row_count": 0, "required_fields": [], "source_freshness_limitations": [], "blocked_rows": []},
-        "structured_reference": {"delivery_class": "not_applicable", "catalog_type": "not_applicable", "primary_artifact": "", "html_artifact": "", "source_status": "not_applicable", "review_status": "not_applicable", "owner": "", "entities": [], "fields": [], "rules": [], "decisions": [], "attention_points": [], "calibration": {"workflow": "not_applicable", "patch_scope": "not_applicable", "protected_objects": [], "conflicts_detected": []}, "change_log": [], "completeness_check": {"entity_count": 0, "field_coverage": [], "defaults_checked": [], "enums_checked": [], "limits_checked": [], "sources_checked": [], "pending_confirmations": [], "conflicts": []}},
-        "open_questions": [],
-        "artifacts": {"prd": "prd.md", "catalog": "", "ui_deliverable": "", "run_log": "run-log.yaml", "tool_results_dir": "", "optional_exports": [], "omitted_split_files": []},
-        "visual_validation": {"required": False, "command": "", "status": "skipped", "preview_target": "", "screenshots": [], "baseline_dir": "", "diff_status": "not_applicable", "max_diff_ratio": None, "observed_diff_ratio": None, "non_blank_ratio": None, "report_path": "", "source_preview_report_path": "", "limitation": "not applicable"},
-        "handoff_artifacts": {"dev_tasks": "", "launch_decision": "", "generation_mode": "not_requested", "status": "not_requested"},
-        "guardrail_events": [],
-        "security_and_audit": {"boundary": "PM artifact generation only; no host product mutation", "audit_visibility": "interactive controller state and final trace", "identity_confirmation_expectation": "explicit user confirmation before delivery", "redaction_expectation": "do not record secrets or raw sensitive data", "retention_or_deletion_assumption": "retain the canonical PRD trace under the project output folder", "unresolved_approval_owner": "not applicable"},
-        "review_findings": [],
-        "review_scores": {
-            "delivery": {"score": 0, "max_score": 32, "status": "not_scored_pending_validation"},
-            "prd": {"score": 0, "max_score": 40, "status": "not_scored_pending_validation"},
-            "metrics_and_tracking": {"score": 0, "max_score": 28, "status": "not_scored_pending_validation"},
-            "ui_delivery": {"score": 0, "max_score": 32, "status": "not_scored_pending_validation"},
-            "review_checklist": {"score": 0, "max_score": 20, "status": "not_scored_pending_validation"},
-        },
-        "quality_thresholds": {"delivery": 23, "prd": 31, "metrics_and_tracking": 21, "ui_delivery": 24, "review_checklist": 15},
-        "quality_decision": {"passed": False, "score_delta": 0, "rationale": "Final validation is pending."},
+        "implemented_feature_prd": implemented,
+        "frontend_figure_evidence": figures,
+        "requirement_coverage_review": requirement_coverage_review,
+        "specialist_evidence": specialist_evidence,
+        "pm_arbitration": {"decisions": ([{
+            "id": "PM-1", "owner": "PM Orchestrator",
+            "decision": "The PM Orchestrator evaluated the unresolved specialist evidence against the confirmed scope.",
+            "evidence_ids": [str(item.get("id") or "") for item in arbitration_sources],
+        }] if arbitration_sources else [])},
+        "review": {"status": "pending", "findings": []},
         "validation_results": [
-            {"command": "render_prd_html.py", "tool_id": "render_prd_html.py", "tool_version": "active runtime", "status": "pending", "result": "controller validation pending", "limitation": "", "fallback": ""},
-            {"command": "validate_outputs.py", "tool_id": "validate_outputs.py", "tool_version": "active runtime", "status": "pending", "result": "controller validation pending", "limitation": "", "fallback": ""},
-            {"command": "validate_agent_trace.py", "tool_id": "validate_agent_trace.py", "tool_version": "active runtime", "status": "pending", "result": "controller validation pending", "limitation": "", "fallback": ""},
-            {"command": "run_delivery_checks.py", "tool_id": "run_delivery_checks.py", "tool_version": "active runtime", "status": "pending", "result": "controller validation pending", "limitation": "", "fallback": ""},
+            {"command": command, "status": "pending"}
+            for command in ("render_prd_html.py", "validate_outputs.py", "validate_agent_trace.py", "run_delivery_checks.py")
         ],
-        "self_iteration": {"triggered": False, "source_run_id": "", "source_run_ids": [], "failure_evidence": [], "user_corrections": [], "generalized_failures": [], "selected_fix_surfaces": [], "regression_updates": [], "generalization_boundary": "", "validation_commands": [], "version_change": "", "embedded_copy_sync": []},
+        "quality_decision": {"passed": False, "rationale": "final validation pending"},
         "failures": [],
-        "final_status": "deterministic trace ready for validation",
-    })
+        "final_status": "staged delivery awaiting validation",
+    }
     if revision:
         _materialize_revision_evidence(state, target)
     _atomic_write_text(target, yaml.safe_dump(trace, allow_unicode=True, sort_keys=False, default_flow_style=False))
-    _normalise_trace_runtime_evidence(target)
+    _normalise_trace_runtime_evidence(target, runtime_identity)
 
 
 def _copy_input_assets(state: dict[str, Any], destination: Path) -> None:
@@ -2254,8 +2558,73 @@ def _validate_input_asset_materialization(state: dict[str, Any], root: Path) -> 
     return records
 
 
+def _runtime_identity() -> dict[str, Any]:
+    """Return a copy of this process's import-time runtime identity.
+
+    Do not replace this with a fresh file read.  A controller can remain alive
+    while an installer updates the runtime directory; the process keeps the
+    Python code it imported, so its trace must keep this original identity.
+    """
+    return json.loads(json.dumps(_PROCESS_RUNTIME_IDENTITY, sort_keys=True))
+
+
+def _has_complete_runtime_identity(identity: object) -> bool:
+    """Accept only current, bounded identities for cache reuse.
+
+    Earlier identities contained just a controller and plugin digest.  They
+    cannot establish that the validator/template/runtime contract was the same,
+    so reusable delivery artifacts produced under that shape are never trusted.
+    """
+    return not complete_runtime_identity_failures(identity)
+
+
+def _runtime_identities_match(left: object, right: object) -> bool:
+    """Compare the complete loaded-runtime identity used for reusable work."""
+    if not _has_complete_runtime_identity(left) or not _has_complete_runtime_identity(right):
+        return False
+    return json.dumps(left, ensure_ascii=False, sort_keys=True, separators=(",", ":")) == json.dumps(
+        right, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+
+
+def _freeze_delivery_runtime_identity(state: dict[str, Any]) -> dict[str, Any]:
+    """Replace any persisted identity before a new controller attempt starts."""
+    identity = _runtime_identity()
+    state["active_runtime_identity"] = identity
+    return identity
+
+
+def _state_runtime_identity(state: Mapping[str, Any]) -> dict[str, Any]:
+    recorded = state.get("active_runtime_identity")
+    process_identity = _runtime_identity()
+    if _runtime_identities_match(recorded, process_identity):
+        return dict(recorded)
+    return process_identity
+
+
+def _reusable_delivery_runtime_identity(state: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return persisted identity only when it authorizes retry-cache reuse.
+
+    Trace provenance can truthfully fall back to the currently loaded process
+    when an old state has no usable identity.  A retry cache is different: it
+    is authorization to copy artifacts from a prior workspace, so a missing,
+    stale, or tampered persisted identity must fail closed instead of being
+    silently relabelled with the current process identity.
+    """
+    recorded = state.get("active_runtime_identity")
+    process_identity = _runtime_identity()
+    if not _runtime_identities_match(recorded, process_identity):
+        return None
+    return dict(recorded)
+
+
+def _state_runtime_version(state: Mapping[str, Any]) -> str:
+    return str(_state_runtime_identity(state)["version"])
+
+
 def _active_runtime_version() -> str:
-    return (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    """Return the process-frozen version used by delivery provenance."""
+    return _runtime_identity()["version"]
 
 
 def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
@@ -2301,6 +2670,8 @@ def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
         "revision_scope_manifest": state.get("revision_scope_manifest", {}) if revision else {},
         "revision_requirement_ids": sorted(_trace_values(state.get("revision_requirement_ids"))) if revision else [],
         "extraction_source": state.get("extraction_source", {}),
+        "extraction_sources": _extraction_sources(state) if _delivery_variant(state) == "compose_to_new" else [],
+        "extraction_selection": _extraction_selection(state) if _delivery_variant(state) == "compose_to_new" else [],
         "implemented_feature_evidence": state.get("implemented_feature_evidence", {}),
         "input_assets": sorted(
             input_assets,
@@ -2392,11 +2763,12 @@ def _delivery_failure_guard_context(
     category = _normalise_delivery_failure_category(
         state.get("last_failure_category") or state.get("last_error")
     )
+    runtime_identity = _state_runtime_identity(state)
     return {
         "scope_fingerprint": _confirmed_scope_fingerprint(state),
         "baseline_digest": _revision_baseline_fingerprint(state),
-        "runtime_version": _active_runtime_version(),
-        "controller_version": _artifact_digest(Path(__file__).resolve()),
+        "runtime_version": str(runtime_identity["version"]),
+        "controller_version": str(runtime_identity["controller_sha256"]),
         "requested_provider": failed_provider,
         "requested_model": failed_model,
         "failed_artifact": artifact,
@@ -2466,7 +2838,11 @@ def _snapshot_reusable_delivery_artifacts(state: dict[str, Any]) -> None:
         state.pop("retry_reuse", None)
         return
     fingerprint = _confirmed_scope_fingerprint(state)
-    version = _active_runtime_version()
+    runtime_identity = _reusable_delivery_runtime_identity(state)
+    if runtime_identity is None:
+        state.pop("retry_reuse", None)
+        return
+    version = str(runtime_identity["version"])
     reusable: list[dict[str, Any]] = []
     for artifact in ("confirmed-requirements.md", "prd.md"):
         stage = state.get("delivery_stages", {}).get(artifact, {})
@@ -2481,6 +2857,7 @@ def _snapshot_reusable_delivery_artifacts(state: dict[str, Any]) -> None:
             or stage.get("reviewed_sha256") != digest
             or stage.get("scope_fingerprint") != fingerprint
             or stage.get("pm_copilot_version") != version
+            or not _runtime_identities_match(stage.get("runtime_identity"), runtime_identity)
         ):
             continue
         if not cache.exists():
@@ -2499,6 +2876,7 @@ def _snapshot_reusable_delivery_artifacts(state: dict[str, Any]) -> None:
     manifest = {
         "scope_fingerprint": fingerprint,
         "pm_copilot_version": version,
+        "runtime_identity": runtime_identity,
         "artifacts": reusable,
     }
     _write_json(cache / "manifest.json", manifest)
@@ -2506,6 +2884,7 @@ def _snapshot_reusable_delivery_artifacts(state: dict[str, Any]) -> None:
         "status": "available",
         "scope_fingerprint": fingerprint,
         "pm_copilot_version": version,
+        "runtime_identity": runtime_identity,
         "artifacts": reusable,
     }
 
@@ -2521,13 +2900,20 @@ def _restore_reusable_delivery_artifacts(state: dict[str, Any], workspace: Path)
     except (OSError, json.JSONDecodeError):
         manifest = {}
     fingerprint = _confirmed_scope_fingerprint(state)
-    version = _active_runtime_version()
+    runtime_identity = _reusable_delivery_runtime_identity(state)
+    if runtime_identity is None:
+        shutil.rmtree(cache)
+        state["retry_reuse"] = {"status": "discarded", "reason": "scope_or_runtime_changed"}
+        return
+    version = str(runtime_identity["version"])
     if (
         not isinstance(manifest, dict)
         or manifest.get("scope_fingerprint") != fingerprint
         or manifest.get("pm_copilot_version") != version
         or reuse.get("scope_fingerprint") != fingerprint
         or reuse.get("pm_copilot_version") != version
+        or not _runtime_identities_match(manifest.get("runtime_identity"), runtime_identity)
+        or not _runtime_identities_match(reuse.get("runtime_identity"), runtime_identity)
     ):
         shutil.rmtree(cache)
         state["retry_reuse"] = {"status": "discarded", "reason": "scope_or_runtime_changed"}
@@ -2552,6 +2938,7 @@ def _restore_reusable_delivery_artifacts(state: dict[str, Any], workspace: Path)
             "reviewed_sha256": digest,
             "scope_fingerprint": fingerprint,
             "pm_copilot_version": version,
+            "runtime_identity": runtime_identity,
             "reuse_source": "prior_verified_delivery_workspace",
             "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         }
@@ -2588,6 +2975,7 @@ def _restore_reusable_delivery_artifacts(state: dict[str, Any], workspace: Path)
         "artifacts": restored,
         "scope_fingerprint": fingerprint,
         "pm_copilot_version": version,
+        "runtime_identity": runtime_identity,
     }
 
 
@@ -2665,6 +3053,14 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
         baseline = workspace / ".revision-baseline"
         baseline.mkdir(parents=True, exist_ok=True)
         shutil.copy2(workspace / "prd.md", baseline / "prd.md")
+        # Old canonical proof belongs to the baseline, never to the new
+        # isolated revision attempt. A fresh rendered artifact set must earn
+        # its own report, evidence, and trace before promotion.
+        (workspace / "revision-evidence.json").unlink(missing_ok=True)
+        _revision_scope_report_path(workspace).unlink(missing_ok=True)
+        _revision_scope_precheck_path(workspace).unlink(missing_ok=True)
+        state.pop("revision_scope_precheck", None)
+        state.pop("revision_scope_validation", None)
     else:
         # A prior canonical revision may retain provenance for audit, but a
         # new/extracted delivery must neither validate nor republish it.
@@ -2674,12 +3070,36 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
             shutil.rmtree(stale_baseline)
         elif stale_baseline.exists():
             stale_baseline.unlink()
+    _copy_automatic_implemented_capture(state, workspace)
     _copy_input_assets(state, workspace)
     _validate_input_asset_materialization(state, workspace)
     state["delivery_workspace"] = str(workspace)
     _restore_reusable_delivery_artifacts(state, workspace)
     _refresh_revision_asset_attestation(state, workspace)
     return workspace
+
+
+def _copy_automatic_implemented_capture(state: Mapping[str, Any], workspace: Path) -> None:
+    """Expose a frozen real capture to the staged PRD without mutating its baseline."""
+    evidence = state.get("implemented_feature_evidence")
+    if not isinstance(evidence, Mapping):
+        return
+    capability = evidence.get("visual_runtime_capability")
+    capability = capability if isinstance(capability, Mapping) else {}
+    capture = capability.get("real_frontend_capture")
+    capture = capture if isinstance(capture, Mapping) else {}
+    if capture.get("status") != "captured":
+        return
+    source_ref = str(capture.get("path") or "").strip()
+    asset_ref = str(capture.get("prd_asset_path") or "").strip()
+    if not source_ref.startswith("tool-results/implemented-evidence/") or not asset_ref.startswith("assets/"):
+        return
+    source = workspace / source_ref
+    destination = workspace / asset_ref
+    if not source.is_file() or destination.exists():
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_copy(source, destination)
 
 
 def _revision_scope_violation(stage_target: Path, baseline: Path, allowed_ids: Sequence[str]) -> str | None:
@@ -2706,6 +3126,66 @@ def _revision_scope_violation(stage_target: Path, baseline: Path, allowed_ids: S
 
 def _revision_scope_report_path(folder: Path) -> Path:
     return folder / "tool-results" / "revision-scope-validation.json"
+
+
+def _revision_scope_precheck_path(folder: Path) -> Path:
+    """Keep markdown-only scope checks out of the final attestation path."""
+    return folder / "tool-results" / "revision-scope-precheck.json"
+
+
+def _revision_artifact_set_snapshot(folder: Path) -> dict[str, Any]:
+    """Use the shared snapshot contract while reporting incomplete staging cleanly."""
+    return revision_artifact_set_snapshot(folder, allow_missing_artifacts=True)
+
+
+def _final_revision_scope_attestation_problems(
+    state: Mapping[str, Any], folder: Path,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Verify that the final scope report still names this workspace's bytes.
+
+    A markdown-only precheck is useful feedback for the PRD writer, but it is
+    not evidence that the rendered document can be promoted.  This verifier is
+    intentionally read-only so later validation cannot overwrite the report
+    that revision-evidence.json has already bound to.
+    """
+    validation = state.get("revision_scope_validation")
+    if not isinstance(validation, Mapping):
+        return None, ["final in-place revision scope attestation was not materialized"]
+    if validation.get("status") != "passed":
+        return None, ["final in-place revision scope attestation is not passed"]
+    if validation.get("report_path") != "tool-results/revision-scope-validation.json":
+        return None, ["final in-place revision scope attestation has an unexpected report path"]
+    report_path = _revision_scope_report_path(folder)
+    if not report_path.is_file():
+        return None, ["final in-place revision scope report is missing"]
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, ["final in-place revision scope report is not readable JSON"]
+    if not isinstance(report, dict):
+        return None, ["final in-place revision scope report must be a JSON object"]
+    if report.get("status") != "passed" or report.get("validation_phase") != "final":
+        return report, ["final in-place revision scope report does not record a passed final validation"]
+    manifest = state.get("revision_scope_manifest")
+    if not isinstance(manifest, Mapping):
+        return report, ["final in-place revision scope attestation is missing its scope manifest"]
+    manifest_sha256 = revision_scope_manifest_digest(manifest)
+    if report.get("manifest_sha256") != manifest_sha256:
+        return report, ["final in-place revision scope report does not match the active scope manifest"]
+    if validation.get("manifest_sha256") != manifest_sha256:
+        return report, ["final in-place revision scope state does not match the active scope manifest"]
+    expected_report_sha256 = validation.get("report_sha256")
+    actual_report_sha256 = _artifact_digest(report_path)
+    if not isinstance(expected_report_sha256, str) or expected_report_sha256 != actual_report_sha256:
+        return report, ["final in-place revision scope report changed after attestation"]
+    expected_snapshot = _revision_artifact_set_snapshot(folder)
+    if report.get("artifact_set") != expected_snapshot:
+        return report, ["final in-place revision scope report does not match current PRD, HTML, and asset bytes"]
+    if validation.get("artifact_set_sha256") != expected_snapshot["sha256"]:
+        return report, ["final in-place revision scope state does not match current artifact bytes"]
+    if validation.get("attestation_schema_version") != 1:
+        return report, ["final in-place revision scope attestation schema is missing"]
+    return report, []
 
 
 def _refresh_revision_asset_attestation(
@@ -2740,6 +3220,7 @@ def _validate_staged_revision_scope(
     """
     if _delivery_variant(state) != "in_place_revision":
         return None
+    validation_phase = "final" if include_rendered_html else "precheck"
     manifest = state.get("revision_scope_manifest")
     if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
         return {
@@ -2755,17 +3236,55 @@ def _validate_staged_revision_scope(
             "status": "failed",
             "failures": ["in-place revision scope validation requires staged baseline and prd.md"],
         }
-    baseline_assets = manifest.get("baseline", {}).get("assets", {})
-    baseline_assets = baseline_assets if isinstance(baseline_assets, dict) else {}
-    report = validate_revision_scope(
-        manifest,
-        baseline_markdown=baseline.read_text(encoding="utf-8"),
-        candidate_markdown=candidate.read_text(encoding="utf-8"),
-        baseline_assets={str(path): str(digest) for path, digest in baseline_assets.items()},
-        candidate_assets=_revision_asset_digests(folder),
-    )
+    if _is_implemented_feature_append(state):
+        original = baseline.read_text(encoding="utf-8")
+        candidate_text = candidate.read_text(encoding="utf-8")
+        baseline_ids = requirement_ids(original)
+        candidate_ids = requirement_ids(candidate_text)
+        new_ids = [item for item in candidate_ids if item not in baseline_ids]
+        failures: list[str] = []
+        if any(item not in candidate_ids for item in baseline_ids):
+            failures.append("append removed an existing requirement ID")
+        next_minor = max((int(item.split(".", 1)[1]) for item in baseline_ids if item.startswith("5.")), default=0) + 1
+        expected = [f"5.{index}" for index in range(next_minor, next_minor + len(new_ids))]
+        if not new_ids or new_ids != expected:
+            failures.append("append must add contiguous requirement IDs after the existing 5.x sequence")
+        baseline_sections = requirement_sections(original)
+        candidate_sections = requirement_sections(candidate_text)
+        for requirement_id in baseline_ids:
+            before = str(baseline_sections.get(requirement_id, {}).get("content", "")).rstrip()
+            after = str(candidate_sections.get(requirement_id, {}).get("content", "")).rstrip()
+            if after != before:
+                failures.append(f"append changed existing requirement detail {requirement_id}")
+        baseline_rows = requirement_rows(original)
+        candidate_rows = requirement_rows(candidate_text)
+        for requirement_id, row in baseline_rows.items():
+            if candidate_rows.get(requirement_id) != row:
+                failures.append(f"append changed existing requirement row {requirement_id}")
+        baseline_assets = manifest.get("baseline", {}).get("assets", {})
+        candidate_assets = _revision_asset_digests(folder)
+        if isinstance(baseline_assets, Mapping):
+            for path, digest in baseline_assets.items():
+                if candidate_assets.get(path) != digest:
+                    failures.append(f"append changed existing asset {path}")
+        report = {
+            "schema_version": 1, "status": "failed" if failures else "passed", "failures": failures,
+            "checks": ["append-only baseline preservation"],
+            "asset_attestation": {"status": "passed" if not failures else "failed"},
+        }
+        state["append_requirement_ids"] = new_ids if not failures else []
+    else:
+        baseline_assets = manifest.get("baseline", {}).get("assets", {})
+        baseline_assets = baseline_assets if isinstance(baseline_assets, dict) else {}
+        report = validate_revision_scope(
+            manifest,
+            baseline_markdown=baseline.read_text(encoding="utf-8"),
+            candidate_markdown=candidate.read_text(encoding="utf-8"),
+            baseline_assets={str(path): str(digest) for path, digest in baseline_assets.items()},
+            candidate_assets=_revision_asset_digests(folder),
+        )
     state["revision_asset_attestation"] = report.get("asset_attestation", {})
-    if include_rendered_html and report.get("status") == "passed":
+    if include_rendered_html and report.get("status") == "passed" and not _is_implemented_feature_append(state):
         html_path = folder / "prd.html"
         if not html_path.is_file():
             report.setdefault("failures", []).append("rendered prd.html is missing for revision scope validation")
@@ -2775,17 +3294,41 @@ def _validate_staged_revision_scope(
             )
         if report.get("failures"):
             report["status"] = "failed"
+    report["validation_phase"] = validation_phase
     report["validated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
-    report["manifest_sha256"] = hashlib.sha256(
-        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    _write_json(_revision_scope_report_path(folder), report)
-    state["revision_scope_validation"] = {
+    report["manifest_sha256"] = revision_scope_manifest_digest(manifest)
+    report_path = _revision_scope_report_path(folder) if include_rendered_html else _revision_scope_precheck_path(folder)
+    if include_rendered_html:
+        report["attestation_schema_version"] = 1
+        snapshot = _revision_artifact_set_snapshot(folder)
+        if not snapshot["prd_md_sha256"] or not snapshot["prd_html_sha256"]:
+            report.setdefault("failures", []).append(
+                "final revision scope validation requires current prd.md and prd.html bytes"
+            )
+            report["status"] = "failed"
+        report["artifact_set"] = snapshot
+    _write_json(report_path, report)
+    validation = {
         "status": report.get("status"),
-        "report_path": "tool-results/revision-scope-validation.json",
+        "report_path": str(report_path.relative_to(folder)),
         "manifest_sha256": report["manifest_sha256"],
         "failures": list(report.get("failures", [])),
     }
+    if include_rendered_html:
+        validation.update({
+            "attestation_schema_version": 1,
+            "report_sha256": _artifact_digest(report_path),
+            "artifact_set_sha256": report["artifact_set"]["sha256"],
+        })
+        state["revision_scope_validation"] = validation
+    else:
+        # A new PRD candidate invalidates every final report/evidence copied
+        # into staging from an earlier attempt.  It must earn a fresh rendered
+        # attestation before a controller trace can cite it.
+        _revision_scope_report_path(folder).unlink(missing_ok=True)
+        (folder / "revision-evidence.json").unlink(missing_ok=True)
+        state.pop("revision_scope_validation", None)
+        state["revision_scope_precheck"] = validation
     return report
 
 
@@ -2801,6 +3344,8 @@ def _restart_delivery_attempt(state: dict[str, Any]) -> None:
     state["validation"] = []
     state["artifacts"] = [item for item in state.get("artifacts", []) if item == "discussion.md"]
     state.pop("recovery", None)
+    state.pop("revision_scope_precheck", None)
+    state.pop("revision_scope_validation", None)
     state.pop("revision_stop_reason", None)
 
 
@@ -3033,6 +3578,15 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
             else:
                 candidate_source_material.unlink()
 
+        specialist_evidence = workspace / "specialist-evidence"
+        candidate_specialist_evidence = candidate / "specialist-evidence"
+        if specialist_evidence.is_dir():
+            if candidate_specialist_evidence.exists():
+                shutil.rmtree(candidate_specialist_evidence)
+            shutil.copytree(specialist_evidence, candidate_specialist_evidence)
+        elif candidate_specialist_evidence.exists():
+            shutil.rmtree(candidate_specialist_evidence)
+
         candidate_revision_evidence = candidate / "revision-evidence.json"
         if revision_evidence is not None and revision_evidence.is_file():
             _atomic_copy(revision_evidence, candidate / revision_evidence.name)
@@ -3053,10 +3607,10 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
                 "candidate delivery input asset validation failed: " + str(error)
             ) from error
 
-        # Verify the candidate after all staged provenance and retained result
-        # files are copied, but before the directory swap.  This prevents a
-        # source-material mutation during the delivery window from ever being
-        # visible in canonical output under the old trace hash.
+        # The staged run can change after its final validator completes. Check
+        # the exact candidate bytes after source-material has been copied and
+        # immediately before publication, so a mismatched packet or source
+        # snapshot cannot be promoted under an earlier trace hash.
         provenance_failures = [
             *validate_artifact_lineage(candidate / "run-log.yaml"),
             *validate_implemented_feature_evidence_packet(candidate / "run-log.yaml"),
@@ -3069,18 +3623,21 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
 
         # This is deliberately adjacent to the directory swap. Staging can
         # take minutes, so the earlier pre-staging check is not sufficient to
-        # protect a collaborator's later update from being overwritten.
-        source_drift = _revision_source_drift_problem(state)
-        if source_drift:
-            raise RevisionSourceDriftError(source_drift)
-        canonical.replace(backup)
-        moved_original = True
-        try:
-            candidate.replace(canonical)
-        except OSError:
-            backup.replace(canonical)
-            moved_original = False
-            raise
+        # protect a collaborator's later update from being overwritten. The
+        # same short lock is used by derived-only refreshes, which prevents a
+        # check-then-rename race between the two promotion paths.
+        with _delivery_promotion_lock(canonical):
+            source_drift = _revision_source_drift_problem(state)
+            if source_drift:
+                raise RevisionSourceDriftError(source_drift)
+            canonical.replace(backup)
+            moved_original = True
+            try:
+                candidate.replace(canonical)
+            except OSError:
+                backup.replace(canonical)
+                moved_original = False
+                raise
     except (OSError, ValueError) as error:
         if moved_original and backup.exists() and not canonical.exists():
             backup.replace(canonical)
@@ -3094,30 +3651,9 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
     return backup
 
 
-def _write_trace_agent_evidence(run_log: Path, state: dict[str, Any]) -> None:
-    """Store one concise, structured evidence record for every accepted stage."""
-    if not run_log.is_file():
-        return
-    try:
-        trace = yaml.safe_load(run_log.read_text(encoding="utf-8"))
-    except yaml.YAMLError:
-        return
-    if not isinstance(trace, dict):
-        return
-    trace["agent_execution_evidence"] = _trace_agent_evidence(state)
-    _atomic_write_text(
-        run_log,
-        yaml.safe_dump(trace, allow_unicode=True, sort_keys=False, default_flow_style=False),
-    )
-    _normalise_trace_runtime_evidence(run_log)
-
-
-def _append_controller_agent_evidence(state: dict[str, Any]) -> None:
-    """Make controller-observed provider/model evidence durable in run-log.yaml."""
-    _write_trace_agent_evidence(_delivery_folder(state) / "run-log.yaml", state)
-
-
-def _finalize_deterministic_trace(folder: Path, checks: list[dict[str, Any]]) -> bool:
+def _finalize_deterministic_trace(
+    folder: Path, checks: list[dict[str, Any]], runtime_identity: Mapping[str, Any] | None = None,
+) -> bool:
     """Close a controller trace only after every real staging check passes.
 
     A failed first pass is a property of the delivery workspace, not evidence
@@ -3153,88 +3689,24 @@ def _finalize_deterministic_trace(folder: Path, checks: list[dict[str, Any]]) ->
             "fallback": "not applicable",
         })
     trace["validation_results"] = validation_results
-    trace["termination_condition"] = {
-        "status": "complete",
-        "evidence": "Every controller-observed staging validator passed against the final staged bytes.",
-        "pm_usefulness": "The validated PRD is ready for its stated review and handoff path.",
-        "remaining_limitation": "Product decisions and implementation approvals remain owned by their named reviewers.",
-    }
     trace["quality_decision"] = {
         "passed": True,
-        "score_delta": 0,
         "rationale": "All required staging validation commands passed before promotion.",
     }
-    trace["review_loop"] = {
-        "iterations": 1,
-        "critical_or_high_findings": [],
-        "finding_closures": [],
-        "unresolved_findings": [],
-        "final_recommendation": "proceed",
-    }
-    action_closure = trace.get("action_closure")
-    if isinstance(action_closure, dict):
-        critical_path = action_closure.get("critical_path")
-        if isinstance(critical_path, list):
-            for action in critical_path:
-                if isinstance(action, dict) and action.get("status") == "ready":
-                    action["status"] = "complete"
+    trace["review"] = {"status": "passed", "findings": []}
     trace["final_status"] = "validated controller trace"
     _atomic_write_text(
         target,
         yaml.safe_dump(trace, allow_unicode=True, sort_keys=False, default_flow_style=False),
     )
-    _normalise_trace_runtime_evidence(target)
+    _normalise_trace_runtime_evidence(target, runtime_identity)
     return True
-
-
-_TRACE_EVIDENCE_PHASES = (
-    ("intake", None),
-    ("clarification_review", None),
-    ("delivery", "confirmed-requirements.md"),
-    ("stage_quality_review", "confirmed-requirements.md"),
-    ("delivery", "prd.md"),
-    ("stage_quality_review", "prd.md"),
-    ("delivery", "run-log.yaml"),
-    ("stage_quality_review", "run-log.yaml"),
-)
 
 
 def _compact_trace_text(value: object, limit: int = 240) -> str:
     """Keep provider diagnostics useful without replaying model transcripts."""
     text = re.sub(r"\s+", " ", str(value or "")).strip()
     return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
-
-
-def _trace_agent_evidence(state: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return one current attributable completion per required production stage.
-
-    Agent-call records are durable controller state and can retain verbose
-    historical provider output across recovery attempts. A trace needs an
-    evidence index, not that transcript: replaying it into the final Agent
-    prompt has repeatedly caused the small YAML write to lose its stream.
-    """
-    latest: dict[tuple[str, str | None], dict[str, Any]] = {}
-    calls = state.get("agent_calls", [])
-    for call in reversed(calls if isinstance(calls, list) else []):
-        if not isinstance(call, dict) or call.get("status") != "complete":
-            continue
-        key = (str(call.get("phase", "")), call.get("artifact"))
-        if key not in _TRACE_EVIDENCE_PHASES or key in latest:
-            continue
-        if not _agent_call_has_evidence(call):
-            continue
-        latest[key] = {
-            "phase": key[0],
-            "artifact": key[1] or "request",
-            "provider": call.get("provider"),
-            "model": call.get("model"),
-            "status": "complete",
-            "attempt": call.get("attempt", 1),
-            "agent_id": call.get("agent_id"),
-            "execution_mode": call.get("execution_mode"),
-            "error": _compact_trace_text(call.get("error", ""), 160),
-        }
-    return [latest[key] for key in _TRACE_EVIDENCE_PHASES if key in latest]
 
 
 def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
@@ -3493,6 +3965,29 @@ def intake_prompt(state: dict[str, Any], answers: str | None) -> str:
         for turn in state.get("turns", [])
     )
     latest = f"\nLatest user answer:\n{answers}" if answers else ""
+    evidence = state.get("implemented_feature_evidence")
+    evidence_context = ""
+    if _task_mode(state) == "implemented_feature_prd" and isinstance(evidence, Mapping):
+        capability = evidence.get("visual_runtime_capability")
+        capability = capability if isinstance(capability, Mapping) else {}
+        inventory = capability.get("frontend_inventory")
+        inventory = inventory if isinstance(inventory, Mapping) else {}
+        evidence_context = """
+Frozen implementation evidence collected before clarification (use it to ask
+about observed behavior; do not treat mocks, fixtures, scaffolding, or test-only
+controls as product scope):
+%s
+""" % json.dumps({
+            "branch_name": evidence.get("branch_name"),
+            "changed_files": evidence.get("changed_files"),
+            "behavior_evidence": evidence.get("behavior_evidence"),
+            "validation_evidence": evidence.get("validation_evidence"),
+            "frontend": {
+                "platform": inventory.get("platform"),
+                "preview_surface": inventory.get("preview_surface"),
+                "target_matched_files": inventory.get("target_matched_files"),
+            },
+        }, ensure_ascii=False)
     return f"""You are the PM Orchestrator's production requirement-intake agent.
 The user request is ambiguous by default. Work from first principles: identify the
 goal, necessary conditions, current blocker, most direct question, and proof needed
@@ -3531,6 +4026,7 @@ Initial user request:
 Conversation so far:
 {transcript or '(no previous turns)'}
 {latest}
+{evidence_context}
 """
 
 
@@ -3686,17 +4182,36 @@ def write_discussion(folder: Path, state: dict[str, Any]) -> None:
     folder.joinpath("discussion.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def create_state(raw_request: str, folder: Path) -> dict[str, Any]:
+def create_state(
+    raw_request: str, folder: Path, *, task_mode: str | None = None,
+    delivery_variant: str | None = None,
+) -> dict[str, Any]:
     extraction = _request_looks_like_extraction(raw_request)
+    variant = delivery_variant or ("compose_to_new" if extraction else "new")
+    mode = task_mode or (
+        "prd_composition"
+        if variant == "compose_to_new"
+        else "prd_revision"
+        if variant == "in_place_revision"
+        else "implemented_feature_prd"
+        if _request_looks_like_implemented_feature(raw_request)
+        else "new_prd"
+    )
     return {
         "schema_version": 1,
         "mode": "interactive",
         "folder": str(folder),
         "raw_request": raw_request,
-        "task_mode": "prd_delivery",
-        "delivery_variant": "extract_to_new" if extraction else "new",
+        "task_mode": mode,
+        "delivery_variant": variant,
         "context_source": {
-            "mode": "document-backed" if extraction else "brief-only",
+            "mode": (
+                "repo-backed"
+                if mode == "implemented_feature_prd"
+                else "document-backed"
+                if variant == "compose_to_new"
+                else "brief-only"
+            ),
             "files_loaded": [],
             "host_project_root": "",
             "host_project_files_loaded": [],
@@ -3726,6 +4241,9 @@ def begin_in_place_revision(
         raise ValueError("a revision request is required")
     for key in ("revision_scope_validation", "revision_stop_reason", "scope_clarification"):
         state.pop(key, None)
+    # This is a new revision request, not a resume of the prior confirmed
+    # delivery. Its clarification must be frozen from the new turns only.
+    state.pop("confirmed_fact_packet", None)
     # A prior delivery's assets are now canonical baseline material. They must
     # not remain implicitly authorized as new input for a later revision.
     state["input_assets"] = []
@@ -3753,8 +4271,15 @@ def begin_in_place_revision(
         "selectors": _trace_values(selectors),
         "selector_status": "resolved" if ids else "needs_input",
         "authority": "user-confirmed natural-language scope",
+        "allowed_derivatives": {
+            # A material selected-behavior revision needs an append-only
+            # history row; the scope validator still rejects such a row for
+            # a layout- or media-only update.
+            "append_only_version_history": bool(re.search(r"(?mi)^###\s+(?:\d+[.、]\s*)?版本(?:记录|历史)\s*$", prd_path.read_text(encoding="utf-8"))),
+        },
     }
     state["delivery_variant"] = "in_place_revision"
+    state["task_mode"] = "prd_revision"
     state["context_source"] = {
         "mode": "document-backed",
         "files_loaded": ["prd.md", "run-log.yaml"],
@@ -3765,6 +4290,43 @@ def begin_in_place_revision(
     state["revision_request"] = request
     state["raw_request"] = request
     state["turns"] = []
+    state["user_confirmation"] = None
+    state["status"] = "new"
+    state["termination"] = "running"
+    state["artifacts"] = [item for item in state.get("artifacts", []) if item in {"prd.md", "prd.html", "run-log.yaml"}]
+    return state
+
+
+def begin_implemented_feature_append(state: dict[str, Any], request: str) -> dict[str, Any]:
+    """Open a completed PRD for append-only implemented-feature delivery."""
+    folder = _canonical_folder(state)
+    prd_path = folder / "prd.md"
+    if state.get("status") != "complete" or not prd_path.is_file() or not (folder / "prd.html").is_file():
+        raise ValueError("--append-implemented-feature requires a completed canonical PRD with prd.md and prd.html")
+    baseline_ids = _trace_requirement_ids(prd_path)
+    if not baseline_ids:
+        raise ValueError("current PRD has no requirement IDs to append after")
+    state.setdefault("revision_history", []).append({
+        "at": dt.datetime.now(dt.timezone.utc).isoformat(), "request": request,
+        "prd_before_sha256": _artifact_digest(prd_path), "html_before_sha256": _artifact_digest(folder / "prd.html"),
+        "assets_before_sha256": _revision_asset_digests(folder), "baseline_requirement_ids": baseline_ids,
+        "mode": "append_implemented_feature",
+    })
+    state["append_implemented_feature"] = {"baseline_requirement_ids": baseline_ids}
+    state["revision_requirement_ids"] = baseline_ids
+    state["revision_scope_manifest"] = {"authority": "user-confirmed implemented-feature append", "selectors": []}
+    state["append_requirement_ids"] = []
+    state["task_mode"] = "implemented_feature_prd"
+    state["delivery_variant"] = "in_place_revision"
+    state["context_source"] = {
+        "mode": "repo-backed", "files_loaded": ["prd.md", "run-log.yaml"],
+        "host_project_root": "", "host_project_files_loaded": [], "product_documents_loaded": ["prd.md"],
+    }
+    state["raw_request"] = request
+    state["turns"] = []
+    state.pop("confirmed_fact_packet", None)
+    state.pop("implemented_feature_evidence", None)
+    state.pop("implemented_feature_evidence_source", None)
     state["user_confirmation"] = None
     state["status"] = "new"
     state["termination"] = "running"
@@ -3843,6 +4405,23 @@ def _revision_scope_writer_contract(state: dict[str, Any]) -> str:
     enlarge a delivery prompt, so provide its complete semantic boundary rather
     than replaying integrity implementation details.
     """
+    if _is_implemented_feature_append(state):
+        baseline = _trace_values(state.get("revision_requirement_ids"))
+        next_number = max(int(item.split(".", 1)[1]) for item in baseline if item.startswith("5.")) + 1
+        evidence = state.get("implemented_feature_evidence")
+        capability = evidence.get("visual_runtime_capability") if isinstance(evidence, Mapping) else {}
+        capture = capability.get("real_frontend_capture") if isinstance(capability, Mapping) else {}
+        capture_asset = str(capture.get("prd_asset_path") or "").strip() if isinstance(capture, Mapping) else ""
+        capture_rule = f"Use the frozen real screenshot at {capture_asset} beside the matching new behavior when it matches the confirmed state." if capture_asset else "No real capture is available; retain a controlled figure placeholder for later reconstruction or manual completion."
+        return f"""
+This is an append-only implemented-feature PRD update. Preserve every existing
+PRD requirement row and detail section byte-for-byte, preserve all existing
+assets, and do not rewrite document structure. Add one or more new requirement
+rows and matching detail sections only, using contiguous IDs beginning with
+5.{next_number}. Append a complete version-history record. Use the frozen
+source-material implementation evidence packet; do not inspect host files.
+{capture_rule}
+"""
     manifest = state.get("revision_scope_manifest")
     if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
         return """
@@ -3866,6 +4445,9 @@ the controller supplies a materialized scope contract.
     allowed_new_assets = allowed_new_assets if isinstance(allowed_new_assets, dict) else {}
     derivatives = manifest.get("allowed_derivatives")
     derivatives = derivatives if isinstance(derivatives, dict) else {}
+    # Legacy resumptions may predate the explicit derivative field. The PRD
+    # scope validator remains authoritative about whether an append is valid.
+    derivatives.setdefault("append_only_version_history", True)
 
     raw_image_contracts = manifest.get("image_contracts")
     raw_image_contracts = raw_image_contracts if isinstance(raw_image_contracts, list) else []
@@ -3962,9 +4544,65 @@ Apply this contract exactly:
 """
 
 
+def _materialize_reconstructed_figures(state: dict[str, Any], folder: Path) -> list[dict[str, Any]]:
+    """Turn controlled figure placeholders into isolated captures when possible.
+
+    The writer can express the required frontend state without inventing a
+    screenshot.  This controller-owned step then makes a real browser capture
+    of a disposable reconstruction.  Failure is intentionally non-fatal: the
+    original controlled placeholder is retained with the capture report so the
+    user never receives an implied real figure.
+    """
+    prd_path = folder / "prd.md"
+    if not prd_path.is_file():
+        return []
+    text = prd_path.read_text(encoding="utf-8")
+    records: list[dict[str, Any]] = []
+    script = ROOT / "scripts" / "generate_reconstructed_figure.py"
+    for match in list(PLACEHOLDER_DECLARATION_RE.finditer(text)):
+        asset_name = match.group("name").strip()
+        heading_matches = list(re.finditer(r"(?m)^###\s+(\d+\.\d+)\s+(.+)$", text[:match.start()]))
+        requirement_id, title = (heading_matches[-1].group(1), heading_matches[-1].group(2)) if heading_matches else ("", asset_name)
+        state_name = Path(asset_name).stem.split("-", 1)[-1] or "默认状态"
+        command = [
+            sys.executable, str(script), "--run-folder", str(folder), "--asset-name", asset_name,
+            "--title", title, "--state", state_name,
+        ]
+        result = subprocess.run(command, text=True, capture_output=True, check=False)
+        report_path = Path("tool-results") / "reconstructed-figures" / f"{Path(asset_name).stem}.json"
+        record: dict[str, Any] = {
+            "target_ref": requirement_id,
+            "asset_name": asset_name,
+            "provenance": "reconstructed_figure" if result.returncode == 0 else "required_placeholder",
+            "reconstruction_path": (Path("reconstructions") / f"{Path(asset_name).stem}.html").as_posix(),
+            "capture_report": report_path.as_posix(),
+        }
+        asset = folder / "assets" / asset_name
+        if result.returncode == 0 and asset.is_file():
+            marker = (
+                f'[[prd-detail-media src="./assets/{asset_name}" alt="{Path(asset_name).stem}" '
+                f'copy="一、{state_name}<br>1. 此还原图示用于核对已确认的用户可见规则与反馈。"]]'
+            )
+            text = text[:match.start()] + marker + text[match.end():]
+            record["path"] = f"assets/{asset_name}"
+            record["asset_sha256"] = _artifact_digest(asset)
+        else:
+            record["replacement_status"] = "pending_manual_completion"
+            record["replacement_instruction"] = (
+                f"在 {requirement_id or '对应需求'} 的 {state_name} 状态补充真实页面截图，"
+                f"替换 {asset_name} 占位图。"
+            )
+            record["capture_error"] = (result.stderr or result.stdout).strip()[-800:]
+        records.append(record)
+    if records:
+        _atomic_write_text(prd_path, text)
+    state["frontend_figure_evidence"] = records
+    return records
+
+
 def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = "") -> str:
     latest = _confirmed_fact_source(state)
-    role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
+    role = "Requirements"
     target = _delivery_folder(state) / artifact
     available_assets = [
         str(record["name"])
@@ -3981,21 +4619,38 @@ unchanged requirement sections, and existing assets. Change only the confirmed
 requirement IDs; do not broaden scope from an ambiguous natural-language
 request. The controller records revision lineage and evidence separately.
 """ + (_revision_scope_writer_contract(state) if artifact == "prd.md" else "")
-    elif variant == "extract_to_new":
-        descriptor = state.get("extraction_source") if isinstance(state.get("extraction_source"), dict) else {}
-        snapshot = str(descriptor.get("snapshot_path", "source-material/source-prd.md"))
+    elif variant == "compose_to_new":
+        sources = [
+            {
+                "source_id": str(source.get("source_id", "")),
+                "display_name": str(source.get("display_name", "")),
+                "snapshot_path": str(source.get("snapshot_path", "")),
+                "selected_scope": list(source.get("selected_scope", [])),
+            }
+            for source in _extraction_sources(state)
+        ]
         selection = json.dumps(_extraction_selection(state), ensure_ascii=False)
         variant_instruction = f"""
-This is an extraction into a new independent PRD. Read only the immutable
-document-backed source snapshot at {snapshot}. Create a fresh PRD structure
-from the confirmed selection {selection}; do not copy unrelated sections,
-historical trace text, or source-run status into the new PRD.
+This is a composition into a new independent PRD. Read only these immutable
+document-backed source snapshots: {json.dumps(sources, ensure_ascii=False)}.
+Create a fresh PRD structure from the confirmed selection {selection}; do not
+copy unrelated sections, historical trace text, or source-run status into the
+new PRD. The source IDs are provenance labels, not PRD content.
 """
     elif task_mode == "implemented_feature_prd":
         evidence_source = state.get("implemented_feature_evidence_source")
         packet_path = (
             str(evidence_source.get("packet_path", "")).strip()
             if isinstance(evidence_source, dict) else ""
+        )
+        evidence = state.get("implemented_feature_evidence")
+        capability = evidence.get("visual_runtime_capability") if isinstance(evidence, Mapping) else {}
+        capture = capability.get("real_frontend_capture") if isinstance(capability, Mapping) else {}
+        capture_asset = str(capture.get("prd_asset_path") or "").strip() if isinstance(capture, Mapping) else ""
+        capture_rule = (
+            f"A frozen real screenshot is available at {capture_asset}; use it only beside the matching observed state."
+            if capture_asset else
+            "No real capture is available; use controlled placeholder or reconstruction flow for each required state."
         )
         variant_instruction = f"""
 This is an implemented-feature PRD. Read the canonical source-material JSON
@@ -4004,60 +4659,20 @@ evidence: do not inspect repository files, diffs, external paths, tool output,
 or model inference to establish implemented behavior. The confirmed
 conversation defines product scope, but any behavior absent from the packet is
 unverified product intent and must remain explicit rather than invented.
+{capture_rule}
 """
-    if artifact == "run-log.yaml":
-        # A trace consists of controller-observable evidence, so avoid
-        # repeating the complete product brief and every unrelated artifact
-        # contract. The old prompt caused the Agent to load them again, making
-        # the final, mechanical stage disproportionately prone to a stream
-        # interruption before it ever opened the target file.
-        trace_calls = _trace_agent_evidence(state)
-        revision = variant == "in_place_revision"
-        revision_history = state.get("revision_history", []) if revision else []
-        revision_ids = list(state.get("revision_requirement_ids") or [])
-        if not revision_ids and revision_history:
-            revision_ids = _extract_requirement_ids(str(revision_history[-1].get("request", "")))
-        lineage = {
-            "mode": "in_place_revision" if revision else "extraction_run" if variant == "extract_to_new" else "new_delivery",
-            "revised_requirement_ids": revision_ids if revision else [],
-        }
-        trace_packet = {
-            "confirmation": state.get("user_confirmation"),
-            "task_mode": task_mode,
-            "summary": _compact_trace_text(latest.get("summary", ""), 1200),
-            "scope_goal": _compact_trace_text(latest.get("scope", {}).get("goal", ""), 1000),
-            "in_scope": [_compact_trace_text(item, 280) for item in latest.get("scope", {}).get("in_scope", [])[:12]],
-            "out_of_scope": [_compact_trace_text(item, 280) for item in latest.get("scope", {}).get("out_of_scope", [])[:12]],
-            "assumptions": [_compact_trace_text(item, 240) for item in latest.get("assumptions", [])[:8]],
-            "risks": [_compact_trace_text(item, 240) for item in latest.get("risks", [])[:8]],
-            "artifact_lineage": lineage,
-            "agent_calls": trace_calls,
-            "input_assets": available_assets,
-        }
-        return f"""Write one complete artifact at {target}.
-You are the PM Copilot Trace Agent. Create only that YAML file and do not
-modify any other path. Do not read PM_COPILOT.md, prior run-log.yaml, or other
-project artifacts: the controller evidence below is authoritative and
-sufficient. Start by copying templates/agent-run-log-template.yaml to the
-target, then replace every placeholder. Do not omit or rename any top-level
-template section. Write the file before any explanatory response.
-
-The log must pass validate_agent_trace.py and validate_outputs.py. In
-particular it requires agent_strategy, delegation_plan, resume_checkpoint,
-termination_condition, tool_plan, decision_record, replan_triggers,
-review_loop, loop_policy, loop_state, iteration_trace, loop_summary,
-memory_candidates, next_actions, action_closure, quality_thresholds,
-quality_decision, failures, and readiness.prd_status,
-readiness.engineering_handoff_status, readiness.launch_status,
-readiness.engineering_blockers, readiness.launch_blockers. Record the explicit
-confirmation, real Agent calls, separate PRD/engineering/launch readiness and
-validation commands. It must be a compact trace under 24 KiB. For an in-place
-revision, set artifact_lineage.mode to in_place_revision and include only its
-changed requirement IDs. Do not claim human engineering or launch approval.
-
-Controller evidence:
-{json.dumps(trace_packet, ensure_ascii=False, separators=(",", ":"))}
-  """ + (f"\nRepair only these trace-validator findings:\n{repair_errors}" if repair_errors else "")
+    specialist_evidence = state.get("specialist_evidence")
+    specialist_instruction = ""
+    if isinstance(specialist_evidence, list) and specialist_evidence:
+        evidence_paths = [
+            str(item.get("path", "")) for item in specialist_evidence
+            if isinstance(item, Mapping) and item.get("path")
+        ]
+        specialist_instruction = f"""
+Independent specialist evidence is available at these run-local paths:
+{json.dumps(evidence_paths, ensure_ascii=False)}
+It is advisory, may contain failures or uncertainty, and never overrides the confirmed scope. Read only the files relevant to this artifact; PM Copilot makes the final product judgment.
+"""
     return f"""You are the accountable PM Copilot {role} Agent in a production interactive run.
     The user explicitly confirmed the clarified requirements below. Treat the
     confirmed conversation as product-scope evidence; do not invent approvals,
@@ -4074,14 +4689,12 @@ Final user-confirmed evidence packet (authoritative and complete for this run):
 
 Artifact requirements:
 - confirmed-requirements.md: facts, explicit user-confirmed scope, non-goals, success criteria, constraints, acceptance evidence, assumptions, risks, and unresolved items. Never call model inference user confirmation.
-- prd.md: use {prd_template} and artifacts/prd-contract.md exactly. Create a Chinese H1 of concise requirement title plus YYYY-MM-DD; include document information and version history; use every standard requirement-list field; map one-to-one to 5.x detail IDs; each detail table has only 用户与场景、需求入口、需求详情、设计与交互. When new or changed UI copy exists, include 六、多语言需求. Each provided screenshot must be inside its matching 需求详情 cell using exactly `[[prd-detail-media src="./assets/功能-状态.png" alt="功能-状态" copy="对应状态、规则和反馈"]]`; never put `<div>` or `<img>` source HTML in a Markdown table, never use a standalone Markdown image, and never add a standalone 图示 row.
-- run-log.yaml: use templates/agent-run-log-template.yaml, fill concrete fields, record this interactive user confirmation, real Agent calls, validation commands, separate PRD/engineering/launch readiness, and truthful termination state.
+- prd.md: use {prd_template} and artifacts/prd-contract.md exactly. Create a Chinese H1 of concise requirement title plus YYYY-MM-DD; include document information and version history; use every standard requirement-list field; map one-to-one to 5.x detail IDs; each detail table has only 用户与场景、需求入口、需求详情、设计与交互. When new or changed UI copy exists, include 六、多语言需求. Every localization checklist row must name its matching 5.x requirement ID in 使用位置. Every tracking row must name its matching 5.x requirement ID in 备注; do not put a PRD ID in the event identifier. Every user-facing frontend state must be represented inline by a provided real figure or a controlled `占位图：功能-状态.png`; the controller attempts an isolated reconstructed figure for controlled placeholders and records its provenance. Each real figure must be inside its matching 需求详情 cell using exactly `[[prd-detail-media src="./assets/功能-状态.png" alt="功能-状态" copy="一、状态名称<br>1. 该状态的用户可见规则、边界或反馈"]]`: the screenshot is left and `copy` is its right-column state-specific functional logic. Never use a filename, caption, or generic annotation such as “对应成功状态” in `copy`; never put `<div>` or `<img>` source HTML in a Markdown table, never use a standalone Markdown image, and never add a standalone 图示 row. Translate implementation evidence into user-visible behavior; do not include CSS variables or selectors, color values, gradients, stacking levels, exact dimensions, source field names, component names, interfaces, or implementation plans unless the user explicitly requests an engineering or visual-token specification.
 - For the prd.md stage, this Agent writes only prd.md. The controller renders and validates prd.html after prd.md passes review; that required downstream deliverable is not a conflict and must not be used as a reason to refuse the prd.md task.
-Provided user visual assets already copied to this delivery workspace: {json.dumps(available_assets, ensure_ascii=False)}. Use each applicable asset inline; do not invent a wireframe in place of it. Record visual coverage decisions as real_figure, required_placeholder, or not_required in run-log.yaml.
+Provided user visual assets already copied to this delivery workspace: {json.dumps(available_assets, ensure_ascii=False)}. Use each applicable asset inline; do not invent a wireframe in place of it.
 {variant_instruction}
-""" + ("""
-For run-log.yaml, overwrite the target immediately with a compact trace under 24 KiB. Do not read, summarize, or preserve the prior run-log.yaml. Use concise field values and file paths instead of embedded command output or Agent transcripts.
-""" if artifact == "run-log.yaml" else "") + (f"\nRepair these validator findings in this artifact only:\n{repair_errors}" if repair_errors else "")
+{specialist_instruction}
+""" + (f"\nRepair these validator findings in this artifact only:\n{repair_errors}" if repair_errors else "")
 
 
 def _run_artifact_agent(
@@ -4113,7 +4726,7 @@ def _run_artifact_agent(
                 # The controller owns the trace for every PRD path: new runs,
                 # in-place revisions, and extractions from an existing PRD.
                 # Resolve any staged asset hashes before a validator sees it.
-                _normalise_trace_runtime_evidence(stage_target)
+                _normalise_trace_runtime_evidence(stage_target, _state_runtime_identity(stage_state))
                 result = {
                     "provider": CONTROLLER_TRACE_PROVIDER,
                     "model": CONTROLLER_TRACE_MODEL,
@@ -4131,7 +4744,6 @@ def _run_artifact_agent(
                     result["artifact_after_sha256"] != stage_before_sha256
                 )
                 _record_agent_call(state, result, phase="delivery", artifact=artifact)
-                _write_trace_agent_evidence(stage_target, state)
                 result["artifact_after_sha256"] = _artifact_digest(stage_target)
                 result["artifact_changed_in_workspace"] = (
                     result["artifact_after_sha256"] != stage_before_sha256
@@ -4217,6 +4829,7 @@ def _run_artifact_agent(
                     result.get("status") == "complete"
                     and stage_target.is_file()
                     and baseline.is_file()
+                    and not _is_implemented_feature_append(state)
                 ):
                     # The full staged PRD is useful context for the writer, but
                     # its authority ends at the confirmed revision surface.
@@ -4242,7 +4855,12 @@ def _run_artifact_agent(
                             "failures": list(scope_merge.get("failures", [])),
                         }
                 scope_report = _validate_staged_revision_scope(stage_state, stage_folder)
-                state["revision_scope_validation"] = stage_state.get("revision_scope_validation", {})
+                state.pop("revision_scope_validation", None)
+                precheck = stage_state.get("revision_scope_precheck")
+                if isinstance(precheck, Mapping):
+                    state["revision_scope_precheck"] = dict(precheck)
+                else:
+                    state.pop("revision_scope_precheck", None)
                 staged_attestation = stage_state.get("revision_asset_attestation")
                 if isinstance(staged_attestation, Mapping):
                     state["revision_asset_attestation"] = dict(staged_attestation)
@@ -4270,12 +4888,20 @@ def _run_artifact_agent(
         # must also be attributable before its bytes can enter the delivery
         # workspace or become reusable on a later recovery attempt.
         attributable = _agent_call_has_evidence(result)
+        revision_trace_has_evidence = (
+            artifact == "run-log.yaml"
+            and _delivery_variant(state) == "in_place_revision"
+            and (stage_target.parent / "revision-evidence.json").is_file()
+        )
+        # A deterministic trace may be byte-identical to a previous trace,
+        # while its revision evidence is newly materialized for this staging
+        # attempt. Promote that companion proof even when run-log.yaml itself
+        # did not change; otherwise its lineage becomes a dangling reference.
         promoted = (
             attributable
-            and
-            result.get("status") == "complete"
+            and result.get("status") == "complete"
             and stage_after_sha256 is not None
-            and stage_after_sha256 != stage_before_sha256
+            and (stage_after_sha256 != stage_before_sha256 or revision_trace_has_evidence)
         )
         if promoted:
             if artifact == "run-log.yaml":
@@ -4285,9 +4911,15 @@ def _run_artifact_agent(
                 _atomic_write_text(stage_target, text.replace(str(stage_folder), str(real_folder)))
             _atomic_copy(stage_target, target)
             if artifact == "prd.md" and _delivery_variant(state) == "in_place_revision":
-                scope_report = _revision_scope_report_path(stage_folder)
+                # A PRD change invalidates every final proof copied from a
+                # prior canonical run. Promote only the markdown precheck;
+                # rendering and final artifact-set attestation happen before
+                # the controller-owned trace stage.
+                _revision_scope_report_path(real_folder).unlink(missing_ok=True)
+                (real_folder / "revision-evidence.json").unlink(missing_ok=True)
+                scope_report = _revision_scope_precheck_path(stage_folder)
                 if scope_report.is_file():
-                    _atomic_copy(scope_report, _revision_scope_report_path(real_folder))
+                    _atomic_copy(scope_report, _revision_scope_precheck_path(real_folder))
             if artifact == "run-log.yaml" and _delivery_variant(state) == "in_place_revision":
                 # The in-place trace contract points to controller-created
                 # revision evidence. Promote that companion file together with
@@ -4324,7 +4956,8 @@ def _run_artifact_agent(
     stage["source_after_sha256"] = stage_after_sha256
     stage["failure_category"] = result.get("failure_category")
     stage["scope_fingerprint"] = _confirmed_scope_fingerprint(state)
-    stage["pm_copilot_version"] = _active_runtime_version()
+    stage["pm_copilot_version"] = _state_runtime_version(state)
+    stage["runtime_identity"] = _state_runtime_identity(state)
     stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     if stage["artifact_status"] == "promoted" and artifact not in state.setdefault("artifacts", []):
         state["artifacts"].append(artifact)
@@ -4487,7 +5120,7 @@ def _reject_revision_review_contract(
     stage.pop("revision_findings", None)
     stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     stage["scope_fingerprint"] = _confirmed_scope_fingerprint(state)
-    stage["pm_copilot_version"] = _active_runtime_version()
+    stage["pm_copilot_version"] = _state_runtime_version(state)
     _record_review_contract_rejection(state, artifact, reason)
     state["last_error"] = f"Stage Quality Review Agent returned an invalid revision review contract: {reason}"
     _checkpoint(state, state_path)
@@ -4604,7 +5237,7 @@ def _review_controller_trace(
     stage["review_findings"] = [] if passed else [findings]
     stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     stage["scope_fingerprint"] = _confirmed_scope_fingerprint(state)
-    stage["pm_copilot_version"] = _active_runtime_version()
+    stage["pm_copilot_version"] = _state_runtime_version(state)
     _checkpoint(state, state_path)
     if passed:
         return True, "controller trace validation passed"
@@ -4772,7 +5405,7 @@ def _review_artifact(
         stage["revision_findings"] = typed_findings
     stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     stage["scope_fingerprint"] = _confirmed_scope_fingerprint(state)
-    stage["pm_copilot_version"] = _active_runtime_version()
+    stage["pm_copilot_version"] = _state_runtime_version(state)
     _checkpoint(state, state_path)
     return passed, "\n".join(findings) or str(review.get("summary", "stage review rejected artifact"))
 
@@ -4881,29 +5514,101 @@ def _deliver_artifact_to_quality_gate(
     return False
 
 
-def _validate_delivery(folder: Path, staging: bool = False) -> list[dict[str, Any]]:
-    checks: list[dict[str, Any]] = []
-    commands = [
-        [sys.executable, "scripts/render_prd_html.py", str(folder)],
-        [sys.executable, "scripts/validate_outputs.py", str(folder), "--language", "zh"] + (["--staging"] if staging else []),
-        [sys.executable, "scripts/validate_agent_trace.py", str(folder)],
-        [sys.executable, "scripts/run_delivery_checks.py", str(folder), "--language", "zh"] + (["--staging"] if staging else []),
+def _run_validation_command(command: list[str]) -> dict[str, Any]:
+    result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+    return {
+        "command": " ".join(command[1:]),
+        "status": "passed" if result.returncode == 0 else "failed",
+        "exit_code": result.returncode,
+        "stdout": result.stdout[-3000:],
+        "stderr": result.stderr[-2000:],
+    }
+
+
+def _render_prd_html_check(folder: Path) -> dict[str, Any]:
+    return _run_validation_command([sys.executable, "scripts/render_prd_html.py", str(folder)])
+
+
+def _prepare_final_revision_scope_attestation(
+    state: dict[str, Any], folder: Path,
+) -> list[dict[str, Any]]:
+    """Render once, then attest the exact revision artifact set for its trace.
+
+    This runs between the accepted PRD stage and controller-owned trace stage.
+    It gives a malformed PRD a deterministic repair path before any trace or
+    evidence can claim that the selected revision is promotable.
+    """
+    render_check = _render_prd_html_check(folder)
+    checks = [render_check]
+    if render_check["status"] != "passed":
+        return checks
+    report = _validate_staged_revision_scope(state, folder, include_rendered_html=True)
+    failures = list(report.get("failures", [])) if isinstance(report, dict) else [
+        "final in-place revision scope report is unavailable"
     ]
-    for command in commands:
-        result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
-        checks.append({
-            "command": " ".join(command[1:]),
-            "status": "passed" if result.returncode == 0 else "failed",
-            "exit_code": result.returncode,
-            "stdout": result.stdout[-3000:],
-            "stderr": result.stderr[-2000:],
-        })
+    _, attestation_problems = _final_revision_scope_attestation_problems(state, folder)
+    failures.extend(problem for problem in attestation_problems if problem not in failures)
+    checks.append({
+        "command": "revision_scope.attest staged prd.md/prd.html/assets",
+        "status": "passed" if not failures else "failed",
+        "exit_code": 0 if not failures else 1,
+        "stdout": "\n".join(report.get("checks", [])) if isinstance(report, dict) else "",
+        "stderr": "\n".join(failures),
+    })
     return checks
 
 
-def _validate_staged_delivery(state: dict[str, Any], folder: Path) -> list[dict[str, Any]]:
-    """Run global validators plus the semantic contract for an in-place revision."""
-    checks = _validate_delivery(folder, staging=True)
+def _refresh_final_revision_derivatives(
+    state: dict[str, Any], folder: Path, provider: str, timeout: int,
+    worker: Callable[..., dict[str, Any]], state_path: Path | None, model: str | None,
+) -> tuple[bool, list[dict[str, Any]], str]:
+    """Rebuild every proof derived from repaired in-place PRD bytes.
+
+    A PRD repair invalidates its rendered scope proof and the deterministic
+    trace that embeds revision evidence.  Never send those stale derivatives
+    into another validation pass: re-render and attest first, then regenerate
+    and review the controller-owned trace.
+    """
+    checks = _prepare_final_revision_scope_attestation(state, folder)
+    failed = [check for check in checks if check.get("status") != "passed"]
+    if failed:
+        reason = "\n\n".join(
+            f"{check.get('command', 'final revision attestation')}:\n"
+            f"{check.get('stdout', '')}\n{check.get('stderr', '')}"
+            for check in failed
+        )
+        return False, checks, reason
+    if not _run_artifact_agent(
+        state, "run-log.yaml", provider, timeout, worker, state_path=state_path, model=model,
+    ):
+        return False, checks, str(state.get("last_error") or "could not regenerate deterministic run-log.yaml")
+    passed, findings = _review_artifact(
+        state, "run-log.yaml", provider, timeout, worker, state_path, model,
+    )
+    if not passed:
+        return False, checks, findings
+    return True, checks, ""
+
+
+def _validate_delivery(
+    folder: Path, staging: bool = False, *, include_render: bool = True, language: str = "zh",
+) -> list[dict[str, Any]]:
+    commands: list[list[str]] = []
+    if include_render:
+        commands.append([sys.executable, "scripts/render_prd_html.py", str(folder)])
+    commands.extend([
+        [sys.executable, "scripts/validate_outputs.py", str(folder), "--language", language] + (["--staging"] if staging else []),
+        [sys.executable, "scripts/validate_agent_trace.py", str(folder)],
+        [sys.executable, "scripts/run_delivery_checks.py", str(folder), "--language", language] + (["--staging"] if staging else []),
+    ])
+    return [_run_validation_command(command) for command in commands]
+
+
+def _validate_staged_delivery(
+    state: dict[str, Any], folder: Path, *, language: str | None = None,
+) -> list[dict[str, Any]]:
+    """Run staged checks without rewriting a trace-bound scope attestation."""
+    checks = [_render_prd_html_check(folder)]
     try:
         _assert_delivery_tree_has_no_symlinks(folder, label="staged delivery workspace")
         _validate_input_asset_materialization(state, folder)
@@ -4922,17 +5627,555 @@ def _validate_staged_delivery(state: dict[str, Any], folder: Path) -> list[dict[
             "stdout": "",
             "stderr": str(error),
         })
-    report = _validate_staged_revision_scope(state, folder, include_rendered_html=True)
-    if report is not None:
-        failures = list(report.get("failures", [])) if isinstance(report, dict) else ["revision scope report is unavailable"]
+    if _delivery_variant(state) == "in_place_revision":
+        report, failures = _final_revision_scope_attestation_problems(state, folder)
         checks.append({
-            "command": "revision_scope.validate staged prd.md/prd.html",
+            "command": "revision_scope.verify staged artifact-set attestation",
             "status": "passed" if not failures else "failed",
             "exit_code": 0 if not failures else 1,
             "stdout": "\n".join(report.get("checks", [])) if isinstance(report, dict) else "",
             "stderr": "\n".join(failures),
         })
+    effective_language = language or _trace_language(state, folder / "prd.md")
+    checks.extend(_validate_delivery(
+        folder, staging=True, include_render=False, language=effective_language,
+    ))
     return checks
+
+
+@contextmanager
+def _bounded_file_lock(lock_path: Path, label: str, timeout_seconds: float = 30.0) -> Any:
+    """Acquire a short-lived process lock without turning a collision into a hang."""
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a+", encoding="utf-8")
+    try:
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as error:
+                if error.errno not in {errno.EACCES, errno.EAGAIN}:
+                    raise
+                if time.monotonic() >= deadline:
+                    raise RuntimeError(f"{label} is already active; retry after it reaches a terminal state") from error
+                time.sleep(0.05)
+        yield
+    finally:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
+
+
+@contextmanager
+def _delivery_promotion_lock(canonical: Path) -> Any:
+    """Serialize the small CAS critical section shared by all delivery paths."""
+    lock_path = canonical.parent / f".{canonical.name}.delivery-promotion.lock"
+    with _bounded_file_lock(lock_path, "a delivery promotion"):
+        yield
+
+
+@contextmanager
+def _derived_refresh_lock(canonical: Path, timeout_seconds: float = 30.0) -> Any:
+    """Serialize full derivative refreshes while staging and verifying their inputs."""
+    lock_path = canonical.parent / f".{canonical.name}.derived-refresh.lock"
+    with _bounded_file_lock(lock_path, "a rendered-derivative refresh", timeout_seconds):
+        yield
+
+
+def _derived_refresh_journal_path(canonical: Path) -> Path:
+    return canonical.parent / f".{canonical.name}.derived-refresh-transaction.json"
+
+
+def _derived_refresh_journal_member(
+    canonical: Path, raw_name: object, expected_prefix: str, label: str,
+) -> Path:
+    if not isinstance(raw_name, str) or not raw_name or Path(raw_name).name != raw_name:
+        raise RuntimeError(f"derived refresh transaction has an unsafe {label}")
+    if not raw_name.startswith(expected_prefix):
+        raise RuntimeError(f"derived refresh transaction has an unexpected {label}")
+    return canonical.parent / raw_name
+
+
+def _recover_derived_refresh_transaction(canonical: Path) -> None:
+    """Restore a pre-refresh tree after an interrupted directory replacement.
+
+    POSIX directory replacement takes two renames.  The durable journal makes
+    the interval recoverable: unless a refresh recorded its final commit, a
+    later controller restores the retained canonical backup rather than
+    guessing that a partially promoted candidate is valid.
+    """
+    journal_path = _derived_refresh_journal_path(canonical)
+    if not journal_path.exists():
+        return
+    if journal_path.is_symlink() or not journal_path.is_file():
+        raise RuntimeError("derived refresh transaction journal is not a regular file")
+    journal = _read_json_mapping(journal_path, "derived refresh transaction journal")
+    if journal.get("schema_version") != DERIVED_REFRESH_TRANSACTION_SCHEMA_VERSION:
+        raise RuntimeError("derived refresh transaction journal uses an unsupported schema")
+    if journal.get("canonical_name") != canonical.name:
+        raise RuntimeError("derived refresh transaction journal targets a different PRD")
+    phase = journal.get("phase")
+    if phase not in {"prepared", "original_moved", "candidate_promoted", "committed"}:
+        raise RuntimeError("derived refresh transaction journal has an unknown phase")
+    backup = _derived_refresh_journal_member(
+        canonical, journal.get("backup_name"), f".{canonical.name}.derived-refresh-backup-", "backup name",
+    )
+    publish_root = _derived_refresh_journal_member(
+        canonical, journal.get("publish_root_name"), f".{canonical.name}.derived-refresh-publishing-", "publish root name",
+    )
+
+    if phase == "committed" and canonical.is_dir():
+        _commit_delivery_promotion(backup)
+    elif backup.exists():
+        if canonical.exists():
+            _rollback_delivery_promotion(canonical, backup)
+        else:
+            backup.replace(canonical)
+    elif not canonical.exists():
+        raise RuntimeError(
+            "interrupted rendered-derivative refresh has neither canonical PRD nor recoverable backup"
+        )
+    if publish_root.exists():
+        if publish_root.is_symlink() or not publish_root.is_dir():
+            raise RuntimeError("derived refresh publish workspace is not a regular directory")
+        shutil.rmtree(publish_root)
+    journal_path.unlink(missing_ok=True)
+
+
+def _refresh_tree_snapshot(folder: Path, *, protected_only: bool = False) -> dict[str, str]:
+    """Digest one run tree for refresh CAS and non-derived-content protection."""
+    _assert_delivery_tree_has_no_symlinks(folder, label="derived refresh tree")
+    snapshot: dict[str, str] = {}
+    for path in sorted(folder.rglob("*"), key=lambda item: item.as_posix()):
+        if path.is_dir():
+            continue
+        relative = path.relative_to(folder)
+        relative_name = relative.as_posix()
+        if relative.name == ".DS_Store":
+            continue
+        if not path.is_file():
+            raise ValueError(f"derived refresh tree contains a non-regular file: {relative_name}")
+        if protected_only and (
+            relative_name in DERIVED_REFRESH_MUTABLE_FILES
+            or relative.parts[0] == "tool-results"
+        ):
+            continue
+        digest = _artifact_digest(path)
+        if digest is None:
+            raise ValueError(f"derived refresh tree file cannot be hashed: {relative_name}")
+        snapshot[relative_name] = digest
+    return snapshot
+
+
+def _refresh_snapshot_digest(snapshot: Mapping[str, str]) -> str:
+    return hashlib.sha256(
+        json.dumps(dict(snapshot), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _read_json_mapping(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"{label} is not readable JSON: {error}") from error
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return value
+
+
+def _completed_revision_refresh_problems(state: Mapping[str, Any], canonical: Path) -> list[str]:
+    """Reject anything except a fully attested completed in-place revision."""
+    problems: list[str] = []
+    if state.get("status") != "complete" or state.get("termination") != "complete":
+        problems.append("rendered derivative refresh requires a completed PRD run")
+    if _delivery_variant(dict(state)) != "in_place_revision":
+        problems.append("rendered derivative refresh is only available for completed in-place revisions")
+    for name in ("interactive-run.json", "prd.md", "prd.html", "run-log.yaml", "revision-evidence.json"):
+        if not (canonical / name).is_file():
+            problems.append(f"completed in-place revision is missing {name}")
+    if not (canonical / "assets").is_dir():
+        problems.append("completed in-place revision is missing assets/")
+    manifest = state.get("revision_scope_manifest")
+    if not isinstance(manifest, Mapping) or manifest.get("schema_version") != 1:
+        problems.append("completed in-place revision has no current controller scope manifest")
+
+    trace_path = canonical / "run-log.yaml"
+    if trace_path.is_file():
+        try:
+            trace = yaml.safe_load(trace_path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as error:
+            problems.append(f"completed run-log.yaml is unreadable: {error}")
+            trace = None
+        if not isinstance(trace, dict) or trace.get("pm_copilot_revision") != CONTROLLER_TRACE_REVISION:
+            problems.append("rendered derivative refresh requires a controller-owned deterministic run-log.yaml")
+
+    evidence_path = canonical / "revision-evidence.json"
+    if evidence_path.is_file() and isinstance(manifest, Mapping):
+        try:
+            evidence = _read_json_mapping(evidence_path, "revision-evidence.json")
+        except ValueError as error:
+            problems.append(str(error))
+        else:
+            evidence_manifest = evidence.get("scope_manifest")
+            if not isinstance(evidence_manifest, Mapping):
+                problems.append("revision-evidence.json is missing the scope manifest")
+            elif revision_scope_manifest_digest(evidence_manifest) != revision_scope_manifest_digest(manifest):
+                problems.append("revision-evidence.json scope manifest does not match interactive state")
+            evidence_validation = evidence.get("scope_validation")
+            state_validation = state.get("revision_scope_validation")
+            if not isinstance(evidence_validation, Mapping) or not isinstance(state_validation, Mapping):
+                problems.append("revision evidence and interactive state must both retain final scope validation")
+            else:
+                for field in (
+                    "status", "report_path", "manifest_sha256", "report_sha256",
+                    "artifact_set_sha256", "attestation_schema_version",
+                ):
+                    if evidence_validation.get(field) != state_validation.get(field):
+                        problems.append(
+                            f"revision evidence scope_validation.{field} does not match interactive state"
+                        )
+    if not problems:
+        _, attestation_problems = _final_revision_scope_attestation_problems(state, canonical)
+        problems.extend(attestation_problems)
+        problems.extend(validate_artifact_lineage(canonical / "run-log.yaml"))
+    return list(dict.fromkeys(problems))
+
+
+def _verified_retained_revision_baseline(state: Mapping[str, Any], canonical: Path) -> Path:
+    """Return the retained pre-revision Markdown only after hash verification."""
+    manifest = state.get("revision_scope_manifest")
+    if not isinstance(manifest, Mapping):
+        raise ValueError("completed in-place revision is missing its scope manifest")
+    baseline_record = manifest.get("baseline")
+    if not isinstance(baseline_record, Mapping):
+        raise ValueError("completed in-place revision scope manifest is missing its baseline")
+    expected_digest = baseline_record.get("prd_sha256")
+    if not isinstance(expected_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_digest.lower()):
+        raise ValueError("completed in-place revision baseline has no valid prd.md SHA-256")
+
+    raw_workspace = state.get("delivery_workspace")
+    if not isinstance(raw_workspace, str) or not raw_workspace.strip():
+        raise ValueError("completed in-place revision has no retained delivery workspace baseline")
+    expected_workspace = (
+        canonical.parent / f".{canonical.name}.delivery-stage" / canonical.name
+    ).resolve()
+    workspace = Path(raw_workspace).resolve()
+    if workspace != expected_workspace:
+        raise ValueError("retained revision baseline is outside the controller-owned delivery workspace")
+    _assert_delivery_tree_has_no_symlinks(workspace, label="retained revision delivery workspace")
+    baseline = workspace / ".revision-baseline" / "prd.md"
+    if baseline.is_symlink() or not baseline.is_file():
+        raise ValueError("retained revision delivery workspace is missing .revision-baseline/prd.md")
+    if _artifact_digest(baseline) != expected_digest:
+        raise ValueError("retained revision baseline SHA-256 does not match the attested scope manifest")
+    return baseline
+
+
+def _reload_refresh_state(state: dict[str, Any], canonical: Path) -> None:
+    """Bind a refresh to the state that exists after its exclusive lock begins."""
+    state_path = canonical / "interactive-run.json"
+    persisted = _read_json_mapping(state_path, "interactive-run.json")
+    folder_value = persisted.get("folder")
+    if not isinstance(folder_value, str) or Path(folder_value).resolve() != canonical:
+        raise ValueError("interactive-run.json does not identify this canonical PRD folder")
+    state.clear()
+    state.update(persisted)
+
+
+def _refresh_check_failure_reason(checks: Sequence[Mapping[str, Any]]) -> str:
+    failures = [
+        "{}:\n{}\n{}".format(
+            check.get("command", "refresh validation"),
+            check.get("stdout", ""),
+            check.get("stderr", ""),
+        ).strip()
+        for check in checks
+        if check.get("status") != "passed"
+    ]
+    return "\n\n".join(failures) or "derived refresh validation failed"
+
+
+def _replace_derived_refresh_result_files(candidate: Path, workspace: Path) -> None:
+    """Refresh referenced validator evidence without deleting unrelated provenance.
+
+    A renderer-only refresh has no authority to discard controller-owned input
+    evidence, including implemented-feature packet results that the trace
+    validates indirectly.  The candidate starts as a copy of canonical output;
+    replace only the reports generated again in this transaction.
+    """
+    retained: dict[Path, Path] = {
+        relative: source
+        for relative, source in _trace_result_files(workspace / "run-log.yaml")
+    }
+    for relative, source in _revision_evidence_result_files(workspace / "revision-evidence.json"):
+        retained[relative] = source
+    delivery_report = workspace / "tool-results" / "delivery-check-report.json"
+    if not delivery_report.is_file():
+        raise FileNotFoundError("derived refresh did not produce tool-results/delivery-check-report.json")
+    retained[Path("tool-results/delivery-check-report.json")] = delivery_report
+    for relative, source in sorted(retained.items(), key=lambda item: item[0].as_posix()):
+        _atomic_copy(source, candidate / relative)
+
+
+def _promote_derived_refresh_workspace(
+    state: dict[str, Any], workspace: Path, source_snapshot: Mapping[str, str],
+    protected_snapshot: Mapping[str, str], language: str,
+    record_candidate_validation: Callable[[Path, list[dict[str, Any]]], None],
+    record_canonical_validation: Callable[[list[dict[str, Any]], list[dict[str, Any]]], None],
+) -> list[dict[str, Any]]:
+    """Publish only verified rendered derivatives through a recoverable CAS transaction."""
+    canonical = _canonical_folder(state)
+    _assert_delivery_tree_has_no_symlinks(workspace, label="derived refresh workspace")
+    if _refresh_tree_snapshot(canonical) != dict(source_snapshot):
+        raise DerivedRefreshSourceDriftError(
+            "canonical PRD changed while the rendered derivative refresh was staged"
+        )
+
+    publish_root = Path(tempfile.mkdtemp(prefix=f".{canonical.name}.derived-refresh-publishing-", dir=canonical.parent))
+    candidate = publish_root / canonical.name
+    backup = canonical.parent / f".{canonical.name}.derived-refresh-backup-{time.time_ns()}"
+    moved_original = False
+    journal_path = _derived_refresh_journal_path(canonical)
+    journal_written = False
+    try:
+        shutil.copytree(canonical, candidate, ignore=shutil.ignore_patterns(".DS_Store"))
+        for name in ("prd.html", "run-log.yaml", "revision-evidence.json"):
+            source = workspace / name
+            if not source.is_file():
+                raise FileNotFoundError(f"derived refresh artifact is missing: {source}")
+            _atomic_copy(source, candidate / name)
+        _replace_derived_refresh_result_files(candidate, workspace)
+        _write_json(candidate / "interactive-run.json", state)
+        _assert_delivery_tree_has_no_symlinks(candidate, label="derived refresh promotion candidate")
+        if _refresh_tree_snapshot(candidate, protected_only=True) != dict(protected_snapshot):
+            raise RuntimeError("derived refresh changed protected PRD content outside rendered derivatives")
+
+        candidate_checks = _validate_delivery(candidate, include_render=False, language=language)
+        if not all(check.get("status") == "passed" for check in candidate_checks):
+            raise RuntimeError(_refresh_check_failure_reason(candidate_checks))
+        record_candidate_validation(candidate, candidate_checks)
+        # Verify the candidate after the preliminary state evidence is written.
+        # This is the exact complete tree that will be renamed into canonical.
+        candidate_state_checks = _validate_delivery(candidate, include_render=False, language=language)
+        if not all(check.get("status") == "passed" for check in candidate_state_checks):
+            raise RuntimeError(_refresh_check_failure_reason(candidate_state_checks))
+        if _refresh_tree_snapshot(candidate, protected_only=True) != dict(protected_snapshot):
+            raise RuntimeError("candidate validation changed protected PRD content")
+
+        with _delivery_promotion_lock(canonical):
+            if _refresh_tree_snapshot(canonical) != dict(source_snapshot):
+                raise DerivedRefreshSourceDriftError(
+                    "canonical PRD changed while the rendered derivative refresh was staged"
+                )
+            _write_json(journal_path, {
+                "schema_version": DERIVED_REFRESH_TRANSACTION_SCHEMA_VERSION,
+                "canonical_name": canonical.name,
+                "backup_name": backup.name,
+                "publish_root_name": publish_root.name,
+                "phase": "prepared",
+            })
+            journal_written = True
+            canonical.replace(backup)
+            moved_original = True
+            _write_json(journal_path, {
+                "schema_version": DERIVED_REFRESH_TRANSACTION_SCHEMA_VERSION,
+                "canonical_name": canonical.name,
+                "backup_name": backup.name,
+                "publish_root_name": publish_root.name,
+                "phase": "original_moved",
+            })
+            try:
+                candidate.replace(canonical)
+            except OSError:
+                backup.replace(canonical)
+                moved_original = False
+                raise
+            _write_json(journal_path, {
+                "schema_version": DERIVED_REFRESH_TRANSACTION_SCHEMA_VERSION,
+                "canonical_name": canonical.name,
+                "backup_name": backup.name,
+                "publish_root_name": publish_root.name,
+                "phase": "candidate_promoted",
+            })
+
+            canonical_checks = _validate_delivery(canonical, include_render=False, language=language)
+            if not all(check.get("status") == "passed" for check in canonical_checks):
+                _rollback_delivery_promotion(canonical, backup)
+                moved_original = False
+                raise RuntimeError(_refresh_check_failure_reason(canonical_checks))
+            # Candidate validation proves the staged bytes; this second pass
+            # proves the exact bytes after the CAS directory swap. Persist
+            # every pass while the old directory remains recoverable.
+            record_canonical_validation(candidate_state_checks, canonical_checks)
+            _write_json(journal_path, {
+                "schema_version": DERIVED_REFRESH_TRANSACTION_SCHEMA_VERSION,
+                "canonical_name": canonical.name,
+                "backup_name": backup.name,
+                "publish_root_name": publish_root.name,
+                "phase": "committed",
+            })
+            _commit_delivery_promotion(backup)
+            moved_original = False
+            journal_path.unlink(missing_ok=True)
+            journal_written = False
+            return canonical_checks
+    except BaseException:
+        if moved_original and backup.exists():
+            _rollback_delivery_promotion(canonical, backup)
+            moved_original = False
+        if journal_written and canonical.exists():
+            journal_path.unlink(missing_ok=True)
+        raise
+    finally:
+        if publish_root.exists():
+            shutil.rmtree(publish_root, ignore_errors=True)
+
+
+def _refresh_completed_revision_derivatives(state: dict[str, Any]) -> tuple[bool, str, list[dict[str, Any]]]:
+    """Re-render a completed in-place PRD without reopening product scope or Agents."""
+    canonical = _canonical_folder(state)
+    checks: list[dict[str, Any]] = []
+    try:
+        with _derived_refresh_lock(canonical):
+            _recover_derived_refresh_transaction(canonical)
+            _reload_refresh_state(state, canonical)
+            problems = _completed_revision_refresh_problems(state, canonical)
+            if problems:
+                return False, "; ".join(problems), checks
+            baseline = _verified_retained_revision_baseline(state, canonical)
+            language = _trace_language(state, canonical / "prd.md")
+            checks.extend([
+                _run_validation_command([
+                    sys.executable, "scripts/validate_outputs.py", str(canonical), "--language", language,
+                ]),
+                _run_validation_command([
+                    sys.executable, "scripts/validate_agent_trace.py", str(canonical),
+                ]),
+            ])
+            if not all(check.get("status") == "passed" for check in checks):
+                return False, _refresh_check_failure_reason(checks), checks
+
+            source_snapshot = _refresh_tree_snapshot(canonical)
+            protected_snapshot = _refresh_tree_snapshot(canonical, protected_only=True)
+            source_report, source_problems = _final_revision_scope_attestation_problems(state, canonical)
+            if source_problems or not isinstance(source_report, dict):
+                return False, "; ".join(source_problems or ["current revision attestation is unreadable"]), checks
+            source_artifact_set = source_report.get("artifact_set", {})
+            original_delivery_workspace = state.get("delivery_workspace")
+            refresh_state = json.loads(json.dumps(state, ensure_ascii=False))
+            _freeze_delivery_runtime_identity(refresh_state)
+            refresh_started_at = dt.datetime.now(dt.timezone.utc).isoformat()
+
+            with tempfile.TemporaryDirectory(
+                prefix=f".{canonical.name}.derived-refresh-stage-", dir=canonical.parent,
+            ) as temporary:
+                workspace = Path(temporary) / canonical.name
+                shutil.copytree(canonical, workspace, ignore=shutil.ignore_patterns(".DS_Store"))
+                if _refresh_tree_snapshot(workspace) != source_snapshot:
+                    raise RuntimeError("derived refresh workspace does not match the completed canonical PRD")
+                staged_baseline = workspace / ".revision-baseline" / "prd.md"
+                _atomic_copy(baseline, staged_baseline)
+                refresh_state["delivery_workspace"] = str(workspace)
+                refresh_state["derived_artifact_refresh_context"] = {
+                    "reason": "renderer implementation update",
+                    "started_at": refresh_started_at,
+                    "source_artifact_set": source_artifact_set,
+                    "protected_content_sha256": _refresh_snapshot_digest(protected_snapshot),
+                }
+
+                attestation_checks = _prepare_final_revision_scope_attestation(refresh_state, workspace)
+                checks.extend(attestation_checks)
+                if not all(check.get("status") == "passed" for check in attestation_checks):
+                    return False, _refresh_check_failure_reason(attestation_checks), checks
+                if not _run_artifact_agent(
+                    refresh_state, "run-log.yaml", CONTROLLER_TRACE_PROVIDER, 1,
+                    state_path=None, model=None,
+                ):
+                    return False, str(refresh_state.get("last_error") or "could not materialize controller trace"), checks
+                reviewed, findings = _review_artifact(
+                    refresh_state, "run-log.yaml", CONTROLLER_TRACE_PROVIDER, 1,
+                    state_path=None, model=None,
+                )
+                if not reviewed:
+                    return False, findings, checks
+
+                first_checks = _validate_staged_delivery(refresh_state, workspace, language=language)
+                checks.extend(first_checks)
+                if not all(check.get("status") == "passed" for check in first_checks):
+                    return False, _refresh_check_failure_reason(first_checks), checks
+                if not _finalize_deterministic_trace(
+                    workspace, first_checks, _state_runtime_identity(refresh_state),
+                ):
+                    return False, "could not finalize the deterministic controller trace", checks
+                final_checks = _validate_staged_delivery(refresh_state, workspace, language=language)
+                checks.extend(final_checks)
+                if not all(check.get("status") == "passed" for check in final_checks):
+                    return False, _refresh_check_failure_reason(final_checks), checks
+
+                refreshed_report, refreshed_problems = _final_revision_scope_attestation_problems(refresh_state, workspace)
+                if refreshed_problems or not isinstance(refreshed_report, dict):
+                    return False, "; ".join(refreshed_problems or ["refreshed revision attestation is unreadable"]), checks
+                if _refresh_tree_snapshot(canonical) != source_snapshot:
+                    raise DerivedRefreshSourceDriftError(
+                        "canonical PRD changed while the rendered derivative refresh was staged"
+                    )
+
+                refresh_state["delivery_workspace"] = original_delivery_workspace
+                refresh_state.pop("derived_artifact_refresh_context", None)
+                refresh_state["status"] = "complete"
+                refresh_state["termination"] = "complete"
+                refresh_state["last_error"] = None
+                refresh_state.pop("last_failure_category", None)
+                refresh_state["validation"] = checks
+                refresh_record = {
+                    "mode": "deterministic_rendered_derivative_refresh",
+                    "at": refresh_started_at,
+                    "source_artifact_set": source_artifact_set,
+                    "refreshed_artifact_set": refreshed_report.get("artifact_set", {}),
+                    "protected_content_sha256": _refresh_snapshot_digest(protected_snapshot),
+                    "runtime_identity": _state_runtime_identity(refresh_state),
+                    "validation_commands": [],
+                }
+                refresh_state.setdefault("derived_artifact_refreshes", []).append(refresh_record)
+
+                def record_candidate_validation(
+                    candidate: Path, candidate_checks: list[dict[str, Any]],
+                ) -> None:
+                    checks.extend(candidate_checks)
+                    refresh_state["validation"] = checks
+                    refresh_record["validation_commands"] = [
+                        {"command": check.get("command", ""), "status": check.get("status", "")}
+                        for check in checks
+                    ]
+                    _write_json(candidate / "interactive-run.json", refresh_state)
+
+                def record_canonical_validation(
+                    candidate_state_checks: list[dict[str, Any]], canonical_checks: list[dict[str, Any]],
+                ) -> None:
+                    checks.extend(candidate_state_checks)
+                    checks.extend(canonical_checks)
+                    refresh_state["validation"] = checks
+                    refresh_record["validation_commands"] = [
+                        {"command": check.get("command", ""), "status": check.get("status", "")}
+                        for check in checks
+                    ]
+                    # The candidate carries the preliminary state so the
+                    # directory move is atomic.  Replace it with the final,
+                    # post-promotion evidence while the old directory remains
+                    # available for rollback.
+                    _write_json(canonical / "interactive-run.json", refresh_state)
+
+                _promote_derived_refresh_workspace(
+                    refresh_state, workspace, source_snapshot, protected_snapshot, language,
+                    record_candidate_validation, record_canonical_validation,
+                )
+            state.clear()
+            state.update(refresh_state)
+            return True, "", checks
+    except (OSError, ValueError, RuntimeError) as error:
+        return False, str(error), checks
 
 
 def _validation_failure_targets_trace(checks: list[dict[str, Any]]) -> bool:
@@ -4942,6 +6185,16 @@ def _validation_failure_targets_trace(checks: list[dict[str, Any]]) -> bool:
     than one filename.  Their trace-specific findings must regenerate the
     controller-owned trace locally, never be handed to the PRD writer.
     """
+    # Scope and render failures can cause validate_agent_trace to emit a
+    # derived run-log complaint. They still belong to the PRD/HTML artifact,
+    # never to deterministic trace regeneration.
+    prd_markers = (
+        "revision_scope.",
+        "revision scope",
+        "rendered html images",
+        "render_prd_html.py",
+        "prd-detail-media",
+    )
     trace_markers = (
         "run-log.yaml",
         "run log",
@@ -4950,13 +6203,15 @@ def _validation_failure_targets_trace(checks: list[dict[str, Any]]) -> bool:
         "quality decision",
         "quality_decision",
         "validation_results",
-        "agent_execution_evidence",
-        "termination_condition",
+        "specialist_evidence",
+        "pm_arbitration",
     )
     for check in checks:
         if check.get("status") == "passed":
             continue
         detail = " ".join(str(check.get(key, "")) for key in ("command", "stdout", "stderr")).lower()
+        if any(marker in detail for marker in prd_markers):
+            return False
         if any(marker in detail for marker in trace_markers):
             return True
     return False
@@ -4974,6 +6229,10 @@ def _confirmed_delivery_impl(
         state["termination"] = "human_checkpoint"
         state["last_error"] = "Explicit user confirmation is required before delivery"
         return
+    # A resumed state may describe a controller from an older installation.
+    # Freeze the current process before cache snapshot/restore so old reviewed
+    # artifacts cannot be relabeled as this attempt's build.
+    _freeze_delivery_runtime_identity(state)
     _migrate_stale_internal_scope_clarification(state)
     restart_requested = bool(state.pop("restart_delivery", False))
     _migrate_legacy_confirmed_revision_scope(state)
@@ -4997,12 +6256,12 @@ def _confirmed_delivery_impl(
     _record_confirmed_extraction_selection(state)
     input_problem = _delivery_input_problem(state, require_selection=True)
     if input_problem:
-        if _delivery_variant(state) == "extract_to_new":
-            field = "extraction_source" if not isinstance(state.get("extraction_source"), dict) else "extraction_scope"
+        if _delivery_variant(state) == "compose_to_new":
+            field = "extraction_source" if _extraction_source_configuration_problem(state) else "extraction_scope"
             question = (
-                "请指定要提取的旧 PRD 文件并明确要保留的需求 ID、章节标题或范围。"
+                "请指定要提取的旧 PRD 文件，并为每份来源明确要保留的需求 ID、章节标题或范围。"
                 if field == "extraction_source"
-                else "请明确旧 PRD 中要提取的需求 ID、章节标题或范围；确认后才会创建新的独立 PRD。"
+                else "请明确每份旧 PRD 中要提取的需求 ID、章节标题或范围；同名需求请用 source-1: 5.1 或文件名.md: 5.1 区分。"
             )
         elif _task_mode(state) == "implemented_feature_prd":
             field = "implementation_evidence"
@@ -5073,13 +6332,26 @@ def _confirmed_delivery_impl(
     state["controller_started_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     state["last_error"] = None
     state.pop("last_failure_category", None)
+    # All stage records, reuse decisions, and trace provenance use the
+    # process-start snapshot frozen before staging. A disk update while this
+    # controller is running cannot make already-loaded code look like a later
+    # release.
     state["active_delivery_attempt"] = {
         "started_at": state["controller_started_at"],
         "scope_fingerprint": _confirmed_scope_fingerprint(state),
+        "runtime_identity": _state_runtime_identity(state),
     }
+    # Specialists answer only independent evidence questions in isolated
+    # workspaces. Test workers deliberately skip real model dispatch.
+    if worker is _delivery_worker:
+        state["specialist_evidence"] = dispatch_specialists(
+            state, folder, provider, min(timeout, max(1, int((deadline - time.monotonic() + 59) // 60))), model,
+        )
+    else:
+        state.pop("specialist_evidence", None)
     _checkpoint(state, state_path)
 
-    for artifact in ("confirmed-requirements.md", "prd.md", "run-log.yaml"):
+    for artifact in ("confirmed-requirements.md", "prd.md"):
         if not ensure_budget(artifact):
             return
         remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
@@ -5099,7 +6371,100 @@ def _confirmed_delivery_impl(
                 state["termination"] = "failed"
             _checkpoint(state, state_path)
             return
-    _append_controller_agent_evidence(state)
+
+    # A controlled placeholder is a declaration of a required frontend state,
+    # not a finished figure. Attempt an isolated reconstruction before the
+    # controller trace and HTML are materialized.
+    try:
+        _materialize_reconstructed_figures(state, folder)
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        state["frontend_figure_evidence"] = [{
+            "provenance": "required_placeholder",
+            "replacement_status": "pending_manual_completion",
+            "replacement_instruction": "补充真实页面截图并重新执行交付。",
+            "capture_error": str(error),
+        }]
+
+    if _delivery_variant(state) == "in_place_revision":
+        scope_revision = 0
+        while True:
+            if not ensure_budget("final revision scope attestation"):
+                return
+            scope_checks = _prepare_final_revision_scope_attestation(state, folder)
+            state["validation"] = scope_checks
+            _checkpoint(state, state_path)
+            if all(check["status"] == "passed" for check in scope_checks):
+                break
+            scope_errors = "\n\n".join(
+                f"{check['command']}:\n{check.get('stdout', '')}\n{check.get('stderr', '')}"
+                for check in scope_checks if check["status"] != "passed"
+            )
+            if scope_revision >= max_revisions:
+                state["revision_stop_reason"] = "final revision scope attestation budget exhausted"
+                state["last_error"] = scope_errors
+                state["last_failure_category"] = "revision_scope_attestation_failed"
+                state["status"] = "failed"
+                state["termination"] = "failed"
+                _checkpoint(state, state_path)
+                return
+            before = _artifact_digest(folder / "prd.md")
+            remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
+            if not _run_artifact_agent(
+                state, "prd.md", provider, min(timeout, remaining_minutes), worker,
+                scope_errors[-6000:], state_path, model,
+            ):
+                state["revision_stop_reason"] = "final revision scope repair Agent failed"
+                _checkpoint(state, state_path)
+                return
+            after = _artifact_digest(folder / "prd.md")
+            if before == after:
+                _record_revision(state, "prd.md", before, after, "no_progress")
+                state["revision_stop_reason"] = "final revision scope repair made no prd.md change"
+                state["last_error"] = scope_errors
+                state["status"] = "failed"
+                state["termination"] = "failed"
+                _checkpoint(state, state_path)
+                return
+            _record_revision(state, "prd.md", before, after, "changed")
+            if not ensure_budget("review for final revision scope repair"):
+                return
+            remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
+            passed, findings = _review_artifact(
+                state, "prd.md", provider, min(timeout, remaining_minutes), worker, state_path, model,
+            )
+            if not passed:
+                state["revision_stop_reason"] = "final revision scope repair was rejected by stage quality review"
+                state["last_error"] = findings
+                state["status"] = "failed"
+                state["termination"] = "failed"
+                _checkpoint(state, state_path)
+                return
+            scope_revision += 1
+            state["revision_loops"] = state.get("revision_loops", 0) + 1
+            _checkpoint(state, state_path)
+
+    for artifact in ("run-log.yaml",):
+        if not ensure_budget(artifact):
+            return
+        remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
+        if not _deliver_artifact_to_quality_gate(
+            state, artifact, provider, min(timeout, remaining_minutes), worker, max_revisions, state_path, model,
+        ):
+            if state.get("status") == "needs_input":
+                _checkpoint(state, state_path)
+                return
+            if state.get("status") == "recovery_required":
+                _checkpoint(state, state_path)
+                return
+            reason = str(state.get("last_error") or f"delivery Agent failed to produce {artifact}")
+            state["last_error"] = reason
+            if "provider/model" in reason:
+                _mark_attribution_recovery(state, artifact, provider, model)
+            else:
+                state["status"] = "failed"
+                state["termination"] = "failed"
+            _checkpoint(state, state_path)
+            return
     all_checks: list[dict[str, Any]] = []
     final_checks: list[dict[str, Any]] = []
     for revision in range(max_revisions + 1):
@@ -5116,7 +6481,7 @@ def _confirmed_delivery_impl(
             # The initial deterministic trace is intentionally pending. Close
             # that state from the controller's actual first-pass results, then
             # rerun validators so pending is never left in a final artifact.
-            _finalize_deterministic_trace(folder, checks)
+            _finalize_deterministic_trace(folder, checks, _state_runtime_identity(state))
             checks = _validate_staged_delivery(state, folder)
             all_checks.extend(checks)
             final_checks = checks
@@ -5157,6 +6522,25 @@ def _confirmed_delivery_impl(
             _checkpoint(state, state_path)
             break
         state["revision_loops"] = revision + 1
+        if artifact == "prd.md" and _delivery_variant(state) == "in_place_revision":
+            if not ensure_budget("final revision proof refresh"):
+                return
+            remaining_minutes = max(1, int((deadline - time.monotonic() + 59) // 60))
+            refreshed, refresh_checks, refresh_error = _refresh_final_revision_derivatives(
+                state, folder, provider, min(timeout, remaining_minutes), worker, state_path, model,
+            )
+            all_checks.extend(refresh_checks)
+            state["validation"] = all_checks
+            if not refreshed:
+                state["revision_stop_reason"] = "final revision proof refresh failed after prd.md repair"
+                state["last_error"] = refresh_error
+                _checkpoint(state, state_path)
+                # A bad rendered proof still has a valid PRD repair path on
+                # the next bounded validation pass. A deterministic trace
+                # materialization/review failure does not.
+                if any(check.get("status") != "passed" for check in refresh_checks):
+                    continue
+                break
         _checkpoint(state, state_path)
     state["validation"] = all_checks
     if final_checks and all(check["status"] == "passed" for check in final_checks):
@@ -5250,15 +6634,21 @@ def _confirmed_delivery(
         _checkpoint(state, state_path)
 
 
-def main() -> int:
-    _ensure_runtime_current()
+def _build_request_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", help="initial user request")
     parser.add_argument("--request-file")
     parser.add_argument("--run-folder", type=Path)
     parser.add_argument("--new-requirement", action="store_true", help="create one explicitly new independent requirement")
     parser.add_argument("--revise", action="store_true", help="revise the canonical PRD in --run-folder")
-    parser.add_argument("--extract-from", type=Path, help="source Markdown/text PRD for a new extraction delivery")
+    parser.add_argument(
+        "--append-implemented-feature", action="store_true",
+        help="append newly implemented behavior to the completed PRD in --run-folder",
+    )
+    parser.add_argument(
+        "--extract-from", type=Path, action="append", default=[],
+        help="source Markdown/text PRD for a new extraction delivery; repeat for multiple sources",
+    )
     parser.add_argument(
         "--revision-requirement-id", action="append", default=[],
         help="existing requirement ID to modify in an in-place revision; repeat for multiple IDs",
@@ -5271,8 +6661,8 @@ def main() -> int:
     parser.add_argument("--confirm", action="store_true", help="explicitly confirm the clarified scope")
     parser.add_argument("--asset", action="append", default=[], help="user-provided screenshot or video to copy into canonical assets/")
     parser.add_argument(
-        "--provider", default="auto",
-        help="Agent runtime; default auto selects the current device's ready route",
+        "--provider", choices=("auto", "codex"), default="auto",
+        help="local Codex runtime; auto selects the configured local Codex route",
     )
     parser.add_argument("--model", help="explicitly select a model reported by the chosen runtime")
     parser.add_argument("--timeout-minutes", type=int, default=DEFAULT_EXECUTION_TIMEOUT_MINUTES)
@@ -5280,27 +6670,104 @@ def main() -> int:
                         help="aggregate budget for the confirmed delivery workflow")
     parser.add_argument("--max-revisions", type=int, default=DEFAULT_MAX_REVISIONS)
     parser.add_argument("--dry-run", action="store_true")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--refresh-rendered-derivatives",
+        action="store_true",
+        help="re-render and re-attest only deterministic derived artifacts for a completed in-place revision",
+    )
+    return parser
+
+
+def _resolve_request_plan(
+    args: argparse.Namespace, parser: argparse.ArgumentParser, *,
+    entrypoint: Literal["interactive", "natural"],
+) -> PrdRequestPlan:
+    """Normalize shared entry arguments before any run folder is touched.
+
+    Both the natural-language facade and the interactive resume surface use
+    this one validation path. The facade differs only by requiring PRD-shaped
+    request text when it receives new user text and by defaulting an initial
+    request to a new canonical folder.
+    """
     if args.timeout_minutes < 1:
         parser.error("--timeout-minutes must be at least 1")
     if args.interactive_timeout_minutes < 1:
         parser.error("--interactive-timeout-minutes must be at least 1")
     if args.max_revisions < 0:
         parser.error("--max-revisions cannot be negative")
+    if args.refresh_rendered_derivatives:
+        incompatible: list[str] = []
+        if args.new_requirement:
+            incompatible.append("--new-requirement")
+        if args.revise:
+            incompatible.append("--revise")
+        if args.extract_from:
+            incompatible.append("--extract-from")
+        if args.implemented_evidence:
+            incompatible.append("--implemented-evidence")
+        if args.revision_requirement_id:
+            incompatible.append("--revision-requirement-id")
+        if args.answers:
+            incompatible.append("--answers")
+        if args.confirm:
+            incompatible.append("--confirm")
+        if args.asset:
+            incompatible.append("--asset")
+        if args.dry_run:
+            incompatible.append("--dry-run")
+        if args.model:
+            incompatible.append("--model")
+        if args.request and args.request.strip():
+            incompatible.append("--request")
+        if args.request_file:
+            incompatible.append("--request-file")
+        if not args.run_folder:
+            parser.error("--refresh-rendered-derivatives requires --run-folder")
+        if incompatible:
+            parser.error(
+                "--refresh-rendered-derivatives cannot be combined with " + ", ".join(incompatible)
+            )
     if args.request_file:
         raw_request = Path(args.request_file).expanduser().read_text(encoding="utf-8").strip()
     else:
         raw_request = (args.request or "").strip()
-    if args.new_requirement and args.revise:
-        parser.error("--new-requirement and --revise cannot be used together")
+    if entrypoint == "natural":
+        if raw_request and not is_prd_request(raw_request):
+            parser.error("request is not classified as a PRD request")
+        # The natural facade starts a new canonical requirement by default.
+        # A supplied folder is a resume target; it must not be silently
+        # converted into an in-place revision because extraction/evidence
+        # pauses resume through that same folder.
+        if raw_request and not args.run_folder:
+            args.new_requirement = True
+        resume_input_supplied = bool(
+            args.extract_from
+            or args.implemented_evidence
+            or args.revision_requirement_id
+            or args.answers
+            or args.confirm
+            or args.asset
+            or args.append_implemented_feature
+            or args.refresh_rendered_derivatives
+        )
+        if args.run_folder and not args.revise and raw_request and not resume_input_supplied:
+            parser.error(
+                "--run-folder identifies an existing canonical PRD; add --revise for an in-place update"
+            )
+    if sum(bool(value) for value in (args.new_requirement, args.revise, args.append_implemented_feature)) > 1:
+        parser.error("--new-requirement, --revise, and --append-implemented-feature are mutually exclusive")
     if args.extract_from and args.revise:
         parser.error("--extract-from creates a new PRD and cannot be combined with --revise")
+    if args.extract_from and args.append_implemented_feature:
+        parser.error("--extract-from cannot be combined with --append-implemented-feature")
     if args.implemented_evidence and args.revise:
         parser.error("--implemented-evidence creates an implemented-feature PRD and cannot be combined with --revise")
     if args.extract_from and args.implemented_evidence:
         parser.error("--extract-from and --implemented-evidence select different PRD delivery modes")
     if args.revision_requirement_id and args.new_requirement:
         parser.error("--revision-requirement-id is only valid for an existing in-place revision")
+    if args.revision_requirement_id and args.append_implemented_feature:
+        parser.error("--revision-requirement-id cannot be combined with append-only implemented-feature delivery")
     if args.revision_requirement_id and (args.extract_from or args.implemented_evidence):
         parser.error("--revision-requirement-id cannot be combined with a new extraction or implemented-feature PRD")
     if args.revision_requirement_id and not args.run_folder:
@@ -5309,6 +6776,8 @@ def main() -> int:
         parser.error("--new-requirement creates its own canonical folder; do not pass --run-folder")
     if args.revise and not args.run_folder:
         parser.error("--revise requires --run-folder for the canonical PRD")
+    if args.append_implemented_feature and not args.run_folder:
+        parser.error("--append-implemented-feature requires --run-folder for the current canonical PRD")
     folder = args.run_folder
     if folder is None and raw_request and args.new_requirement:
         try:
@@ -5318,6 +6787,49 @@ def main() -> int:
     if folder is None:
         parser.error("provide --run-folder for an existing canonical PRD, or use --new-requirement for a new independent requirement")
     folder = folder.resolve()
+    delivery_variant = (
+        "in_place_revision"
+        if args.revise or args.append_implemented_feature
+        else "compose_to_new"
+        if args.extract_from or _request_looks_like_extraction(raw_request)
+        else "new"
+    )
+    task_mode = (
+        "implemented_feature_prd"
+        if args.append_implemented_feature
+        else "prd_revision"
+        if delivery_variant == "in_place_revision"
+        else "prd_composition"
+        if delivery_variant == "compose_to_new"
+        else "implemented_feature_prd"
+        if args.implemented_evidence or _request_looks_like_implemented_feature(raw_request)
+        else "new_prd"
+    )
+    return PrdRequestPlan(
+        args=args,
+        raw_request=raw_request,
+        folder=folder,
+        task_mode=task_mode,
+        delivery_variant=delivery_variant,
+        entrypoint=entrypoint,
+    )
+
+
+def _execute_request_plan(plan: PrdRequestPlan, parser: argparse.ArgumentParser) -> int:
+    """Execute a normalized request plan using the existing persisted-state controller."""
+    args = plan.args
+    raw_request = plan.raw_request
+    folder = plan.folder
+    # A hard stop during a renderer-only refresh can occur between the two
+    # directory renames. Recover its journal before applying the ordinary
+    # existence gate, so a later normal controller cannot mistake a missing
+    # canonical folder for a request to create a new run.
+    if not args.new_requirement and _derived_refresh_journal_path(folder).exists():
+        try:
+            with _derived_refresh_lock(folder, timeout_seconds=0):
+                _recover_derived_refresh_transaction(folder)
+        except (OSError, RuntimeError, ValueError) as error:
+            parser.error(str(error))
     if args.new_requirement and folder.exists():
         parser.error(f"canonical PRD folder already exists: {folder}")
     if not args.new_requirement and not folder.exists():
@@ -5326,9 +6838,56 @@ def main() -> int:
         parser.error(f"canonical PRD folder not found: {folder}")
     folder.mkdir(parents=True, exist_ok=True)
     state_path = folder / "interactive-run.json"
-    state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else create_state(raw_request, folder)
+    state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else create_state(
+        raw_request,
+        folder,
+        task_mode=plan.task_mode,
+        delivery_variant=plan.delivery_variant,
+    )
     if state.get("mode") != "interactive":
         parser.error("run folder is not an interactive production run")
+    if args.append_implemented_feature:
+        try:
+            state = begin_implemented_feature_append(state, raw_request)
+        except ValueError as error:
+            parser.error(str(error))
+    if (
+        _task_mode(state) == "implemented_feature_prd"
+        and not args.implemented_evidence
+        and not isinstance(state.get("implemented_feature_evidence"), dict)
+    ):
+        try:
+            workspace = resolve_project_workspace(Path.cwd().resolve(), ensure=True)
+            register_automatic_implemented_feature_evidence(state, Path(workspace["project_root"]))
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            parser.error(f"could not collect host implementation evidence: {error}")
+    if _normalise_persisted_prd_mode(state):
+        _write_json(state_path, state)
+    if args.refresh_rendered_derivatives:
+        if state.get("status") != "complete" or state.get("termination") != "complete":
+            print(json.dumps({
+                "status": "failed",
+                "run_folder": str(folder),
+                "refresh": {
+                    "status": "rejected",
+                    "error": "rendered derivative refresh requires an already completed PRD run",
+                },
+                "validation": [],
+            }, ensure_ascii=False, indent=2))
+            return 1
+        refreshed, error, checks = _refresh_completed_revision_derivatives(state)
+        print(json.dumps({
+            "status": "complete" if refreshed else "failed",
+            "run_folder": str(folder),
+            "refresh": {
+                "status": "complete" if refreshed else "failed",
+                "error": error,
+            },
+            "validation": checks,
+        }, ensure_ascii=False, indent=2))
+        # Successful promotion already atomically wrote interactive-run.json
+        # with the canonical post-promotion validation evidence.
+        return 0 if refreshed else 1
     if _recover_interrupted_delivery(state, folder):
         _write_json(state_path, state)
     if _migrate_stale_internal_scope_clarification(state):
@@ -5366,14 +6925,15 @@ def main() -> int:
             and delivery_needs_input_field not in {"extraction_source", "extraction_scope"}
         ):
             parser.error("--extract-from may only resume a matching extraction needs_input state")
-        if not args.new_requirement and _delivery_variant(state) != "extract_to_new":
+        if not args.new_requirement and _delivery_variant(state) != "compose_to_new":
             parser.error("--extract-from may only start or resume an extraction PRD run")
         try:
-            register_extraction_source(state, args.extract_from)
+            for source in args.extract_from:
+                register_extraction_source(state, source)
         except (FileNotFoundError, ValueError) as error:
             parser.error(str(error))
     if args.implemented_evidence:
-        if not args.new_requirement and delivery_needs_input_field != "implementation_evidence":
+        if not args.new_requirement and not args.append_implemented_feature and delivery_needs_input_field != "implementation_evidence":
             parser.error("--implemented-evidence may only resume a matching implementation-evidence needs_input state")
         if not args.new_requirement and _task_mode(state) != "implemented_feature_prd":
             parser.error("--implemented-evidence may only start or resume an implemented-feature PRD run")
@@ -5455,6 +7015,34 @@ def main() -> int:
         return 0 if state["status"] == "complete" else 1
     print(json.dumps(state, ensure_ascii=False, indent=2))
     return 0
+
+
+def _run_request_entry(
+    argv: Sequence[str] | None = None, *,
+    entrypoint: Literal["interactive", "natural"],
+) -> int:
+    request_argv = tuple(sys.argv[1:] if argv is None else argv)
+    # A renderer-only refresh intentionally does not load Agents or new
+    # controller behavior, so retain its existing no-sync exception. Every
+    # other public entry synchronizes before argument parsing: an older copied
+    # runtime must not reject a flag added by the newer source it is about to
+    # load.
+    if "--refresh-rendered-derivatives" not in request_argv:
+        _ensure_runtime_current(request_argv, entrypoint=entrypoint)
+    parser = _build_request_parser()
+    args = parser.parse_args(request_argv)
+    plan = _resolve_request_plan(args, parser, entrypoint=entrypoint)
+    return _execute_request_plan(plan, parser)
+
+
+def run_prd_request_entry(argv: Sequence[str] | None = None) -> int:
+    """Run the natural-language PRD facade without rewriting process arguments."""
+    return _run_request_entry(argv, entrypoint="natural")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run the resumable interactive controller entry point."""
+    return _run_request_entry(argv, entrypoint="interactive")
 
 
 if __name__ == "__main__":

@@ -11,15 +11,18 @@ from __future__ import annotations
 
 import hashlib
 from html.parser import HTMLParser
+import json
 from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping, Sequence
+import unicodedata
 
 
 REQUIREMENT_HEADING_RE = re.compile(
     r"(?m)^###\s+(?P<id>\d+\.\d+)\b(?P<title>.*?)\s*$"
 )
 REQUIREMENT_ROW_RE = re.compile(r"(?m)^\|\s*(?P<id>\d+\.\d+)\s*\|.*(?:\n|$)")
+REQUIREMENT_ID_REFERENCE_RE = re.compile(r"(?<![\d.])(?P<id>\d+\.\d+)(?![\d.])")
 SECTION_HEADING_RE = re.compile(
     r"(?m)^(?P<hashes>#{2,6})[ \t]+(?P<title>.*?)[ \t]*$"
 )
@@ -45,8 +48,13 @@ HTML_IMAGE_RE = re.compile(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", re.IGNORECAS
 DETAIL_MEDIA_RE = re.compile(
     r"\[\[prd-detail-media\s+(?P<attributes>.*?)\]\]", re.IGNORECASE | re.DOTALL
 )
+DETAIL_MEDIA_PREFIX_RE = re.compile(r"\[\[\s*prd-detail-media\b", re.IGNORECASE)
 DETAIL_MEDIA_SRC_RE = re.compile(
     r"\bsrc\s*=\s*[\"'](?P<value>[^\"']+)[\"']", re.IGNORECASE
+)
+DETAIL_MEDIA_ATTRIBUTE_RE = re.compile(
+    r'\b(?P<name>src|alt|copy)\s*=\s*"(?P<value>[^"]*)"',
+    re.IGNORECASE | re.DOTALL,
 )
 ASSET_REFERENCE_RE = re.compile(
     r"(?<![A-Za-z0-9_.-])(?:\./)?assets/[\w .()\-\u3400-\u9fff]+?\.(?:png|jpe?g|webp)(?![A-Za-z0-9_.-])",
@@ -63,6 +71,13 @@ EXACT_IMAGE_SET_RE = re.compile(
     r"\b(?:only|exactly|no\s+(?:third|additional)\s+(?:image|figure))\b",
     re.IGNORECASE,
 )
+EXTRACTION_NUMERIC_REQUIREMENT_RANGE_RE = re.compile(
+    r"(?<![\d.])(\d+)\.(\d+)\s*(?:-|~|–|—|至|到|to|through|until)\s*(\d+)\.(\d+)(?![\d.])",
+    re.IGNORECASE,
+)
+EXTRACTION_SOURCE_REQUIREMENT_ID_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-])(?:\d+(?:\.\d+)+|[A-Za-z][A-Za-z0-9_]*-\d+)(?![A-Za-z0-9_.-])"
+)
 
 # Asset trees are delivery content, not a mirror of an author's filesystem.
 # Finder/Explorer metadata is non-renderable in a PRD and unstable across
@@ -73,6 +88,16 @@ NON_CONTENT_ASSET_FILENAMES = frozenset({
     "desktop.ini",
     "icon\r",
 })
+VISUAL_COVERAGE_DECISIONS = frozenset({
+    "real_figure",
+    "required_placeholder",
+    "not_required",
+})
+_VISUAL_COVERAGE_PRECEDENCE = {
+    "not_required": 0,
+    "real_figure": 1,
+    "required_placeholder": 2,
+}
 
 
 def digest_bytes(value: bytes) -> str:
@@ -184,6 +209,163 @@ def requirement_rows(text: str) -> dict[str, str]:
     return rows
 
 
+def requirement_ids(text: str) -> list[str]:
+    """Return stable requirement IDs from the list and detail sections in source order.
+
+    Requirement-list rows and detail headings are both authoritative PRD
+    structures.  Keeping their parser here prevents a controller from
+    materializing trace coverage for one inventory while a validator checks a
+    differently parsed inventory.  Version-history rows are intentionally
+    removed first because semantic versions such as ``5.1`` are not PRD
+    requirement IDs.
+    """
+    current = _without_version_history(text)
+    matches = [
+        (match.start(), match.group("id"))
+        for expression in (REQUIREMENT_ROW_RE, REQUIREMENT_HEADING_RE)
+        for match in expression.finditer(current)
+    ]
+    return list(dict.fromkeys(
+        requirement_id
+        for _, requirement_id in sorted(matches, key=lambda item: item[0])
+    ))
+
+
+def _section_bodies_for_titles(text: str, titles: Sequence[str]) -> list[str]:
+    """Return H2+ section bodies whose normalized title matches ``titles``."""
+    accepted = {_section_title(title) for title in titles if title.strip()}
+    if not accepted:
+        return []
+    headings = list(SECTION_HEADING_RE.finditer(text))
+    bodies: list[str] = []
+    for index, heading in enumerate(headings):
+        title = _section_title(heading.group("title"))
+        without_chinese_number = re.sub(r"^[一二三四五六七八九十]+、\s*", "", title)
+        if title not in accepted and without_chinese_number not in accepted:
+            continue
+        level = len(heading.group("hashes"))
+        end = len(text)
+        for following in headings[index + 1:]:
+            if len(following.group("hashes")) <= level:
+                end = following.start()
+                break
+        bodies.append(text[heading.end():end])
+    return bodies
+
+
+def _markdown_table_data_rows(text: str) -> list[str]:
+    """Return Markdown table rows while excluding headers and separators."""
+    lines = text.splitlines()
+    table_rows = [
+        index for index, line in enumerate(lines)
+        if line.lstrip().startswith("|")
+    ]
+
+    def is_separator(line: str) -> bool:
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+
+    skipped: set[int] = set()
+    for index in table_rows:
+        if is_separator(lines[index]):
+            skipped.add(index)
+            previous = index - 1
+            if previous in table_rows:
+                skipped.add(previous)
+    return [lines[index] for index in table_rows if index not in skipped]
+
+
+def requirement_linked_rows(
+    text: str, section_titles: Sequence[str],
+) -> tuple[dict[str, list[str]], list[str]]:
+    """Map optional-section table rows to explicit final PRD requirement IDs.
+
+    A localization or tracking row can support more than one requirement, but
+    it must name each target requirement ID in its own row.  Section headings
+    and semantic text are deliberately not treated as a link: doing so would
+    silently apply one optional section to every requirement.  Rows with no
+    known final ID are returned separately so callers can fail closed.
+    """
+    known_id_order = requirement_ids(text)
+    known_ids = set(known_id_order)
+    linked: dict[str, list[str]] = {requirement_id: [] for requirement_id in known_id_order}
+    unlinked: list[str] = []
+    for body in _section_bodies_for_titles(text, section_titles):
+        for row in _markdown_table_data_rows(body):
+            candidates = list(dict.fromkeys(
+                match.group("id") for match in REQUIREMENT_ID_REFERENCE_RE.finditer(row)
+            ))
+            references = [candidate for candidate in candidates if candidate in known_ids]
+            if not references or len(references) != len(candidates):
+                unlinked.append(row)
+                continue
+            for requirement_id in references:
+                linked[requirement_id].append(row)
+    return linked, unlinked
+
+
+def aggregate_visual_evidence_by_requirement(
+    visual_evidence: Sequence[object], requirement_id_values: Sequence[str],
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """Aggregate immutable visual evidence into one summary per requirement.
+
+    A requirement can legitimately have several observable states, and each
+    state can have its own screenshot or fallback.  The aggregate therefore
+    preserves every evidence record and selects the conservative requirement
+    decision: a remaining required placeholder takes precedence over a real
+    figure, which takes precedence over a state that needs no figure.
+    """
+    requirement_order = list(dict.fromkeys(
+        str(requirement_id).strip()
+        for requirement_id in requirement_id_values
+        if str(requirement_id).strip()
+    ))
+    known_ids = set(requirement_order)
+    records: dict[str, list[Mapping[str, Any]]] = {
+        requirement_id: [] for requirement_id in requirement_order
+    }
+    failures: list[str] = []
+    for index, item in enumerate(visual_evidence, start=1):
+        if not isinstance(item, Mapping):
+            failures.append(f"visual evidence item {index} must be a mapping")
+            continue
+        requirement_id = str(item.get("target_ref", "")).strip()
+        if not requirement_id:
+            failures.append(f"visual evidence item {index} requires target_ref")
+            continue
+        if requirement_id not in known_ids:
+            failures.append(
+                f"visual evidence target_ref {requirement_id} is not a final PRD requirement"
+            )
+            continue
+        decision = str(item.get("coverage_decision", "")).strip()
+        if decision not in VISUAL_COVERAGE_DECISIONS:
+            failures.append(
+                f"visual evidence {requirement_id} has invalid coverage_decision"
+            )
+            continue
+        if not str(item.get("rationale", "")).strip():
+            failures.append(f"visual evidence {requirement_id} requires rationale")
+            continue
+        records[requirement_id].append(item)
+
+    aggregate: dict[str, dict[str, Any]] = {}
+    for requirement_id in requirement_order:
+        items = records[requirement_id]
+        if not items:
+            continue
+        decisions = [str(item["coverage_decision"]).strip() for item in items]
+        rationales = list(dict.fromkeys(
+            str(item["rationale"]).strip() for item in items
+        ))
+        aggregate[requirement_id] = {
+            "decision": max(decisions, key=lambda value: _VISUAL_COVERAGE_PRECEDENCE[value]),
+            "rationales": rationales,
+            "records": items,
+        }
+    return aggregate, failures
+
+
 def asset_digests(root: Path) -> dict[str, str]:
     """Hash deliverable local asset bytes with output-root-relative paths.
 
@@ -209,6 +391,269 @@ def asset_digests(root: Path) -> dict[str, str]:
         if path.is_file() and is_content_asset_relative_path(relative):
             digests[path.relative_to(root).as_posix()] = digest_bytes(path.read_bytes())
     return digests
+
+
+def revision_scope_manifest_digest(manifest: Mapping[str, Any]) -> str:
+    """Return the stable digest used to bind scope evidence to its manifest."""
+    return hashlib.sha256(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def revision_artifact_set_snapshot(
+    root: Path, *, allow_missing_artifacts: bool = False,
+) -> dict[str, Any]:
+    """Describe the Markdown, HTML, and asset bytes covered by a revision attestation.
+
+    Controllers can request an incomplete snapshot while constructing a failed
+    report; final validators use the default and require both derived files.
+    """
+    prd_path = root / "prd.md"
+    html_path = root / "prd.html"
+    if not allow_missing_artifacts and (not prd_path.is_file() or not html_path.is_file()):
+        raise FileNotFoundError("in_place_revision final scope attestation requires prd.md and prd.html")
+    snapshot: dict[str, Any] = {
+        "prd_md_sha256": digest_bytes(prd_path.read_bytes()) if prd_path.is_file() else None,
+        "prd_html_sha256": digest_bytes(html_path.read_bytes()) if html_path.is_file() else None,
+        "assets": asset_digests(root),
+    }
+    snapshot["sha256"] = digest_bytes(
+        json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    )
+    return snapshot
+
+
+def normalize_extraction_selector(value: str) -> str:
+    """Normalize a human source selector without treating punctuation as proof."""
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return re.sub(r"[^\w\u3400-\u9fff]+", "", normalized)
+
+
+def source_requirement_ids(source_text: str) -> list[str]:
+    """Read stable IDs from source headings and requirement-list rows only."""
+    candidates: list[str] = []
+    for line in source_text.splitlines():
+        if not re.match(r"\s*(?:#{1,6}\s+|\|)", line):
+            continue
+        candidates.extend(EXTRACTION_SOURCE_REQUIREMENT_ID_RE.findall(line))
+    return list(dict.fromkeys(candidates))
+
+
+def _source_headings_for_extraction(source_text: str) -> list[tuple[str, str]]:
+    headings: list[tuple[str, str]] = []
+    for raw_heading in re.findall(r"(?m)^#{1,6}\s+(.+?)\s*$", source_text):
+        heading = raw_heading.strip()
+        without_identifier = re.sub(
+            r"^(?:(?:需求|requirement)\s*)?(?:\d+(?:\.\d+)+|[A-Za-z][A-Za-z0-9_-]*-\d+)[.、:：\-\s]*",
+            "",
+            heading,
+            flags=re.IGNORECASE,
+        ).strip()
+        for candidate in (heading, without_identifier):
+            normalized = normalize_extraction_selector(candidate)
+            if normalized:
+                headings.append((normalized, heading))
+    return headings
+
+
+def _source_text_spans_for_extraction(source_text: str) -> list[str]:
+    spans: list[str] = []
+    for line in source_text.splitlines():
+        if re.match(r"\s*#{1,6}\s+", line):
+            continue
+        cleaned = re.sub(r"^\s*(?:[-*+]\s+|\|\s*)", "", line).strip(" |\t")
+        for fragment in re.split(r"[。！？!?；;]+", cleaned):
+            normalized = normalize_extraction_selector(fragment)
+            if normalized:
+                spans.append(normalized)
+    return spans
+
+
+def _is_substantive_extraction_selector(selector: str) -> bool:
+    cjk_count = len(re.findall(r"[\u3400-\u9fff]", selector))
+    latin_words = re.findall(r"[a-z0-9]+", selector, flags=re.IGNORECASE)
+    return cjk_count >= 3 or len("".join(latin_words)) >= 8 or len(latin_words) >= 2
+
+
+def resolve_extraction_scope(
+    source_text: str, selected_scope: Sequence[str],
+) -> tuple[list[dict[str, object]], str | None]:
+    """Resolve each extraction selector against immutable source text.
+
+    The result is intentionally deterministic so the controller and final
+    trace validator can independently invoke the same selector policy against
+    their own source snapshots.
+    """
+    source_ids = set(source_requirement_ids(source_text))
+    headings = _source_headings_for_extraction(source_text)
+    text_spans = _source_text_spans_for_extraction(source_text)
+    resolutions: list[dict[str, object]] = []
+
+    for raw_selector in selected_scope:
+        selector = str(raw_selector).strip()
+        normalized = normalize_extraction_selector(selector)
+        if not normalized:
+            return [], "contains an empty selector"
+
+        ranges = list(EXTRACTION_NUMERIC_REQUIREMENT_RANGE_RE.finditer(selector))
+        if ranges:
+            for match in ranges:
+                start_major, start_minor, end_major, end_minor = map(int, match.groups())
+                if start_major != end_major or start_minor > end_minor:
+                    return [], f"has an invalid requirement-ID range: {selector}"
+                expected = [f"{start_major}.{minor}" for minor in range(start_minor, end_minor + 1)]
+                missing = [item for item in expected if item not in source_ids]
+                if missing:
+                    return [], f"references IDs absent from the source snapshot: {', '.join(missing)}"
+                resolutions.append({"selector": selector, "kind": "requirement_id_range", "matches": expected})
+            continue
+
+        selected_ids = list(dict.fromkeys(EXTRACTION_SOURCE_REQUIREMENT_ID_RE.findall(selector)))
+        if selected_ids:
+            unknown = [item for item in selected_ids if item not in source_ids]
+            if unknown:
+                return [], f"references IDs absent from the source snapshot: {', '.join(unknown)}"
+            resolutions.append({"selector": selector, "kind": "requirement_id", "matches": selected_ids})
+            continue
+
+        matched_headings = {original for candidate, original in headings if candidate and candidate in normalized}
+        if len(matched_headings) == 1:
+            resolutions.append({"selector": selector, "kind": "heading", "matches": sorted(matched_headings)})
+            continue
+        if len(matched_headings) > 1:
+            return [], f"matches multiple source headings: {selector}"
+
+        if _is_substantive_extraction_selector(selector):
+            matched_spans = [
+                span for span in text_spans
+                if normalized in span or (len(span) >= 8 and span in normalized)
+            ]
+            if len(matched_spans) == 1:
+                resolutions.append({
+                    "selector": selector,
+                    "kind": "source_text",
+                    "matches": sorted(set(matched_spans)),
+                })
+                continue
+            if len(matched_spans) > 1:
+                return [], f"matches multiple source text locations: {selector}"
+
+        return [], f"cannot be uniquely resolved against the source snapshot: {selector}"
+    return resolutions, None
+
+
+def _extraction_source_aliases(
+    sources: Mapping[str, str], source_aliases: Mapping[str, Sequence[str]] | None,
+) -> tuple[dict[str, list[str]], str | None]:
+    """Build a normalized, ambiguity-preserving source-name lookup.
+
+    A source ID is the durable qualifier.  Display names are convenience
+    aliases only: duplicate filenames deliberately remain ambiguous rather
+    than silently choosing whichever source happened to be registered first.
+    """
+    aliases: dict[str, list[str]] = {}
+    for raw_source_id, source_text in sources.items():
+        source_id = str(raw_source_id).strip()
+        if not source_id:
+            return {}, "contains an empty source ID"
+        if not isinstance(source_text, str):
+            return {}, f"source {source_id} must contain text"
+        names = [source_id]
+        if source_aliases:
+            configured = source_aliases.get(source_id)
+            if configured is not None:
+                names.extend(str(item).strip() for item in configured if str(item).strip())
+        for name in names:
+            normalized = normalize_extraction_selector(name)
+            if normalized:
+                aliases.setdefault(normalized, []).append(source_id)
+    return aliases, None
+
+
+def _split_multi_source_selector(
+    selector: str, aliases: Mapping[str, Sequence[str]],
+) -> tuple[str | None, str, str | None]:
+    """Return an optional source ID and the source-local selector.
+
+    Only a prefix that matches a known source ID or configured source alias is
+    treated as a qualifier.  A normal heading such as ``5.1: Checkout`` keeps
+    its ordinary single-source meaning instead of becoming an unknown source
+    reference.
+    """
+    match = re.match(r"^\s*(?:\[(?P<bracket>[^\]]+)\]|(?P<plain>[^:：]+))\s*[:：]\s*(?P<body>.+?)\s*$", selector)
+    if not match:
+        return None, selector, None
+    qualifier = (match.group("bracket") or match.group("plain") or "").strip()
+    source_ids = list(aliases.get(normalize_extraction_selector(qualifier), []))
+    if not source_ids:
+        return None, selector, None
+    if len(source_ids) != 1:
+        return None, selector, f"uses an ambiguous source qualifier: {qualifier}"
+    body = match.group("body").strip()
+    if not body:
+        return None, selector, f"has an empty selector after source qualifier: {qualifier}"
+    return source_ids[0], body, None
+
+
+def resolve_multi_source_extraction_scope(
+    sources: Mapping[str, str], selected_scope: Sequence[str], *,
+    source_aliases: Mapping[str, Sequence[str]] | None = None,
+) -> tuple[list[dict[str, object]], str | None]:
+    """Resolve source-qualified or globally unique extraction selectors.
+
+    ``source_id: selector`` explicitly chooses a snapshot.  An unqualified
+    selector is accepted only when exactly one immutable source snapshot can
+    resolve it.  The returned records retain the resolved ``source_id`` and a
+    source-local selector, which lets the controller persist independent
+    per-source lineage and lets the validator re-check each snapshot without
+    relying on a mutable external file path.
+    """
+    aliases, aliases_problem = _extraction_source_aliases(sources, source_aliases)
+    if aliases_problem:
+        return [], aliases_problem
+    if not sources:
+        return [], "has no source snapshots"
+
+    resolutions: list[dict[str, object]] = []
+    for raw_selector in selected_scope:
+        selector = str(raw_selector).strip()
+        if not selector:
+            return [], "contains an empty selector"
+        source_id, local_selector, qualifier_problem = _split_multi_source_selector(selector, aliases)
+        if qualifier_problem:
+            return [], qualifier_problem
+        if source_id is not None:
+            resolved, problem = resolve_extraction_scope(sources[source_id], [local_selector])
+            if problem:
+                return [], f"source {source_id} {problem}"
+            resolutions.extend({"source_id": source_id, **item} for item in resolved)
+            continue
+
+        candidates: list[tuple[str, list[dict[str, object]]]] = []
+        source_problems: list[tuple[str, str]] = []
+        for candidate_id, source_text in sources.items():
+            resolved, problem = resolve_extraction_scope(source_text, [selector])
+            if problem:
+                source_problems.append((candidate_id, problem))
+            else:
+                candidates.append((candidate_id, resolved))
+        if len(candidates) == 1:
+            candidate_id, resolved = candidates[0]
+            resolutions.extend({"source_id": candidate_id, **item} for item in resolved)
+            continue
+        if len(candidates) > 1:
+            candidate_ids = ", ".join(source_id for source_id, _ in candidates)
+            return [], (
+                f"matches more than one extraction source ({candidate_ids}): {selector}; "
+                "qualify it as source-id: selector"
+            )
+        # All sources reject the selector.  Report the first deterministic
+        # reason so users receive the same clarification prompt across runs.
+        if source_problems:
+            source_id, problem = source_problems[0]
+            return [], f"source {source_id} {problem}"
+        return [], f"cannot be uniquely resolved against any source snapshot: {selector}"
+    return resolutions, None
 
 
 def _deduplicate(items: Iterable[str]) -> list[str]:
@@ -1095,6 +1540,198 @@ def _remove_requirement_rows(markdown: str, requirement_ids: set[str]) -> str:
     return re.sub(rf"(?m)^\|\s*(?:{pattern})\s*\|.*(?:\n|$)", "", markdown)
 
 
+def _detail_media_cell_analysis(value: str) -> tuple[bool, bool, str | None]:
+    """Classify a table value that may contain a ``prd-detail-media`` marker.
+
+    A normal ``需求详情`` value can mix a valid marker with its product prose.
+    An auxiliary row is different: after removing one or more valid markers,
+    it contains only whitespace and explicit ``<br>`` separators.  This small
+    distinction lets the constrained merger fix a structural writer error
+    without treating arbitrary prose as disposable layout.
+    """
+    if not DETAIL_MEDIA_PREFIX_RE.search(value):
+        return False, False, None
+    markers = list(DETAIL_MEDIA_RE.finditer(value))
+    if not markers:
+        return True, False, "contains an unterminated prd-detail-media marker"
+    for marker in markers:
+        attributes = marker.group("attributes").replace("“", '"').replace("”", '"')
+        values = {
+            match.group("name").casefold(): match.group("value").strip()
+            for match in DETAIL_MEDIA_ATTRIBUTE_RE.finditer(attributes)
+        }
+        missing = [name for name in ("src", "alt", "copy") if not values.get(name)]
+        if missing:
+            return True, False, (
+                "contains a prd-detail-media marker missing required attribute(s): "
+                + ", ".join(missing)
+            )
+    remainder = DETAIL_MEDIA_RE.sub("", value)
+    remainder = re.sub(r"<br\s*/?>", "", remainder, flags=re.IGNORECASE)
+    return True, not remainder.strip(), None
+
+
+def _replace_detail_media_value(row: str, value: str) -> str:
+    """Replace a validated two-cell row while retaining its line terminator."""
+    cells = _table_cells(row)
+    assert len(cells) == 2
+    if row.endswith("\r\n"):
+        ending = "\r\n"
+    elif row.endswith("\n"):
+        ending = "\n"
+    else:
+        ending = ""
+    return f"| {cells[0]} | {value} |{ending}"
+
+
+def _normalize_detail_media_table(
+    table: Sequence[str], requirement_id: str,
+) -> tuple[list[str], list[str]]:
+    """Move only unambiguous marker-only rows into one detail cell.
+
+    The renderer intentionally expands source markers only from ``需求详情``.
+    A selected-section artifact writer can nevertheless emit a legacy figure,
+    screenshot, or duplicate detail row. Labels are not trusted as an
+    identity: any two-cell row whose value is exclusively valid markers is an
+    auxiliary media row. We transform it only when this table has exactly one
+    substantive canonical detail value to receive it.
+    """
+    media_rows: list[tuple[int, str]] = []
+    primary_detail_rows: list[int] = []
+    failures: list[str] = []
+    for row_index, row in enumerate(table):
+        if _table_separator_row(row):
+            continue
+        cells = _table_cells(row)
+        contains_marker = bool(DETAIL_MEDIA_PREFIX_RE.search(row))
+        is_header = row_index == 0 and len(table) > 1 and _table_separator_row(table[1])
+        if is_header:
+            if contains_marker:
+                failures.append(
+                    f"cannot safely normalize media-only auxiliary row in selected requirement {requirement_id}: "
+                    "a marker must not appear in the table header"
+                )
+            continue
+        if len(cells) != 2:
+            if contains_marker:
+                failures.append(
+                    f"cannot safely normalize media-only auxiliary row in selected requirement {requirement_id}: "
+                    "a marker row must be a two-cell field/value row"
+                )
+            continue
+        label = re.sub(r"\s+", "", cells[0])
+        marker_in_value, media_only, marker_error = _detail_media_cell_analysis(cells[1])
+        if contains_marker and not marker_in_value:
+            failures.append(
+                f"cannot safely normalize media-only auxiliary row in selected requirement {requirement_id}: "
+                "the marker must be in the value cell"
+            )
+            continue
+        if marker_error:
+            failures.append(
+                f"cannot safely normalize media-only auxiliary row in selected requirement {requirement_id}: "
+                + marker_error
+            )
+            continue
+        if marker_in_value and media_only:
+            media_rows.append((row_index, cells[1].strip()))
+            continue
+        if label == "需求详情":
+            # A canonical detail row can legally contain prose plus one or
+            # more media markers. It is the only valid destination for an
+            # auxiliary media-only row.
+            detail_without_markers = DETAIL_MEDIA_RE.sub("", cells[1])
+            detail_without_markers = re.sub(
+                r"<br\s*/?>", "", detail_without_markers, flags=re.IGNORECASE,
+            )
+            if detail_without_markers.strip():
+                primary_detail_rows.append(row_index)
+        elif marker_in_value:
+            failures.append(
+                f"cannot safely normalize media-only auxiliary row in selected requirement {requirement_id}: "
+                "a non-detail row mixes a media marker with substantive content"
+            )
+
+    if not media_rows:
+        return list(table), failures
+    if failures:
+        return list(table), failures
+    if not primary_detail_rows:
+        return list(table), [
+            f"cannot safely normalize media-only auxiliary row in selected requirement {requirement_id}: "
+            "the table has no substantive 需求详情 cell"
+        ]
+    if len(primary_detail_rows) != 1:
+        return list(table), [
+            f"cannot safely normalize media-only auxiliary row in selected requirement {requirement_id}: "
+            "the table has multiple substantive 需求详情 cells"
+        ]
+
+    target_index = primary_detail_rows[0]
+    target_cells = _table_cells(table[target_index])
+    before_target = [value for row_index, value in media_rows if row_index < target_index]
+    after_target = [value for row_index, value in media_rows if row_index > target_index]
+    # Keep the source sequence even when a writer placed a marker-only row
+    # before a detail row that already contains media markers of its own.
+    target_value = "<br>".join(before_target + [target_cells[1].rstrip()] + after_target)
+    normalized = list(table)
+    normalized[target_index] = _replace_detail_media_value(normalized[target_index], target_value)
+    for row_index, _ in reversed(media_rows):
+        del normalized[row_index]
+    return normalized, []
+
+
+def _normalize_selected_detail_media_rows(
+    markdown: str, selected: set[str],
+) -> tuple[str, list[str]]:
+    """Normalize selected-only media-only table rows or fail closed.
+
+    No table outside an explicitly selected requirement is inspected for a
+    rewrite. If one selected table is structurally unsafe, return the original
+    candidate unchanged so the caller can reject the entire constrained merge.
+    """
+    sections = requirement_sections(markdown)
+    replacements: list[tuple[int, int, str]] = []
+    failures: list[str] = []
+    ordered_sections = sorted(
+        (
+            (requirement_id, section)
+            for requirement_id, section in sections.items()
+            if requirement_id in selected
+        ),
+        key=lambda item: int(item[1]["start"]),
+    )
+    for requirement_id, section in ordered_sections:
+        lines = str(section["content"]).splitlines(keepends=True)
+        changed = False
+        index = 0
+        while index < len(lines):
+            if not lines[index].lstrip().startswith("|"):
+                index += 1
+                continue
+            table_start = index
+            while index < len(lines) and lines[index].lstrip().startswith("|"):
+                index += 1
+            table_end = index
+            normalized_table, table_failures = _normalize_detail_media_table(
+                lines[table_start:table_end], requirement_id,
+            )
+            failures.extend(table_failures)
+            if table_failures:
+                continue
+            if normalized_table != lines[table_start:table_end]:
+                lines[table_start:table_end] = normalized_table
+                changed = True
+                index = table_start + len(normalized_table)
+        if changed:
+            replacements.append((int(section["start"]), int(section["end"]), "".join(lines)))
+    if failures:
+        return markdown, failures
+    for start, end, replacement in reversed(replacements):
+        markdown = markdown[:start] + replacement + markdown[end:]
+    return markdown, []
+
+
 def _append_version_history_rows(baseline_markdown: str, rows: Sequence[str]) -> str:
     if not rows:
         return baseline_markdown
@@ -1253,6 +1890,17 @@ def constrain_revision_markdown(
         for item in manifest.get("requirement_ids", [])
         if str(item).strip()
     }
+    candidate_markdown, media_normalization_failures = _normalize_selected_detail_media_rows(
+        candidate_markdown, selected,
+    )
+    if media_normalization_failures:
+        return {
+            "schema_version": 1,
+            "status": "failed",
+            "markdown": baseline_markdown,
+            "failures": media_normalization_failures,
+            "preserved": [],
+        }
     baseline_sections = requirement_sections(baseline_markdown)
     candidate_sections = requirement_sections(candidate_markdown)
     deleted = {

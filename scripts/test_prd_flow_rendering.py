@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import tempfile
 
 from render_prd_html import group_adjacent_flowcharts, inject_defaults, render_markdown_locally
@@ -26,10 +27,11 @@ def main() -> None:
     require("paired_flowcharts_use_div_container", '<div class="prd-flow-grid"' in rendered)
     require("paired_flowcharts_keep_titles", "用户流程图" in rendered and "操作流程图" in rendered)
     renderer_source = Path(__file__).with_name("render_prd_html.py").read_text()
+    flow_grid_rules = re.findall(r"\.prd-flow-grid\s*\{(?P<declarations>[^}]*)\}", renderer_source)
     require(
         "paired_flowcharts_remain_two_columns",
-        "grid-template-columns: repeat(2, minmax(0, 1fr));" in renderer_source
-        and "grid-template-columns: 1fr;" not in renderer_source,
+        any("grid-template-columns: repeat(2, minmax(0, 1fr));" in rule for rule in flow_grid_rules)
+        and all("grid-template-columns: 1fr;" not in rule for rule in flow_grid_rules),
     )
 
     single = '<h4>用户流程图</h4><pre class="mermaid">flowchart TD\nA --> B</pre>'

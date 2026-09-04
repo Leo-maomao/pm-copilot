@@ -14,7 +14,7 @@ BASE_CONTEXT = {
     "baseline_digest": "baseline-v1",
     "runtime_version": "6.2.103",
     "controller_version": "controller-v1",
-    "requested_provider": "seawork",
+    "requested_provider": "legacy-provider",
     "requested_model": "codex/gpt-5.6-terra",
     "failed_artifact": "run-log.yaml",
     "failure_category": "control_plane_unavailable",

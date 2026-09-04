@@ -1,7 +1,5 @@
 # 行为准则
 
-<p align="center"><strong>简体中文</strong> | <a href="docs/en/code-of-conduct.md">English</a></p>
-
 <a id="zh-cn"></a>
 
 PM Copilot 贡献者应保持讨论务实、尊重，并聚焦于把项目改进成更适合产品经理使用的工具。

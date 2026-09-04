@@ -18,10 +18,12 @@ import yaml
 from validate_agent_trace import validate_artifact_lineage
 from validate_outputs import check_readiness_trace
 from run_interactive_request import (
+    CONTROLLER_TRACE_PROVIDER,
     _active_runtime_version,
     _artifact_digest,
     _atomic_copy,
     _artifact_prompt,
+    _build_request_parser,
     _confirmed_delivery,
     _confirmed_scope_fingerprint,
     _artifact_review_prompt,
@@ -32,13 +34,21 @@ from run_interactive_request import (
     _discard_non_content_assets,
     _ensure_runtime_current,
     _finalize_deterministic_trace,
+    _freeze_delivery_runtime_identity,
     _materialize_controller_trace,
+    _implemented_requirement_coverage_review,
     _materialize_revision_evidence,
     _materialize_revision_scope_manifest,
     _migrate_stale_internal_scope_clarification,
     _migrate_legacy_confirmed_revision_scope,
     _normalise_trace_runtime_evidence,
     _prepare_delivery_workspace,
+    _prepare_final_revision_scope_attestation,
+    _refresh_completed_revision_derivatives,
+    _recover_derived_refresh_transaction,
+    _derived_refresh_journal_path,
+    _refresh_final_revision_derivatives,
+    _refresh_tree_snapshot,
     _promote_delivery_workspace,
     _rollback_delivery_promotion,
     _revision_scope_violation,
@@ -47,8 +57,12 @@ from run_interactive_request import (
     _recover_interrupted_delivery,
     _review_artifact,
     _retry_reuse_cache_folder,
+    _runtime_identity,
+    _runtime_identities_match,
+    _state_runtime_identity,
     _snapshot_reusable_delivery_artifacts,
     _trace_lineage,
+    _validate_delivery,
     _validate_staged_revision_scope,
     _write_json,
     _normalise_intake,
@@ -64,6 +78,7 @@ from run_interactive_request import (
     register_extraction_source,
     register_input_assets,
     register_implemented_feature_evidence,
+    run_prd_request_entry,
     run_intake,
     write_discussion,
 )
@@ -91,6 +106,8 @@ class InteractiveRequestTest(unittest.TestCase):
         state["delivery_workspace"] = str(workspace)
         fingerprint = _confirmed_scope_fingerprint(state)
         version = _active_runtime_version()
+        runtime_identity = _runtime_identity()
+        state["active_runtime_identity"] = runtime_identity
         stages: dict[str, dict[str, object]] = {}
         for artifact in ("confirmed-requirements.md", "prd.md"):
             digest = hashlib.sha256((workspace / artifact).read_bytes()).hexdigest()
@@ -101,6 +118,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 "reviewed_sha256": digest,
                 "scope_fingerprint": fingerprint,
                 "pm_copilot_version": version,
+                "runtime_identity": runtime_identity,
             }
         state["delivery_stages"] = stages
         return state, canonical, workspace
@@ -144,18 +162,71 @@ class InteractiveRequestTest(unittest.TestCase):
         state["delivery_stages"] = {"prd.md": {"artifact_status": "promoted"}}
         return state, canonical, workspace
 
-    def test_global_runtime_sync_restarts_the_controller_before_argument_parsing(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            runtime_root = Path(temporary)
-            (runtime_root / "install-state.json").write_text("{}", encoding="utf-8")
-            with patch("run_interactive_request.ROOT", runtime_root), patch(
-                "run_interactive_request.ensure_current", return_value={"status": "synced"},
-            ), patch("run_interactive_request.os.execv") as execute, patch.object(
-                sys, "argv", ["run_interactive_request.py", "--confirm"],
-            ):
-                _ensure_runtime_current()
-        self.assertEqual(execute.call_args.args[0], sys.executable)
-        self.assertEqual(execute.call_args.args[1][1:], [str(Path(__file__).resolve().with_name("run_interactive_request.py")), "--confirm"])
+    def _completed_derivative_refresh_fixture(
+        self, root: Path,
+    ) -> tuple[dict[str, object], Path, Path]:
+        """Create a completed revision plus its controller-retained baseline."""
+        canonical = root / "completed-revision"
+        canonical.mkdir()
+        (canonical / "assets").mkdir()
+        (canonical / "assets" / "selected.png").write_bytes(b"selected asset")
+        baseline = "| 5.1 | Selected behavior |\n\n### 5.1 Selected behavior\nBefore revision.\n"
+        revised = "| 5.1 | Selected behavior |\n\n### 5.1 Selected behavior\nAfter revision.\n"
+        (canonical / "prd.md").write_text(revised, encoding="utf-8")
+        (canonical / "prd.html").write_text("<html><body>old rendered proof</body></html>\n", encoding="utf-8")
+        (canonical / "run-log.yaml").write_text("pm_copilot_revision: controller-deterministic-trace\n", encoding="utf-8")
+        (canonical / "revision-evidence.json").write_text("{}\n", encoding="utf-8")
+        retained_baseline = (
+            canonical.parent
+            / f".{canonical.name}.delivery-stage"
+            / canonical.name
+            / ".revision-baseline"
+            / "prd.md"
+        )
+        retained_baseline.parent.mkdir(parents=True)
+        retained_baseline.write_text(baseline, encoding="utf-8")
+        state = create_state("仅更新 5.1", canonical)
+        state.update({
+            "status": "complete",
+            "termination": "complete",
+            "delivery_variant": "in_place_revision",
+            "revision_requirement_ids": ["5.1"],
+            "revision_history": [{
+                "mode": "in_place_revision",
+                "request": "仅更新 5.1",
+                "prd_before_sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                "html_before_sha256": hashlib.sha256(b"<html><body>before</body></html>\n").hexdigest(),
+                "baseline_requirement_ids": ["5.1"],
+            }],
+            "confirmed_fact_packet": {
+                "summary": "仅更新 5.1",
+                "scope": {"goal": "仅更新 5.1", "in_scope": ["5.1"]},
+                "assumptions": [],
+                "decisions": [],
+                "risks": [],
+            },
+            "user_confirmation": {"confirmed": True, "source": "test"},
+            "delivery_workspace": str(retained_baseline.parents[1]),
+            "revision_scope_manifest": {
+                "schema_version": 1,
+                "baseline": {
+                    "prd_sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                },
+            },
+        })
+        _write_json(canonical / "interactive-run.json", state)
+        return state, canonical, retained_baseline
+
+    def test_repository_runtime_never_synchronizes_a_second_copy(self) -> None:
+        _ensure_runtime_current(["--confirm"], entrypoint="interactive")
+
+    def test_natural_entry_passes_explicit_arguments_to_runtime_sync(self) -> None:
+        argv = ["--request", "生成产品需求文档"]
+        with patch("run_interactive_request._ensure_runtime_current") as sync, patch(
+            "run_interactive_request._resolve_request_plan", return_value=object(),
+        ), patch("run_interactive_request._execute_request_plan", return_value=0):
+            self.assertEqual(run_prd_request_entry(argv), 0)
+        sync.assert_called_once_with(tuple(argv), entrypoint="natural")
 
     def test_delivery_workspace_drops_metadata_without_mutating_canonical_assets(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -421,10 +492,15 @@ class InteractiveRequestTest(unittest.TestCase):
             (folder / "prd.md").write_text("before", encoding="utf-8")
             (folder / "prd.html").write_text("before", encoding="utf-8")
             state = create_state("原需求", folder)
-            state.update({"status": "complete", "artifacts": ["prd.md", "prd.html", "run-log.yaml"]})
+            state.update({
+                "status": "complete", "artifacts": ["prd.md", "prd.html", "run-log.yaml"],
+                "confirmed_fact_packet": {"scope": {"goal": "旧的确认范围"}},
+            })
             revised = begin_in_place_revision(state, "新增一个状态规则")
             self.assertEqual(revised["folder"], str(folder))
             self.assertEqual(revised["status"], "new")
+            self.assertEqual(revised["task_mode"], "prd_revision")
+            self.assertNotIn("confirmed_fact_packet", revised)
             self.assertEqual(revised["revision_history"][-1]["mode"], "in_place_revision")
             self.assertEqual(revised["revision_history"][-1]["prd_before_sha256"], hashlib.sha256(b"before").hexdigest())
 
@@ -729,34 +805,6 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(state["required_input"]["field"], "implementation_evidence")
             self.assertIn("结果文件不存在", state["last_error"])
 
-    def test_controller_trace_records_the_canonical_implemented_evidence_packet(self) -> None:
-        evidence = {
-            "branch_name": "feature/canvas",
-            "diff_commands": ["git diff --stat"],
-            "changed_files": ["src/canvas.ts"],
-            "behavior_evidence": [{"evidence_id": "behavior-1", "observed_behavior": "Canvas saves drafts"}],
-            "validation_evidence": [{"command": "pnpm test", "status": "passed"}],
-        }
-        with tempfile.TemporaryDirectory() as temporary:
-            folder = Path(temporary)
-            source = folder / "input.json"
-            source.write_text(json.dumps(evidence), encoding="utf-8")
-            (folder / "prd.md").write_text("# 已实现功能\n\n### 5.1 保存草稿\n", encoding="utf-8")
-            state = create_state("为已实现功能生成 PRD", folder)
-            state["turns"] = [{
-                "summary": "已确认", "scope": {"goal": "还原已实现功能", "in_scope": ["画布保存"]},
-                "assumptions": [], "risks": [], "buckets": {},
-            }]
-            register_implemented_feature_evidence(state, source)
-
-            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "codex", 1))
-
-            trace = yaml.safe_load((folder / "run-log.yaml").read_text(encoding="utf-8"))
-            packet = trace["implemented_feature_prd"]["evidence_packet"]
-            self.assertEqual(packet["path"], "source-material/implemented-feature-evidence.json")
-            self.assertEqual(packet["sha256"], state["implemented_feature_evidence_source"]["packet_sha256"])
-            self.assertIn(packet["path"], trace["context"]["files_loaded"])
-
     def test_implemented_evidence_rejects_result_references_outside_its_bundle(self) -> None:
         evidence = {
             "branch_name": "feature/canvas",
@@ -813,6 +861,59 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(resumed["termination"], "human_checkpoint")
             self.assertEqual(resumed["extraction_source"]["display_name"], "legacy-prd.md")
             self.assertTrue((folder / "source-material" / "source-prd.md").is_file())
+
+    def test_cli_legacy_extract_to_new_state_migrates_before_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "extraction-run"
+            folder.mkdir()
+            source = root / "legacy-prd.md"
+            source.write_text("# 旧 PRD\n\n### 5.7 结算流程\n", encoding="utf-8")
+            snapshot = folder / "source-material" / "source-prd.md"
+            snapshot.parent.mkdir()
+            snapshot.write_bytes(source.read_bytes())
+            state = create_state("从旧 PRD 提取结算流程，形成独立 PRD", folder)
+            turn = {
+                "turn": 1, "user_text": state["raw_request"], "summary": "已确认提取结算流程",
+                "scope": {"goal": "提取结算流程", "in_scope": ["5.7 结算流程"]},
+                "assumptions": [], "decisions": [], "risks": [], "buckets": {},
+            }
+            state.update({
+                "task_mode": "prd_delivery",
+                "delivery_variant": "extract_to_new",
+                "context_source": {"mode": "document-backed", "files_loaded": ["source-material/source-prd.md"]},
+                "extraction_source": {
+                    "source_path": str(source.resolve()),
+                    "display_name": source.name,
+                    "snapshot_path": "source-material/source-prd.md",
+                    "sha256": hashlib.sha256(snapshot.read_bytes()).hexdigest(),
+                    "selected_scope": [],
+                },
+                "status": "needs_input", "termination": "needs_input", "turns": [turn],
+                "confirmed_fact_packet": json.loads(json.dumps(turn)),
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "required_input": {
+                    "field": "extraction_scope", "question": "请指定范围", "reason": "missing scope",
+                },
+            })
+            _write_json(folder / "interactive-run.json", state)
+
+            with patch("run_interactive_request._ensure_runtime_current"), patch.object(
+                sys, "argv", [
+                    "run_interactive_request.py", "--run-folder", str(folder), "--extract-from", str(source),
+                ],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 3)
+
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["status"], "awaiting_confirmation")
+            self.assertEqual(resumed["task_mode"], "prd_composition")
+            self.assertEqual(resumed["delivery_variant"], "compose_to_new")
+            self.assertEqual(resumed["extraction_source"]["source_id"], "source-1")
+            self.assertEqual(resumed["extraction_sources"][0]["source_id"], "source-1")
+            self.assertEqual(
+                resumed["extraction_sources"][0]["snapshot_path"], "source-material/source-prd.md",
+            )
 
     def test_cli_implemented_evidence_recovers_confirmed_needs_input_to_confirmation(self) -> None:
         evidence = {
@@ -1146,6 +1247,7 @@ class InteractiveRequestTest(unittest.TestCase):
             })
             self.assertTrue(_migrate_legacy_confirmed_revision_scope(state))
             self.assertEqual(state["delivery_variant"], "in_place_revision")
+            self.assertEqual(state["task_mode"], "prd_revision")
             self.assertEqual(state["revision_requirement_ids"], ["5.1"])
             self.assertEqual(state["revision_scope_manifest"]["authority"], "legacy confirmed-fact-packet migration")
             self.assertNotIn("required_input", state)
@@ -1218,19 +1320,43 @@ class InteractiveRequestTest(unittest.TestCase):
             asset.write_bytes(b"current image")
             trace = folder / "run-log.yaml"
             trace.write_text(
-                "pm_copilot_version: 5.0.3\nimplemented_feature_prd:\n"
-                "  screenshots_and_placeholders:\n"
-                "    - target_ref: 5.1\n"
-                "      coverage_decision: real_figure\n"
-                "      path: assets/current.png\n"
-                "      asset_sha256: stale\n",
+                "pm_copilot_version: 5.0.3\nfrontend_figure_evidence:\n"
+                "  - requirement_id: 5.1\n"
+                "    kind: real_capture\n"
+                "    path: assets/current.png\n"
+                "    asset_sha256: stale\n",
                 encoding="utf-8",
             )
             self.assertEqual(_normalise_trace_runtime_evidence(trace), 1)
             text = trace.read_text(encoding="utf-8")
             active_version = (Path(__file__).resolve().parents[1] / "VERSION").read_text(encoding="utf-8").strip()
             self.assertIn(f"pm_copilot_version: {active_version}", text)
+            self.assertEqual(yaml.safe_load(text)["runtime_identity"]["version"], active_version)
             self.assertIn(hashlib.sha256(b"current image").hexdigest(), text)
+
+    def test_runtime_identity_is_process_frozen_and_legacy_identity_is_not_reusable(self) -> None:
+        process_identity = _runtime_identity()
+        later_disk_identity = json.loads(json.dumps(process_identity))
+        later_disk_identity["runtime_manifest"]["files"]["scripts/run_interactive_request.py"] = "f" * 64
+        later_disk_identity["runtime_manifest_sha256"] = "e" * 64
+
+        # Simulate files being replaced after this process imported the
+        # controller. _runtime_identity must not re-capture those later bytes.
+        with patch("run_interactive_request._PROCESS_RUNTIME_IDENTITY", process_identity), patch(
+            "run_interactive_request._capture_runtime_identity", return_value=later_disk_identity,
+        ) as capture:
+            state: dict[str, object] = {}
+            _freeze_delivery_runtime_identity(state)
+            self.assertEqual(_runtime_identity(), process_identity)
+            self.assertEqual(state["active_runtime_identity"], process_identity)
+            capture.assert_not_called()
+
+        legacy_identity = {
+            key: process_identity[key]
+            for key in ("identity_version", "runtime_root", "version", "controller_sha256", "plugin_entry_sha256")
+        }
+        self.assertFalse(_runtime_identities_match(legacy_identity, process_identity))
+        self.assertEqual(_state_runtime_identity({"active_runtime_identity": legacy_identity}), process_identity)
 
     def test_trace_normalisation_refreshes_nested_additional_asset_hash(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1241,11 +1367,11 @@ class InteractiveRequestTest(unittest.TestCase):
             asset.write_bytes(b"secondary image")
             trace = folder / "run-log.yaml"
             trace.write_text(
-                "implemented_feature_prd:\n  screenshots_and_placeholders:\n"
-                "    - target_ref: '5.1'\n      coverage_decision: real_figure\n"
-                "      path: assets/primary.png\n      asset_sha256: pending\n"
-                "      additional_assets:\n        - path: assets/secondary.png\n"
-                "          asset_sha256: pending_controller_hash\n",
+                "frontend_figure_evidence:\n  - requirement_id: '5.1'\n"
+                "    kind: real_capture\n    path: assets/primary.png\n"
+                "    asset_sha256: pending\n    additional_assets:\n"
+                "      - path: assets/secondary.png\n"
+                "        asset_sha256: pending_controller_hash\n",
                 encoding="utf-8",
             )
             _normalise_trace_runtime_evidence(trace)
@@ -1280,7 +1406,7 @@ class InteractiveRequestTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             state = create_state("做一个 PRD", Path(temporary))
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
-            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 15, worker=worker))
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "legacy-provider", 15, worker=worker))
             self.assertEqual(len(calls), 2)
 
     def test_idle_agent_with_an_unchanged_stage_artifact_cannot_promote(self) -> None:
@@ -1292,9 +1418,9 @@ class InteractiveRequestTest(unittest.TestCase):
             state["turns"] = [{"summary": "已澄清", "scope": {}, "assumptions": [], "risks": []}]
 
             def idle_worker(*args, **kwargs):
-                return {"provider": "seawork", "model": "codex/gpt-5.6-terra", "status": "complete", "output": "idle", "error": ""}
+                return {"provider": "legacy-provider", "model": "codex/gpt-5.6-terra", "status": "complete", "output": "idle", "error": ""}
 
-            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 5, worker=idle_worker))
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "legacy-provider", 5, worker=idle_worker))
             self.assertEqual(target.read_text(encoding="utf-8"), "old PRD\n")
             self.assertEqual(len(state["agent_calls"]), 1)
             self.assertEqual(state["delivery_stages"]["prd.md"]["artifact_status"], "failed")
@@ -1334,7 +1460,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 worker_called = True
                 raise AssertionError("controller-owned run-log must not invoke a remote worker")
 
-            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "seawork", 1, worker=worker))
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "legacy-provider", 1, worker=worker))
             self.assertFalse(worker_called)
             trace = (folder / "run-log.yaml").read_text(encoding="utf-8")
             self.assertIn("pm_copilot_revision: controller-deterministic-trace", trace)
@@ -1373,15 +1499,17 @@ class InteractiveRequestTest(unittest.TestCase):
             trace_text = (folder / "run-log.yaml").read_text(encoding="utf-8")
             trace = yaml.safe_load(trace_text)
             lineage = trace["artifact_lineage"]
-            self.assertEqual(lineage["mode"], "extraction_run")
-            self.assertEqual(lineage["source_snapshot_path"], "source-material/source-prd.md")
-            self.assertEqual(lineage["source_prd_display_name"], "legacy-prd.md")
+            self.assertEqual(lineage["mode"], "composition_run")
+            self.assertEqual(len(lineage["source_prds"]), 1)
+            source_record = lineage["source_prds"][0]
+            self.assertEqual(source_record["snapshot_path"], "source-material/source-prd.md")
+            self.assertEqual(source_record["display_name"], "legacy-prd.md")
             self.assertEqual(
-                lineage["source_prd_sha256"],
+                source_record["sha256"],
                 hashlib.sha256(source.read_bytes()).hexdigest(),
             )
-            self.assertEqual(lineage["selected_source_scope"], ["5.7 结算流程"])
-            self.assertEqual(lineage["source_scope_resolution"], [{
+            self.assertEqual(source_record["selected_scope"], ["5.7 结算流程"])
+            self.assertEqual(source_record["scope_resolution"], [{
                 "selector": "5.7 结算流程",
                 "kind": "requirement_id",
                 "matches": ["5.7"],
@@ -1390,9 +1518,45 @@ class InteractiveRequestTest(unittest.TestCase):
                 (folder / "source-material" / "source-prd.md").read_text(encoding="utf-8"),
                 source.read_text(encoding="utf-8"),
             )
-            self.assertEqual(trace["context"]["source_mode"], "document-backed")
-            self.assertIn("source-material/source-prd.md", trace["context"]["product_documents_loaded"])
             self.assertNotIn(str(source.resolve()), trace_text)
+
+    def test_multi_source_composition_requires_unambiguous_source_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "composed-prd"
+            folder.mkdir()
+            first = root / "account.md"
+            second = root / "billing.md"
+            first.write_text("# 账户 PRD\n\n### 5.1 提交规则\n账户管理员提交申请。\n", encoding="utf-8")
+            second.write_text("# 计费 PRD\n\n### 5.1 提交规则\n计费管理员提交申请。\n", encoding="utf-8")
+            state = create_state("从两份旧 PRD 提取规则并生成新 PRD", folder)
+            register_extraction_source(state, first)
+            register_extraction_source(state, second)
+            state["confirmed_fact_packet"] = {
+                "summary": "已确认组合范围",
+                "scope": {"goal": "组合提交规则", "in_scope": ["5.1"]},
+                "assumptions": [], "risks": [],
+            }
+
+            self.assertEqual(state["task_mode"], "prd_composition")
+            self.assertEqual(state["delivery_variant"], "compose_to_new")
+            self.assertEqual([source["source_id"] for source in state["extraction_sources"]], ["source-1", "source-2"])
+            self.assertNotEqual(
+                state["extraction_sources"][0]["snapshot_path"],
+                state["extraction_sources"][1]["snapshot_path"],
+            )
+            self.assertIn("同时匹配多份旧 PRD", _delivery_input_problem(state) or "")
+
+            state["confirmed_fact_packet"]["scope"]["in_scope"] = ["source-1: 5.1", "source-2: 5.1"]
+            self.assertIsNone(_delivery_input_problem(state))
+
+    def test_extract_from_flag_is_repeatable(self) -> None:
+        parser = _build_request_parser()
+        args = parser.parse_args([
+            "--extract-from", "/tmp/account.md",
+            "--extract-from", "/tmp/billing.md",
+        ])
+        self.assertEqual(args.extract_from, [Path("/tmp/account.md"), Path("/tmp/billing.md")])
 
     def test_extraction_scope_must_resolve_in_the_snapshot_before_delivery(self) -> None:
         source_text = (
@@ -1552,6 +1716,9 @@ class InteractiveRequestTest(unittest.TestCase):
         self.assertIn("this Agent writes only prd.md", prompt)
         self.assertIn("The controller renders and validates prd.html", prompt)
         self.assertIn("not a conflict", prompt)
+        self.assertIn("tracking row must name its matching 5.x requirement ID", prompt)
+        self.assertNotIn("Record visual coverage decisions", prompt)
+        self.assertNotIn("in run-log.yaml", prompt)
 
     def test_input_asset_snapshot_survives_temporary_source_cleanup_and_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1797,7 +1964,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 staged_target.write_text("new but unconfirmed PRD\n", encoding="utf-8")
                 return {"provider": provider, "model": "codex/gpt-5.6-terra", "status": "failed", "output": "", "error": "stream disconnected"}
 
-            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 5, worker=reconnecting_worker))
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "legacy-provider", 5, worker=reconnecting_worker))
             self.assertEqual(calls, 2)
             self.assertEqual(target.read_text(encoding="utf-8"), "old PRD\n")
             self.assertEqual(state["delivery_stages"]["prd.md"]["artifact_status"], "failed")
@@ -1814,7 +1981,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 target.write_text("wrong workspace PRD\n", encoding="utf-8")
                 return {"provider": provider, "model": "codex/gpt-5.6-terra", "status": "complete", "output": "idle", "error": ""}
 
-            self.assertFalse(_run_artifact_agent(state, "prd.md", "seawork", 5, worker=wrong_workspace_worker))
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "legacy-provider", 5, worker=wrong_workspace_worker))
             self.assertEqual(target.read_text(encoding="utf-8"), "old PRD\n")
             stage = state["delivery_stages"]["prd.md"]
             self.assertEqual(stage["artifact_status"], "failed")
@@ -1885,11 +2052,11 @@ class InteractiveRequestTest(unittest.TestCase):
 
         def worker(*args, **kwargs):
             observed_models.append(args[4])
-            return {"provider": "seawork", "model": "codex/gpt-5.6-terra", "status": "complete", "output": '{"status":"needs_input","questions":["目标用户？"],"buckets":{"must_answer_before_generation":["target user"]}}', "error": ""}
+            return {"provider": "legacy-provider", "model": "codex/gpt-5.6-terra", "status": "complete", "output": '{"status":"needs_input","questions":["目标用户？"],"buckets":{"must_answer_before_generation":["target user"]}}', "error": ""}
 
         with tempfile.TemporaryDirectory() as temporary:
             state = run_intake(
-                create_state("做一个 PRD", Path(temporary)), "seawork", 1,
+                create_state("做一个 PRD", Path(temporary)), "legacy-provider", 1,
                 worker=worker, model="codex/gpt-5.6-terra",
             )
         self.assertEqual(state["status"], "needs_input")
@@ -2087,6 +2254,90 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertNotIn("legacy: stale", promoted)
             self.assertNotIn(".example.stage-", promoted)
 
+    def test_implemented_coverage_aggregates_visual_states_and_linked_optional_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            prd_path = Path(temporary) / "prd.md"
+            prd_path.write_text(
+                """# 已实现功能
+
+| 详情编号 | 需求名称 |
+| --- | --- |
+| 5.1 | 保存确认 |
+| 5.2 | 失败反馈 |
+
+### 5.1 保存确认
+
+### 5.2 失败反馈
+
+## 六、多语言需求
+
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 保存成功 | 5.2 失败反馈完成后展示 | / |
+
+## 七、埋点需求
+
+| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |
+| --- | --- | --- | --- | --- |
+| 保存确认 | save_confirm | 用户确认保存时 | / | 关联需求 5.1、5.2 |
+""",
+                encoding="utf-8",
+            )
+            coverage = _implemented_requirement_coverage_review(prd_path, {
+                "screenshots_and_placeholders": [
+                    {
+                        "target_ref": "5.1",
+                        "coverage_decision": "real_figure",
+                        "rationale": "确认弹窗的初始状态已捕获。",
+                    },
+                    {
+                        "target_ref": "5.1",
+                        "coverage_decision": "required_placeholder",
+                        "rationale": "失败状态仍需要人工补图。",
+                    },
+                    {
+                        "target_ref": "5.2",
+                        "coverage_decision": "not_required",
+                        "rationale": "该需求没有独立用户可见表面。",
+                    },
+                ],
+            })
+
+            by_requirement = {item["requirement_id"]: item for item in coverage}
+            self.assertEqual(by_requirement["5.1"]["visual_decision"], "required_placeholder")
+            self.assertEqual(by_requirement["5.1"]["visual_evidence_count"], 2)
+            self.assertIn("确认弹窗的初始状态", by_requirement["5.1"]["visual_rationale"])
+            self.assertIn("失败状态仍需要人工补图", by_requirement["5.1"]["visual_rationale"])
+            self.assertEqual(by_requirement["5.1"]["localization_decision"], "not_needed")
+            self.assertEqual(by_requirement["5.2"]["localization_decision"], "included")
+            self.assertEqual(by_requirement["5.1"]["tracking_decision"], "included")
+            self.assertEqual(by_requirement["5.2"]["tracking_decision"], "included")
+
+    def test_implemented_coverage_rejects_unlinked_optional_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            prd_path = Path(temporary) / "prd.md"
+            prd_path.write_text(
+                """| 5.1 | 保存确认 |
+
+### 5.1 保存确认
+
+## 七、埋点需求
+
+| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |
+| --- | --- | --- | --- | --- |
+| 保存确认 | save_confirm | 用户确认保存时 | / | 关联需求 5.1 和不存在的 5.9 |
+""",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "tracking rows must explicitly link"):
+                _implemented_requirement_coverage_review(prd_path, {
+                    "screenshots_and_placeholders": [{
+                        "target_ref": "5.1",
+                        "coverage_decision": "not_required",
+                        "rationale": "该需求没有独立用户可见表面。",
+                    }],
+                })
+
     def test_in_place_revision_trace_is_materialized_without_a_remote_writer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
@@ -2113,7 +2364,7 @@ class InteractiveRequestTest(unittest.TestCase):
             trace = yaml.safe_load(target.read_text(encoding="utf-8"))
             self.assertEqual(trace["artifact_lineage"]["mode"], "in_place_revision")
             self.assertEqual(trace["artifact_lineage"]["revised_requirement_ids"], ["5.1"])
-            self.assertEqual(trace["artifact_lineage"]["revision_evidence_path"], "revision-evidence.json")
+            self.assertTrue(trace["artifact_lineage"]["revision_baseline"])
             self.assertNotIn("legacy", target.read_text(encoding="utf-8"))
             evidence = json.loads((folder / "revision-evidence.json").read_text(encoding="utf-8"))
             self.assertEqual(evidence["controller_scope_ids"], ["5.1"])
@@ -2126,7 +2377,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 worker_called = True
                 raise AssertionError("revision trace must not invoke a remote writer")
 
-            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "seawork", 1, worker=worker))
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "legacy-provider", 1, worker=worker))
             self.assertFalse(worker_called)
             self.assertTrue((folder / "revision-evidence.json").is_file())
             self.assertEqual(
@@ -2138,17 +2389,18 @@ class InteractiveRequestTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
             target = folder / "run-log.yaml"
-            # This mirrors the pre-ledger traces found in existing canonical runs.
+            # This mirrors incomplete historical traces found in existing canonical runs.
             target.write_text("schema_version: 1\n", encoding="utf-8")
             state = create_state("修订 5.1", folder)
             state["revision_history"] = [{"request": "仅修订 5.1", "at": "2026-09-03T00:00:00+00:00"}]
 
             _materialize_controller_trace(state, target)
             text = target.read_text(encoding="utf-8")
-            self.assertIn("agent_task_ledger:", text)
-            self.assertIn("loop_state:", text)
-            self.assertIn("readiness:", text)
-            self.assertNotIn("schema_version: 1", text)
+            trace = yaml.safe_load(text)
+            self.assertNotIn("agent_task_ledger:", text)
+            self.assertIn("specialist_evidence:", text)
+            self.assertIn("pm_arbitration:", text)
+            self.assertNotIn("schema_version", trace)
 
     def test_controller_trace_finalization_never_marks_failed_checks_as_passed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -2167,7 +2419,7 @@ class InteractiveRequestTest(unittest.TestCase):
             trace = yaml.safe_load(target.read_text(encoding="utf-8"))
             self.assertFalse(finalized)
             self.assertIs(trace["quality_decision"]["passed"], False)
-            self.assertNotEqual(trace["termination_condition"]["status"], "complete")
+            self.assertNotEqual(trace["final_status"], "validated controller trace")
             self.assertTrue(all(item["status"] != "passed" for item in trace["validation_results"]))
 
     def test_controller_trace_transitions_from_staging_pre_final_to_final(self) -> None:
@@ -2195,7 +2447,7 @@ class InteractiveRequestTest(unittest.TestCase):
             check_readiness_trace(folder)
             trace = yaml.safe_load((folder / "run-log.yaml").read_text(encoding="utf-8"))
             self.assertIs(trace["quality_decision"]["passed"], True)
-            self.assertEqual(trace["termination_condition"]["status"], "complete")
+            self.assertEqual(trace["final_status"], "validated controller trace")
 
     def test_revision_evidence_is_promoted_with_the_validated_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -2316,7 +2568,7 @@ class InteractiveRequestTest(unittest.TestCase):
 
     def test_non_revision_promotion_discards_stale_revision_evidence(self) -> None:
         """New and extracted deliveries must not reuse a prior revision's proof."""
-        for variant in ("new", "extract_to_new"):
+        for variant in ("new", "compose_to_new"):
             with self.subTest(delivery_variant=variant), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 canonical = root / "pm-copilot-outputs" / "example"
@@ -2384,8 +2636,8 @@ class InteractiveRequestTest(unittest.TestCase):
                 },
             }), encoding="utf-8")
             (workspace / "run-log.yaml").write_text(yaml.safe_dump({
-                "agent_strategy": {"task_mode": "prd_delivery"},
-                "resume_checkpoint": {"task_mode": "prd_delivery"},
+                "agent_strategy": {"task_mode": "prd_revision"},
+                "resume_checkpoint": {"task_mode": "prd_revision"},
                 "artifact_lineage": {
                     "mode": "in_place_revision",
                     "target_prd_path": "prd.md",
@@ -2403,6 +2655,7 @@ class InteractiveRequestTest(unittest.TestCase):
             }, allow_unicode=True, sort_keys=False), encoding="utf-8")
             state = create_state("修订 5.1", canonical)
             state["delivery_variant"] = "in_place_revision"
+            state["task_mode"] = "prd_revision"
             state["delivery_workspace"] = str(workspace)
 
             _promote_delivery_workspace(state)
@@ -2460,73 +2713,6 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(
                 canonical_packet.read_text(encoding="utf-8"),
                 '{"state":"validated staging"}\n',
-            )
-
-    def test_promotion_rejects_a_staged_implemented_evidence_packet_that_no_longer_matches_trace(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            canonical = root / "pm-copilot-outputs" / "example"
-            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
-            canonical.mkdir(parents=True)
-            workspace.mkdir(parents=True)
-            for name, content in {
-                "confirmed-requirements.md": "# confirmed\n",
-                "prd.md": "# current\n",
-                "prd.html": "<!doctype html><html></html>\n",
-            }.items():
-                (workspace / name).write_text(content, encoding="utf-8")
-            (workspace / "assets").mkdir()
-            packet_payload = {"branch_name": "feature/canvas", "changed_files": ["src/canvas.ts"]}
-            staged_packet = workspace / "source-material" / "implemented-feature-evidence.json"
-            staged_packet.parent.mkdir()
-            staged_packet.write_text(json.dumps(packet_payload), encoding="utf-8")
-            expected_digest = hashlib.sha256(staged_packet.read_bytes()).hexdigest()
-            (workspace / "run-log.yaml").write_text(
-                yaml.safe_dump({
-                    "agent_strategy": {"task_mode": "implemented_feature_prd"},
-                    "resume_checkpoint": {"task_mode": "implemented_feature_prd"},
-                    "artifact_lineage": {
-                        "mode": "new_run",
-                        "output_folder_reset": True,
-                        "target_prd_path": "",
-                        "target_html_path": "",
-                        "revision_evidence_path": "",
-                        "revised_requirement_ids": [],
-                        "source_snapshot_path": "",
-                        "source_prd_display_name": "",
-                        "source_prd_sha256": "",
-                        "selected_source_scope": [],
-                        "source_scope_resolution": [],
-                        "historical_artifacts": [],
-                    },
-                    "implemented_feature_prd": {
-                        "active": True,
-                        "mode": "implemented_feature_prd",
-                        **packet_payload,
-                        "evidence_packet": {
-                            "path": "source-material/implemented-feature-evidence.json",
-                            "sha256": expected_digest,
-                            "imported_result_refs": [],
-                        },
-                    },
-                }, allow_unicode=True, sort_keys=False),
-                encoding="utf-8",
-            )
-            canonical_packet = canonical / "source-material" / "implemented-feature-evidence.json"
-            canonical_packet.parent.mkdir()
-            canonical_packet.write_text('{"state":"old canonical"}\n', encoding="utf-8")
-            # Simulate a concurrent staged input mutation after final staging
-            # validation but before the publish transaction begins.
-            staged_packet.write_text('{"state":"tampered staging"}\n', encoding="utf-8")
-            state = create_state("还原已实现功能 PRD", canonical)
-            state["delivery_workspace"] = str(workspace)
-
-            with self.assertRaisesRegex(RuntimeError, "candidate delivery provenance validation failed"):
-                _promote_delivery_workspace(state)
-
-            self.assertEqual(
-                canonical_packet.read_text(encoding="utf-8"),
-                '{"state":"old canonical"}\n',
             )
 
     def test_promotion_retains_only_trace_referenced_tool_results(self) -> None:
@@ -2801,6 +2987,7 @@ class InteractiveRequestTest(unittest.TestCase):
                     "reviewed_sha256": digest,
                     "scope_fingerprint": fingerprint,
                     "pm_copilot_version": _active_runtime_version(),
+                    "runtime_identity": _runtime_identity(),
                 },
             }
             state["revision_scope_validation"] = {
@@ -2809,10 +2996,13 @@ class InteractiveRequestTest(unittest.TestCase):
                 "manifest_sha256": "old-workspace-report",
             }
 
+            # The normal confirmed-delivery entrypoint freezes the process
+            # identity before it snapshots reusable artifacts for a retry.
+            _freeze_delivery_runtime_identity(state)
             _restart_delivery_attempt(state)
             restored = _prepare_delivery_workspace(state)
 
-            report = json.loads((restored / "tool-results" / "revision-scope-validation.json").read_text(encoding="utf-8"))
+            report = json.loads((restored / "tool-results" / "revision-scope-precheck.json").read_text(encoding="utf-8"))
             expected_manifest_sha256 = hashlib.sha256(
                 json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
             ).hexdigest()
@@ -2821,6 +3011,10 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertNotIn("discarded-workspace", json.dumps(report))
             self.assertEqual(state["delivery_stages"]["prd.md"]["reuse_source"], "prior_verified_delivery_workspace")
 
+            with self.assertRaisesRegex(ValueError, "final artifact-set attestation"):
+                _materialize_controller_trace(state, restored / "run-log.yaml")
+            attestation_checks = _prepare_final_revision_scope_attestation(state, restored)
+            self.assertTrue(all(check["status"] == "passed" for check in attestation_checks))
             _materialize_controller_trace(state, restored / "run-log.yaml")
             self.assertEqual(validate_artifact_lineage(restored / "run-log.yaml"), [])
 
@@ -2845,12 +3039,14 @@ class InteractiveRequestTest(unittest.TestCase):
                 self.assertEqual(state["retry_reuse"]["status"], "discarded")
                 self.assertEqual(state["retry_reuse"]["reason"], "scope_or_runtime_changed")
 
-        with self.subTest("runtime version mismatch is never restored"):
+        with self.subTest("runtime identity mismatch is never restored"):
             with tempfile.TemporaryDirectory() as temporary:
                 state, _, _ = self._eligible_retry_reuse_state(Path(temporary))
                 _snapshot_reusable_delivery_artifacts(state)
-                with patch("run_interactive_request._active_runtime_version", return_value="different-runtime"):
-                    restored = _prepare_delivery_workspace(state)
+                changed_identity = dict(state["active_runtime_identity"])
+                changed_identity["controller_sha256"] = "f" * 64
+                state["active_runtime_identity"] = changed_identity
+                restored = _prepare_delivery_workspace(state)
                 self.assertFalse((restored / "confirmed-requirements.md").exists())
                 self.assertFalse((restored / "prd.md").exists())
                 self.assertEqual(state["retry_reuse"]["status"], "discarded")
@@ -2868,6 +3064,240 @@ class InteractiveRequestTest(unittest.TestCase):
                 self.assertFalse((restored / "prd.md").exists())
                 self.assertEqual(state["retry_reuse"]["status"], "discarded")
                 self.assertEqual(state["retry_reuse"]["reason"], "cache_hash_mismatch")
+
+    def test_new_delivery_attempt_discards_same_version_cache_from_a_different_build(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, _, _ = self._eligible_retry_reuse_state(Path(temporary))
+            _snapshot_reusable_delivery_artifacts(state)
+            self.assertEqual(state["retry_reuse"]["status"], "available")
+
+            current_identity = dict(state["active_runtime_identity"])
+            current_identity["controller_sha256"] = "a" * 64
+            with patch("run_interactive_request._runtime_identity", return_value=current_identity):
+                _freeze_delivery_runtime_identity(state)
+                restored = _prepare_delivery_workspace(state)
+
+            self.assertFalse((restored / "confirmed-requirements.md").exists())
+            self.assertFalse((restored / "prd.md").exists())
+            self.assertEqual(state["retry_reuse"]["status"], "discarded")
+            self.assertEqual(state["retry_reuse"]["reason"], "scope_or_runtime_changed")
+
+    def test_prd_repair_refreshes_final_attestation_before_rebuilding_trace(self) -> None:
+        state: dict[str, object] = {}
+        folder = Path("/tmp/revision-stage")
+        passed_checks = [{
+            "command": "revision_scope.attest staged prd.md/prd.html/assets",
+            "status": "passed", "stdout": "", "stderr": "",
+        }]
+        with patch(
+            "run_interactive_request._prepare_final_revision_scope_attestation",
+            return_value=passed_checks,
+        ) as attest, patch(
+            "run_interactive_request._run_artifact_agent", return_value=True,
+        ) as materialize, patch(
+            "run_interactive_request._review_artifact", return_value=(True, ""),
+        ) as review:
+            refreshed, checks, reason = _refresh_final_revision_derivatives(
+                state, folder, "test", 1, lambda *args: {}, None, None,
+            )
+
+        self.assertTrue(refreshed)
+        self.assertEqual(checks, passed_checks)
+        self.assertEqual(reason, "")
+        attest.assert_called_once_with(state, folder)
+        materialize.assert_called_once()
+        self.assertEqual(materialize.call_args.args[1], "run-log.yaml")
+        review.assert_called_once()
+        self.assertEqual(review.call_args.args[1], "run-log.yaml")
+
+    def test_completed_refresh_rejects_mismatched_retained_baseline_without_writing_canonical(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, canonical, retained_baseline = self._completed_derivative_refresh_fixture(Path(temporary))
+            retained_baseline.write_text("tampered baseline\n", encoding="utf-8")
+            canonical_before = _refresh_tree_snapshot(canonical)
+            state_before = json.loads(json.dumps(state, ensure_ascii=False))
+
+            with patch(
+                "run_interactive_request._completed_revision_refresh_problems", return_value=[],
+            ), patch(
+                "run_interactive_request.execute",
+                side_effect=AssertionError("rendered derivative refresh must not invoke a model worker"),
+            ) as execute:
+                refreshed, error, checks = _refresh_completed_revision_derivatives(state)
+
+            self.assertFalse(refreshed)
+            self.assertIn("baseline SHA-256", error)
+            self.assertEqual(checks, [])
+            execute.assert_not_called()
+            self.assertEqual(_refresh_tree_snapshot(canonical), canonical_before)
+            self.assertEqual(state, state_before)
+
+    def test_completed_refresh_uses_controller_trace_without_a_model_worker(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, canonical, _ = self._completed_derivative_refresh_fixture(Path(temporary))
+            observed_trace_calls: list[tuple[str, str | None, object]] = []
+
+            def passed_command(command: list[str]) -> dict[str, object]:
+                return {"command": " ".join(command), "status": "passed", "stdout": "", "stderr": ""}
+
+            def materialize_trace(
+                refresh_state: dict[str, object], artifact: str, provider: str, timeout: int, **kwargs: object,
+            ) -> bool:
+                self.assertEqual(artifact, "run-log.yaml")
+                self.assertEqual(provider, CONTROLLER_TRACE_PROVIDER)
+                self.assertEqual(timeout, 1)
+                observed_trace_calls.append((provider, kwargs.get("model"), kwargs.get("state_path")))
+                return True
+
+            passed_attestation = [{
+                "command": "revision_scope.attest staged prd.md/prd.html/assets",
+                "status": "passed", "stdout": "", "stderr": "",
+            }]
+            with patch(
+                "run_interactive_request._completed_revision_refresh_problems", return_value=[],
+            ), patch(
+                "run_interactive_request._run_validation_command", side_effect=passed_command,
+            ), patch(
+                "run_interactive_request._final_revision_scope_attestation_problems",
+                return_value=({"artifact_set": {"sha256": "source"}}, []),
+            ), patch(
+                "run_interactive_request._prepare_final_revision_scope_attestation",
+                return_value=passed_attestation,
+            ), patch(
+                "run_interactive_request._run_artifact_agent", side_effect=materialize_trace,
+            ), patch(
+                "run_interactive_request._review_artifact", return_value=(True, ""),
+            ), patch(
+                "run_interactive_request._validate_staged_delivery", return_value=passed_attestation,
+            ), patch(
+                "run_interactive_request._finalize_deterministic_trace", return_value=True,
+            ), patch(
+                "run_interactive_request._promote_derived_refresh_workspace", return_value=[],
+            ), patch(
+                "run_interactive_request.execute",
+                side_effect=AssertionError("rendered derivative refresh must not invoke a model worker"),
+            ) as execute:
+                refreshed, error, _ = _refresh_completed_revision_derivatives(state)
+
+            self.assertTrue(refreshed)
+            self.assertEqual(error, "")
+            self.assertEqual(observed_trace_calls, [(CONTROLLER_TRACE_PROVIDER, None, None)])
+            self.assertEqual(state["status"], "complete")
+            self.assertEqual(state["termination"], "complete")
+            self.assertTrue(state["derived_artifact_refreshes"])
+            execute.assert_not_called()
+            self.assertTrue((canonical / "prd.md").is_file())
+
+    def test_completed_refresh_cas_never_overwrites_a_concurrent_canonical_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, canonical, _ = self._completed_derivative_refresh_fixture(Path(temporary))
+            passed = [{"command": "refresh validation", "status": "passed", "stdout": "", "stderr": ""}]
+
+            def passed_command(command: list[str]) -> dict[str, object]:
+                return {"command": " ".join(command), "status": "passed", "stdout": "", "stderr": ""}
+
+            def attest_with_concurrent_change(
+                refresh_state: dict[str, object], folder: Path,
+            ) -> tuple[dict[str, object], list[str]]:
+                if folder.resolve() != canonical.resolve():
+                    (canonical / "prd.md").write_text("external author update\n", encoding="utf-8")
+                return {"artifact_set": {"sha256": "attested"}}, []
+
+            with patch(
+                "run_interactive_request._completed_revision_refresh_problems", return_value=[],
+            ), patch(
+                "run_interactive_request._run_validation_command", side_effect=passed_command,
+            ), patch(
+                "run_interactive_request._final_revision_scope_attestation_problems",
+                side_effect=attest_with_concurrent_change,
+            ), patch(
+                "run_interactive_request._prepare_final_revision_scope_attestation", return_value=passed,
+            ), patch(
+                "run_interactive_request._run_artifact_agent", return_value=True,
+            ), patch(
+                "run_interactive_request._review_artifact", return_value=(True, ""),
+            ), patch(
+                "run_interactive_request._validate_staged_delivery", return_value=passed,
+            ), patch(
+                "run_interactive_request._finalize_deterministic_trace", return_value=True,
+            ), patch(
+                "run_interactive_request._promote_derived_refresh_workspace",
+                side_effect=AssertionError("CAS drift must stop before promotion"),
+            ) as promote:
+                refreshed, error, _ = _refresh_completed_revision_derivatives(state)
+
+            self.assertFalse(refreshed)
+            self.assertIn("canonical PRD changed", error)
+            promote.assert_not_called()
+            self.assertEqual((canonical / "prd.md").read_text(encoding="utf-8"), "external author update\n")
+
+    def test_completed_refresh_recovers_original_after_interrupted_directory_swap(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "example"
+            backup = root / ".example.derived-refresh-backup-test"
+            publish_root = root / ".example.derived-refresh-publishing-test"
+            candidate = publish_root / canonical.name
+            backup.mkdir()
+            publish_root.mkdir()
+            candidate.mkdir()
+            (backup / "prd.md").write_text("original bytes\n", encoding="utf-8")
+            (candidate / "prd.md").write_text("candidate bytes\n", encoding="utf-8")
+            _write_json(_derived_refresh_journal_path(canonical), {
+                "schema_version": 1,
+                "canonical_name": canonical.name,
+                "backup_name": backup.name,
+                "publish_root_name": publish_root.name,
+                "phase": "original_moved",
+            })
+
+            _recover_derived_refresh_transaction(canonical)
+
+            self.assertEqual((canonical / "prd.md").read_text(encoding="utf-8"), "original bytes\n")
+            self.assertFalse(backup.exists())
+            self.assertFalse(publish_root.exists())
+            self.assertFalse(_derived_refresh_journal_path(canonical).exists())
+
+    def test_refresh_validation_uses_the_prd_language(self) -> None:
+        seen: list[list[str]] = []
+
+        def capture(command: list[str]) -> dict[str, object]:
+            seen.append(command)
+            return {"command": " ".join(command), "status": "passed", "stdout": "", "stderr": ""}
+
+        with patch("run_interactive_request._run_validation_command", side_effect=capture):
+            _validate_delivery(Path("/tmp/example"), include_render=False, language="en")
+
+        language_commands = [command for command in seen if "--language" in command]
+        self.assertEqual(len(language_commands), 2)
+        self.assertTrue(all(command[command.index("--language") + 1] == "en" for command in language_commands))
+
+    def test_cli_refresh_rendered_derivatives_rejects_confirm_without_mutating_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            _, canonical, _ = self._completed_derivative_refresh_fixture(Path(temporary))
+            state_path = canonical / "interactive-run.json"
+            before = state_path.read_text(encoding="utf-8")
+
+            with patch(
+                "run_interactive_request._ensure_runtime_current",
+                side_effect=AssertionError("incompatible refresh flags must not update the runtime"),
+            ), patch(
+                "run_interactive_request._refresh_completed_revision_derivatives",
+                side_effect=AssertionError("incompatible refresh flags must not refresh artifacts"),
+            ) as refresh, patch.object(
+                sys,
+                "argv",
+                [
+                    "run_interactive_request.py", "--run-folder", str(canonical),
+                    "--refresh-rendered-derivatives", "--confirm",
+                ],
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    main()
+
+            self.assertEqual(error.exception.code, 2)
+            refresh.assert_not_called()
+            self.assertEqual(state_path.read_text(encoding="utf-8"), before)
 
     def test_quality_decision_validation_failure_regenerates_trace_locally(self) -> None:
         failed_quality_check = [{
@@ -2992,14 +3422,14 @@ class InteractiveRequestTest(unittest.TestCase):
                 "status": "recovery_required",
                 "termination": "retry_required",
                 "restart_delivery": True,
-                "last_error": "Seawork control plane unavailable",
+                "last_error": "legacy provider unavailable",
                 "last_failure_category": "control_plane_unavailable",
                 "recovery": {"failed_stage": "confirmed-requirements.md"},
                 "turns": [{"summary": "已澄清", "scope": {"goal": "稳定目标"}, "assumptions": [], "risks": []}],
                 "confirmed_fact_packet": {"summary": "已澄清", "scope": {"goal": "稳定目标"}, "assumptions": [], "risks": []},
                 "user_confirmation": {"confirmed": True, "source": "test"},
             })
-            decision = _retry_failure_guard_decision(state, "seawork", "codex/gpt-5.6-terra")
+            decision = _retry_failure_guard_decision(state, "legacy-provider", "codex/gpt-5.6-terra")
             state["delivery_failure_history"] = [
                 {"failure_fingerprint": decision["fingerprint"], "outcome": "no_progress"},
                 {"failure_fingerprint": decision["fingerprint"], "outcome": "no_progress"},
@@ -3009,10 +3439,10 @@ class InteractiveRequestTest(unittest.TestCase):
             def worker(*args, **kwargs):
                 nonlocal dispatched
                 dispatched = True
-                return {"provider": "seawork", "model": "codex/gpt-5.6-terra", "status": "failed"}
+                return {"provider": "legacy-provider", "model": "codex/gpt-5.6-terra", "status": "failed"}
 
             _confirmed_delivery(
-                state, "seawork", 1, worker=worker,
+                state, "legacy-provider", 1, worker=worker,
                 model="codex/gpt-5.6-terra",
             )
             self.assertFalse(dispatched)
@@ -3103,8 +3533,9 @@ class InteractiveRequestTest(unittest.TestCase):
                 return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
 
             self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
-            report = json.loads((workspace / "tool-results" / "revision-scope-validation.json").read_text(encoding="utf-8"))
+            report = json.loads((workspace / "tool-results" / "revision-scope-precheck.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "passed")
+            self.assertEqual(report["validation_phase"], "precheck")
             updated = (workspace / "prd.md").read_text(encoding="utf-8")
             self.assertIn("上传节点\n保留上传规则", updated)
             self.assertIn("assets/upload-node.png", updated)
@@ -3142,7 +3573,8 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertIn("updated selected rule", updated)
             self.assertIn("### 5.2 B\nprotected", updated)
             self.assertNotIn("mutated", updated)
-            self.assertEqual(state["revision_scope_validation"]["status"], "passed")
+            self.assertEqual(state["revision_scope_precheck"]["status"], "passed")
+            self.assertNotIn("revision_scope_validation", state)
             self.assertEqual(state["status"], "new")
 
     def test_revision_skips_global_controller_transforms_outside_confirmed_scope(self) -> None:
@@ -3233,6 +3665,8 @@ class InteractiveRequestTest(unittest.TestCase):
                     lineage = _trace_lineage(state, staged_prd)
                     self.assertEqual(lineage["revised_requirement_ids"], [deleted_id])
                     self.assertEqual(lineage["deleted_requirement_ids"], [deleted_id])
+                    attestation_checks = _prepare_final_revision_scope_attestation(state, workspace)
+                    self.assertTrue(all(check["status"] == "passed" for check in attestation_checks))
                     _materialize_revision_evidence(state, workspace / "run-log.yaml")
                     evidence = json.loads((workspace / "revision-evidence.json").read_text(encoding="utf-8"))
                     self.assertEqual(evidence["controller_scope_ids"], [deleted_id])

@@ -1,226 +1,25 @@
 # Direct Use
 
-This is the recommended user experience for product managers.
-
-Instead of manually copying templates and creating task folders, open this repository in an agent workspace and say what you need.
-
-For any PRD request, the agent must route the request through the production
-controller before writing artifacts:
+From this repository, start every PRD request through the canonical controller:
 
 ```bash
-python3 scripts/prd_request_controller.py --request "<request>"
+python3 scripts/prd_request_controller.py --request "为团队成员新增审批提醒功能"
 ```
 
-For a change to an existing PRD, identify its canonical run folder and use:
+The controller pauses for clarification and explicit confirmation where the selected flow requires them. Resume an existing run through its run folder:
 
 ```bash
-python3 scripts/prd_request_controller.py --run-folder "<canonical folder>" --revise --request "<revision>"
+python3 scripts/run_interactive_request.py --run-folder <run-folder> --status
+python3 scripts/run_interactive_request.py --run-folder <run-folder> --answer "<answer>"
+python3 scripts/run_interactive_request.py --run-folder <run-folder> --confirm
 ```
 
-The controller is the only canonical PRD entry. A direct model-written
-`prd.md` without its run state, Agent/model evidence, stage reviews, and final
-validation is not a valid delivery.
-
-## One-Shot Prompt
-
-```text
-<write your product request here>
-
-If important information is missing, ask me first.
-If enough information is available, create `prd.md` and the matching UI deliverable.
-If must-answer questions or unresolved `must confirm before development or launch` blockers exist, stop and wait for my answer before generating downstream artifacts.
-Use my local product context if it exists; otherwise use the example context and mark assumptions.
-Use my request language for headings, labels, statuses, notes, and UI delivery annotations.
-```
-
-The agent should automatically follow `PM_COPILOT.md` and:
-
-- Infer a scenario name and dated ASCII run id, such as `membership-renewal-2026-05-18`.
-- Create all generated run artifacts under `outputs/<run-id>/`.
-- When the feature is already implemented in the current branch, inspect the branch diff, changed files, UI surfaces, screenshots/assets, tests, and validation evidence before asking questions or drafting.
-- Ask must-answer clarification questions before downstream generation.
-- Stop and wait when critical information is missing or an unresolved development/launch confirmation blocks the requested readiness.
-- Generate `prd.md`, a UI deliverable when relevant, optional exports when useful, and an internal run log.
-- Every PRD delivery includes `prd.html`; turning an already implemented branch/current diff into a PRD follows the same rule.
-- Keep confirmed requirement input, clarified answers, source-backed research/reference findings, concise tracking rows, and flow diagrams inside `prd.md`. Keep assumptions, risks, acceptance criteria, validation results, and technical evidence in the run trace or an explicitly requested handoff.
-- For document-class handoffs such as parameter references, API capability catalogs, vendor tables, payment/risk rules, data dictionaries, SOPs/runbooks, or migration inventories, generate `catalog.md` or `reference.md` and optional browser-readable HTML instead of forcing the request into a PRD. Include source facts, product decisions, source/review status, owner, access date, attention points, change log, completeness check, and engineering notes.
-- Treat repository files as current-product context, not as competitor or benchmark research. When external research is unavailable, mark recommendations as assumption-based.
-- For repo-backed UI delivery, read the real host frontend code, component library, styles, icons, assets, route/page/screen files, and render entry before drafting; pass the requirement or target surface into frontend inventory when available; keep host production flows read-only by default.
-- For repo-backed UI delivery, inspect host frontend source, existing rendered surfaces, screenshots, and design-system evidence in read-only mode. Create an annotated portable prototype, flow, or specification under `outputs/<run-id>/`; clearly distinguish observed baseline from proposed behavior and do not add preview routes, delta files, or implementation changes to the host project. `extract_ui_region.py` may preserve an existing rendered region as evidence, but cannot prove that a proposed feature is implemented.
-- Source-backed UI preview handoff must include the changed preview/delta or user-approved implementation files, route/screen/story, and run command. Do not hand off only a localhost URL. Source-extracted HTML handoff must also include the source target, selector, extraction command, region screenshot, generated HTML path, style capture method, asset handling, editable annotation layer, source-change scope, validation report, and limitations. If direct HTML is explicitly requested without source implementation, generate portable HTML only when source-level parity can be limited or source rendering is not required. Offline folder handoffs may use `index.html` as the entry file, but the artifact must still be an interactive HTML prototype, not a screenshot-only page.
-- Product-surface copy should be launch-like and realistic. Do not scatter visible "example", "demo", "not production", or equivalent labels through UI; use annotations, PRD notes, comments, or metadata for delivery boundaries.
-- For repo-backed UI delivery, import/render the original UI as `baseline_import` and add the new feature as `delta_patch`; only the delta patch should carry visible markers, explanation dialogs, backend notes, tracking notes, and edge-case annotations.
-- For UI delivery, use visible red/white borderless component markers, body-only click-open/click-again-close local annotation popovers beside each marker, a short `注释`/`Notes` floating control, and a right-edge full-height current-state annotation panel. Marker popovers must not repeat the number, title/name, or close button. The side panel may include numbered notes and titles, and it should close through its close control or by clicking outside the panel. Required states should be driven by realistic controls or mocked data/API transitions; reviewer state switching controls, if present, stay fixed, collapsed, marked `data-reviewer-only="true"`, and outside the product layout.
-- Run tool preflight and validation when required by `tools/tool-registry.yaml`.
-- Prefer `python3 scripts/run_delivery_checks.py outputs/<run-id> --language <zh|en>` before final delivery.
-- Run browser screenshot/visual diff validation for UI deliverables, including DOM smoke and access-state checks when applicable. Use `validate_prototype_visual.py` for portable HTML; use the host dev/preview/Storybook/simulator path for source-backed previews and `validate_ui_preview.py` when a browser URL or local preview file is available. If Playwright/browser tooling is missing, first run or guide `python3 scripts/setup_visual_validation.py`; skip only when setup fails, the environment forbids browser launch, or the user declines installation.
-- Generate `dev-tasks.yaml` or `launch-decision.yaml` only when you ask for engineering handoff, issue planning, release readiness, or launch decision support.
-
-## Implemented Feature To PRD
-
-Use this when the product or engineering work has already happened and you need a professional PRD package for review or external delivery.
-
-```text
-当前分支已经完成了这个功能。请读取当前分支 diff、相关代码、截图/资源和验证结果，把功能完整还原成中文 PRD Markdown，并生成同目录下可浏览的 `prd.html`。
-
-图片如果还没最终确定，请在对应需求位置放内联占位，后续我人工替换；不要额外放图片列表。
-内容要完整，不要让我再人工查漏补缺。
-```
-
-Expected output:
-
-```text
-outputs/<feature-slug>-YYYY-MM-DD/prd.md
-outputs/<feature-slug>-YYYY-MM-DD/prd.html
-outputs/<feature-slug>-YYYY-MM-DD/assets/        # only when local images/scripts are needed
-outputs/<feature-slug>-YYYY-MM-DD/run-log.yaml
-```
-
-The agent should treat implementation evidence as observed truth and product intent as unverified unless the code, docs, or user confirms it. Keep the evidence/coverage map that links changed files, screenshots, tests, or observed UI behavior to requirement details in `run-log.yaml`, not in the PRD. `prd.html` should read like a normal document with a left table of contents if useful; it should not use decorative cards, mixed module blocks, unusual background colors, or nested scroll containers. Images and placeholders belong inline at the relevant requirement or table row, and Mermaid diagrams should render correctly.
-
-Use `templates/implemented-feature-prd-template.md` as the default structure and generate or refresh HTML with:
+For composition, repeat the source argument and use source-qualified selectors:
 
 ```bash
-python3 scripts/render_prd_html.py outputs/<run-id>
+python3 scripts/prd_request_controller.py --request "组合已选需求生成新 PRD" \
+  --extract-from docs/a/prd.md --extract-from docs/b/prd.md \
+  --answers "source-1: 5.2; source-2: 5.4"
 ```
 
-When a screenshot is missing in a Chinese PRD, insert only this block at the exact requirement position:
-
-Use a real local image only when it clarifies a requirement, for example `![资料卡片-加载中](./assets/资料卡片-加载中.png)`. Name screenshots by content and concrete state, such as `资料卡片-加载中.png` or `资料卡片-加载失败.png`, not `资料卡片-状态.png`. If no trusted rendered source exists, omit the figure row and record the limitation in the run trace.
-
-## Direct Entry
-
-The canonical entry is:
-
-```text
-PM_COPILOT.md
-```
-
-If your agent does not automatically inspect repository instructions, tell it to read `PM_COPILOT.md` before handling the request.
-
-When using PM Copilot from inside another repository, prefer the explicit prompt `按仓库内 pm-copilot/PM_COPILOT.md 工作流产出 PRD`. If you write `@pm-copilot`, it means the local PM Copilot folder and should not trigger external tool or agent discovery.
-
-If PM Copilot is nested inside another development repository, use `docs/embedded-use.md` and the adapter templates in `adapters/`.
-
-For one-command adapter installation, run:
-
-```bash
-python3 scripts/install_adapter.py --host /path/to/host-repo --tool all
-```
-
-Avoid putting PM Copilot's full workflow into the root `AGENTS.md` of an unrelated software repository. Use a small delegation adapter instead.
-
-## Recommended Workspace Setup
-
-Put `pm-copilot` in a place your agent can access, for example:
-
-```text
-/Users/<you>/Desktop/product_manage/pm-copilot
-```
-
-Then open the folder in your agent environment.
-
-## Using Product Documents Instead of a Repository
-
-You can use PM Copilot without a software repository. Put relevant product documents in the workspace or attach them in the agent conversation, then ask for the PRD and UI deliverable.
-
-Good context sources include:
-
-- Historical PRDs, specs, release notes, and roadmap docs
-- Screenshots, wireframes, UI delivery notes, and UX review notes
-- Research summaries, customer feedback, support tickets, and meeting notes
-- Analytics exports, KPI definitions, and tracking plans
-- Business rules, pricing notes, compliance constraints, and rollout plans
-
-The agent should treat those documents as current product context, ask must-answer questions if they do not answer core product-fit questions, and wait before downstream generation when critical context is missing.
-
-## Optional Product Context
-
-For better results, create:
-
-```text
-context/product-context.local.yaml
-```
-
-You do not need to do this before the first run. If it is missing, the agent should use the example context and mark assumptions.
-
-For long-term use, create memory files from the examples:
-
-```text
-context/product-memory.local.yaml
-context/user-preferences.local.yaml
-context/decision-log.local.yaml
-```
-
-These files let PM Copilot remember stable product facts, your writing/UI-delivery preferences, and durable product decisions. They are ignored by Git.
-
-## Expected Flow
-
-```text
-User gives request
--> Agent reads PM_COPILOT.md directly or through an adapter
--> Agent loads workflow, guardrails, contracts, and context
--> Agent asks high-impact clarification questions before generation
--> User answers or explicitly says to proceed as a draft with assumption or confirmation risk
--> Agent creates PRD/UI-delivery outputs, or structured reference/document prototype outputs, under one run folder
--> Agent checks delivery consistency
--> Agent returns artifact paths and blockers
-```
-
-When `scripts/validate_outputs.py` is available, the final check should include the generated output folder:
-
-```bash
-python3 scripts/preflight_tools.py
-python3 scripts/run_delivery_checks.py outputs/<run-id> --language zh
-```
-
-For explicit self-iteration or benchmark runs where you ask the agent to choose recommended defaults, the agent should still generate the full `prd.md`, UI deliverable, and `run-log.yaml` for each round, record the default choices in the run log, and keep unresolved launch or sensitive approvals visible.
-
-If you ask for unattended development handoff, PM Copilot can generate issue-ready task candidates, but blocked work remains blocked. If you ask for unattended launch decision support, PM Copilot can generate a conservative gate result; it cannot approve launch-sensitive gates from defaults.
-
-## Upgrade Existing Outputs
-
-Use the release upgrader when local output folders need the current run-id convention and HTML renderer. It changes only mechanical metadata and rendered HTML; it does not invent missing product facts or rewrite historical requirements.
-
-```bash
-python3 scripts/upgrade_local_outputs.py --roots /Users/<you>/Desktop --apply
-```
-
-To refresh source files into embedded local copies while preserving each copy's `outputs/` and `context/*.local.yaml` files:
-
-```bash
-python3 scripts/sync_embedded_copies.py --roots /Users/<you>/Desktop --apply
-```
-
-Use `--force-dirty` only after reviewing intentionally modified Git copies.
-
-## Example
-
-```text
-We want to improve the H5 membership auto-renewal experience. Users say renewal reminders are unclear, the cancellation entry is hard to find, and support tickets are increasing.
-
-If you need current billing rules, reminder timing, cancellation paths, support scripts, legal requirements, or metric definitions, ask me first.
-```
-
-Expected generated paths:
-
-```text
-outputs/membership-renewal/prd.md
-outputs/membership-renewal/prototype-h5.html
-outputs/membership-renewal/run-log.yaml
-```
-
-If the same requirement already exists, the agent must identify its canonical
-run folder and revise it in place. It must never create a collision-suffixed
-`-2`, `-3`, or parallel copy for the same requirement.
-
-## When to Prepare Extra Context
-
-Extra setup is still useful when:
-
-- You want to prepare a carefully written task brief before running the agent.
-- You are building regression evals.
-- You want to compare outputs across multiple agent platforms.
-- You want a continuous-improvement scorecard from `python3 scripts/agent_improvement_scorecard.py`.
-
-In those cases, put the extra source material in the workspace and reference it in the request. The default delivery should still be `prd.md` plus a UI deliverable unless you ask for a specific export.
+The generated run folder is the only delivery location. PM Copilot reads host projects as evidence and never writes into their product source tree.

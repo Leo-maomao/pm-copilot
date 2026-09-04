@@ -4,16 +4,30 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import hashlib
 import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 
-RUNTIME_HOME = Path(os.environ.get("PM_COPILOT_HOME", str(Path.home() / ".agents" / "pm-copilot"))).expanduser()
-CONTROLLER = RUNTIME_HOME / "scripts" / "run_interactive_request.py"
+# A plugin cache is not a writable or authoritative PM Copilot runtime. The
+# host must select a source checkout explicitly; neither a legacy installation
+# variable nor the MCP process working directory is a valid substitute.
+_REPOSITORY_ENV = "PM_COPILOT_REPOSITORY"
+
+
+def _selected_runtime_home() -> Path | None:
+    selected = os.environ.get(_REPOSITORY_ENV, "").strip()
+    return Path(selected).expanduser() if selected else None
+
+
+RUNTIME_HOME = _selected_runtime_home()
+CONTROLLER = RUNTIME_HOME / "scripts" / "run_interactive_request.py" if RUNTIME_HOME else None
 WRAPPER_SCRIPT = Path(__file__).resolve()
 _CACHE_PATH_MARKER = (".codex", "plugins", "cache")
 
@@ -30,12 +44,58 @@ def _resolved_path(path: Path) -> Path:
         return path.expanduser().absolute()
 
 
+def _is_plugin_cache_path(path: Path) -> bool:
+    parts = path.parts
+    marker_length = len(_CACHE_PATH_MARKER)
+    return any(
+        parts[index:index + marker_length] == _CACHE_PATH_MARKER
+        for index in range(len(parts) - marker_length + 1)
+    )
+
+
+def _runtime_checkout_error(runtime_home: Path | None) -> str | None:
+    """Return a diagnostic when the selected runtime is not a source checkout."""
+    if runtime_home is None:
+        return (
+            "PM Copilot checkout is not configured. Set PM_COPILOT_REPOSITORY "
+            "to an explicit PM Copilot repository checkout."
+        )
+
+    runtime_path = _resolved_path(runtime_home)
+    if _is_plugin_cache_path(runtime_path):
+        return (
+            "PM_COPILOT_REPOSITORY must point to a source checkout, not a "
+            f"Codex plugin cache: {runtime_path}"
+        )
+
+    required_paths = (
+        ".git",
+        "PM_COPILOT.md",
+        "scripts/run_interactive_request.py",
+        "plugins/pm-copilot/scripts/pm_copilot_mcp.py",
+    )
+    missing = [relative for relative in required_paths if not (runtime_path / relative).exists()]
+    if missing:
+        return (
+            "PM_COPILOT_REPOSITORY must point to a PM Copilot repository checkout "
+            f"with {', '.join(missing)}: {runtime_path}"
+        )
+    return None
+
+
 def _read_optional_version(path: Path) -> str | None:
     try:
         value = path.read_text(encoding="utf-8").strip()
     except OSError:
         return None
     return value or None
+
+
+def _file_sha256(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
 
 
 def _cache_wrapper_version(path: Path) -> str | None:
@@ -57,7 +117,7 @@ def _cache_wrapper_version(path: Path) -> str | None:
 
 
 def _plugin_manifest_version(path: Path) -> str | None:
-    manifest = path.parent.parent / ".codex-plugin" / "plugin.json"
+    manifest = _plugin_manifest_path(path)
     try:
         payload = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -69,6 +129,10 @@ def _plugin_manifest_version(path: Path) -> str | None:
     return version or None
 
 
+def _plugin_manifest_path(path: Path) -> Path:
+    return path.parent.parent / ".codex-plugin" / "plugin.json"
+
+
 def _version_base(version: str | None) -> str | None:
     if not version:
         return None
@@ -76,40 +140,155 @@ def _version_base(version: str | None) -> str | None:
     return value or None
 
 
+def _wrapper_identity(path: Path) -> dict[str, Any]:
+    """Describe the exact bridge code that is safe to dispatch through."""
+    script_path = _resolved_path(path)
+    cache_version = _cache_wrapper_version(script_path)
+    manifest_path = _plugin_manifest_path(script_path)
+    manifest_version = _plugin_manifest_version(script_path)
+    plugin_version = manifest_version or cache_version
+    return {
+        "script_path": str(script_path),
+        "script_sha256": _file_sha256(script_path),
+        "plugin_manifest_path": str(_resolved_path(manifest_path)),
+        "plugin_manifest_sha256": _file_sha256(manifest_path),
+        "plugin_version": plugin_version,
+        "plugin_version_source": (
+            "plugin_manifest" if manifest_version else "cache_path" if cache_version else None
+        ),
+        "is_persistent_cache": cache_version is not None,
+    }
+
+
+# This is intentionally captured once. Codex may replace or delete the cache
+# directory while the stdio process remains alive, but that cannot replace the
+# Python code already loaded by this process.
+_INITIAL_WRAPPER_SCRIPT = WRAPPER_SCRIPT
+_LOADED_WRAPPER_IDENTITY = _wrapper_identity(WRAPPER_SCRIPT)
+
+
+def _loaded_wrapper_identity() -> dict[str, Any]:
+    """Return the process-start identity, with a small test seam for path mocks."""
+    if WRAPPER_SCRIPT != _INITIAL_WRAPPER_SCRIPT:
+        return _wrapper_identity(WRAPPER_SCRIPT)
+    return dict(_LOADED_WRAPPER_IDENTITY)
+
+
+def _canonical_wrapper_identity(runtime_home: Path) -> dict[str, Any]:
+    runtime_path = _resolved_path(runtime_home)
+    identity = _wrapper_identity(
+        runtime_path / "plugins" / "pm-copilot" / "scripts" / "pm_copilot_mcp.py"
+    )
+    identity["runtime_path"] = str(runtime_path)
+    identity["runtime_version"] = _read_optional_version(runtime_path / "VERSION")
+    return identity
+
+
+def _dispatch_mismatch_reasons(
+    wrapper: dict[str, Any], canonical: dict[str, Any],
+) -> list[str]:
+    """Return proof that a persistent bridge cannot safely launch delivery."""
+    if not wrapper.get("is_persistent_cache"):
+        return []
+
+    reasons: list[str] = []
+    if not wrapper.get("script_sha256"):
+        reasons.append("loaded_wrapper_content_unavailable")
+    if not wrapper.get("plugin_version"):
+        reasons.append("loaded_wrapper_build_unavailable")
+    if not wrapper.get("plugin_manifest_sha256"):
+        reasons.append("loaded_wrapper_manifest_unavailable")
+    if not canonical.get("script_sha256"):
+        reasons.append("canonical_wrapper_content_unavailable")
+    if not canonical.get("plugin_version"):
+        reasons.append("canonical_wrapper_build_unavailable")
+    if not canonical.get("plugin_manifest_sha256"):
+        reasons.append("canonical_wrapper_manifest_unavailable")
+    if not canonical.get("runtime_version"):
+        reasons.append("canonical_runtime_version_unavailable")
+
+    if reasons:
+        return reasons
+
+    if wrapper["script_sha256"] != canonical["script_sha256"]:
+        reasons.append("wrapper_content_mismatch")
+    if wrapper["plugin_manifest_sha256"] != canonical["plugin_manifest_sha256"]:
+        reasons.append("wrapper_manifest_mismatch")
+    if wrapper["plugin_version"] != canonical["plugin_version"]:
+        reasons.append("wrapper_build_mismatch")
+    if _version_base(str(wrapper["plugin_version"])) != canonical["runtime_version"]:
+        reasons.append("wrapper_runtime_version_mismatch")
+    return reasons
+
+
 def _runtime_provenance() -> tuple[dict[str, Any], bool]:
     """Report the loaded wrapper and the runtime that it will dispatch to.
 
-    Codex keeps MCP processes alive across plugin-cache refreshes. A cached
-    wrapper can therefore outlive the bundle on disk while continuing to
-    delegate to the global runtime. The signal is informational: delivery
-    dispatch remains unchanged.
+    Codex keeps MCP processes alive across plugin-cache refreshes. The loaded
+    cache bridge must exactly match the installed canonical bridge before it
+    can initiate a mutating controller invocation. A status query remains
+    diagnostic and never dispatches a controller when a restart is needed.
     """
-    wrapper_path = _resolved_path(WRAPPER_SCRIPT)
-    cache_version = _cache_wrapper_version(wrapper_path)
-    manifest_version = _plugin_manifest_version(wrapper_path)
-    wrapper_version = manifest_version or cache_version
-    wrapper_version_source = (
-        "plugin_manifest" if manifest_version else "cache_path" if cache_version else None
-    )
-    runtime_path = _resolved_path(RUNTIME_HOME)
-    runtime_version = _read_optional_version(runtime_path / "VERSION")
-    is_cached_wrapper = cache_version is not None
-    restart_required = bool(
-        is_cached_wrapper
-        and _version_base(wrapper_version)
-        and runtime_version
-        and _version_base(wrapper_version) != _version_base(runtime_version)
-    )
+    wrapper = _loaded_wrapper_identity()
+    configuration_error = _runtime_checkout_error(RUNTIME_HOME)
+    if configuration_error:
+        runtime_path = _resolved_path(RUNTIME_HOME) if RUNTIME_HOME is not None else None
+        return {
+            "wrapper": wrapper,
+            "canonical_runtime": {
+                "path": str(runtime_path) if runtime_path is not None else None,
+                "version": _read_optional_version(runtime_path / "VERSION") if runtime_path else None,
+                "plugin": {
+                    "script_path": None,
+                    "script_sha256": None,
+                    "plugin_manifest_path": None,
+                    "plugin_manifest_sha256": None,
+                    "plugin_version": None,
+                    "plugin_version_source": None,
+                },
+            },
+            "selection": {
+                "environment_variable": _REPOSITORY_ENV,
+                "configured": RUNTIME_HOME is not None,
+                "checkout_valid": False,
+                "error": configuration_error,
+            },
+            "dispatch": {
+                "current": False,
+                "restart_required": False,
+                "mismatch_reasons": [],
+                "configuration_error": configuration_error,
+            },
+        }, False
+
+    assert RUNTIME_HOME is not None
+    canonical = _canonical_wrapper_identity(RUNTIME_HOME)
+    mismatch_reasons = _dispatch_mismatch_reasons(wrapper, canonical)
+    restart_required = bool(mismatch_reasons)
     return {
-        "wrapper": {
-            "script_path": str(wrapper_path),
-            "plugin_version": wrapper_version,
-            "plugin_version_source": wrapper_version_source,
-            "is_persistent_cache": is_cached_wrapper,
-        },
+        "wrapper": wrapper,
         "canonical_runtime": {
-            "path": str(runtime_path),
-            "version": runtime_version,
+            "path": canonical["runtime_path"],
+            "version": canonical["runtime_version"],
+            "plugin": {
+                key: canonical[key]
+                for key in (
+                    "script_path", "script_sha256", "plugin_manifest_path",
+                    "plugin_manifest_sha256", "plugin_version", "plugin_version_source",
+                )
+            },
+        },
+        "selection": {
+            "environment_variable": _REPOSITORY_ENV,
+            "configured": True,
+            "checkout_valid": True,
+            "error": None,
+        },
+        "dispatch": {
+            "current": not restart_required,
+            "restart_required": restart_required,
+            "mismatch_reasons": mismatch_reasons,
+            "configuration_error": None,
         },
     }, restart_required
 
@@ -172,6 +351,61 @@ def _load_run(run_folder: str) -> tuple[Path, dict[str, Any]]:
     return folder, state
 
 
+def _write_json(path: Path, value: dict[str, Any]) -> None:
+    """Replace a run checkpoint without exposing partially-written JSON."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False,
+    ) as temporary:
+        temporary.write(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+        temporary.flush()
+        os.fsync(temporary.fileno())
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(path)
+
+
+def _controller_pid_alive(state: dict[str, Any]) -> bool:
+    """Return whether the controller recorded for an active delivery exists."""
+    try:
+        os.kill(int(state.get("controller_pid")), 0)
+        return True
+    except (TypeError, ValueError, ProcessLookupError, PermissionError):
+        return False
+
+
+def _recover_interrupted_delivery(state: dict[str, Any], folder: Path) -> bool:
+    """Mirror the controller's dead-lease recovery before reporting status.
+
+    A controller normally performs this repair at startup. The MCP bridge must
+    do it too because status polling can be the only remaining entry point
+    after a controller process exits unexpectedly.
+    """
+    if (
+        state.get("status") not in {"delivery", "confirmed"}
+        or state.get("termination") != "running"
+        or _controller_pid_alive(state)
+    ):
+        return False
+
+    raw_pid = state.get("controller_pid")
+    promoted = [
+        name
+        for name in ("confirmed-requirements.md", "prd.md", "prd.html", "run-log.yaml")
+        if (folder / name).is_file()
+    ]
+    state["status"] = "recovery_required"
+    state["termination"] = "interrupted"
+    state["last_error"] = "controller process exited during delivery; prior running state was recovered"
+    state["recovery"] = {
+        "status": "retry_required",
+        "detected_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "controller_pid": raw_pid,
+        "promoted_artifacts": promoted,
+        "retry_entry": "--confirm",
+    }
+    return True
+
+
 def _legacy_interruption(folder: Path, state: dict[str, Any]) -> dict[str, Any] | None:
     """Detect the pre-checkpoint controller inconsistency without mutating a run."""
     if state.get("status") != "awaiting_confirmation" or state.get("user_confirmation"):
@@ -190,6 +424,8 @@ def _legacy_interruption(folder: Path, state: dict[str, Any]) -> dict[str, Any] 
 
 def run_summary(run_folder: str) -> dict[str, Any]:
     folder, state = _load_run(run_folder)
+    if _recover_interrupted_delivery(state, folder):
+        _write_json(folder / "interactive-run.json", state)
     recovery = state.get("recovery") or _legacy_interruption(folder, state)
     status = "recovery_required" if recovery and state.get("status") == "awaiting_confirmation" else state.get("status")
     runtime_provenance, runtime_restart_required = _runtime_provenance()
@@ -225,8 +461,36 @@ def run_summary(run_folder: str) -> dict[str, Any]:
 
 def _invoke(run_folder: str, extra_args: list[str]) -> dict[str, Any]:
     folder, _ = _load_run(run_folder)
-    if not CONTROLLER.is_file():
-        return _error(f"PM Copilot runtime controller not found: {CONTROLLER}")
+    runtime_provenance, restart_required = _runtime_provenance()
+    configuration_error = runtime_provenance["dispatch"]["configuration_error"]
+    if configuration_error:
+        return {
+            "ok": False,
+            "error": configuration_error,
+            "error_code": "checkout_not_configured" if RUNTIME_HOME is None else "checkout_invalid",
+            "runtime_restart_required": False,
+            "runtime_provenance": runtime_provenance,
+        }
+    if restart_required:
+        reasons = runtime_provenance["dispatch"]["mismatch_reasons"]
+        return {
+            "ok": False,
+            "error": (
+                "PM Copilot plugin restart required before a mutating request: "
+                + ", ".join(reasons)
+                + ". This persistent MCP process was loaded from an older or "
+                "unverifiable plugin build; reload/restart the PM Copilot plugin once, then retry."
+            ),
+            "error_code": "restart_required",
+            "runtime_restart_required": True,
+            "runtime_provenance": runtime_provenance,
+        }
+    if CONTROLLER is None or not CONTROLLER.is_file():
+        return _error(
+            "PM Copilot checkout controller is unavailable. Verify that "
+            "PM_COPILOT_REPOSITORY points to the selected checkout."
+        )
+    assert RUNTIME_HOME is not None
     result = subprocess.run(
         [sys.executable, str(CONTROLLER), "--run-folder", str(folder), *extra_args],
         cwd=RUNTIME_HOME,
@@ -274,7 +538,7 @@ def confirm_delivery(run_folder: str) -> dict[str, Any]:
 TOOLS = [
     {
         "name": "prd_run_status",
-        "description": "Read the canonical controller state for an interactive PRD run before reporting progress to the user.",
+        "description": "Read the canonical controller state for an interactive PRD run, recovering a dead controller lease before reporting progress.",
         "inputSchema": {"type": "object", "properties": {"run_folder": {"type": "string"}}, "required": ["run_folder"], "additionalProperties": False},
     },
     {

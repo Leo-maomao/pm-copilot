@@ -1,5 +1,0 @@
-{
-  "id": "localization-and-tracking",
-  "required_text": ["多语言需求", "积分管理", "订阅管理", "订单管理", "错误原因：{reason}", "埋点需求", "login_click", "附加参数", "需求详情"],
-  "forbidden_text": ["积分管理 / 订阅管理 / 订单管理", "技术方案", "拟议", "风险 / 待确认项", "验收结果"]
-}

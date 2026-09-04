@@ -1,417 +1,124 @@
 #!/usr/bin/env python3
-"""Regression tests for trace parsing and durable PRD lineage validation."""
+"""Regression coverage for the compact PRD delivery trace."""
+
+from __future__ import annotations
 
 import hashlib
-import json
 import tempfile
 import unittest
 from pathlib import Path
 
 import yaml
 
-from validate_agent_trace import (
-    field_has_list_item,
-    list_field_values,
-    mapping_item_blocks,
-    nested_section_text,
-    scalar_value,
-    validate_artifact_lineage,
-    validate_implemented_feature_evidence_packet,
-)
+from run_interactive_request import _runtime_identity
+from validate_agent_trace import validate_artifact_lineage, validate_run_log
 
 
-class TraceBlockListTests(unittest.TestCase):
-    def test_same_indent_sequence_is_a_mapping_value(self) -> None:
-        text = "agent_strategy:\n  success_criteria:\n  - complete delivery\n  goal: keep scope bounded\n"
-        self.assertTrue(field_has_list_item(text, "success_criteria"))
-
-    def test_nested_section_keeps_same_indent_sequence(self) -> None:
-        text = "review_loop:\n  finding_closures:\n  - finding: safety\n    disposition: fixed\n  final_recommendation: blocked\n"
-        closures = nested_section_text(text, "finding_closures")
-        self.assertEqual(len(mapping_item_blocks(closures, "finding")), 1)
-
-    def test_root_sequence_mapping_blocks_are_all_found(self) -> None:
-        text = "- id: DEC-ONE\n  decision: first\n- id: DEC-TWO\n  decision: second\n"
-        self.assertEqual(len(mapping_item_blocks(text, "id")), 2)
-
-    def test_folded_plain_scalars_preserve_exact_review_finding(self) -> None:
-        text = (
-            "critical_or_high_findings:\n"
-            "- Required product, engineering, privacy, security, legal, payment, launch, and\n"
-            "  independent validation decisions remain unapproved.\n"
-            "finding_closures:\n"
-            "- finding: Required product, engineering, privacy, security, legal, payment, launch,\n"
-            "    and independent validation decisions remain unapproved.\n"
-        )
-        expected = "Required product, engineering, privacy, security, legal, payment, launch, and independent validation decisions remain unapproved."
-        self.assertEqual(list_field_values(text, "critical_or_high_findings"), [expected])
-        self.assertEqual(scalar_value(mapping_item_blocks(text, "finding")[0], "finding"), expected)
+def trace_for(mode: str = "new_prd") -> dict[str, object]:
+    lineage_mode = {
+        "new_prd": "new_run",
+        "implemented_feature_prd": "implemented_feature_run",
+        "prd_revision": "in_place_revision",
+        "prd_composition": "composition_run",
+    }[mode]
+    return {
+        "run_id": "prd-2026-09-04",
+        "pm_copilot_version": _runtime_identity()["version"],
+        "runtime_identity": _runtime_identity(),
+        "task": {"raw_request": "生成 PRD"},
+        "agent_strategy": {"task_mode": mode, "goal": "生成可评审 PRD"},
+        "confirmation": {"status": "confirmed", "scope": ["5.1"], "confirmed_at": "2026-09-04T00:00:00Z"},
+        "artifact_lineage": {"mode": lineage_mode, "source_prds": [], "revision_baseline": {}},
+        "implemented_feature_prd": {"active": False, "evidence_packet": {}},
+        "frontend_figure_evidence": [],
+        "specialist_evidence": [],
+        "pm_arbitration": {"decisions": []},
+        "review": {"status": "passed", "findings": []},
+        "validation_results": [{"command": "validate_outputs.py", "status": "passed"}],
+        "quality_decision": {"passed": True},
+        "final_status": "complete",
+    }
 
 
-class ArtifactLineageTests(unittest.TestCase):
-    @staticmethod
-    def _write_trace(folder: Path, trace: dict[str, object]) -> Path:
-        run_log = folder / "run-log.yaml"
-        run_log.write_text(
-            yaml.safe_dump(trace, allow_unicode=True, sort_keys=False),
-            encoding="utf-8",
-        )
-        return run_log
+class TraceValidationTests(unittest.TestCase):
+    def write(self, folder: Path, trace: dict[str, object]) -> Path:
+        path = folder / "run-log.yaml"
+        path.write_text(yaml.safe_dump(trace, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        return path
 
-    @staticmethod
-    def _base_trace(mode: str) -> dict[str, object]:
-        return {
-            "agent_strategy": {"task_mode": "prd_delivery"},
-            "resume_checkpoint": {"task_mode": "prd_delivery"},
-            "context": {"source_mode": "brief-only", "product_documents_loaded": []},
-            "artifact_lineage": {
-                "mode": mode,
-                "target_prd_path": "",
-                "target_html_path": "",
-                "revision_evidence_path": "",
-                "revised_requirement_ids": [],
-                "source_snapshot_path": "",
-                "source_prd_display_name": "",
-                "source_prd_sha256": "",
-                "selected_source_scope": [],
-                "historical_artifacts": [],
-                "output_folder_reset": True,
-            },
-        }
+    def test_new_prd_trace_is_minimal_and_valid(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(Path(temporary), trace_for())
+            self.assertEqual(validate_run_log(path)["failures"], [])
 
-    def test_accepts_new_and_in_place_prd_lineage(self) -> None:
+    def test_composition_requires_hashed_local_source_snapshots(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            new_log = self._write_trace(folder, self._base_trace("new_run"))
-            self.assertEqual(validate_artifact_lineage(new_log), [])
+            trace = trace_for("prd_composition")
+            lineage = trace["artifact_lineage"]
+            assert isinstance(lineage, dict)
+            sources = []
+            for index in range(1):
+                snapshot = folder / "source-material" / f"source-{index}.md"
+                snapshot.parent.mkdir(exist_ok=True)
+                snapshot.write_text(f"# Source {index}", encoding="utf-8")
+                sources.append({
+                    "source_id": f"source-{index + 1}",
+                    "snapshot_path": str(snapshot.relative_to(folder)),
+                    "sha256": hashlib.sha256(snapshot.read_bytes()).hexdigest(),
+                    "selected_scope": ["5.1"],
+                })
+            lineage["source_prds"] = sources
+            path = self.write(folder, trace)
+            self.assertEqual(validate_artifact_lineage(path), [])
+            lineage["source_prds"] = []
+            self.write(folder, trace)
+            self.assertIn("one or more", "\n".join(validate_artifact_lineage(path)))
 
-            (folder / "prd.md").write_text("| 5.1 | 修订 |\n", encoding="utf-8")
-            (folder / "prd.html").write_text("<html></html>", encoding="utf-8")
-            (folder / "revision-evidence.json").write_text(
-                json.dumps({
-                    "mode": "in_place_revision",
-                    "controller_scope_ids": ["5.1"],
-                    "deleted_requirement_ids": [],
-                    "baseline_requirement_ids": ["5.1"],
-                }),
-                encoding="utf-8",
-            )
-            revision = self._base_trace("in_place_revision")
-            revision["artifact_lineage"] = {
-                "mode": "in_place_revision",
-                "target_prd_path": "prd.md",
-                "target_html_path": "prd.html",
-                "revision_evidence_path": "revision-evidence.json",
-                "revised_requirement_ids": ["5.1"],
-                "deleted_requirement_ids": [],
-                "source_snapshot_path": "",
-                "source_prd_display_name": "",
-                "source_prd_sha256": "",
-                "selected_source_scope": [],
-                "historical_artifacts": [{
-                    "path": "prd.md",
-                    "role": "comparison_only",
-                    "excluded_from_current_facts": True,
-                }],
-                "output_folder_reset": False,
-            }
-            revision_log = self._write_trace(folder, revision)
-            self.assertEqual(validate_artifact_lineage(revision_log), [])
-
-    def test_revision_scope_evidence_requires_a_matching_passed_report(self) -> None:
+    def test_revision_requires_selected_ids_and_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            (folder / "prd.md").write_text("### 5.1 修订\n", encoding="utf-8")
-            (folder / "prd.html").write_text("<html></html>", encoding="utf-8")
-            manifest = {
-                "schema_version": 1,
-                "requirement_ids": ["5.1"],
-                "baseline": {"requirement_sections": {"5.1": {"sha256": "a"}}},
-            }
-            manifest_sha256 = hashlib.sha256(
-                json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-            ).hexdigest()
-            report = folder / "tool-results" / "revision-scope-validation.json"
-            report.parent.mkdir()
-            report.write_text(json.dumps({"status": "passed", "manifest_sha256": manifest_sha256}), encoding="utf-8")
-            (folder / "revision-evidence.json").write_text(json.dumps({
-                "mode": "in_place_revision",
-                "controller_scope_ids": ["5.1"],
-                "deleted_requirement_ids": [],
-                "baseline_requirement_ids": ["5.1"],
-                "scope_manifest": manifest,
-                "scope_validation": {
-                    "status": "passed",
-                    "report_path": "tool-results/revision-scope-validation.json",
-                    "manifest_sha256": manifest_sha256,
-                },
-            }), encoding="utf-8")
-            trace = self._base_trace("in_place_revision")
-            trace["artifact_lineage"] = {
-                "mode": "in_place_revision",
-                "target_prd_path": "prd.md",
-                "target_html_path": "prd.html",
-                "revision_evidence_path": "revision-evidence.json",
-                "revised_requirement_ids": ["5.1"],
-                "deleted_requirement_ids": [],
-                "historical_artifacts": [{
-                    "path": "prd.md", "role": "comparison_only", "excluded_from_current_facts": True,
-                }],
-                "output_folder_reset": False,
-            }
-            run_log = self._write_trace(folder, trace)
-            self.assertEqual(validate_artifact_lineage(run_log), [])
-            evidence = json.loads((folder / "revision-evidence.json").read_text(encoding="utf-8"))
-            evidence["scope_manifest"]["baseline"]["requirement_sections"]["5.1"]["sha256"] = "tampered"
-            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
-            failures = validate_artifact_lineage(run_log)
-            self.assertTrue(any("must match the retained scope manifest" in failure for failure in failures))
-            evidence["scope_manifest"] = manifest
-            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
-            report.write_text(json.dumps({"status": "failed", "manifest_sha256": manifest_sha256}), encoding="utf-8")
-            failures = validate_artifact_lineage(run_log)
-            self.assertTrue(any("scope_validation report" in failure for failure in failures))
-            evidence["scope_validation"]["report_path"] = "tool-results/../../outside.json"
-            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
-            failures = validate_artifact_lineage(run_log)
-            self.assertTrue(any("stay inside the run folder" in failure for failure in failures))
+            trace = trace_for("prd_revision")
+            lineage = trace["artifact_lineage"]
+            assert isinstance(lineage, dict)
+            lineage["revised_requirement_ids"] = ["5.1"]
+            lineage["revision_baseline"] = {"prd_sha256": "a" * 64}
+            path = self.write(folder, trace)
+            self.assertEqual(validate_artifact_lineage(path), [])
 
-    def test_requires_immutable_extraction_snapshot_and_matching_hash(self) -> None:
+    def test_specialist_evidence_has_no_fixed_count(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            source = folder / "source-material" / "source-prd.md"
-            source.parent.mkdir()
-            source.write_text("# 旧 PRD\n\n### 5.7 结算流程\n", encoding="utf-8")
-            digest = hashlib.sha256(source.read_bytes()).hexdigest()
-            trace = self._base_trace("extraction_run")
-            trace["context"] = {
-                "source_mode": "document-backed",
-                "product_documents_loaded": ["source-material/source-prd.md"],
-            }
-            trace["artifact_lineage"] = {
-                "mode": "extraction_run",
-                "target_prd_path": "",
-                "target_html_path": "",
-                "revision_evidence_path": "",
-                "revised_requirement_ids": [],
-                "source_snapshot_path": "source-material/source-prd.md",
-                "source_prd_display_name": "legacy-prd.md",
-                "source_prd_sha256": digest,
-                "selected_source_scope": ["5.7 结算流程"],
-                "source_scope_resolution": [{
-                    "selector": "5.7 结算流程",
-                    "kind": "requirement_id",
-                    "matches": ["5.7"],
-                }],
-                "historical_artifacts": [{
-                    "path": "source-material/source-prd.md",
-                    "role": "user_provided_input",
-                    "excluded_from_current_facts": False,
-                }],
-                "output_folder_reset": True,
-            }
-            run_log = self._write_trace(folder, trace)
-            self.assertEqual(validate_artifact_lineage(run_log), [])
+            trace = trace_for()
+            trace["specialist_evidence"] = [{
+                "id": f"specialist-{index}",
+                "role": "functional_logic",
+                "subject": f"independent question {index}",
+                "status": "passed",
+                "provider": "codex",
+                "model": "gpt-5",
+                "output_sha256": "a" * 64,
+                "path": f"specialist-evidence/{index}.md",
+            } for index in range(12)]
+            evidence_root = folder / "specialist-evidence"
+            evidence_root.mkdir()
+            for index in range(12):
+                (evidence_root / f"{index}.md").write_text("evidence", encoding="utf-8")
+            trace["pm_arbitration"] = {"decisions": [{"id": "PM-1", "owner": "PM Orchestrator"}]}
+            path = self.write(folder, trace)
+            self.assertEqual(validate_run_log(path)["failures"], [])
 
-            trace["artifact_lineage"]["mode"] = "extract_to_new"  # type: ignore[index]
-            self.assertEqual(validate_artifact_lineage(self._write_trace(folder, trace)), [])
-
-            trace["artifact_lineage"]["mode"] = "extraction_run"  # type: ignore[index]
-            trace["artifact_lineage"]["source_prd_sha256"] = "0" * 64  # type: ignore[index]
-            mismatched = self._write_trace(folder, trace)
-            failures = validate_artifact_lineage(mismatched)
-            self.assertTrue(any("does not match the source snapshot" in failure for failure in failures))
-
-    def test_rejects_extraction_snapshot_outside_the_run_folder(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            folder = root / "run"
-            folder.mkdir()
-            outside = root / "old-prd.md"
-            outside.write_text("# 旧 PRD\n", encoding="utf-8")
-            trace = self._base_trace("extraction_run")
-            trace["context"] = {
-                "source_mode": "document-backed",
-                "product_documents_loaded": ["../old-prd.md"],
-            }
-            trace["artifact_lineage"] = {
-                "mode": "extraction_run",
-                "source_snapshot_path": "../old-prd.md",
-                "source_prd_display_name": "old-prd.md",
-                "source_prd_sha256": hashlib.sha256(outside.read_bytes()).hexdigest(),
-                "selected_source_scope": ["第 5 章"],
-                "historical_artifacts": [{
-                    "path": "../old-prd.md",
-                    "role": "user_provided_input",
-                    "excluded_from_current_facts": False,
-                }],
-                "output_folder_reset": True,
-            }
-            failures = validate_artifact_lineage(self._write_trace(folder, trace))
-            self.assertTrue(any("source_snapshot_path must stay inside the run folder" in failure for failure in failures))
-
-    def test_rejects_fake_new_run_extraction_and_mismatched_resume_mode(self) -> None:
+    def test_failed_specialist_requires_error_not_a_synthetic_result(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
-            source = folder / "source-material" / "source-prd.md"
-            source.parent.mkdir()
-            source.write_text("# 旧 PRD\n", encoding="utf-8")
-            trace = self._base_trace("new_run")
-            trace["artifact_lineage"] = {
-                "mode": "new_run",
-                "source_snapshot_path": "source-material/source-prd.md",
-                "source_prd_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-                "selected_source_scope": ["第 5 章"],
-                "historical_artifacts": [{
-                    "path": "source-material/source-prd.md",
-                    "role": "user_provided_input",
-                    "excluded_from_current_facts": False,
-                }],
-                "output_folder_reset": True,
-            }
-            trace["resume_checkpoint"] = {"task_mode": "implemented_feature_prd"}
-            run_log = self._write_trace(folder, trace)
-            failures = validate_artifact_lineage(run_log)
-            self.assertTrue(any("not new_run" in failure for failure in failures))
-            self.assertTrue(any("resume_checkpoint.task_mode" in failure for failure in failures))
-
-    def test_new_lineage_uses_durable_provenance_not_request_words(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            folder = Path(temporary)
-            trace = self._base_trace("new_run")
-            trace["task"] = {"raw_request": "请提取这段讨论，生成新的 PRD"}
-            trace["scenario"] = "extraction wording in a greenfield request"
-            self.assertEqual(validate_artifact_lineage(self._write_trace(folder, trace)), [])
-            trace["artifact_lineage"]["deleted_requirement_ids"] = ["5.1"]  # type: ignore[index]
-            failures = validate_artifact_lineage(self._write_trace(folder, trace))
-            self.assertTrue(any("must not claim in-place" in item for item in failures))
-
-    def test_extraction_scope_requires_unique_snapshot_resolution_evidence(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            folder = Path(temporary)
-            source = folder / "source-material" / "source-prd.md"
-            source.parent.mkdir()
-            source.write_text(
-                "### 5.1 共享反馈\n第一处。\n\n### 5.2 共享反馈\n第二处。\n",
-                encoding="utf-8",
-            )
-            digest = hashlib.sha256(source.read_bytes()).hexdigest()
-
-            def extraction_trace(scope: list[str], resolution: list[dict[str, object]]) -> dict[str, object]:
-                trace = self._base_trace("extraction_run")
-                trace["context"] = {
-                    "source_mode": "document-backed",
-                    "product_documents_loaded": ["source-material/source-prd.md"],
-                }
-                trace["artifact_lineage"] = {
-                    "mode": "extraction_run",
-                    "target_prd_path": "",
-                    "target_html_path": "",
-                    "revision_evidence_path": "",
-                    "revised_requirement_ids": [],
-                    "source_snapshot_path": "source-material/source-prd.md",
-                    "source_prd_display_name": "legacy.md",
-                    "source_prd_sha256": digest,
-                    "selected_source_scope": scope,
-                    "source_scope_resolution": resolution,
-                    "historical_artifacts": [{
-                        "path": "source-material/source-prd.md",
-                        "role": "user_provided_input",
-                        "excluded_from_current_facts": False,
-                    }],
-                    "output_folder_reset": True,
-                }
-                return trace
-
-            unknown = validate_artifact_lineage(self._write_trace(
-                folder,
-                extraction_trace(["9.9"], [{"selector": "9.9", "kind": "requirement_id", "matches": ["9.9"]}]),
-            ))
-            self.assertTrue(any("absent from the source snapshot" in item for item in unknown))
-
-            ambiguous = validate_artifact_lineage(self._write_trace(
-                folder,
-                extraction_trace(["共享反馈"], [{"selector": "共享反馈", "kind": "heading", "matches": ["5.1 共享反馈"]}]),
-            ))
-            self.assertTrue(any("multiple source headings" in item for item in ambiguous))
-
-            tampered = validate_artifact_lineage(self._write_trace(
-                folder,
-                extraction_trace(["5.1"], [{"selector": "5.1", "kind": "requirement_id", "matches": ["5.2"]}]),
-            ))
-            self.assertTrue(any("must exactly match" in item for item in tampered))
-
-    def test_in_place_revision_deletion_requires_baseline_and_explicit_evidence(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            folder = Path(temporary)
-            (folder / "prd.md").write_text("| 5.1 | 保留 |\n", encoding="utf-8")
-            (folder / "prd.html").write_text("<html></html>", encoding="utf-8")
-            evidence = {
-                "mode": "in_place_revision",
-                "controller_scope_ids": ["5.1", "5.2"],
-                "deleted_requirement_ids": ["5.2"],
-                "baseline_requirement_ids": ["5.1", "5.2"],
-            }
-            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
-            trace = self._base_trace("in_place_revision")
-            trace["artifact_lineage"] = {
-                "mode": "in_place_revision",
-                "target_prd_path": "prd.md",
-                "target_html_path": "prd.html",
-                "revision_evidence_path": "revision-evidence.json",
-                "revised_requirement_ids": ["5.1", "5.2"],
-                "deleted_requirement_ids": ["5.2"],
-                "source_snapshot_path": "",
-                "source_prd_display_name": "",
-                "source_prd_sha256": "",
-                "selected_source_scope": [],
-                "historical_artifacts": [{
-                    "path": "prd.md",
-                    "role": "comparison_only",
-                    "excluded_from_current_facts": True,
-                }],
-                "output_folder_reset": False,
-            }
-            self.assertEqual(validate_artifact_lineage(self._write_trace(folder, trace)), [])
-
-            evidence["deleted_requirement_ids"] = []
-            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
-            failures = validate_artifact_lineage(self._write_trace(folder, trace))
-            self.assertTrue(any("deleted_requirement_ids must match" in item for item in failures))
-
-    def test_implemented_evidence_packet_requires_hash_and_portable_result_refs(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            folder = Path(temporary)
-            result = folder / "tool-results" / "implemented-evidence" / "capture.json"
-            result.parent.mkdir(parents=True)
-            result.write_text('{"capture":"ok"}\n', encoding="utf-8")
-            packet_payload = {
-                "branch_name": "feature/canvas",
-                "changed_files": ["src/canvas.ts"],
-                "visual_capture_recovery": [{"result_ref": "tool-results/implemented-evidence/capture.json"}],
-            }
-            packet = folder / "source-material" / "implemented-feature-evidence.json"
-            packet.parent.mkdir()
-            packet.write_text(json.dumps(packet_payload), encoding="utf-8")
-            trace = {
-                "agent_strategy": {"task_mode": "implemented_feature_prd"},
-                "implemented_feature_prd": {
-                    "active": True,
-                    "mode": "implemented_feature_prd",
-                    **packet_payload,
-                    "evidence_packet": {
-                        "path": "source-material/implemented-feature-evidence.json",
-                        "sha256": hashlib.sha256(packet.read_bytes()).hexdigest(),
-                        "imported_result_refs": ["tool-results/implemented-evidence/capture.json"],
-                    },
-                },
-            }
-            run_log = self._write_trace(folder, trace)
-            self.assertEqual(validate_implemented_feature_evidence_packet(run_log), [])
-
-            packet.write_text("{}\n", encoding="utf-8")
-            failures = validate_implemented_feature_evidence_packet(self._write_trace(folder, trace))
-            self.assertTrue(any("does not match the referenced packet" in item for item in failures))
+            trace = trace_for()
+            trace["specialist_evidence"] = [{
+                "id": "frontend-1", "role": "frontend_evidence", "subject": "capture empty state",
+                "status": "failed", "error": "page did not start", "failure_category": "runtime",
+            }]
+            trace["pm_arbitration"] = {"decisions": [{"id": "PM-1", "owner": "PM Orchestrator"}]}
+            path = self.write(folder, trace)
+            self.assertEqual(validate_run_log(path)["failures"], [])
 
 
 if __name__ == "__main__":

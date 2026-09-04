@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,6 +14,11 @@ from revision_scope import (
     build_revision_scope_manifest,
     constrain_revision_markdown,
     is_content_asset_relative_path,
+    resolve_multi_source_extraction_scope,
+    resolve_extraction_scope,
+    revision_artifact_set_snapshot,
+    revision_scope_manifest_digest,
+    source_requirement_ids,
     validate_rendered_html_scope,
     validate_revision_scope,
 )
@@ -205,6 +212,205 @@ class RevisionScopeTests(unittest.TestCase):
         assets.pop("assets/old-result.png")
         report = self.validate(assets=assets)
         self.assertEqual(report["status"], "passed")
+
+    def test_selected_media_only_auxiliary_rows_are_merged_in_source_order(self) -> None:
+        baseline = """### 5.1 状态提示
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 用户查看状态。 |
+| 需求入口 | 节点。 |
+| 需求详情 | 状态可见。 |
+| 设计与交互 | 保持可读。 |
+"""
+        candidate = baseline.replace(
+            "| 设计与交互 | 保持可读。 |",
+            "| 截图 | [[prd-detail-media src=\"./assets/execution-success.png\" alt=\"success\" copy=\"执行成功\"]] |\n"
+            "| 需求详情图示 | [[prd-detail-media src=\"./assets/execution-failure.png\" alt=\"failure\" copy=\"执行失败\"]] |\n"
+            "| Figure | [[prd-detail-media src=\"./assets/execution-empty.png\" alt=\"empty\" copy=\"执行为空\"]] |\n"
+            "| 设计与交互 | 保持可读。 |",
+        )
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={
+                "assets/execution-success.png": "success",
+                "assets/execution-failure.png": "failure",
+                "assets/execution-empty.png": "empty",
+            },
+            requirement_ids=["5.1"],
+            confirmed_scope_text="更新 5.1。",
+            authority="test",
+        )
+        merged = constrain_revision_markdown(
+            manifest, baseline_markdown=baseline, candidate_markdown=candidate,
+        )
+        self.assertEqual(merged["status"], "merged")
+        content = str(merged["markdown"])
+        self.assertNotIn("| 截图 |", content)
+        self.assertNotIn("| 需求详情图示 |", content)
+        self.assertNotIn("| Figure |", content)
+        self.assertEqual(content.count("| 需求详情 |"), 1)
+        self.assertLess(content.index("execution-success.png"), content.index("execution-failure.png"))
+        self.assertLess(content.index("execution-failure.png"), content.index("execution-empty.png"))
+
+    def test_selected_media_normalization_preserves_order_around_inline_detail_media(self) -> None:
+        baseline = """### 5.1 状态提示
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 用户查看状态。 |
+| 需求入口 | 节点。 |
+| 需求详情 | 状态可见。 |
+| 设计与交互 | 保持可读。 |
+"""
+        candidate = baseline.replace(
+            "| 需求详情 | 状态可见。 |",
+            "| 截图 | [[prd-detail-media src=\"./assets/before.png\" alt=\"before\" copy=\"前置图示\"]] |\n"
+            "| 需求详情 | 状态可见。<br>[[prd-detail-media src=\"./assets/inline.png\" alt=\"inline\" copy=\"内联图示\"]] |",
+        ).replace(
+            "| 设计与交互 | 保持可读。 |",
+            "| Figure | [[prd-detail-media src=\"./assets/after.png\" alt=\"after\" copy=\"后置图示\"]] |\n"
+            "| 设计与交互 | 保持可读。 |",
+        )
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={
+                "assets/before.png": "before",
+                "assets/inline.png": "inline",
+                "assets/after.png": "after",
+            },
+            requirement_ids=["5.1"],
+            confirmed_scope_text="更新 5.1。",
+            authority="test",
+        )
+        merged = constrain_revision_markdown(
+            manifest, baseline_markdown=baseline, candidate_markdown=candidate,
+        )
+        self.assertEqual(merged["status"], "merged")
+        content = str(merged["markdown"])
+        self.assertLess(content.index("before.png"), content.index("inline.png"))
+        self.assertLess(content.index("inline.png"), content.index("after.png"))
+
+    def test_selected_duplicate_marker_only_detail_row_is_merged(self) -> None:
+        baseline = """### 5.1 状态提示
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 用户查看状态。 |
+| 需求入口 | 节点。 |
+| 需求详情 | 状态可见。 |
+| 设计与交互 | 保持可读。 |
+"""
+        candidate = baseline.replace(
+            "| 设计与交互 | 保持可读。 |",
+            "| 需求详情 | [[prd-detail-media src=\"./assets/execution-success.png\" alt=\"success\" copy=\"执行成功\"]] |\n"
+            "| 设计与交互 | 保持可读。 |",
+        )
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={"assets/execution-success.png": "success"},
+            requirement_ids=["5.1"],
+            confirmed_scope_text="更新 5.1。",
+            authority="test",
+        )
+        merged = constrain_revision_markdown(
+            manifest, baseline_markdown=baseline, candidate_markdown=candidate,
+        )
+        self.assertEqual(merged["status"], "merged")
+        content = str(merged["markdown"])
+        self.assertEqual(content.count("| 需求详情 |"), 1)
+        self.assertIn('[[prd-detail-media src="./assets/execution-success.png"', content)
+
+    def test_media_normalization_never_rewrites_an_unselected_requirement(self) -> None:
+        baseline = """### 5.1 状态提示
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 用户查看状态。 |
+| 需求入口 | 节点。 |
+| 需求详情 | 状态可见。 |
+| 设计与交互 | 保持可读。 |
+
+### 5.2 保留需求
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 用户查看保留状态。 |
+| 需求入口 | 保留入口。 |
+| 需求详情 | 保留状态可见。 |
+| 图示 | [[prd-detail-media src=\"./assets/frozen.png\" alt=\"frozen\" copy=\"保留图示\"]] |
+| 设计与交互 | 保持原样。 |
+"""
+        candidate = baseline.replace(
+            "| 设计与交互 | 保持可读。 |",
+            "| 截图 | [[prd-detail-media src=\"./assets/selected.png\" alt=\"selected\" copy=\"选中图示\"]] |\n"
+            "| 设计与交互 | 保持可读。 |",
+            1,
+        )
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={
+                "assets/selected.png": "selected",
+                "assets/frozen.png": "frozen",
+            },
+            requirement_ids=["5.1"],
+            confirmed_scope_text="更新 5.1。",
+            authority="test",
+        )
+        merged = constrain_revision_markdown(
+            manifest, baseline_markdown=baseline, candidate_markdown=candidate,
+        )
+        self.assertEqual(merged["status"], "merged")
+        content = str(merged["markdown"])
+        self.assertEqual(
+            content[content.index("### 5.2 保留需求"):],
+            baseline[baseline.index("### 5.2 保留需求"):],
+        )
+
+    def test_media_normalization_rejects_unsafe_auxiliary_rows(self) -> None:
+        baseline = """### 5.1 状态提示
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 用户查看状态。 |
+| 需求入口 | 节点。 |
+| 需求详情 | 状态可见。 |
+| 设计与交互 | 保持可读。 |
+"""
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={"assets/execution-success.png": "success"},
+            requirement_ids=["5.1"],
+            confirmed_scope_text="更新 5.1。",
+            authority="test",
+        )
+        cases = {
+            "mixed prose": baseline.replace(
+                "| 设计与交互 | 保持可读。 |",
+                "| 图示 | 这是说明 [[prd-detail-media src=\"./assets/execution-success.png\" alt=\"success\" copy=\"执行成功\"]] |\n"
+                "| 设计与交互 | 保持可读。 |",
+            ),
+            "no primary detail": baseline.replace(
+                "| 需求详情 | 状态可见。 |\n", "",
+            ).replace(
+                "| 设计与交互 | 保持可读。 |",
+                "| 图示 | [[prd-detail-media src=\"./assets/execution-success.png\" alt=\"success\" copy=\"执行成功\"]] |\n"
+                "| 设计与交互 | 保持可读。 |",
+            ),
+            "ambiguous primary detail": baseline.replace(
+                "| 设计与交互 | 保持可读。 |",
+                "| 需求详情 | 第二个详情正文。 |\n"
+                "| 图示 | [[prd-detail-media src=\"./assets/execution-success.png\" alt=\"success\" copy=\"执行成功\"]] |\n"
+                "| 设计与交互 | 保持可读。 |",
+            ),
+            "malformed marker": baseline.replace(
+                "| 设计与交互 | 保持可读。 |",
+                "| 图示 | [[prd-detail-media src=\"./assets/execution-success.png\" alt=\"success\"]] |\n"
+                "| 设计与交互 | 保持可读。 |",
+            ),
+        }
+        for name, candidate in cases.items():
+            with self.subTest(name=name):
+                merged = constrain_revision_markdown(
+                    manifest, baseline_markdown=baseline, candidate_markdown=candidate,
+                )
+                self.assertEqual(merged["status"], "failed")
+                self.assertEqual(merged["markdown"], baseline)
+                self.assertIn("cannot safely normalize media-only auxiliary row", "\n".join(merged["failures"]))
 
     def test_unselected_requirement_asset_cannot_be_removed(self) -> None:
         assets = dict(BASELINE_ASSETS)
@@ -867,6 +1073,163 @@ Old behavior.
             '<img src="./assets/execution-failure.png"><img src="./assets/execution-success.png">',
         )
         self.assertIn("5.1", "\n".join(validate_rendered_html_scope(report, reversed_html)))
+
+
+class RevisionScopeSharedHelperTests(unittest.TestCase):
+    SOURCE = """# Source PRD
+
+| ID | Requirement |
+| --- | --- |
+| 5.1 | Account setup |
+| 5.2 | Approval flow |
+| 5.3 | Shared status |
+
+### 5.1 Account setup
+The account owner enters organization details.
+
+### 5.2 Approval flow
+An approver can batch-confirm pending requests.
+
+### 5.3 Shared status
+A common body phrase appears here.
+
+### 5.4 Other status
+A common body phrase appears here too.
+"""
+
+    def test_extraction_scope_resolves_ranges_headings_and_unique_text(self) -> None:
+        resolutions, problem = resolve_extraction_scope(
+            self.SOURCE,
+            ["5.1-5.2", "Approval flow", "batch-confirm pending requests"],
+        )
+
+        self.assertIsNone(problem)
+        self.assertEqual(source_requirement_ids(self.SOURCE), ["5.1", "5.2", "5.3", "5.4"])
+        self.assertEqual(
+            resolutions,
+            [
+                {
+                    "selector": "5.1-5.2",
+                    "kind": "requirement_id_range",
+                    "matches": ["5.1", "5.2"],
+                },
+                {
+                    "selector": "Approval flow",
+                    "kind": "heading",
+                    "matches": ["5.2 Approval flow"],
+                },
+                {
+                    "selector": "batch-confirm pending requests",
+                    "kind": "source_text",
+                    "matches": ["anapprovercanbatchconfirmpendingrequests"],
+                },
+            ],
+        )
+
+    def test_extraction_scope_rejects_ambiguous_source_text(self) -> None:
+        resolutions, problem = resolve_extraction_scope(self.SOURCE, ["common body phrase"])
+
+        self.assertEqual(resolutions, [])
+        self.assertEqual(problem, "matches multiple source text locations: common body phrase")
+
+    def test_multi_source_scope_resolves_explicit_and_globally_unique_selectors(self) -> None:
+        sources = {
+            "source-1": self.SOURCE,
+            "source-2": "# Other PRD\n\n### 5.1 Billing setup\nConfigure payment rules.\n",
+        }
+        resolutions, problem = resolve_multi_source_extraction_scope(
+            sources,
+            ["source-1: 5.2", "billing.md: 5.1"],
+            source_aliases={"source-1": ["account.md"], "source-2": ["billing.md"]},
+        )
+
+        self.assertIsNone(problem)
+        self.assertEqual(
+            resolutions,
+            [
+                {"source_id": "source-1", "selector": "5.2", "kind": "requirement_id", "matches": ["5.2"]},
+                {"source_id": "source-2", "selector": "5.1", "kind": "requirement_id", "matches": ["5.1"]},
+            ],
+        )
+
+        unique, unique_problem = resolve_multi_source_extraction_scope(
+            sources,
+            ["Billing setup"],
+        )
+        self.assertIsNone(unique_problem)
+        self.assertEqual(
+            unique,
+            [{"source_id": "source-2", "selector": "Billing setup", "kind": "heading", "matches": ["5.1 Billing setup"]}],
+        )
+
+    def test_multi_source_scope_rejects_unqualified_cross_source_collision(self) -> None:
+        sources = {
+            "source-1": "# First\n\n### 5.1 Checkout\nFirst checkout.\n",
+            "source-2": "# Second\n\n### 5.1 Checkout\nSecond checkout.\n",
+        }
+        resolutions, problem = resolve_multi_source_extraction_scope(sources, ["5.1"])
+
+        self.assertEqual(resolutions, [])
+        self.assertIn("matches more than one extraction source", problem or "")
+
+    def test_manifest_digest_is_stable_across_mapping_order(self) -> None:
+        first = {
+            "schema_version": 1,
+            "requirement_ids": ["5.1"],
+            "baseline": {"alpha": "范围"},
+        }
+        second = {
+            "baseline": {"alpha": "范围"},
+            "requirement_ids": ["5.1"],
+            "schema_version": 1,
+        }
+
+        self.assertEqual(
+            revision_scope_manifest_digest(first),
+            "1ef7597cb725bf1fcad8255beb74732a16a4c3d59a6a18e789c2774ef648b136",
+        )
+        self.assertEqual(revision_scope_manifest_digest(first), revision_scope_manifest_digest(second))
+        second["requirement_ids"] = ["5.2"]
+        self.assertNotEqual(revision_scope_manifest_digest(first), revision_scope_manifest_digest(second))
+
+    def test_artifact_set_snapshot_covers_prd_html_and_content_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            prd_bytes = b"# Revised PRD\n"
+            html_bytes = b"<html>revised</html>\n"
+            asset_bytes = b"image bytes"
+            nested_asset_bytes = b"nested image bytes"
+            (root / "prd.md").write_bytes(prd_bytes)
+            (root / "prd.html").write_bytes(html_bytes)
+            (root / "assets" / "nested").mkdir(parents=True)
+            (root / "assets" / "state.png").write_bytes(asset_bytes)
+            (root / "assets" / "nested" / "flow.webp").write_bytes(nested_asset_bytes)
+
+            snapshot = revision_artifact_set_snapshot(root)
+
+        expected = {
+            "prd_md_sha256": hashlib.sha256(prd_bytes).hexdigest(),
+            "prd_html_sha256": hashlib.sha256(html_bytes).hexdigest(),
+            "assets": {
+                "assets/nested/flow.webp": hashlib.sha256(nested_asset_bytes).hexdigest(),
+                "assets/state.png": hashlib.sha256(asset_bytes).hexdigest(),
+            },
+        }
+        expected["sha256"] = hashlib.sha256(
+            json.dumps(expected, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        self.assertEqual(snapshot, expected)
+
+    def test_artifact_set_snapshot_requires_rendered_html_for_final_attestation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "prd.md").write_text("# Revised PRD\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                FileNotFoundError,
+                r"^in_place_revision final scope attestation requires prd\.md and prd\.html$",
+            ):
+                revision_artifact_set_snapshot(root)
 
 
 if __name__ == "__main__":

@@ -23,36 +23,20 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
-          python3 -m py_compile scripts/*.py skills/skill-cleaner/scripts/skill_cleaner.py
+          python3 -m py_compile scripts/*.py
 
-      - name: Check tool preflight
-        run: |
-          python3 scripts/preflight_tools.py --json
-
-      - name: Install document and visual validation runtimes
+      - name: Install document validation runtime
         run: |
           sudo apt-get update
           sudo apt-get install --yes pandoc
           python3 -m pip install -r requirements-dev.txt
-          python3 -m playwright install --with-deps chromium
           pandoc --version
 
       - name: Validate repository
         run: |
+          python3 scripts/validate_runtime_routing.py
           python3 scripts/validate_repo.py
 
       - name: Run Python regression suite
         run: |
           python3 -m unittest discover -s scripts -p 'test_*.py'
-
-      - name: Run browser visual smoke test
-        run: |
-          python3 scripts/validate_prototype_visual.py evals/visual-fixtures/prototype-smoke --no-auto-setup --viewport desktop=1440x960 --viewport narrow=390x844
-
-      - name: Run PRD benchmark fixture
-        run: |
-          python3 scripts/evaluate_prd_benchmark.py --candidate-root evals/prd-benchmark/candidates
-
-      - name: Test reflection and learning trace
-        run: |
-          python3 scripts/test_reflection_learning_trace.py

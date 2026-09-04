@@ -74,7 +74,7 @@ class PRDFigureLayoutTest(unittest.TestCase):
 | --- | --- |
 | 用户与场景 | 管理员查看状态。 |
 | 需求入口 | 管理页入口。 |
-| 需求详情 | 图示前规则：展示入口。<br>[[prd-detail-media src=\"./assets/entry.png\" alt=\"入口状态\" copy=\"说明入口状态和操作规则。\"]]<br>图示中规则：用户确认后继续。<br>[[prd-detail-media src=\"./assets/result.png\" alt=\"结果状态\" copy=\"说明结果状态和恢复反馈。\"]]<br>图示后规则：失败时保留内容并允许重试。 |
+| 需求详情 | 图示前规则：展示入口。<br>[[prd-detail-media src=\"./assets/entry.png\" alt=\"入口状态\" copy=\"说明入口状态和操作规则。<br>第二行说明继续操作。\"]]<br>图示中规则：用户确认后继续。<br>[[prd-detail-media src=\"./assets/result.png\" alt=\"结果状态\" copy=\"说明结果状态和恢复反馈。\"]]<br>图示后规则：失败时保留内容并允许重试。 |
 | 设计与交互 | 保持清晰反馈。 |
 """
         with TemporaryDirectory() as temporary_directory:
@@ -94,10 +94,59 @@ class PRDFigureLayoutTest(unittest.TestCase):
         self.assertEqual(rendered.count('class="prd-detail-copy"'), 2)
         for value in ("entry.png", "result.png", "说明入口状态和操作规则。", "说明结果状态和恢复反馈。", "图示前规则", "图示中规则", "图示后规则"):
             self.assertIn(value, rendered)
+        self.assertIn("说明入口状态和操作规则。<br>第二行说明继续操作。", rendered)
+        self.assertNotIn("说明入口状态和操作规则。&lt;br&gt;第二行说明继续操作。", rendered)
         self.assertNotIn("prd-inline-media", rendered)
         self.assertNotIn("prd-inline-copy", rendered)
         self.assertNotIn("[[prd-detail-media", rendered)
         self.assertIn("grid-template-columns: 240px minmax(0, 1fr);", rendered)
+
+    def test_detail_media_copy_escapes_html_but_preserves_line_breaks(self) -> None:
+        html = (
+            "<html><head></head><body><table><tbody>"
+            "<tr><td>需求详情</td><td>"
+            '[[prd-detail-media src="./assets/example.png" alt="示例" '
+            'copy="第一行<br>第二行<script>alert(1)</script>"]]'
+            "</td></tr>"
+            "</tbody></table></body></html>"
+        )
+        with TemporaryDirectory() as temporary_directory:
+            rendered = inject_defaults(html, "# 示例需求 - 2026-09-04", Path(temporary_directory))
+        self.assertIn(
+            'class="prd-detail-copy">第一行<br>第二行&lt;script&gt;alert(1)&lt;/script&gt;</div>',
+            rendered,
+        )
+        self.assertNotIn("第一行&lt;br&gt;第二行", rendered)
+        self.assertNotIn("<script>alert(1)</script>", rendered)
+
+    def test_renderer_rejects_marker_left_outside_requirement_detail_value_cell(self) -> None:
+        marker = '[[prd-detail-media src="./assets/example.png" alt="示例" copy="展示示例状态。"]]'
+        malformed_marker = '[[prd-detail-media src="./assets/missing-fields.png"'
+        html = (
+            "<html><head></head><body><h3>5.1 Example requirement</h3><table>"
+            "<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>"
+            "<tr><td>User and scenario</td><td>An administrator views state.</td></tr>"
+            "<tr><td>Entry</td><td>Management entry.</td></tr>"
+            "<tr><td>Requirement details</td><td>Show state rules.</td></tr>"
+            f"<tr><td>Attachment notes</td><td>{marker}<br>{malformed_marker}</td></tr>"
+            "</tbody></table></body></html>"
+        )
+        with TemporaryDirectory() as temporary_directory:
+            with self.assertRaises(SystemExit) as failure:
+                inject_defaults(html, "# Example requirement - 2026-09-04", Path(temporary_directory))
+        self.assertEqual(failure.exception.code, 1)
+
+    def test_renderer_preserves_marker_like_prose_outside_requirement_tables(self) -> None:
+        marker = '[[prd-detail-media src="./assets/example.png" alt="示例" copy="展示示例状态。"]]'
+        html = (
+            "<html><head></head><body>"
+            f"<p>格式示例：{marker}</p>"
+            f"<table><tr><td>Syntax</td><td>{marker}</td></tr></table>"
+            "</body></html>"
+        )
+        with TemporaryDirectory() as temporary_directory:
+            rendered = inject_defaults(html, "# 格式说明 - 2026-09-04", Path(temporary_directory))
+        self.assertEqual(rendered.count(marker), 2)
 
     def test_each_independent_detail_group_restarts_numbering(self) -> None:
         first = renumber_detail_copy("二、入口<br>4. 展示入口。<br>5. 继续操作。")

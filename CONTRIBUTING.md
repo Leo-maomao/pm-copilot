@@ -1,11 +1,7 @@
 # 贡献指南
 
-<p align="center"><strong>简体中文</strong> | <a href="docs/en/contributing-guide.md">English</a></p>
-
-<a id="zh-cn"></a>
-
-PM Copilot 欢迎对 Agent、技能、模板、护栏和文档进行改进。
-当前文档对应版本：`6.2.4`。
+PM Copilot 欢迎对四条 PRD 流程、管理器、证据链、模板和文档进行改进。
+当前文档对应版本：`6.2.112`。
 
 ## 分支策略
 
@@ -15,10 +11,9 @@ PM Copilot 欢迎对 Agent、技能、模板、护栏和文档进行改进。
 
 ## 贡献原则
 
-- 保持项目平台中立。
-- 优先使用清晰契约，而不是隐藏假设。
-- 保持技能简洁、可复用。
-- 长篇回归用例应保留在本地私有材料中，不要写进技能正文或公开提交。
+- 只支持新 PRD、已实现功能还原、局部修订和多源组合。
+- 优先删除无流程映射的能力，而不是保留兼容层。
+- 保持运行时、技能和 trace 契约简洁。
 - 不要添加专有产品数据、私有凭证或真实用户数据。
 
 ## 如何新增技能
@@ -46,14 +41,6 @@ PM Copilot 欢迎对 Agent、技能、模板、护栏和文档进行改进。
    - 故障转移（如适用）
 3. 如果 Agent 改变默认流程，请更新 `README.md` 和工作流文档。
 
-## 如何新增评估用例
-
-使用 `templates/evaluation-case-template.md` 作为起点。
-
-评估用例应描述原始请求、上下文来源、预期工作流、必需产物、已知风险、通过标准和失败历史。不要把生成的 `outputs/` 产物作为示例提交，也不要提交含真实项目名、路径、客户信息或私有业务细节的用例。
-
-只使用匿名化数据和合成数据。
-
 ## 如何修改产物契约
 
 产物契约是公开接口。修改它们可能破坏用户工作流。
@@ -62,7 +49,7 @@ PM Copilot 欢迎对 Agent、技能、模板、护栏和文档进行改进。
 
 1. 判断这次修改是否属于破坏性变更。
 2. 更新模板。
-3. 当变更会阻止或捕获回归时，更新本地评估用例或补充匿名化说明。
+3. 当变更会阻止或捕获回归时，更新最小回归测试。
 4. 更新 `CHANGELOG.md`。
 5. 准备发版时更新 `VERSION`。
 
@@ -76,16 +63,9 @@ python3 scripts/validate_runtime_routing.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
-安装了 `tidy` 时，可选运行 HTML 检查：
-
-```bash
-tidy -q -e templates/prototype-template.html
-```
-
 ## Pull Request 清单
 
-- 除非明确说明，否则变更应保持平台中立。
-- 新技能包含有效 frontmatter。
-- 新埋点方案可按 CSV 解析。
+- 变更只服务四条 PRD 流程或 PRD 管理器。
+- 新技能包含有效 frontmatter，且已加入运行时路由。
 - 面向用户的变更已更新 Changelog。
 - 未提交敏感数据。

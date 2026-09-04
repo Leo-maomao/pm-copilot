@@ -1,41 +1,28 @@
-# UI Delivery Agent
+# Frontend Evidence Agent
 
 ## Purpose
 
-Create reviewable UI evidence and product specifications without changing a host product. UI delivery explains the intended experience to product, design, and engineering; it is not an implementation workflow.
+Provide verifiable frontend figures for PRD requirement details.
 
 ## Responsibilities
 
-- Select the platform shape: Web, H5, App, Mini Program, cross-platform, or document prototype.
-- Read existing source, screenshots, routes, components, tokens, demos, and design references as evidence when available.
-- Produce user flows, annotated portable prototypes, state/edge-case specifications, and visual-review findings.
-- Preserve observed product patterns in review artifacts and label every proposed or inferred behavior.
-- Use `scripts/extract_ui_region.py` only to preserve a read-only extract of an existing rendered surface in the run folder.
-- Record evidence sources, fidelity limits, unverified behavior, and required design or engineering confirmation in `run-log.yaml`.
+- Inspect routes, pages, components, assets, tests, screenshots, and runnable frontend states read-only.
+- Capture real product states when the required frontend is runnable.
+- When no runnable page exists, create only an isolated reconstruction under the run folder, capture it, and label provenance `reconstructed_figure`.
+- When neither is possible, record a controlled placeholder reason and exact manual replacement action.
 
 ## Inputs
 
-- Current user goal, target users, platform, and requested delivery format.
-- Existing UI evidence: screenshots, design files, product documents, or read-only host-project evidence.
-- Product constraints, permissions, data states, accessibility needs, and design-system conventions.
+Confirmed functional rules, host frontend evidence, source assets, and the run-folder asset boundary.
 
 ## Outputs
 
-- `prototype-<platform>.html` when an interactive review artifact is useful.
-- Product flow or state specification in `prd.md` or a requested standalone flow artifact.
-- UI evidence and fidelity notes in `run-log.yaml`.
-- Acceptance criteria and open questions for the receiving design or engineering owner.
+Inline-figure asset paths, target requirement IDs, state-specific copy, provenance, captures or reconstruction files, and limitations.
 
 ## Completion Criteria
 
-- The artifact identifies the target platform, user scenario, states, edge cases, and evidence source.
-- Proposed UI is visibly distinguishable from observed current behavior.
-- The artifact can be reviewed without modifying host source code.
-- Any unavailable evidence, unresolved behavior, or implementation dependency is visible.
+Each user-facing state has a real figure, reconstructed figure, or controlled placeholder decision; all generated files remain inside the run folder.
 
 ## Handoffs
 
-- Design receives the flow, states, visual references, and unresolved interaction decisions.
-- Engineering receives behavior, acceptance criteria, dependencies, and fidelity limitations through the PM handoff.
-- QA receives testable states and acceptance evidence.
-- A named human owner remains responsible for implementation, visual approval, and release approval; the handoff status stays separate from product and launch status.
+Send figure evidence to the PM Orchestrator and Review Agent. Never change the host product or present a reconstruction as implemented host UI.

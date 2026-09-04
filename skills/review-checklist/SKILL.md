@@ -3,52 +3,47 @@ name: review-checklist
 description: Use when reviewing PM artifacts for completeness, ambiguity, missing metrics, edge cases, dependencies, risks, and readiness.
 ---
 
-# Delivery Review
+# PRD Review
 
 ## Goal
 
-Decide whether the PRD and UI delivery is ready for stakeholder review, engineering handoff, or launch.
+Decide whether one PRD delivery is ready for product stakeholder review. The
+review covers `prd.md`, `prd.html`, `assets/`, and `run-log.yaml`; it does not
+produce implementation handoffs, launch decisions, or standalone UI artifacts.
 
 ## Workflow
 
-1. Check `prd.md`, UI deliverable references, portable HTML when present, and optional exports against their contracts.
-2. Identify gaps by severity: Critical, High, Medium, Low.
-3. Record artifact, evidence, owner, required-before phase, and status for each finding.
-4. Verify source IDs, requirement links, acceptance links, tracking links, UI delivery references, and local file references resolve.
-5. Verify validation evidence is concrete and not a stale placeholder.
-6. Audit every requirement for visual evidence, visible-copy, and measurement coverage. A missing `多语言需求` or `埋点需求` section is acceptable only when the requirement coverage review explicitly records `not_needed` with source-backed rationale; do not approve a PRD whose coverage is absent.
-7. For implemented-feature PRDs, verify that generated outputs were not used as current product facts, that a rewrite uses a new run folder, and that every placeholder follows a recorded capability chain rather than an untried fallback: existing-preview discovery, project-runtime reuse or activation through the actual project configuration, target test-state recovery, then Playwright, Chrome DevTools, and Computer Use attempts. A fixed port is never the contract; `skipped` is invalid for a required placeholder, and each attempt needs a durable local result reference.
-8. Route each finding to the responsible agent or artifact.
-9. Separate required fixes from optional improvements.
-10. State PRD, engineering handoff, and launch readiness separately.
-11. For repo-backed UI deliveries, verify `host_frontend_inventory` records the evidence inspected and `ui_delivery_trace` records `host_read_only`, target surface, artifact mode, non-empty source-to-demo mapping, fidelity, proposed behavior, limitations, and the human implementation owner. Source presence improves evidence quality but never authorizes preview, delta, or implementation files. Existing UI extracts must identify source target, selector, command, capture, generated path, and limitations.
-12. For portable HTML UI deliverables, verify JavaScript parses, primary controls change realistic product state, numbered callouts open marker dialogs, callouts are red/white borderless and not clipped or folding compact labels, the annotation floating control uses only `注释` or `Notes`, opens a right-edge full-height current-state panel, hides while the panel is open, and reappears when closed. A visible row of state/storyboard tabs is a finding; reviewer-only state switchers must be fixed, collapsed, marked `data-reviewer-only="true"`, and secondary to real interactions. A single generic all-screen annotation list is a finding unless the UI deliverable has only one screen.
-13. Verify the product surface does not contain visible `示例`, `演示`, `Demo`, `Sample`, `Prototype`, `Not production code`, or `不是生产代码` labels unless the product requirement explicitly needs visible draft status. Delivery boundaries should be in metadata, run logs, PRD notes, comments, or annotations.
-14. For access-gated UI deliverables, verify logged-out, guest, no-permission, and eligible states do not reveal signed-in-only data or actions from the wrong state.
-15. For operational workflows such as feedback, moderation, support, release checks, or admin review, verify the state machine, owner role, SLA or timing assumption, user-visible status, internal-only status, reply/content review, reopen/cancel path, and notification behavior.
-16. For comparison, ranking, scoring, or recommendation-adjacent experiences, verify neutral default ordering, no unexplained winner/highlight, source/fee/risk definitions, disclaimer visibility, and whether any wording implies advice or guaranteed superiority.
-17. For launch-sensitive packages, verify required human approvals are present before any ready-to-launch wording is allowed.
-18. When reviewing a UI artifact, load `skills/design-system-audit/SKILL.md` and add actionable findings for hierarchy, interaction-state coverage, accessibility guidance, visual consistency, and unsupported visual claims.
-19. Do not fetch or rely on mutable third-party design rules during a delivery review unless the user explicitly asks for that source-backed audit and approves its use.
+1. Check the PRD against `artifacts/prd-contract.md` and the confirmed scope.
+2. Verify every requirement ID has one matching detail and that a revision has
+   not changed unselected requirements.
+3. Verify each user-facing state has a real figure, an isolated reconstructed
+   figure, or a controlled placeholder beside its requirement detail.
+4. Check that figure paths, hashes, captions, and HTML rendering match the
+   staged PRD bytes.
+5. For implemented-feature PRDs, verify immutable implementation evidence,
+   requirement coverage, and figure provenance. Do not treat generated output
+   or local scaffolding as product evidence.
+6. For composed PRDs, verify every selected source requirement resolves only
+   from its immutable source snapshot. For revisions, verify baseline and
+   selected-scope evidence.
+7. Verify the controller trace records confirmation, lineage, review findings,
+   validation results, and a truthful terminal status.
+8. Identify Critical, High, Medium, or Low findings. Separate blocking fixes
+   from optional improvements and attach evidence to each finding.
 
 ## Output
 
 - Summary recommendation
 - Findings by severity
-- Artifact checklist
-- Open decisions
-- Human confirmation required
-- Content source and launch review status, when relevant
+- Requirement and figure coverage checklist
+- Open decisions or blockers
 - Validation results
 - Next actions
 
 ## Quality Bar
 
-- Findings are actionable.
-- Severity is justified.
-- Each finding includes enough evidence for the owner to reproduce or inspect it.
-- Critical issues block the relevant readiness phase.
-- No-Critical-or-High reviews still record what was checked and any residual risk.
-- UI delivery review confirms page-scoped annotations, platform chrome, eligible/ineligible states, access-state coherence, and placeholder-content labels when relevant.
-- Operational workflows identify who acts next and what status the user sees while waiting, after closure, and after failure.
-- Comparison and ranking reviews flag hidden recommendations, biased defaults, and missing methodology as readiness blockers.
+- Findings are actionable and evidence-backed.
+- A Critical or High finding blocks PRD promotion until it is fixed, accepted
+  explicitly as risk, or returned for clarification.
+- A review with no Critical or High findings still records the checks performed
+  and residual risk.
