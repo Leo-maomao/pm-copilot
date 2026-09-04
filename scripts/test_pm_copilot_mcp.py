@@ -111,6 +111,14 @@ class PmCopilotMcpTest(unittest.TestCase):
         self.assertEqual(server["command"], "python3")
         self.assertEqual(server["args"], ["./scripts/pm_copilot_mcp.py"])
 
+    def test_plugin_skill_requires_mcp_evidence_before_reporting_failure(self) -> None:
+        skill = (
+            REPOSITORY_ROOT / "plugins" / "pm-copilot" / "skills" / "pm-copilot" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Never invoke a PM Copilot controller", skill)
+        self.assertIn("controller_exit_code", skill)
+        self.assertIn("historical run log is not evidence", skill)
+
     def test_environment_cannot_override_the_installed_plugin_source(self) -> None:
         installed_runtime = Path("/tmp/installed-runtime")
         with patch.dict(MCP.os.environ, {"PM_COPILOT_REPOSITORY": "/tmp/legacy-runtime"}), patch.object(

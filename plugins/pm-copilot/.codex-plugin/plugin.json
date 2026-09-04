@@ -1,6 +1,6 @@
 {
   "name": "pm-copilot",
-  "version": "7.0.3+codex.20260904153048",
+  "version": "7.0.4+codex.20260904153719",
   "description": "Professional PRD generator with evidence-backed frontend figures.",
   "author": {
     "name": "PM Copilot"
@@ -14,6 +14,6 @@
     "developerName": "PM Copilot",
     "category": "Productivity",
     "capabilities": [],
-    "defaultPrompt": "Use PM Copilot to clarify and generate a reviewable PRD for this project."
+    "defaultPrompt": "Use prd_start_request to clarify and generate a reviewable PRD for this project."
   }
 }

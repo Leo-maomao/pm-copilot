@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.0.4 - 2026-09-04
+
+- Required the Codex plugin to use MCP-returned controller evidence before
+  reporting a PRD startup failure, preventing historical or inferred Python
+  errors from being presented as a current run result.
+
 ## 7.0.3 - 2026-09-04
 
 - Removed the legacy runtime environment override from the Codex plugin. It

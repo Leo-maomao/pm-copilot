@@ -21,6 +21,13 @@ implemented-feature append, pass the selected `run_folder` and set
 `append_implemented_feature` to true. Do not ask the user to configure the
 plugin in order to start a PRD workflow.
 
+Never invoke a PM Copilot controller, Python script, or a historical runtime
+from the shell. Before reporting that a PRD request failed to start, call the
+applicable MCP tool and report only its returned `controller_exit_code`,
+`controller_stderr`, `status`, and `last_error`. A screenshot, chat message,
+source inspection, or historical run log is not evidence of a current
+controller failure.
+
 For an implemented feature in the current host repository, include that it is
 already implemented in the request. The controller automatically freezes the
 branch, diff, relevant code, frontend inventory, and real-screenshot attempt

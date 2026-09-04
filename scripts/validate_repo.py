@@ -96,6 +96,13 @@ def check_plugin() -> None:
         fail("Codex plugin must not allow a user or environment runtime-path override")
     if "append_implemented_feature" not in skill:
         fail("Codex plugin skill must document explicit implemented-feature append delivery")
+    for required_instruction in (
+        "Never invoke a PM Copilot controller",
+        "controller_exit_code",
+        "historical run log is not evidence",
+    ):
+        if required_instruction not in skill:
+            fail("Codex plugin skill must require MCP evidence before reporting a failure")
     for legacy_fallback in ("PM_COPILOT_HOME", "os.getcwd", "~/.agents"):
         if legacy_fallback in wrapper or legacy_fallback in skill:
             fail(f"Codex plugin must not use the legacy runtime fallback: {legacy_fallback}")
@@ -116,6 +123,8 @@ def check_plugin() -> None:
         fail(f"Plugin manifest is invalid JSON: {error}")
     if "PRD" not in str(manifest.get("description", "")):
         fail("Plugin manifest must describe PRD generation")
+    if "prd_start_request" not in str(manifest.get("interface", {}).get("defaultPrompt", "")):
+        fail("Plugin default prompt must start PRD work through the MCP bridge")
 
 
 def check_reference_fixture_boundary() -> None:
