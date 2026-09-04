@@ -154,6 +154,24 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("needs_input", result["error"])
 
+    def test_confirm_forwards_confirmed_needs_input_to_the_controller(self) -> None:
+        """Only the controller can distinguish a legacy repair pause from real input."""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            self.write_state(
+                folder,
+                status="needs_input",
+                termination="needs_input",
+                user_confirmation={"confirmed": True},
+                required_input={"field": "input_assets", "question": "重新附加图片"},
+            )
+            expected = {"ok": True, "status": "needs_input", "controller_exit_code": 3}
+            with patch.object(MCP, "_invoke", return_value=expected) as invoke:
+                result = MCP.confirm_delivery(str(folder))
+
+            self.assertEqual(result, expected)
+            invoke.assert_called_once_with(str(folder), ["--confirm"])
+
     def test_confirm_allows_explicit_recovery_resume(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

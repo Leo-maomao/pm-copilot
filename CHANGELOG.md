@@ -6,6 +6,11 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.108] - 2026-09-04
+
+- Let the MCP bridge forward an explicitly confirmed `needs_input` run to the canonical controller, so controller-owned legacy-recovery migrations are reachable while genuine unanswered questions remain gated by that controller.
+- Tighten stale in-place-revision scope migration: it now refuses to clear a real controller input field or any remaining must-answer question.
+
 ## [6.2.107] - 2026-09-04
 
 - Make detached Seawork Agent attribution tolerate the bounded interval in which a newly acknowledged Agent ID is not yet visible through `inspect`, while retaining exact ID and provider/model verification.

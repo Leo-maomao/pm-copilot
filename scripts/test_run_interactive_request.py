@@ -34,6 +34,7 @@ from run_interactive_request import (
     _materialize_controller_trace,
     _materialize_revision_evidence,
     _materialize_revision_scope_manifest,
+    _migrate_stale_internal_scope_clarification,
     _migrate_legacy_confirmed_revision_scope,
     _normalise_trace_runtime_evidence,
     _prepare_delivery_workspace,
@@ -938,6 +939,125 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(resumed["termination"], "running")
             self.assertEqual(resumed["turns"][-1]["questions"], [])
             self.assertEqual(resumed["turns"][-1]["buckets"]["must_answer_before_generation"], [])
+
+    def test_stale_scope_migration_preserves_real_delivery_input(self) -> None:
+        """A legacy scope question must not erase an independently unresolved decision."""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            state = create_state("仅更新第 5.1 节", folder)
+            stale_question = "检测到超范围修改，是否授权扩展章节？"
+            user_question = "请确认是否包含历史数据迁移。"
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "status": "needs_input",
+                "termination": "needs_input",
+                "turns": [{
+                    "questions": [stale_question, user_question],
+                    "buckets": {"must_answer_before_generation": [stale_question, user_question]},
+                }],
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "scope_clarification": {
+                    "artifact": "prd.md",
+                    "question": stale_question,
+                    "violation": "protected requirement section changed",
+                },
+            })
+
+            self.assertFalse(_migrate_stale_internal_scope_clarification(state))
+            self.assertEqual(state["status"], "needs_input")
+            self.assertIn("scope_clarification", state)
+            self.assertEqual(state["turns"][-1]["questions"], [stale_question, user_question])
+
+    def test_stale_scope_migration_preserves_controller_owned_required_input(self) -> None:
+        """A real controller input field is never treated as a stale scope pause."""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            state = create_state("仅更新第 5.1 节", folder)
+            stale_question = "检测到超范围修改，是否授权扩展章节？"
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "status": "needs_input",
+                "termination": "needs_input",
+                "turns": [{
+                    "questions": [stale_question],
+                    "buckets": {"must_answer_before_generation": [stale_question]},
+                }],
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "required_input": {
+                    "field": "input_assets",
+                    "question": "请重新附加输入图片。",
+                    "reason": "asset snapshot is missing",
+                },
+                "scope_clarification": {
+                    "artifact": "prd.md",
+                    "question": stale_question,
+                    "violation": "protected requirement section changed",
+                },
+            })
+
+            self.assertFalse(_migrate_stale_internal_scope_clarification(state))
+            self.assertEqual(state["required_input"]["field"], "input_assets")
+
+    def test_stale_scope_migration_preserves_active_clarification_review(self) -> None:
+        """A reviewer-owned clarification pause remains a real human checkpoint."""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            state = create_state("仅更新第 5.1 节", folder)
+            stale_question = "检测到超范围修改，是否授权扩展章节？"
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "status": "needs_input",
+                "termination": "needs_input",
+                "turns": [{
+                    "questions": [stale_question],
+                    "buckets": {"must_answer_before_generation": [stale_question]},
+                }],
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "clarification_review": {
+                    "status": "needs_input",
+                    "questions": ["请明确数据保留范围。"],
+                    "blockers": ["数据保留范围会改变验收标准。"],
+                },
+                "scope_clarification": {
+                    "artifact": "prd.md",
+                    "question": stale_question,
+                    "violation": "protected requirement section changed",
+                },
+            })
+
+            self.assertFalse(_migrate_stale_internal_scope_clarification(state))
+            self.assertEqual(state["status"], "needs_input")
+            self.assertIn("scope_clarification", state)
+
+    def test_stale_scope_migration_requires_a_durable_turn(self) -> None:
+        """An incomplete legacy record must fail closed instead of clearing input."""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            state = create_state("仅更新第 5.1 节", folder)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "status": "needs_input",
+                "termination": "needs_input",
+                "turns": [],
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "scope_clarification": {
+                    "artifact": "prd.md",
+                    "question": "检测到超范围修改，是否授权扩展章节？",
+                    "violation": "protected requirement section changed",
+                },
+            })
+
+            self.assertFalse(_migrate_stale_internal_scope_clarification(state))
+            self.assertEqual(state["status"], "needs_input")
+            self.assertIn("scope_clarification", state)
 
     def test_answer_routes_confirmed_revision_selector_without_reopening_intake(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

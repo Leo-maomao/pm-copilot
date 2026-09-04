@@ -852,6 +852,8 @@ def _migrate_stale_internal_scope_clarification(state: dict[str, Any]) -> bool:
     """
     clarification = state.get("scope_clarification")
     confirmation = state.get("user_confirmation")
+    required_input = state.get("required_input")
+    clarification_review = state.get("clarification_review")
     if not (
         _delivery_variant(state) == "in_place_revision"
         and state.get("status") == "needs_input"
@@ -860,9 +862,33 @@ def _migrate_stale_internal_scope_clarification(state: dict[str, Any]) -> bool:
         and isinstance(confirmation, dict)
         and confirmation.get("confirmed") is True
         and _trace_values(state.get("revision_requirement_ids"))
+        and required_input in (None, {})
+    ):
+        return False
+    if (
+        isinstance(clarification_review, dict)
+        and str(clarification_review.get("status", "")).strip().lower() == "needs_input"
     ):
         return False
     stale_question = str(clarification.get("question", "")).strip()
+    violation = str(clarification.get("violation", "")).strip()
+    if not stale_question or not violation:
+        return False
+    turns = state.get("turns")
+    if not (isinstance(turns, list) and turns and isinstance(turns[-1], dict)):
+        return False
+    latest_turn = turns[-1]
+    remaining_questions = [
+        item for item in _trace_values(latest_turn.get("questions"))
+        if item != stale_question
+    ]
+    buckets = latest_turn.get("buckets")
+    remaining_must_answer = [
+        item for item in _trace_values(buckets.get("must_answer_before_generation"))
+        if item != stale_question
+    ] if isinstance(buckets, dict) else []
+    if remaining_questions or remaining_must_answer:
+        return False
     state.setdefault("legacy_scope_clarification_migrations", []).append({
         "at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "artifact": "prd.md",
@@ -870,7 +896,6 @@ def _migrate_stale_internal_scope_clarification(state: dict[str, Any]) -> bool:
     })
     state.pop("scope_clarification", None)
     state.pop("required_input", None)
-    turns = state.get("turns")
     if isinstance(turns, list) and turns and isinstance(turns[-1], dict) and stale_question:
         turns[-1]["questions"] = [
             item for item in _trace_values(turns[-1].get("questions"))
