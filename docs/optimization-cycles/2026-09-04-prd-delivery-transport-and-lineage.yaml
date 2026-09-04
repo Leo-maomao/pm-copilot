@@ -132,10 +132,17 @@ versioning:
 sync:
   embedded_copies_checked:
     - "Repository checkout is the current PM Copilot source of truth."
-  embedded_copies_updated: []
-  skipped_targets:
+    - "Global PM Copilot runtime copy reports version 6.2.101 at the pushed source commit."
+  embedded_copies_updated:
     - path: "global PM Copilot runtime copy"
-      reason: "Synchronize only after repository validation, plugin version sync, commit, and push succeed."
+      status: "updated and verified"
+    - path: "global PM Copilot skill link"
+      status: "updated"
+  skipped_targets: []
+release:
+  remote_push: "pushed"
+  target: "origin/main"
+  release_commit: "2a6eeb5"
 after:
   scorecard_report: ""
   validation_pass_rate: null
