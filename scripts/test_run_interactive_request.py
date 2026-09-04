@@ -6,6 +6,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -25,7 +26,9 @@ from run_interactive_request import (
     _artifact_review_prompt,
     _confirmation_packet,
     _delivery_worker,
+    _deliver_artifact_to_quality_gate,
     _delivery_input_problem,
+    _discard_non_content_assets,
     _ensure_runtime_current,
     _finalize_deterministic_trace,
     _materialize_controller_trace,
@@ -57,6 +60,7 @@ from run_interactive_request import (
     main,
     new_requirement_folder,
     register_extraction_source,
+    register_input_assets,
     register_implemented_feature_evidence,
     run_intake,
     write_discussion,
@@ -99,6 +103,45 @@ class InteractiveRequestTest(unittest.TestCase):
         state["delivery_stages"] = stages
         return state, canonical, workspace
 
+    def _in_place_review_state(self, root: Path) -> tuple[dict[str, object], Path, Path]:
+        """Build a selected-section revision with an attested baseline asset."""
+        canonical = root / "canonical"
+        assets = canonical / "assets"
+        assets.mkdir(parents=True)
+        (assets / "selected.png").write_bytes(b"selected image")
+        baseline = (
+            "| 5.1 | Selected behavior |\n| 5.2 | Protected behavior |\n\n"
+            "### 5.1 Selected behavior\n"
+            "Selected exact copy remains visible.\n"
+            "[[prd-detail-media src=\"./assets/selected.png\" alt=\"selected\" copy=\"Selected exact copy\"]]\n\n"
+            "### 5.2 Protected behavior\n"
+            "Protected exact copy remains visible.\n"
+        )
+        html = "<html><body>baseline</body></html>\n"
+        (canonical / "prd.md").write_text(baseline, encoding="utf-8")
+        (canonical / "prd.html").write_text(html, encoding="utf-8")
+        state = create_state("仅更新 5.1", canonical)
+        state.update({
+            "delivery_variant": "in_place_revision",
+            "revision_requirement_ids": ["5.1"],
+            "revision_history": [{
+                "mode": "in_place_revision",
+                "request": "仅更新 5.1",
+                "prd_before_sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                "html_before_sha256": hashlib.sha256(html.encode("utf-8")).hexdigest(),
+                "baseline_requirement_ids": ["5.1", "5.2"],
+            }],
+            "confirmed_fact_packet": {
+                "summary": "仅更新 5.1", "scope": {"goal": "仅更新 5.1", "in_scope": ["5.1"]},
+                "assumptions": [], "decisions": [], "risks": [],
+            },
+            "user_confirmation": {"confirmed": True, "source": "test"},
+        })
+        _materialize_revision_scope_manifest(state)
+        workspace = _prepare_delivery_workspace(state)
+        state["delivery_stages"] = {"prd.md": {"artifact_status": "promoted"}}
+        return state, canonical, workspace
+
     def test_global_runtime_sync_restarts_the_controller_before_argument_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             runtime_root = Path(temporary)
@@ -111,6 +154,216 @@ class InteractiveRequestTest(unittest.TestCase):
                 _ensure_runtime_current()
         self.assertEqual(execute.call_args.args[0], sys.executable)
         self.assertEqual(execute.call_args.args[1][1:], [str(Path(__file__).resolve().with_name("run_interactive_request.py")), "--confirm"])
+
+    def test_delivery_workspace_drops_metadata_without_mutating_canonical_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "example"
+            assets = canonical / "assets"
+            assets.mkdir(parents=True)
+            (canonical / "prd.md").write_text("# Existing PRD\n", encoding="utf-8")
+            (assets / "visible.png").write_bytes(b"visible")
+            (assets / ".DS_Store").write_bytes(b"finder")
+            (assets / ".private.png").write_bytes(b"hidden")
+            (assets / "Thumbs.db").write_bytes(b"explorer")
+            state = create_state("更新 PRD", canonical)
+
+            workspace = _prepare_delivery_workspace(state)
+
+            self.assertTrue((canonical / "assets" / ".DS_Store").is_file())
+            self.assertTrue((canonical / "assets" / ".private.png").is_file())
+            self.assertTrue((workspace / "assets" / "visible.png").is_file())
+            self.assertFalse((workspace / "assets" / ".DS_Store").exists())
+            self.assertFalse((workspace / "assets" / ".private.png").exists())
+            self.assertFalse((workspace / "assets" / "Thumbs.db").exists())
+
+    def test_writer_cannot_mutate_real_delivery_assets_outside_its_stage(self) -> None:
+        """A staged PRD may promote, but direct writes to the real tree must not."""
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary) / "delivery"
+            assets = workspace / "assets"
+            assets.mkdir(parents=True)
+            baseline_prd = "# Baseline PRD\n\n### 5.1 Existing requirement\nOld rule.\n"
+            baseline_asset = b"baseline image bytes"
+            (workspace / "prd.md").write_text(baseline_prd, encoding="utf-8")
+            (assets / "image.png").write_bytes(baseline_asset)
+            state = create_state("更新现有 PRD", workspace)
+            state.update({
+                "delivery_workspace": str(workspace),
+                "turns": [{
+                    "summary": "已确认更新范围",
+                    "scope": {"goal": "更新 5.1"},
+                    "assumptions": [],
+                    "risks": [],
+                }],
+            })
+
+            def writer(provider, prompt, cwd, *args):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                self.assertEqual(target, cwd / "prd.md")
+                target.write_text(
+                    "# Updated PRD\n\n### 5.1 Existing requirement\nUpdated rule.\n",
+                    encoding="utf-8",
+                )
+                # Simulate a worker which knows the real path and ignores its
+                # working-directory boundary while completing the staged write.
+                (assets / "image.png").write_bytes(b"mutated outside stage")
+                return {
+                    "provider": provider,
+                    "model": "test",
+                    "status": "complete",
+                    "output": "staged artifact written",
+                    "error": "",
+                }
+
+            self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=writer))
+
+            self.assertIn("Updated rule.", (workspace / "prd.md").read_text(encoding="utf-8"))
+            self.assertEqual((assets / "image.png").read_bytes(), baseline_asset)
+            self.assertEqual(state["delivery_stages"]["prd.md"]["artifact_status"], "promoted")
+
+    def test_reviewer_cannot_mutate_real_delivery_artifact_outside_review_workspace(self) -> None:
+        """Review output is useful only when the real delivery tree is restored first."""
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary) / "delivery"
+            workspace.mkdir()
+            baseline_prd = "# Baseline PRD\n\n### 5.1 Existing requirement\nBaseline rule.\n"
+            (workspace / "prd.md").write_text(baseline_prd, encoding="utf-8")
+            state = create_state("审查现有 PRD", workspace)
+            state.update({
+                "delivery_workspace": str(workspace),
+                "turns": [{
+                    "summary": "已确认审查范围",
+                    "scope": {"goal": "审查 5.1"},
+                    "assumptions": [],
+                    "risks": [],
+                }],
+            })
+
+            def reviewer(provider, prompt, cwd, *args):
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                self.assertEqual(review_path, cwd / ".stage-review.json")
+                review_path.write_text(
+                    json.dumps({
+                        "status": "pass",
+                        "summary": "reviewed staged copy",
+                        "blocking_findings": [],
+                        "acceptance_evidence": ["5.1 staged copy reviewed"],
+                    }),
+                    encoding="utf-8",
+                )
+                (workspace / "prd.md").write_text("# Mutated outside review workspace\n", encoding="utf-8")
+                return {
+                    "provider": provider,
+                    "model": "test",
+                    "status": "complete",
+                    "output": "review written",
+                    "error": "",
+                }
+
+            passed, _ = _review_artifact(state, "prd.md", "test", 1, worker=reviewer)
+
+            self.assertTrue(passed)
+            self.assertEqual((workspace / "prd.md").read_text(encoding="utf-8"), baseline_prd)
+            self.assertEqual(state["delivery_stages"]["prd.md"]["review_status"], "passed")
+
+    def test_reviewer_cannot_accept_a_stale_review_file_from_real_delivery_workspace(self) -> None:
+        """Every review attempt needs a response written after that attempt starts."""
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary) / "delivery"
+            workspace.mkdir()
+            (workspace / "prd.md").write_text(
+                "# Baseline PRD\n\n### 5.1 Existing requirement\nBaseline rule.\n",
+                encoding="utf-8",
+            )
+            stale_review = {
+                "status": "pass",
+                "summary": "old pass which must not be reused",
+                "blocking_findings": [],
+                "acceptance_evidence": ["old review evidence"],
+            }
+            (workspace / ".stage-review.json").write_text(json.dumps(stale_review), encoding="utf-8")
+            state = create_state("审查现有 PRD", workspace)
+            state.update({
+                "delivery_workspace": str(workspace),
+                "turns": [{
+                    "summary": "已确认审查范围",
+                    "scope": {"goal": "审查 5.1"},
+                    "assumptions": [],
+                    "risks": [],
+                }],
+            })
+
+            def reviewer(provider, prompt, cwd, *args):
+                # The Agent call itself completed, but it did not produce a
+                # response for this particular review attempt.
+                self.assertEqual(cwd / ".stage-review.json", Path(
+                    prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0],
+                ))
+                return {
+                    "provider": provider,
+                    "model": "test",
+                    "status": "complete",
+                    "output": "",
+                    "error": "",
+                }
+
+            passed, _ = _review_artifact(state, "prd.md", "test", 1, worker=reviewer)
+
+            self.assertFalse(passed)
+            self.assertEqual(state["delivery_stages"]["prd.md"]["review_status"], "failed")
+
+    def test_in_place_scope_ignores_metadata_omitted_from_the_staged_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "example"
+            assets = canonical / "assets"
+            assets.mkdir(parents=True)
+            baseline = "| 5.1 | Result |\n\n### 5.1 Result\nExisting rule.\n"
+            html = "<html>baseline</html>\n"
+            (canonical / "prd.md").write_text(baseline, encoding="utf-8")
+            (canonical / "prd.html").write_text(html, encoding="utf-8")
+            (assets / "result.png").write_bytes(b"content")
+            (assets / ".DS_Store").write_bytes(b"finder")
+            state = create_state("仅更新 5.1", canonical)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "revision_history": [{
+                    "mode": "in_place_revision",
+                    "request": "仅更新 5.1",
+                    "prd_before_sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                    "html_before_sha256": hashlib.sha256(html.encode("utf-8")).hexdigest(),
+                }],
+                "confirmed_fact_packet": {
+                    "scope": {"goal": "仅更新 5.1"},
+                    "decisions": [], "assumptions": [], "risks": [],
+                },
+            })
+
+            manifest = _materialize_revision_scope_manifest(state)
+            workspace = _prepare_delivery_workspace(state)
+            report = _validate_staged_revision_scope(state, workspace)
+
+            self.assertEqual(set(manifest["baseline"]["assets"]), {"assets/result.png"})
+            self.assertEqual(report["status"], "passed")
+            self.assertFalse((workspace / "assets" / ".DS_Store").exists())
+
+    def test_non_content_asset_cleanup_keeps_only_deliverable_asset_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            assets = folder / "assets"
+            (assets / ".finder").mkdir(parents=True)
+            (assets / ".finder" / "nested.png").write_bytes(b"metadata")
+            (assets / "visible.png").write_bytes(b"visible")
+            (assets / "desktop.ini").write_bytes(b"explorer")
+
+            discarded = _discard_non_content_assets(folder)
+
+            self.assertEqual(discarded, [".finder", ".finder/nested.png", "desktop.ini"])
+            self.assertTrue((assets / "visible.png").is_file())
+            self.assertFalse((assets / ".finder").exists())
+            self.assertFalse((assets / "desktop.ini").exists())
 
     def test_nonblocking_questions_do_not_hold_the_clarification_gate(self) -> None:
         intake = _normalise_intake({
@@ -630,6 +883,62 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(resumed["revision_requirement_ids"], ["5.1"])
             self.assertEqual(resumed["revision_scope_manifest"]["authority"], "explicit command-line selector")
 
+    def test_cli_confirm_migrates_stale_writer_scope_question_without_answers(self) -> None:
+        """A legacy writer violation is controller repair work, not new intake."""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            (folder / "prd.md").write_text(
+                "| 5.1 | 状态提示 |\n\n### 5.1 状态提示\n旧规则。\n",
+                encoding="utf-8",
+            )
+            turn = {
+                "turn": 1,
+                "user_text": "仅更新第 5.1 节",
+                "summary": "已确认修订范围",
+                "scope": {"goal": "更新第 5.1 节", "in_scope": ["5.1"]},
+                "questions": ["检测到超范围修改，是否授权扩展章节？"],
+                "assumptions": [],
+                "decisions": [],
+                "risks": [],
+                "buckets": {"must_answer_before_generation": ["检测到超范围修改，是否授权扩展章节？"]},
+            }
+            state = create_state("仅更新第 5.1 节", folder)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "revision_history": [{"request": "仅更新第 5.1 节", "mode": "in_place_revision"}],
+                "status": "needs_input",
+                "termination": "needs_input",
+                "turns": [turn],
+                "confirmed_fact_packet": json.loads(json.dumps(turn)),
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "scope_clarification": {
+                    "artifact": "prd.md",
+                    "question": "检测到超范围修改，是否授权扩展章节？",
+                    "violation": "protected requirement section 5.2 changed",
+                },
+            })
+            _write_json(folder / "interactive-run.json", state)
+
+            with patch("run_interactive_request._ensure_runtime_current"), patch(
+                "run_interactive_request._confirmed_delivery"
+            ) as deliver, patch("run_interactive_request.run_intake", side_effect=AssertionError(
+                "legacy writer scope question must not reopen intake"
+            )), patch.object(
+                sys, "argv", ["run_interactive_request.py", "--run-folder", str(folder), "--confirm"],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 1)
+
+            self.assertTrue(deliver.called)
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["status"], "confirmed")
+            self.assertNotIn("scope_clarification", resumed)
+            self.assertNotIn("required_input", resumed)
+            self.assertEqual(resumed["termination"], "running")
+            self.assertEqual(resumed["turns"][-1]["questions"], [])
+            self.assertEqual(resumed["turns"][-1]["buckets"]["must_answer_before_generation"], [])
+
     def test_answer_routes_confirmed_revision_selector_without_reopening_intake(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / "revision-run"
@@ -1123,6 +1432,165 @@ class InteractiveRequestTest(unittest.TestCase):
         self.assertIn("The controller renders and validates prd.html", prompt)
         self.assertIn("not a conflict", prompt)
 
+    def test_input_asset_snapshot_survives_temporary_source_cleanup_and_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "canonical"
+            canonical.mkdir()
+            temporary_input = root / "temporary-attachments" / "result.png"
+            temporary_input.parent.mkdir()
+            temporary_input.write_bytes(b"confirmed screenshot bytes")
+            state = create_state("使用用户提供的截图更新 PRD", canonical)
+            state["turns"] = [{
+                "summary": "已确认截图范围",
+                "scope": {"goal": "更新截图说明", "in_scope": ["引用 result.png"]},
+                "assumptions": [], "risks": [],
+            }]
+            state["confirmed_fact_packet"] = dict(state["turns"][-1])
+            state["user_confirmation"] = {"confirmed": True, "source": "test"}
+
+            records = register_input_assets(state, [temporary_input])
+            self.assertEqual(records[0]["asset_path"], "assets/result.png")
+            self.assertEqual(state["input_assets"], [records[0]["snapshot_path"]])
+            self.assertNotIn(str(temporary_input.resolve()), json.dumps(state, ensure_ascii=False))
+            descriptor = state["input_asset_manifest"]
+            manifest = canonical / descriptor["manifest_path"]
+            snapshot = canonical / records[0]["snapshot_path"]
+            self.assertTrue(manifest.is_file())
+            self.assertEqual(_artifact_digest(snapshot), records[0]["sha256"])
+            fingerprint = _confirmed_scope_fingerprint(state)
+
+            # The caller's OS-managed attachment path is deliberately removed
+            # before both the first stage and a later recovery attempt.
+            temporary_input.unlink()
+            restored_state = json.loads(json.dumps(state, ensure_ascii=False))
+            self.assertIsNone(_delivery_input_problem(restored_state))
+            self.assertEqual(_confirmed_scope_fingerprint(restored_state), fingerprint)
+
+            workspace = _prepare_delivery_workspace(restored_state)
+            self.assertEqual(
+                (workspace / "assets" / "result.png").read_bytes(),
+                b"confirmed screenshot bytes",
+            )
+            prompt = _artifact_prompt(restored_state, "prd.md")
+            self.assertIn('Provided user visual assets already copied to this delivery workspace: ["result.png"]', prompt)
+
+            shutil.rmtree(workspace.parent)
+            recovered_workspace = _prepare_delivery_workspace(restored_state)
+            self.assertEqual(
+                (recovered_workspace / "assets" / "result.png").read_bytes(),
+                b"confirmed screenshot bytes",
+            )
+
+            # A snapshot is not a convenience cache. Any byte change must stop
+            # before an Agent can receive the staged artifact path.
+            snapshot.write_bytes(b"tampered bytes")
+            problem = _delivery_input_problem(restored_state)
+            self.assertIn("SHA-256", problem or "")
+            with self.assertRaises(ValueError):
+                _prepare_delivery_workspace(restored_state)
+
+    def test_explicit_asset_reattachment_repairs_an_invalid_attested_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "canonical"
+            canonical.mkdir()
+            source = root / "attachments" / "result.png"
+            source.parent.mkdir()
+            source.write_bytes(b"original confirmed bytes")
+            state = create_state("使用附件更新 PRD", canonical)
+            record = register_input_assets(state, [source])[0]
+            snapshot = canonical / record["snapshot_path"]
+
+            for failure in ("missing", "tampered"):
+                with self.subTest(failure=failure):
+                    if failure == "missing":
+                        snapshot.unlink()
+                    else:
+                        snapshot.write_bytes(b"corrupt bytes")
+                    self.assertIsNotNone(_delivery_input_problem(state))
+
+                    repaired = register_input_assets(state, [source])
+
+                    self.assertEqual(repaired[0]["sha256"], record["sha256"])
+                    self.assertEqual(snapshot.read_bytes(), b"original confirmed bytes")
+                    self.assertIsNone(_delivery_input_problem(state))
+
+            source.write_bytes(b"different bytes")
+            snapshot.write_bytes(b"corrupt again")
+            with self.assertRaisesRegex(FileExistsError, "conflicts with another confirmed asset"):
+                register_input_assets(state, [source])
+
+    def test_explicit_asset_reattachment_recovers_a_missing_or_tampered_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "canonical"
+            canonical.mkdir()
+            source = root / "attachments" / "result.png"
+            source.parent.mkdir()
+            source.write_bytes(b"original confirmed bytes")
+            state = create_state("使用附件更新 PRD", canonical)
+            register_input_assets(state, [source])
+            descriptor = dict(state["input_asset_manifest"])
+            manifest = canonical / descriptor["manifest_path"]
+
+            for failure in ("missing", "tampered"):
+                with self.subTest(failure=failure):
+                    if failure == "missing":
+                        manifest.unlink()
+                    else:
+                        manifest.write_text('{"assets":[]}', encoding="utf-8")
+                    self.assertIsNotNone(_delivery_input_problem(state))
+
+                    records = register_input_assets(state, [source])
+
+                    self.assertEqual(len(records), 1)
+                    self.assertEqual(_artifact_digest(manifest), descriptor["manifest_sha256"])
+                    self.assertIsNone(_delivery_input_problem(state))
+
+    def test_manifest_recovery_requires_every_original_attachment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "canonical"
+            canonical.mkdir()
+            source_a = root / "attachments" / "result-a.png"
+            source_b = root / "attachments" / "result-b.png"
+            source_a.parent.mkdir()
+            source_a.write_bytes(b"first confirmed bytes")
+            source_b.write_bytes(b"second confirmed bytes")
+            state = create_state("使用附件更新 PRD", canonical)
+            records = register_input_assets(state, [source_a, source_b])
+            manifest = canonical / state["input_asset_manifest"]["manifest_path"]
+            manifest.unlink()
+
+            with self.assertRaisesRegex(ValueError, "reattach every originally confirmed asset"):
+                register_input_assets(state, [source_a])
+
+            self.assertFalse(manifest.exists())
+            self.assertEqual(len(records), 2)
+
+    def test_legacy_input_asset_path_is_migrated_before_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "canonical"
+            canonical.mkdir()
+            temporary_input = root / "temporary-attachments" / "legacy.png"
+            temporary_input.parent.mkdir()
+            temporary_input.write_bytes(b"legacy screenshot bytes")
+            state = create_state("更新 PRD", canonical)
+            # This is the path-only state written by older controller versions.
+            state["input_assets"] = [str(temporary_input)]
+
+            self.assertIsNone(_delivery_input_problem(state))
+            self.assertIsInstance(state["input_asset_manifest"], dict)
+            temporary_input.unlink()
+
+            workspace = _prepare_delivery_workspace(state)
+            self.assertEqual(
+                (workspace / "assets" / "legacy.png").read_bytes(),
+                b"legacy screenshot bytes",
+            )
+
     def test_prd_writer_prompt_injects_complete_controller_revision_scope_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1352,7 +1820,12 @@ class InteractiveRequestTest(unittest.TestCase):
             if "Clarification Review Agent" in prompt:
                 return {"provider": provider, "model": "test", "status": "complete", "output": '{"status":"complete","blockers":[],"questions":[]}', "error": ""}
             if "Stage Quality Review Agent" in prompt:
-                return {"provider": provider, "model": "test", "status": "complete", "output": '{"status":"pass","blocking_findings":[],"acceptance_evidence":["contract checked"]}', "error": ""}
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                review_path.write_text(
+                    '{"status":"pass","blocking_findings":[],"acceptance_evidence":["contract checked"]}',
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
             marker = "Write one complete artifact at "
             target = Path(prompt.split(marker, 1)[1].split(".\n", 1)[0])
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -1386,7 +1859,12 @@ class InteractiveRequestTest(unittest.TestCase):
             if "Clarification Review Agent" in prompt:
                 return {"provider": provider, "model": "test", "status": "complete", "output": '{"status":"complete","blockers":[],"questions":[]}', "error": ""}
             if "Stage Quality Review Agent" in prompt:
-                return {"provider": provider, "model": "test", "status": "complete", "output": '{"status":"pass","blocking_findings":[],"acceptance_evidence":["contract checked"]}', "error": ""}
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                review_path.write_text(
+                    '{"status":"pass","blocking_findings":[],"acceptance_evidence":["contract checked"]}',
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
             target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
             target.parent.mkdir(parents=True, exist_ok=True)
             writes += 1
@@ -1597,6 +2075,96 @@ class InteractiveRequestTest(unittest.TestCase):
                 '{"mode":"in_place_revision","prd_before_sha256":"old"}\n',
             )
             self.assertEqual((canonical / "confirmed-requirements.md").read_text(encoding="utf-8"), "# confirmed\n")
+
+    def test_promotion_excludes_non_content_metadata_from_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            for name, content in {
+                "confirmed-requirements.md": "# confirmed\n",
+                "prd.md": "# current\n",
+                "prd.html": "<!doctype html><html></html>\n",
+                "run-log.yaml": "trace: current\n",
+            }.items():
+                (workspace / name).write_text(content, encoding="utf-8")
+            canonical_assets = canonical / "assets"
+            canonical_assets.mkdir()
+            (canonical_assets / ".private.png").write_bytes(b"old metadata")
+            workspace_assets = workspace / "assets"
+            workspace_assets.mkdir()
+            (workspace_assets / "visible.png").write_bytes(b"content")
+            (workspace_assets / ".hidden.png").write_bytes(b"metadata")
+            (workspace_assets / "desktop.ini").write_bytes(b"metadata")
+            state = create_state("更新 PRD", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            _promote_delivery_workspace(state)
+
+            self.assertTrue((canonical / "assets" / "visible.png").is_file())
+            self.assertFalse((canonical / "assets" / ".private.png").exists())
+            self.assertFalse((canonical / "assets" / ".hidden.png").exists())
+            self.assertFalse((canonical / "assets" / "desktop.ini").exists())
+
+    def test_promotion_rejects_a_staged_confirmed_attachment_with_different_bytes(self) -> None:
+        """A same-name staged asset cannot diverge from the user-confirmed snapshot."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            canonical.mkdir(parents=True)
+            source = root / "attachments" / "result.png"
+            source.parent.mkdir()
+            source.write_bytes(b"confirmed attachment bytes")
+            state = create_state("使用截图创建 PRD", canonical)
+            register_input_assets(state, [source])
+            workspace = _prepare_delivery_workspace(state)
+            for name, content in {
+                "confirmed-requirements.md": "# confirmed\n",
+                "prd.md": "# current\n",
+                "prd.html": "<!doctype html><html></html>\n",
+                "run-log.yaml": "trace: current\n",
+            }.items():
+                (workspace / name).write_text(content, encoding="utf-8")
+            (workspace / "assets" / "result.png").write_bytes(b"different staged bytes")
+
+            with self.assertRaisesRegex(RuntimeError, "confirmed input asset SHA-256"):
+                _promote_delivery_workspace(state)
+
+            self.assertFalse((canonical / "assets" / "result.png").exists())
+
+    def test_promotion_rejects_a_nested_canonical_source_material_symlink(self) -> None:
+        """A late nested link cannot be dereferenced while building a candidate."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            canonical.mkdir(parents=True)
+            source = root / "attachments" / "result.png"
+            source.parent.mkdir()
+            source.write_bytes(b"confirmed attachment bytes")
+            outside = root / "outside.png"
+            outside.write_bytes(b"must not be copied")
+            state = create_state("使用截图创建 PRD", canonical)
+            register_input_assets(state, [source])
+            workspace = _prepare_delivery_workspace(state)
+            for name, content in {
+                "confirmed-requirements.md": "# confirmed\n",
+                "prd.md": "# current\n",
+                "prd.html": "<!doctype html><html></html>\n",
+                "run-log.yaml": "trace: current\n",
+            }.items():
+                (workspace / name).write_text(content, encoding="utf-8")
+            link = canonical / "source-material" / "input-assets" / "late-link.png"
+            try:
+                link.symlink_to(outside)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable in this environment: {error}")
+
+            with self.assertRaisesRegex(RuntimeError, "canonical PRD folder before promotion.*symbolic links"):
+                _promote_delivery_workspace(state)
+
+            self.assertFalse((canonical / "assets" / "result.png").exists())
 
     def test_non_revision_promotion_discards_stale_revision_evidence(self) -> None:
         """New and extracted deliveries must not reuse a prior revision's proof."""
@@ -2393,7 +2961,7 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertIn("上传节点\n保留上传规则", updated)
             self.assertIn("assets/upload-node.png", updated)
 
-    def test_controller_scope_contract_rejects_unselected_section_changes_before_review(self) -> None:
+    def test_controller_scope_contract_restores_unselected_section_changes_before_review(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             canonical = Path(temporary) / "canonical"
             canonical.mkdir()
@@ -2415,11 +2983,19 @@ class InteractiveRequestTest(unittest.TestCase):
 
             def worker(provider, prompt, cwd, *args):
                 target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
-                target.write_text(baseline.replace("protected", "mutated"), encoding="utf-8")
+                target.write_text(
+                    baseline.replace("old", "updated selected rule").replace("protected", "mutated"),
+                    encoding="utf-8",
+                )
                 return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
 
-            self.assertFalse(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
-            self.assertIn("protected requirement section 5.2 changed", state["last_error"])
+            self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
+            updated = (Path(str(state["delivery_workspace"])) / "prd.md").read_text(encoding="utf-8")
+            self.assertIn("updated selected rule", updated)
+            self.assertIn("### 5.2 B\nprotected", updated)
+            self.assertNotIn("mutated", updated)
+            self.assertEqual(state["revision_scope_validation"]["status"], "passed")
+            self.assertEqual(state["status"], "new")
 
     def test_revision_skips_global_controller_transforms_outside_confirmed_scope(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -2483,6 +3059,9 @@ class InteractiveRequestTest(unittest.TestCase):
                         "summary": "已确认删除范围", "scope": {"goal": f"删除 {deleted_id}"},
                         "assumptions": [], "risks": [],
                     }]
+                    manifest = _materialize_revision_scope_manifest(state)
+                    self.assertIsInstance(manifest, dict)
+                    self.assertEqual(manifest["deleted_requirement_ids"], [deleted_id])
                     workspace = _prepare_delivery_workspace(state)
                     candidate = original.replace(f"| {deleted_id} | {names[deleted_id]} |\n", "")
                     section = f"### {deleted_id} {names[deleted_id]}\n{rules[deleted_id]}\n"
@@ -2513,7 +3092,7 @@ class InteractiveRequestTest(unittest.TestCase):
                     self.assertEqual(evidence["baseline_requirement_ids"], ["5.1", "5.2", "5.3"])
 
     def test_promotion_time_revision_source_drift_requires_a_fresh_revision(self) -> None:
-        for changed_name in ("prd.md", "prd.html"):
+        for changed_name in ("prd.md", "prd.html", "assets/image.png"):
             with self.subTest(changed_name=changed_name):
                 with tempfile.TemporaryDirectory() as temporary:
                     canonical = Path(temporary) / "canonical"
@@ -2523,6 +3102,7 @@ class InteractiveRequestTest(unittest.TestCase):
                     (canonical / "prd.md").write_text(original_prd, encoding="utf-8")
                     (canonical / "prd.html").write_text(original_html, encoding="utf-8")
                     (canonical / "assets").mkdir()
+                    (canonical / "assets" / "image.png").write_bytes(b"original image")
                     state = create_state("修改需求 5.1", canonical)
                     state.update({
                         "delivery_variant": "in_place_revision",
@@ -2551,9 +3131,13 @@ class InteractiveRequestTest(unittest.TestCase):
                     actual_promote = _promote_delivery_workspace
 
                     def mutate_source_then_promote(state_arg):
-                        (canonical / changed_name).write_text(
-                            f"external concurrent update to {changed_name}\n", encoding="utf-8",
-                        )
+                        changed_path = canonical / changed_name
+                        if changed_path.suffix == ".png":
+                            changed_path.write_bytes(b"external concurrent image update")
+                        else:
+                            changed_path.write_text(
+                                f"external concurrent update to {changed_name}\n", encoding="utf-8",
+                            )
                         return actual_promote(state_arg)
 
                     passed = [{"command": "test validation", "status": "passed", "stdout": "", "stderr": ""}]
@@ -2572,7 +3156,11 @@ class InteractiveRequestTest(unittest.TestCase):
                     self.assertEqual(state["termination"], "needs_input")
                     self.assertEqual(state["required_input"]["field"], "revision_source_drift")
                     self.assertIn("重新发起原地修订", state["required_input"]["question"])
-                    self.assertIn("external concurrent update", (canonical / changed_name).read_text(encoding="utf-8"))
+                    changed_path = canonical / changed_name
+                    if changed_path.suffix == ".png":
+                        self.assertEqual(changed_path.read_bytes(), b"external concurrent image update")
+                    else:
+                        self.assertIn("external concurrent update", changed_path.read_text(encoding="utf-8"))
                     self.assertFalse(state.get("delivery_promoted_at"))
 
     def test_legacy_interrupted_delivery_is_not_reported_as_awaiting_confirmation(self) -> None:
@@ -2612,6 +3200,212 @@ class InteractiveRequestTest(unittest.TestCase):
             prompt = _artifact_review_prompt(state, "confirmed-requirements.md", Path(temporary) / "review.json")
             self.assertIn("/tmp/source/prd.md", prompt)
             self.assertIn("not PRD\ngeneration blockers", prompt)
+
+    def test_in_place_review_prompt_uses_controller_asset_attestation_and_typed_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, _, workspace = self._in_place_review_state(Path(temporary))
+
+            prompt = _artifact_review_prompt(state, "prd.md", workspace / ".stage-review.json")
+
+            self.assertEqual(state["revision_asset_attestation"]["status"], "passed")
+            self.assertIn("Controller-owned staged asset attestation", prompt)
+            self.assertIn("\"status\":\"passed\"", prompt)
+            self.assertIn("controller attestation is conclusive", prompt)
+            self.assertIn("\"blocking_findings\":[]", prompt)
+            self.assertIn("\"revision_findings\"", prompt)
+            self.assertIn("\"owner\":\"prd_writer\"", prompt)
+
+    def test_in_place_review_uses_isolated_workspace_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, _, workspace = self._in_place_review_state(Path(temporary))
+            observed: dict[str, Path | str] = {}
+
+            def worker(provider, prompt, cwd, *args):
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                observed["cwd"] = cwd
+                observed["prompt"] = prompt
+                observed["review_path"] = review_path
+                review_path.write_text(
+                    '{"status":"pass","summary":"checked","blocking_findings":[],"revision_findings":[],"acceptance_evidence":["selected section checked"]}',
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
+
+            passed, _ = _review_artifact(state, "prd.md", "test", 1, worker=worker)
+
+            self.assertTrue(passed)
+            self.assertNotEqual(observed["cwd"], workspace)
+            self.assertEqual(observed["review_path"], Path(observed["cwd"]) / ".stage-review.json")
+            self.assertIn(f"Read only {Path(observed['cwd']) / 'prd.md'}", str(observed["prompt"]))
+            self.assertNotIn(f"Read only {workspace / 'prd.md'}", str(observed["prompt"]))
+
+    def test_in_place_review_rejects_controller_owned_asset_provenance_repair(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, _, workspace = self._in_place_review_state(Path(temporary))
+
+            def writer(provider, prompt, cwd, *args):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                target.write_text(
+                    (workspace / "prd.md").read_text(encoding="utf-8").replace(
+                        "Selected exact copy remains visible.", "Selected exact copy was refreshed.",
+                    ), encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=writer))
+            self.assertEqual(state["revision_asset_attestation"]["status"], "passed")
+
+            def worker(provider, prompt, cwd, *args):
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                review_path.write_text(
+                    json.dumps({
+                        "status": "needs_revision",
+                        "summary": "asset review",
+                        "blocking_findings": [],
+                        "revision_findings": [{
+                            "kind": "selected_media_semantics_gap",
+                            "owner": "prd_writer",
+                            "requirement_ids": ["5.1"],
+                            "evidence": '5.1: "Selected exact copy was refreshed."',
+                            "repair": "Verify the selected image source and SHA-256 before accepting it.",
+                        }],
+                        "acceptance_evidence": [],
+                    }, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
+
+            passed, findings = _review_artifact(state, "prd.md", "test", 1, worker=worker)
+
+            self.assertFalse(passed)
+            self.assertIn("controller-owned asset existence or provenance", findings)
+            self.assertEqual(state["review_contract_rejection"]["artifact"], "prd.md")
+            self.assertEqual(state["delivery_stages"]["prd.md"]["review_findings"], [])
+            self.assertNotIn("SHA-256 before accepting", state["agent_calls"][-1]["output"])
+
+    def test_in_place_review_rejects_findings_outside_selected_requirement_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, _, _ = self._in_place_review_state(Path(temporary))
+
+            def worker(provider, prompt, cwd, *args):
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                review_path.write_text(
+                    json.dumps({
+                        "status": "needs_revision",
+                        "summary": "wrong scope",
+                        "blocking_findings": [],
+                        "revision_findings": [{
+                            "kind": "selected_copy_gap",
+                            "owner": "prd_writer",
+                            "requirement_ids": ["5.2"],
+                            "evidence": '5.2: "Protected exact copy remains visible."',
+                            "repair": "Rewrite protected copy.",
+                        }],
+                        "acceptance_evidence": [],
+                    }, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
+
+            passed, findings = _review_artifact(state, "prd.md", "test", 1, worker=worker)
+
+            self.assertFalse(passed)
+            self.assertIn("target only selected requirement IDs", findings)
+            self.assertEqual(state["review_contract_rejection"]["artifact"], "prd.md")
+
+    def test_in_place_quality_gate_retries_invalid_reviewer_without_calling_writer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, _, _ = self._in_place_review_state(Path(temporary))
+            calls: list[str] = []
+
+            def worker(provider, prompt, cwd, *args):
+                if "Stage Quality Review Agent" not in prompt:
+                    self.fail("invalid reviewer output must not be sent to the PRD writer")
+                calls.append(prompt)
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                review_path.write_text(
+                    '{"status":"needs_revision","summary":"legacy","blocking_findings":["rewrite 5.2"],"acceptance_evidence":[]}',
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
+
+            passed = _deliver_artifact_to_quality_gate(state, "prd.md", "test", 1, worker=worker, max_revisions=0)
+
+            self.assertFalse(passed)
+            self.assertEqual(len(calls), 2)
+            self.assertIn("prior response violated this output contract", calls[1].lower())
+            self.assertEqual(state["revision_stop_reason"], "prd.md stage review contract rejected twice")
+
+    def test_in_place_quality_gate_sends_valid_typed_finding_to_writer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state, _, workspace = self._in_place_review_state(Path(temporary))
+            calls: list[str] = []
+
+            def worker(provider, prompt, cwd, *args):
+                if "Stage Quality Review Agent" in prompt:
+                    calls.append("review")
+                    review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                    if calls.count("review") == 1:
+                        review_path.write_text(
+                            json.dumps({
+                                "status": "needs_revision", "summary": "copy gap", "blocking_findings": [],
+                                "revision_findings": [{
+                                    "kind": "selected_copy_gap", "owner": "prd_writer", "requirement_ids": ["5.1"],
+                                    "evidence": '5.1: "Selected exact copy remains visible."',
+                                    "repair": "Change the selected copy to the confirmed wording.",
+                                }],
+                                "acceptance_evidence": [],
+                            }), encoding="utf-8",
+                        )
+                    else:
+                        review_path.write_text(
+                            '{"status":"pass","summary":"checked","blocking_findings":[],"revision_findings":[],"acceptance_evidence":["selected repair verified"]}',
+                            encoding="utf-8",
+                        )
+                    return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
+                calls.append(prompt)
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                self.assertEqual(target, cwd / "prd.md")
+                self.assertIn("[selected_copy_gap] 5.1", prompt)
+                self.assertIn("Selected evidence:", prompt)
+                target.write_text(
+                    (cwd / "prd.md").read_text(encoding="utf-8").replace(
+                        "Selected exact copy remains visible.", "Confirmed selected copy is visible.",
+                    ), encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            passed = _deliver_artifact_to_quality_gate(state, "prd.md", "test", 1, worker=worker, max_revisions=1)
+
+            self.assertTrue(passed)
+            self.assertEqual(calls.count("review"), 2)
+            self.assertTrue(any("Write one complete artifact at" in call for call in calls if call != "review"))
+            self.assertEqual(state["delivery_stages"]["prd.md"]["revision_findings"], [])
+
+    def test_non_revision_stage_review_accepts_legacy_blocking_findings(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            target = folder / "confirmed-requirements.md"
+            target.write_text("# Confirmed\n", encoding="utf-8")
+            state = create_state("新建 PRD", folder)
+            state["confirmed_fact_packet"] = {
+                "summary": "已确认", "scope": {"goal": "新建 PRD"},
+                "assumptions": [], "decisions": [], "risks": [],
+            }
+
+            def worker(provider, prompt, cwd, *args):
+                review_path = Path(prompt.split("Write ONLY one JSON object to ", 1)[1].split(" (UTF-8):", 1)[0])
+                review_path.write_text(
+                    '{"status":"needs_revision","summary":"legacy","blocking_findings":["add acceptance evidence"],"acceptance_evidence":[]}',
+                    encoding="utf-8",
+                )
+                return {"provider": provider, "model": "test", "status": "complete", "output": "", "error": ""}
+
+            passed, findings = _review_artifact(state, "confirmed-requirements.md", "test", 1, worker=worker)
+
+            self.assertFalse(passed)
+            self.assertEqual(findings, "add acceptance evidence")
+            self.assertNotIn("review_contract_rejection", state)
 
     def test_confirmation_packet_uses_only_final_confirmed_turn(self) -> None:
         state = create_state("旧请求", Path("/tmp/example"))

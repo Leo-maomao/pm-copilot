@@ -53,6 +53,14 @@ STAGE_TARGET_PATTERN = re.compile(
 FIRST_ARTIFACT_SECONDS = 30
 POST_ARTIFACT_GRACE_SECONDS = 5
 SEAWORK_CONTROL_PLANE_FAILURE_LIMIT = 2
+# A detached launch can return its UUID before the daemon's inspect index has
+# caught up. This is an elapsed grace window rather than a fixed attempt count:
+# an immediately-empty response must not consume only a few milliseconds of a
+# race that can last several seconds. Successful exact-ID attribution returns
+# immediately; every query and sleep remains bounded by this hard deadline.
+SEAWORK_STARTUP_VISIBILITY_GRACE_SECONDS = 15.0
+SEAWORK_STARTUP_VISIBILITY_INITIAL_POLL_SECONDS = 0.25
+SEAWORK_STARTUP_VISIBILITY_MAX_POLL_SECONDS = 2.0
 # A transport failure normally means the local Seawork control plane is not a
 # useful path for the next stage either. Keep the breaker process-local and
 # short-lived so a recovered daemon is probed again without carrying a stale
@@ -966,12 +974,17 @@ def _is_seawork_transport(provider: str | None) -> bool:
     return str(provider or "") in SEAWORK_TRANSPORT_PROVIDERS
 
 
-def _seawork_agent_record(executable: str, agent_id: str) -> tuple[dict[str, Any] | None, str]:
+def _seawork_agent_record(
+    executable: str, agent_id: str, timeout_seconds: float | None = None,
+) -> tuple[dict[str, Any] | None, str]:
     """Read the daemon's record for an attributable Agent ID."""
+    inspect_timeout = SEAWORK_AGENT_INSPECT_TIMEOUT_SECONDS
+    if timeout_seconds is not None:
+        inspect_timeout = min(inspect_timeout, max(0.0, timeout_seconds))
     try:
         inspected = _run(
             [executable, "inspect", agent_id, "--json"],
-            timeout=SEAWORK_AGENT_INSPECT_TIMEOUT_SECONDS,
+            timeout=inspect_timeout,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         return None, f"could not query Agent state: {error}"
@@ -991,6 +1004,50 @@ def _seawork_agent_record(executable: str, agent_id: str) -> tuple[dict[str, Any
     if not status:
         return None, "could not query Agent state: inspect response omitted Agent status"
     return agent, status.lower()
+
+
+def _await_seawork_startup_attribution(
+    executable: str, agent_id: str,
+) -> tuple[dict[str, Any] | None, str, int]:
+    """Wait briefly for an exact detached-Agent record and its model evidence.
+
+    Seawork acknowledges ``run --detach`` before its inspect index is always
+    readable. An omitted record is therefore not evidence that the launched
+    Agent is absent or safe to replace. This helper retries only that bounded
+    visibility race; it never accepts a partial record as model attribution.
+    The remaining grace time is also passed to ``inspect`` so a stalled command
+    cannot overrun the controller's startup bound.
+    """
+    record: dict[str, Any] | None = None
+    state = "unknown"
+    attempts = 0
+    deadline = time.monotonic() + SEAWORK_STARTUP_VISIBILITY_GRACE_SECONDS
+    poll_interval = SEAWORK_STARTUP_VISIBILITY_INITIAL_POLL_SECONDS
+    while True:
+        remaining = deadline - time.monotonic()
+        if attempts and remaining <= 0:
+            return record, state, attempts
+        # The first query begins immediately. A nonpositive remaining value
+        # cannot happen there in normal execution, but avoids dispatching an
+        # unbounded inspect when a monotonic clock advances unexpectedly.
+        if remaining <= 0:
+            return record, state, attempts
+        attempts += 1
+        record, state = _seawork_agent_record(executable, agent_id, remaining)
+        if record and str(record.get("provider", "")).strip():
+            return record, state, attempts
+        # ``agent_not_found`` is a definitive response, unlike an empty
+        # successful inspect payload while the index is converging.
+        if state == "missing":
+            return record, state, attempts
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return record, state, attempts
+        time.sleep(min(poll_interval, remaining))
+        poll_interval = min(
+            SEAWORK_STARTUP_VISIBILITY_MAX_POLL_SECONDS,
+            poll_interval * 2,
+        )
 
 
 def _seawork_agent_is_terminal(executable: str, agent_id: str) -> tuple[bool, str]:
@@ -1114,10 +1171,13 @@ def _execute_seawork(
         else requested_provider if "/" in requested_provider
         else "claude"
     )
-    record, state = _seawork_agent_record(executable, agent_id)
+    record, state, startup_visibility_attempts = _await_seawork_startup_attribution(
+        executable, agent_id,
+    )
     actual_model = str(record.get("provider", "")) if record else ""
     result["requested_model"] = expected_model
     result["actual_model"] = actual_model or None
+    result["startup_visibility_attempts"] = startup_visibility_attempts
     if actual_model:
         result["model"] = actual_model
     if _seawork_control_plane_failure(state):

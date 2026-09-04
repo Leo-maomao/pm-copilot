@@ -638,7 +638,22 @@ class AgentRuntimeTest(unittest.TestCase):
             "seawork", "run", "--provider", "codex/gpt-5.6-terra",
             "Write exactly one complete artifact at /tmp/seawork-control-plane.md.",
         ]
-        with patch("agent_runtime._run", side_effect=[launched, unavailable]) as run:
+        clock = [0.0]
+
+        def monotonic() -> float:
+            return clock[0]
+
+        def sleep(seconds: float) -> None:
+            clock[0] += seconds
+
+        def run_command(command: object, *_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            if isinstance(command, list) and len(command) > 1 and command[1] == "run":
+                return launched
+            return unavailable
+
+        with patch("agent_runtime._run", side_effect=run_command) as run, patch(
+            "agent_runtime.time.monotonic", side_effect=monotonic,
+        ), patch("agent_runtime.time.sleep", side_effect=sleep) as sleep_mock:
             result = agent_runtime._execute_seawork(
                 command, "seawork", Path.cwd(), 3,
                 {"provider": "seawork", "model": "codex/gpt-5.6-terra"}, 100, None,
@@ -646,8 +661,105 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertEqual(result["status"], "orphaned")
         self.assertEqual(result["failure_category"], "seawork_control_plane_unavailable")
         self.assertNotIn("model mismatch", result["error"].lower())
-        self.assertEqual(len(run.call_args_list), 2)
+        self.assertEqual(result["startup_visibility_attempts"], 10)
+        self.assertEqual(clock[0], agent_runtime.SEAWORK_STARTUP_VISIBILITY_GRACE_SECONDS)
+        self.assertEqual(sleep_mock.call_count, 10)
+        inspect_calls = [
+            item for item in run.call_args_list
+            if item.args[0][1] == "inspect"
+        ]
+        self.assertEqual(len(inspect_calls), result["startup_visibility_attempts"])
+        self.assertTrue(all(
+            item.kwargs["timeout"] <= agent_runtime.SEAWORK_AGENT_INSPECT_TIMEOUT_SECONDS
+            for item in inspect_calls
+        ))
+        self.assertAlmostEqual(inspect_calls[-1].kwargs["timeout"], 1.25)
         self.assertTrue(all("ls" not in call.args[0] for call in run.call_args_list))
+
+    def test_seawork_retries_delayed_startup_visibility_before_model_verification(self) -> None:
+        agent_id = "e5fb49d8-5227-4a93-bba3-ded9b613bab5"
+        launched = subprocess.CompletedProcess([], 0, f"{agent_id}\n", "")
+        omitted = subprocess.CompletedProcess([], 0, json.dumps({"agents": []}), "")
+        running = subprocess.CompletedProcess(
+            [], 0,
+            json.dumps({"id": agent_id, "provider": "codex/gpt-5.6-terra", "status": "running"}),
+            "",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "confirmed-requirements.md"
+            command = [
+                "seawork", "run", "--provider", "codex/gpt-5.6-terra",
+                f"Write exactly one complete artifact at {target}.",
+            ]
+
+            def terminal_after_write(*_args: object, **_kwargs: object) -> tuple[bool, str]:
+                target.write_text("new confirmed requirements\n", encoding="utf-8")
+                return True, "idle"
+
+            with patch("agent_runtime._run", side_effect=[launched, omitted, running]) as run, patch(
+                "agent_runtime._poll_seawork_terminal", side_effect=terminal_after_write,
+            ), patch("agent_runtime.time.sleep") as sleep:
+                result = agent_runtime._execute_seawork(
+                    command, "seawork", Path(temporary), 3,
+                    {"provider": "seawork", "model": "codex/gpt-5.6-terra"}, 100, None,
+                )
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["model"], "codex/gpt-5.6-terra")
+        self.assertEqual(result["startup_visibility_attempts"], 2)
+        self.assertEqual(len(run.call_args_list), 3)
+        self.assertEqual(sleep.call_count, 1)
+        self.assertEqual(run.call_args_list[1].args[0], ["seawork", "inspect", agent_id, "--json"])
+        self.assertEqual(run.call_args_list[2].args[0], ["seawork", "inspect", agent_id, "--json"])
+
+    def test_seawork_startup_visibility_grace_covers_an_eight_second_empty_index(self) -> None:
+        """An empty successful inspect response is not a missing detached Agent."""
+        agent_id = "e5fb49d8-5227-4a93-bba3-ded9b613bab5"
+        launched = subprocess.CompletedProcess([], 0, f"{agent_id}\n", "")
+        omitted = subprocess.CompletedProcess([], 0, json.dumps({"agents": []}), "")
+        running = subprocess.CompletedProcess(
+            [], 0,
+            json.dumps({"id": agent_id, "provider": "codex/gpt-5.6-terra", "status": "running"}),
+            "",
+        )
+        clock = [0.0]
+
+        def monotonic() -> float:
+            return clock[0]
+
+        def sleep(seconds: float) -> None:
+            clock[0] += seconds
+
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "confirmed-requirements.md"
+            command = [
+                "seawork", "run", "--provider", "codex/gpt-5.6-terra",
+                f"Write exactly one complete artifact at {target}.",
+            ]
+
+            def run_command(command: object, *_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+                if isinstance(command, list) and len(command) > 1 and command[1] == "run":
+                    return launched
+                return running if clock[0] >= 8.0 else omitted
+
+            def terminal_after_write(*_args: object, **_kwargs: object) -> tuple[bool, str]:
+                target.write_text("new confirmed requirements\n", encoding="utf-8")
+                return True, "idle"
+
+            with patch("agent_runtime._run", side_effect=run_command), patch(
+                "agent_runtime.time.monotonic", side_effect=monotonic,
+            ), patch("agent_runtime.time.sleep", side_effect=sleep), patch(
+                "agent_runtime._poll_seawork_terminal", side_effect=terminal_after_write,
+            ):
+                result = agent_runtime._execute_seawork(
+                    command, "seawork", Path(temporary), 3,
+                    {"provider": "seawork", "model": "codex/gpt-5.6-terra"}, 100, None,
+                )
+
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["model"], "codex/gpt-5.6-terra")
+        self.assertGreater(clock[0], 8.0)
+        self.assertLess(clock[0], agent_runtime.SEAWORK_STARTUP_VISIBILITY_GRACE_SECONDS)
+        self.assertEqual(result["startup_visibility_attempts"], 8)
 
     def test_seawork_missing_agent_converges_without_an_unverified_stop(self) -> None:
         agent_id = "e5fb49d8-5227-4a93-bba3-ded9b613bab5"
@@ -658,7 +770,7 @@ class AgentRuntimeTest(unittest.TestCase):
         ]
         with patch("agent_runtime._run", return_value=launched) as run, patch(
             "agent_runtime._seawork_agent_record", return_value=(None, "missing"),
-        ):
+        ), patch("agent_runtime.time.sleep") as sleep:
             result = agent_runtime._execute_seawork(
                 command, "seawork", Path.cwd(), 3,
                 {"provider": "seawork", "model": "codex/gpt-5.6-terra"}, 100, None,
@@ -668,6 +780,8 @@ class AgentRuntimeTest(unittest.TestCase):
         self.assertEqual(result["agent_state_after_stop"], "missing")
         self.assertNotIn("cleanup_blocked", result)
         self.assertEqual(run.call_count, 1)
+        self.assertEqual(result["startup_visibility_attempts"], 1)
+        self.assertEqual(sleep.call_count, 0)
 
     def test_model_mismatch_stop_converges_when_agent_is_deleted(self) -> None:
         agent_id = "e5fb49d8-5227-4a93-bba3-ded9b613bab5"

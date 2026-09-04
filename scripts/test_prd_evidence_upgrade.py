@@ -14,6 +14,7 @@ from prd_evidence_upgrade import (
     insert_figure_rows,
     normalize_tracking_identifier,
     normalize_existing_tracking_rows,
+    real_assets,
     tracking_rows_from_details,
     upgrade_output,
 )
@@ -79,6 +80,20 @@ class PRDEvidenceUpgradeTest(unittest.TestCase):
             folder = root / "pm-copilot-outputs" / "sample-2026-07-29"
             folder.mkdir(parents=True)
             self.assertEqual(discover_output_folders([root]), [folder])
+
+    def test_asset_evidence_discovery_ignores_hidden_and_platform_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            assets = folder / "assets"
+            assets.mkdir()
+            (assets / "visible.png").write_bytes(b"visible")
+            (assets / ".DS_Store").write_bytes(b"finder")
+            (assets / ".hidden.png").write_bytes(b"hidden")
+            (assets / "Thumbs.db").write_bytes(b"explorer")
+
+            discovered = real_assets(folder, [])
+
+        self.assertEqual([item["path"] for item in discovered], ["./assets/visible.png"])
 
     def test_adds_tracking_from_confirmed_flow(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

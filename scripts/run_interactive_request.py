@@ -23,7 +23,7 @@ import tempfile
 import time
 import unicodedata
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import yaml
 
@@ -41,7 +41,11 @@ from runtime_limits import (
 )
 from revision_scope import (
     asset_digests as _revision_asset_digests,
+    build_revision_asset_attestation,
     build_revision_scope_manifest,
+    constrain_revision_markdown,
+    is_content_asset_relative_path,
+    requirement_sections,
     validate_rendered_html_scope,
     validate_revision_scope,
 )
@@ -70,6 +74,18 @@ CLARIFICATION_COVERAGE_AREAS = (
 )
 DELIVERY_VARIANTS = {"new", "in_place_revision", "extract_to_new"}
 IMPLEMENTED_EVIDENCE_PACKET_PATH = Path("source-material") / "implemented-feature-evidence.json"
+INPUT_ASSET_SNAPSHOT_DIRECTORY = Path("source-material") / "input-assets"
+INPUT_ASSET_MANIFEST_PATH = INPUT_ASSET_SNAPSHOT_DIRECTORY / "manifest.json"
+INPUT_ASSET_MANIFEST_SCHEMA_VERSION = 1
+SUPPORTED_INPUT_ASSET_SUFFIXES = frozenset({
+    ".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".m4v", ".ogv", ".ogg",
+})
+REVISION_REVIEWER_FINDING_TYPES = {
+    "selected_behavior_gap",
+    "selected_copy_gap",
+    "selected_acceptance_gap",
+    "selected_media_semantics_gap",
+}
 
 # An extraction must have all three semantics: a source context, an operation
 # that separates material, and a new independent PRD target.  Keeping the
@@ -739,14 +755,11 @@ def _confirmed_revision_scope_text(state: dict[str, Any]) -> str:
 
 
 def _confirmed_input_asset_digests(state: dict[str, Any]) -> dict[str, str]:
-    """Allow only controller-copied user assets to be new during a revision."""
-    assets: dict[str, str] = {}
-    for raw_source in state.get("input_assets", []):
-        source = Path(str(raw_source)).expanduser()
-        digest = _artifact_digest(source)
-        if digest:
-            assets[f"assets/{source.name}"] = digest
-    return assets
+    """Allow only verified controller snapshots to become new revision assets."""
+    return {
+        str(record["asset_path"]): str(record["sha256"])
+        for record in _input_asset_records(state, _canonical_folder(state))
+    }
 
 
 def _materialize_revision_scope_manifest(state: dict[str, Any]) -> dict[str, Any] | None:
@@ -783,6 +796,12 @@ def _materialize_revision_scope_manifest(state: dict[str, Any]) -> dict[str, Any
 
 def _delivery_input_question(state: dict[str, Any]) -> tuple[str, str]:
     """Return the exact next question for controller-owned delivery input gaps."""
+    if _input_asset_problem(state):
+        return (
+            "input_assets",
+            "已确认的图片或视频附件无法从控制器快照验证。请重新通过 --asset 附加原始文件；"
+            "重新确认后才会继续生成，系统不会用现有图替代或猜测附件内容。",
+        )
     if _delivery_variant(state) == "extract_to_new":
         descriptor = state.get("extraction_source")
         if not isinstance(descriptor, dict):
@@ -814,10 +833,60 @@ def _confirmed_delivery_needs_input_field(state: dict[str, Any]) -> str | None:
         state.get("status") == "needs_input"
         and isinstance(confirmation, dict)
         and confirmation.get("confirmed")
-        and field in {"extraction_source", "extraction_scope", "implementation_evidence", "revision_selector"}
+        and field in {
+            "extraction_source", "extraction_scope", "implementation_evidence", "revision_selector", "input_assets",
+        }
     ):
         return field
     return None
+
+
+def _migrate_stale_internal_scope_clarification(state: dict[str, Any]) -> bool:
+    """Release old model-scope pauses that never represented a user question.
+
+    Older controllers converted an unauthorized writer edit into a request for
+    permission to broaden an already confirmed revision.  That is an internal
+    repair condition, not missing product intent.  Preserve an audit marker but
+    return the run to the ordinary confirmation checkpoint so ``--confirm`` can
+    resume it with the controller-side constrained merge.
+    """
+    clarification = state.get("scope_clarification")
+    confirmation = state.get("user_confirmation")
+    if not (
+        _delivery_variant(state) == "in_place_revision"
+        and state.get("status") == "needs_input"
+        and isinstance(clarification, dict)
+        and clarification.get("artifact") == "prd.md"
+        and isinstance(confirmation, dict)
+        and confirmation.get("confirmed") is True
+        and _trace_values(state.get("revision_requirement_ids"))
+    ):
+        return False
+    stale_question = str(clarification.get("question", "")).strip()
+    state.setdefault("legacy_scope_clarification_migrations", []).append({
+        "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "artifact": "prd.md",
+        "reason": "unauthorized writer edits are controller-repairable and do not require scope expansion",
+    })
+    state.pop("scope_clarification", None)
+    state.pop("required_input", None)
+    turns = state.get("turns")
+    if isinstance(turns, list) and turns and isinstance(turns[-1], dict) and stale_question:
+        turns[-1]["questions"] = [
+            item for item in _trace_values(turns[-1].get("questions"))
+            if item != stale_question
+        ]
+        buckets = turns[-1].get("buckets")
+        if isinstance(buckets, dict):
+            buckets["must_answer_before_generation"] = [
+                item for item in _trace_values(buckets.get("must_answer_before_generation"))
+                if item != stale_question
+            ]
+    state["status"] = "awaiting_confirmation"
+    state["termination"] = "human_checkpoint"
+    state["last_error"] = None
+    state["resume_from_status"] = "needs_input"
+    return True
 
 
 def _resume_confirmed_delivery_after_cli_input(state: dict[str, Any], prior_field: str | None) -> bool:
@@ -968,6 +1037,9 @@ def _implemented_evidence_problem(state: dict[str, Any]) -> str | None:
 
 
 def _delivery_input_problem(state: dict[str, Any], *, require_selection: bool = True) -> str | None:
+    asset_problem = _input_asset_problem(state)
+    if asset_problem:
+        return asset_problem
     if _delivery_variant(state) == "in_place_revision" and not _trace_values(state.get("revision_requirement_ids")):
         return "未明确原地修改的 PRD 需求 ID；请指定一个或多个现有需求 ID，或明确确认整份 PRD 都可重写。"
     return _extraction_source_problem(state, require_selection=require_selection) or _implemented_evidence_problem(state)
@@ -1060,6 +1132,370 @@ def _atomic_copy(source: Path, destination: Path) -> None:
     temporary_path.replace(destination)
 
 
+def _input_asset_path(root: Path, relative: str, *, label: str) -> Path:
+    """Resolve a controller asset reference without permitting a root escape."""
+    candidate_relative = Path(relative)
+    if not relative or candidate_relative.is_absolute() or ".." in candidate_relative.parts:
+        raise ValueError(f"{label} must stay inside the current run folder")
+    root = root.resolve()
+    candidate = root / candidate_relative
+    try:
+        candidate.resolve().relative_to(root)
+    except ValueError as error:
+        raise ValueError(f"{label} must stay inside the current run folder") from error
+    return candidate
+
+
+def _input_asset_manifest_file(root: Path) -> Path:
+    """Return the one controller-owned manifest location for a run folder."""
+    return _input_asset_path(
+        root,
+        INPUT_ASSET_MANIFEST_PATH.as_posix(),
+        label="input asset manifest path",
+    )
+
+
+def _input_asset_snapshot_file(root: Path, digest: str) -> Path:
+    """Resolve one content-addressed snapshot under the controller asset root."""
+    return _input_asset_path(
+        root,
+        (INPUT_ASSET_SNAPSHOT_DIRECTORY / digest).as_posix(),
+        label="input asset snapshot path",
+    )
+
+
+def _is_sha256(value: object) -> bool:
+    return isinstance(value, str) and bool(re.fullmatch(r"[0-9a-f]{64}", value.lower()))
+
+
+def _input_asset_manifest_descriptor(state: dict[str, Any]) -> dict[str, Any] | None:
+    """Validate the state-held commitment before reading or rebuilding its file."""
+    descriptor = state.get("input_asset_manifest")
+    if descriptor is None:
+        return None
+    if not isinstance(descriptor, dict):
+        raise ValueError("input asset snapshot manifest descriptor is malformed")
+    if descriptor.get("schema_version") != INPUT_ASSET_MANIFEST_SCHEMA_VERSION:
+        raise ValueError("input asset snapshot manifest uses an unsupported schema")
+    if descriptor.get("manifest_path") != INPUT_ASSET_MANIFEST_PATH.as_posix():
+        raise ValueError("input asset snapshot manifest path is not controller-owned")
+    expected_digest = descriptor.get("manifest_sha256")
+    if not _is_sha256(expected_digest):
+        raise ValueError("input asset snapshot manifest is missing its SHA-256")
+    count = descriptor.get("asset_count")
+    if type(count) is not int or count < 0:
+        raise ValueError("input asset snapshot manifest asset count is invalid")
+    return {
+        "schema_version": INPUT_ASSET_MANIFEST_SCHEMA_VERSION,
+        "manifest_path": INPUT_ASSET_MANIFEST_PATH.as_posix(),
+        "manifest_sha256": str(expected_digest).lower(),
+        "asset_count": count,
+    }
+
+
+def _input_asset_manifest_payload(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema_version": INPUT_ASSET_MANIFEST_SCHEMA_VERSION,
+        "assets": list(records),
+    }
+
+
+def _input_asset_manifest_payload_digest(manifest: dict[str, Any]) -> str:
+    """Match `_write_json` so a reattached manifest can be verified pre-write."""
+    # `_write_json` uses a normal text file, whose default newline translation
+    # is platform-native. Match it before comparing a durable byte digest.
+    serialized = json.dumps(manifest, ensure_ascii=False, indent=2) + os.linesep
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _input_asset_record_from_source(source: Path) -> tuple[dict[str, Any], Path]:
+    """Validate one caller file before it becomes durable controller input."""
+    source = source.expanduser().resolve()
+    if not source.is_file():
+        raise FileNotFoundError(f"Input screenshot asset not found: {source}")
+    if source.suffix.lower() not in SUPPORTED_INPUT_ASSET_SUFFIXES:
+        raise ValueError(f"Unsupported PRD visual asset: {source.name}")
+    digest = _artifact_digest(source)
+    size = source.stat().st_size
+    if not digest or size <= 0:
+        raise ValueError(f"Input screenshot asset is empty or unreadable: {source.name}")
+    name = source.name
+    if not name or Path(name).name != name or not is_content_asset_relative_path(Path(name)):
+        raise ValueError("Input screenshot asset must have a plain file name")
+    return {
+        "name": name,
+        "asset_path": f"assets/{name}",
+        "snapshot_path": (INPUT_ASSET_SNAPSHOT_DIRECTORY / digest).as_posix(),
+        "sha256": digest,
+        "size_bytes": size,
+        "suffix": source.suffix.lower(),
+    }, source
+
+
+def _legacy_attested_input_asset_source(state: dict[str, Any], name: str) -> Path | None:
+    """Recover a legacy path-only asset only from already hash-bound bytes.
+
+    Older runs did not retain a snapshot manifest.  Their canonical ``assets/``
+    directory is not generally trustworthy as a replacement for a vanished
+    caller file, but a revision contract may already bind a particular input
+    path to its SHA-256.  Only in that case can a surviving canonical asset be
+    snapshotted without weakening the confirmation boundary.
+    """
+    manifest = state.get("revision_scope_manifest")
+    allowed = manifest.get("allowed_new_assets") if isinstance(manifest, dict) else None
+    expected = allowed.get(f"assets/{name}") if isinstance(allowed, dict) else None
+    if not _is_sha256(expected):
+        return None
+    candidate = _input_asset_path(
+        _canonical_folder(state), f"assets/{name}", label="legacy input asset path",
+    )
+    if candidate.is_symlink() or not candidate.is_file():
+        return None
+    return candidate if _artifact_digest(candidate) == str(expected).lower() else None
+
+
+def _validated_input_asset_record(
+    record: object, root: Path, *, verify_snapshot: bool = True,
+) -> dict[str, Any]:
+    """Validate an immutable asset record before a writer can consume it.
+
+    Explicit ``--asset`` recovery may inspect a still-attested manifest before
+    replacing a missing/corrupt snapshot with the same supplied bytes.  The
+    normal read path always verifies both record shape and snapshot bytes.
+    """
+    if not isinstance(record, dict):
+        raise ValueError("input asset manifest contains a non-mapping record")
+    name = record.get("name")
+    digest = record.get("sha256")
+    asset_path = record.get("asset_path")
+    snapshot_path = record.get("snapshot_path")
+    size = record.get("size_bytes")
+    suffix = record.get("suffix")
+    if (
+        not isinstance(name, str)
+        or not name
+        or Path(name).name != name
+        or not is_content_asset_relative_path(Path(name))
+    ):
+        raise ValueError("input asset manifest record has an unsafe asset name")
+    if not _is_sha256(digest):
+        raise ValueError(f"input asset manifest record has an invalid SHA-256: {name}")
+    digest = str(digest).lower()
+    if not isinstance(asset_path, str) or asset_path != f"assets/{name}":
+        raise ValueError(f"input asset manifest record has an invalid canonical asset path: {name}")
+    expected_snapshot_path = (INPUT_ASSET_SNAPSHOT_DIRECTORY / digest).as_posix()
+    if not isinstance(snapshot_path, str) or snapshot_path != expected_snapshot_path:
+        raise ValueError(f"input asset manifest record has an invalid snapshot path: {name}")
+    if not isinstance(size, int) or size <= 0:
+        raise ValueError(f"input asset manifest record has an invalid size: {name}")
+    if not isinstance(suffix, str) or suffix.lower() not in SUPPORTED_INPUT_ASSET_SUFFIXES:
+        raise ValueError(f"input asset manifest record has an unsupported suffix: {name}")
+    if Path(name).suffix.lower() != suffix.lower():
+        raise ValueError(f"input asset manifest record suffix does not match its name: {name}")
+
+    if verify_snapshot:
+        snapshot = _input_asset_snapshot_file(root, digest)
+        if snapshot.is_symlink() or not snapshot.is_file():
+            raise ValueError(f"input asset snapshot is missing or not a regular file: {name}")
+        if snapshot.stat().st_size != size or _artifact_digest(snapshot) != digest:
+            raise ValueError(f"input asset snapshot SHA-256 does not match the manifest: {name}")
+    return {
+        "name": name,
+        "asset_path": asset_path,
+        "snapshot_path": snapshot_path,
+        "sha256": digest,
+        "size_bytes": size,
+        "suffix": suffix.lower(),
+    }
+
+
+def _load_input_asset_manifest(
+    state: dict[str, Any], root: Path, *, verify_snapshots: bool = True,
+) -> list[dict[str, Any]]:
+    """Load the state-bound immutable asset manifest from a canonical or stage root."""
+    descriptor = _input_asset_manifest_descriptor(state)
+    if descriptor is None:
+        return []
+    expected_digest = descriptor["manifest_sha256"]
+    manifest_path = _input_asset_manifest_file(root)
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ValueError("input asset snapshot manifest is missing from the current run folder")
+    if _artifact_digest(manifest_path) != expected_digest:
+        raise ValueError("input asset snapshot manifest SHA-256 does not match controller state")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"input asset snapshot manifest is not readable JSON: {error}") from error
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != INPUT_ASSET_MANIFEST_SCHEMA_VERSION:
+        raise ValueError("input asset snapshot manifest has an unsupported shape")
+    raw_records = manifest.get("assets")
+    if not isinstance(raw_records, list):
+        raise ValueError("input asset snapshot manifest assets must be a list")
+    declared_count = descriptor["asset_count"]
+    if declared_count != len(raw_records):
+        raise ValueError("input asset snapshot manifest asset count does not match controller state")
+
+    records = [
+        _validated_input_asset_record(item, root, verify_snapshot=verify_snapshots)
+        for item in raw_records
+    ]
+    asset_paths = [str(item["asset_path"]) for item in records]
+    if len(asset_paths) != len(set(asset_paths)):
+        raise ValueError("input asset snapshot manifest contains duplicate canonical asset paths")
+    return sorted(records, key=lambda item: (str(item["asset_path"]), str(item["sha256"])))
+
+
+def _snapshot_input_assets(
+    state: dict[str, Any], sources: Sequence[Path | str] = (),
+) -> list[dict[str, Any]]:
+    """Persist caller attachments once, then bind all future use to their hashes.
+
+    ``input_assets`` used to hold transient caller paths.  This migration keeps
+    an old run usable only while those paths still exist, then replaces them
+    with controller-owned source-material records.  No recovery path reads a
+    caller path after the manifest has been written.
+    """
+    root = _canonical_folder(state)
+    descriptor = _input_asset_manifest_descriptor(state)
+    # A supplied asset is allowed to repair its content-addressed snapshot, but
+    # only after the manifest descriptor and record metadata remain attested.
+    # Loading with byte verification first would reject the very recovery the
+    # controller asks the user to perform.
+    manifest_recovery = False
+    if descriptor is None:
+        existing: list[dict[str, Any]] = []
+    else:
+        try:
+            existing = _load_input_asset_manifest(
+                state, root, verify_snapshots=not bool(sources),
+            )
+        except ValueError:
+            if not sources:
+                raise
+            # The state descriptor is still an immutable commitment. Rebuild
+            # only from explicitly reattached bytes and require it to recreate
+            # that exact committed manifest before replacing the damaged file.
+            existing = []
+            manifest_recovery = True
+    legacy_sources = state.get("input_assets", []) if descriptor is None else []
+    if not isinstance(legacy_sources, list):
+        raise ValueError("input_assets must be a list before it is migrated to a snapshot manifest")
+
+    # Explicitly supplied files take precedence over a stale legacy path with
+    # the same output name, allowing a user to reattach a cleaned-up temporary
+    # asset without accepting unknown bytes under that name.
+    pending = [*sources, *legacy_sources]
+    records_by_path = {str(record["asset_path"]): record for record in existing}
+    source_by_digest: dict[str, Path] = {}
+    seen_raw_paths: set[str] = set()
+    for raw_source in pending:
+        raw_text = str(raw_source).strip()
+        if not raw_text or raw_text in seen_raw_paths:
+            continue
+        seen_raw_paths.add(raw_text)
+        source_path = Path(raw_text).expanduser()
+        try:
+            record, resolved_source = _input_asset_record_from_source(source_path)
+        except FileNotFoundError:
+            # A newly supplied replacement with the same canonical path is
+            # sufficient to migrate a stale legacy reference.  A missing path
+            # without verified replacement bytes remains a hard input gap.
+            legacy_name = source_path.name
+            if legacy_name and f"assets/{legacy_name}" in records_by_path:
+                continue
+            recovered_source = _legacy_attested_input_asset_source(state, legacy_name) if legacy_name else None
+            if recovered_source is None:
+                raise
+            record, resolved_source = _input_asset_record_from_source(recovered_source)
+        previous = records_by_path.get(str(record["asset_path"]))
+        if previous is not None and previous["sha256"] != record["sha256"]:
+            raise FileExistsError(
+                "Input screenshot asset name conflicts with another confirmed asset: "
+                f"{record['name']}"
+            )
+        records_by_path[str(record["asset_path"])] = record
+        source_by_digest[str(record["sha256"])] = resolved_source
+
+    records = sorted(records_by_path.values(), key=lambda item: (str(item["asset_path"]), str(item["sha256"])))
+    if descriptor is not None and not source_by_digest:
+        return existing
+    manifest = _input_asset_manifest_payload(records)
+    if manifest_recovery and (
+        len(records) != descriptor["asset_count"]
+        or _input_asset_manifest_payload_digest(manifest) != descriptor["manifest_sha256"]
+    ):
+        raise ValueError(
+            "input asset snapshot manifest cannot be recovered from the supplied files; "
+            "reattach every originally confirmed asset with unchanged name and bytes"
+        )
+
+    snapshot_root = root / INPUT_ASSET_SNAPSHOT_DIRECTORY
+    snapshot_root.mkdir(parents=True, exist_ok=True)
+    for record in records:
+        digest = str(record["sha256"])
+        snapshot = _input_asset_snapshot_file(root, digest)
+        source = source_by_digest.get(digest)
+        if snapshot.exists():
+            if snapshot.is_symlink() or not snapshot.is_file() or _artifact_digest(snapshot) != digest:
+                if source is None:
+                    raise ValueError(f"input asset snapshot conflicts with its recorded SHA-256: {record['name']}")
+                _atomic_copy(source, snapshot)
+        elif source is not None:
+            _atomic_copy(source, snapshot)
+        else:
+            raise FileNotFoundError(f"input asset snapshot is missing: {record['name']}")
+        if snapshot.stat().st_size != record["size_bytes"] or _artifact_digest(snapshot) != digest:
+            raise ValueError(f"input asset snapshot copy could not be verified: {record['name']}")
+
+    manifest_path = _input_asset_manifest_file(root)
+    _write_json(manifest_path, manifest)
+    manifest_digest = _artifact_digest(manifest_path)
+    if not manifest_digest:
+        raise ValueError("input asset snapshot manifest could not be persisted")
+    if manifest_recovery and manifest_digest != descriptor["manifest_sha256"]:
+        raise ValueError("input asset snapshot manifest changed while it was being recovered")
+    state["input_asset_manifest"] = {
+        "schema_version": INPUT_ASSET_MANIFEST_SCHEMA_VERSION,
+        "manifest_path": INPUT_ASSET_MANIFEST_PATH.as_posix(),
+        "manifest_sha256": manifest_digest,
+        "asset_count": len(records),
+    }
+    # Do not retain private or short-lived caller paths in a resumable run.
+    # The list remains for backwards-compatible state readers, but now points
+    # only at controller-owned content-addressed snapshots.
+    state["input_assets"] = [str(record["snapshot_path"]) for record in records]
+    return records
+
+
+def register_input_assets(state: dict[str, Any], sources: Sequence[Path | str]) -> list[dict[str, Any]]:
+    """Accept user visual inputs by snapshotting them before confirmation or staging."""
+    if not sources:
+        return _load_input_asset_manifest(state, _canonical_folder(state))
+    return _snapshot_input_assets(state, sources)
+
+
+def _input_asset_records(state: dict[str, Any], root: Path | None = None) -> list[dict[str, Any]]:
+    """Return only verified snapshot records, migrating readable legacy state once."""
+    canonical = _canonical_folder(state)
+    if state.get("input_asset_manifest") is None and state.get("input_assets"):
+        _snapshot_input_assets(state)
+    return _load_input_asset_manifest(state, (root or canonical).resolve())
+
+
+def _input_asset_problem(state: dict[str, Any]) -> str | None:
+    """Convert stale/tampered attachment state into a pre-Agent input gate."""
+    if state.get("input_asset_manifest") is None and not state.get("input_assets"):
+        return None
+    try:
+        _input_asset_records(state, _canonical_folder(state))
+    except (FileNotFoundError, FileExistsError, ValueError) as error:
+        return (
+            "已确认的图片或视频附件快照不可用、越出当前运行目录或与记录哈希不一致；"
+            f"请通过 --asset 重新附加原始文件后重新确认。详情：{error}"
+        )
+    return None
+
+
 def _atomic_write_text(path: Path, value: str) -> None:
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False) as temporary:
         temporary.write(value)
@@ -1122,6 +1558,77 @@ def _quarantine_unconfirmed_workspace(
 def _delivery_folder(state: dict[str, Any]) -> Path:
     """Return the unpromoted workspace while a confirmed delivery is running."""
     return Path(str(state.get("delivery_workspace") or state["folder"])).resolve()
+
+
+def _discard_non_content_assets(folder: Path) -> list[str]:
+    """Remove filesystem metadata from an isolated PRD asset tree.
+
+    A delivery workspace is intentionally a content copy rather than a mirror
+    of Finder/Explorer state. This keeps copied stages aligned with the asset
+    manifest and never mutates the pre-promotion canonical directory.
+    """
+    assets = folder / "assets"
+    if not assets.is_dir():
+        return []
+    discarded: list[str] = []
+    for path in sorted(assets.rglob("*"), key=lambda item: len(item.parts), reverse=True):
+        relative = path.relative_to(assets)
+        if is_content_asset_relative_path(relative):
+            continue
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink(missing_ok=True)
+        discarded.append(relative.as_posix())
+    return sorted(discarded)
+
+
+def _assert_delivery_tree_has_no_symlinks(folder: Path, *, label: str) -> None:
+    """Reject links before an isolated delivery copy can dereference them.
+
+    Delivery workspaces are durable artifact trees, not a filesystem overlay.
+    ``copytree`` follows links by default, which otherwise permits a link in a
+    prior run's assets, source material, or tool results to silently turn into
+    external bytes in staging. Scan the complete run tree so each copy and
+    promotion path shares the same boundary rather than protecting assets only
+    during an in-place revision.
+    """
+    if folder.is_symlink():
+        raise ValueError(f"{label} must not be a symbolic link")
+    if not folder.is_dir():
+        raise ValueError(f"{label} is not a directory")
+    links: list[str] = []
+    try:
+        for root, directories, files in os.walk(folder, followlinks=False):
+            root_path = Path(root)
+            for name in [*directories, *files]:
+                path = root_path / name
+                if path.is_symlink():
+                    links.append(path.relative_to(folder).as_posix())
+    except OSError as error:
+        raise ValueError(f"{label} could not be inspected for symbolic links: {error}") from error
+    if links:
+        raise ValueError(
+            f"{label} must not contain symbolic links: " + ", ".join(sorted(links))
+        )
+
+
+def _snapshot_delivery_workspace(source: Path, snapshot: Path) -> None:
+    """Freeze a real workspace before an Agent receives only its isolated copy."""
+    _assert_delivery_tree_has_no_symlinks(source, label="delivery workspace")
+    shutil.copytree(source, snapshot, symlinks=True)
+
+
+def _restore_delivery_workspace_snapshot(snapshot: Path, destination: Path) -> None:
+    """Undo every out-of-stage write before a staged artifact can be promoted."""
+    _assert_delivery_tree_has_no_symlinks(snapshot, label="delivery workspace snapshot")
+    if destination.exists() or destination.is_symlink():
+        if destination.is_dir() and not destination.is_symlink():
+            shutil.rmtree(destination)
+        else:
+            destination.unlink()
+    shutil.copytree(snapshot, destination, symlinks=True)
+    _assert_delivery_tree_has_no_symlinks(destination, label="restored delivery workspace")
 
 
 def _canonical_folder(state: dict[str, Any]) -> Path:
@@ -1683,16 +2190,43 @@ def _materialize_controller_trace(state: dict[str, Any], target: Path) -> None:
 def _copy_input_assets(state: dict[str, Any], destination: Path) -> None:
     assets = destination / "assets"
     assets.mkdir(parents=True, exist_ok=True)
-    for raw_source in state.get("input_assets", []):
-        source = Path(str(raw_source)).expanduser().resolve()
-        if not source.is_file():
-            raise FileNotFoundError(f"Input screenshot asset not found: {source}")
-        if source.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".m4v", ".ogv", ".ogg"}:
-            raise ValueError(f"Unsupported PRD visual asset: {source.name}")
-        target = assets / source.name
-        if target.exists() and hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(source.read_bytes()).digest():
-            raise FileExistsError(f"Input screenshot asset name conflicts with an existing canonical asset: {source.name}")
-        shutil.copy2(source, target)
+    for record in _input_asset_records(state, destination):
+        source = _input_asset_snapshot_file(destination, str(record["sha256"]))
+        target = _input_asset_path(destination, str(record["asset_path"]), label="input asset output path")
+        if target.is_symlink():
+            raise ValueError(f"Input screenshot asset target must not be a symlink: {record['name']}")
+        if target.exists() and _artifact_digest(target) != record["sha256"]:
+            raise FileExistsError(
+                "Input screenshot asset name conflicts with an existing canonical asset: "
+                f"{record['name']}"
+            )
+        if not target.exists():
+            _atomic_copy(source, target)
+        if _artifact_digest(target) != record["sha256"]:
+            raise ValueError(f"Input screenshot asset copy could not be verified: {record['name']}")
+
+
+def _validate_input_asset_materialization(state: dict[str, Any], root: Path) -> list[dict[str, Any]]:
+    """Require every confirmed attachment to match its durable snapshot.
+
+    The manifest attests the controller-owned source bytes, but a delivery
+    Agent can still overwrite the separately published ``assets/<name>`` file
+    in its isolated workspace.  Recheck both the manifest/snapshot and the
+    materialized output immediately before validation and promotion so neither
+    a stale file nor a different same-name image can enter the canonical PRD.
+    """
+    records = _input_asset_records(state, root)
+    for record in records:
+        target = _input_asset_path(root, str(record["asset_path"]), label="input asset output path")
+        if target.is_symlink() or not target.is_file():
+            raise ValueError(
+                f"confirmed input asset is missing or not a regular file: {record['name']}"
+            )
+        if target.stat().st_size != record["size_bytes"] or _artifact_digest(target) != record["sha256"]:
+            raise ValueError(
+                f"confirmed input asset SHA-256 does not match controller snapshot: {record['name']}"
+            )
+    return records
 
 
 def _active_runtime_version() -> str:
@@ -1719,13 +2253,19 @@ def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
         for key, value in latest_revision.items()
         if key != "at"
     } if isinstance(latest_revision, dict) else {}
-    input_assets = []
-    for raw_asset in state.get("input_assets", []):
-        asset = Path(str(raw_asset)).expanduser()
-        input_assets.append({
-            "name": asset.name,
-            "sha256": _artifact_digest(asset),
-        })
+    try:
+        input_assets = [
+            {"path": record["asset_path"], "sha256": record["sha256"]}
+            for record in _input_asset_records(state, _canonical_folder(state))
+        ]
+    except (FileNotFoundError, FileExistsError, ValueError):
+        # The delivery gate surfaces the underlying integrity error.  Keep this
+        # fingerprint deterministic while a failed state is being recorded.
+        descriptor = state.get("input_asset_manifest")
+        input_assets = [{
+            "manifest_sha256": descriptor.get("manifest_sha256", "") if isinstance(descriptor, dict) else "",
+            "status": "unavailable",
+        }]
     payload = {
         "raw_request": str(state.get("raw_request", "")).strip(),
         "task_mode": _task_mode(state),
@@ -1737,7 +2277,10 @@ def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
         "revision_requirement_ids": sorted(_trace_values(state.get("revision_requirement_ids"))) if revision else [],
         "extraction_source": state.get("extraction_source", {}),
         "implemented_feature_evidence": state.get("implemented_feature_evidence", {}),
-        "input_assets": sorted(input_assets, key=lambda item: (item["name"], str(item["sha256"]))),
+        "input_assets": sorted(
+            input_assets,
+            key=lambda item: json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        ),
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
@@ -2049,6 +2592,32 @@ def _revision_source_drift_problem(state: dict[str, Any]) -> str | None:
                 f"canonical {name} changed after this in-place revision began; "
                 "restart the revision from the current PRD and reconfirm its scope"
             )
+    # A promotion replaces the whole assets/ tree, not only the files named by
+    # the selected requirement. Treat its complete digest map as the same
+    # compare-and-swap boundary as prd.md and prd.html so a collaborator's
+    # media change cannot be overwritten by the older staged copy.
+    expected_assets = baseline.get("assets_before_sha256")
+    if not isinstance(expected_assets, Mapping):
+        manifest = state.get("revision_scope_manifest")
+        manifest_baseline = manifest.get("baseline") if isinstance(manifest, Mapping) else None
+        expected_assets = (
+            manifest_baseline.get("assets")
+            if isinstance(manifest_baseline, Mapping) else None
+        )
+    if isinstance(expected_assets, Mapping):
+        expected = {str(path): str(digest) for path, digest in expected_assets.items()}
+        try:
+            actual = _revision_asset_digests(canonical)
+        except ValueError as error:
+            return (
+                "canonical assets changed after this in-place revision began "
+                f"or cannot be verified: {error}; restart the revision from the current PRD and reconfirm its scope"
+            )
+        if actual != expected:
+            return (
+                "canonical assets changed after this in-place revision began; "
+                "restart the revision from the current PRD and reconfirm its scope"
+            )
     return None
 
 
@@ -2057,11 +2626,16 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
     source_drift = _revision_source_drift_problem(state)
     if source_drift:
         raise ValueError(source_drift)
+    # Materialize old path-only state before copying canonical into staging.
+    # The stage itself must consume the copied snapshot, never a caller path.
+    _input_asset_records(state, canonical)
     workspace = canonical.parent / f".{canonical.name}.delivery-stage" / canonical.name
     if workspace.exists():
         shutil.rmtree(workspace.parent)
     workspace.parent.mkdir(parents=True, exist_ok=True)
+    _assert_delivery_tree_has_no_symlinks(canonical, label="canonical PRD folder")
     shutil.copytree(canonical, workspace, ignore=shutil.ignore_patterns(".delivery-stage", ".DS_Store"))
+    _discard_non_content_assets(workspace)
     if _delivery_variant(state) == "in_place_revision" and (workspace / "prd.md").is_file():
         baseline = workspace / ".revision-baseline"
         baseline.mkdir(parents=True, exist_ok=True)
@@ -2076,8 +2650,10 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
         elif stale_baseline.exists():
             stale_baseline.unlink()
     _copy_input_assets(state, workspace)
+    _validate_input_asset_materialization(state, workspace)
     state["delivery_workspace"] = str(workspace)
     _restore_reusable_delivery_artifacts(state, workspace)
+    _refresh_revision_asset_attestation(state, workspace)
     return workspace
 
 
@@ -2105,6 +2681,27 @@ def _revision_scope_violation(stage_target: Path, baseline: Path, allowed_ids: S
 
 def _revision_scope_report_path(folder: Path) -> Path:
     return folder / "tool-results" / "revision-scope-validation.json"
+
+
+def _refresh_revision_asset_attestation(
+    state: dict[str, Any], folder: Path,
+) -> dict[str, Any] | None:
+    """Bind a revision's usable media paths to bytes in its current workspace."""
+    if _delivery_variant(state) != "in_place_revision":
+        state.pop("revision_asset_attestation", None)
+        return None
+    manifest = state.get("revision_scope_manifest")
+    candidate = folder / "prd.md"
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or not candidate.is_file():
+        state.pop("revision_asset_attestation", None)
+        return None
+    attestation = build_revision_asset_attestation(
+        manifest,
+        candidate_markdown=candidate.read_text(encoding="utf-8"),
+        candidate_assets=_revision_asset_digests(folder),
+    )
+    state["revision_asset_attestation"] = attestation
+    return attestation
 
 
 def _validate_staged_revision_scope(
@@ -2142,6 +2739,7 @@ def _validate_staged_revision_scope(
         baseline_assets={str(path): str(digest) for path, digest in baseline_assets.items()},
         candidate_assets=_revision_asset_digests(folder),
     )
+    state["revision_asset_attestation"] = report.get("asset_attestation", {})
     if include_rendered_html and report.get("status") == "passed":
         html_path = folder / "prd.html"
         if not html_path.is_file():
@@ -2334,6 +2932,10 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
     """
     canonical = _canonical_folder(state)
     workspace = _delivery_folder(state)
+    try:
+        _assert_delivery_tree_has_no_symlinks(workspace, label="validated delivery workspace")
+    except ValueError as error:
+        raise RuntimeError(str(error)) from error
     revision = _delivery_variant(state) == "in_place_revision"
     revision_evidence = workspace / "revision-evidence.json" if revision else None
     retained_result_files = {
@@ -2361,6 +2963,9 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
     backup = canonical.parent / f".{canonical.name}.promotion-backup-{time.time_ns()}"
     moved_original = False
     try:
+        # The canonical tree may have changed during delivery. Verify it again
+        # before copytree can dereference a collaborator-created nested link.
+        _assert_delivery_tree_has_no_symlinks(canonical, label="canonical PRD folder before promotion")
         shutil.copytree(canonical, candidate, ignore=shutil.ignore_patterns(".delivery-stage", ".DS_Store"))
         for name in ("confirmed-requirements.md", "prd.md", "prd.html", "run-log.yaml"):
             _atomic_copy(workspace / name, candidate / name)
@@ -2372,6 +2977,7 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
             else:
                 candidate_assets.unlink()
         shutil.copytree(source_assets, candidate_assets, ignore=shutil.ignore_patterns(".DS_Store"))
+        _discard_non_content_assets(candidate)
 
         # Source snapshots and implemented-feature packets are part of the
         # validated delivery input.  Reuse from canonical here would permit a
@@ -2387,6 +2993,9 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
                 source_material.resolve().relative_to(workspace.resolve())
             except ValueError as error:
                 raise RuntimeError("Validated delivery source-material escapes the staged run folder") from error
+            _assert_delivery_tree_has_no_symlinks(
+                source_material, label="validated delivery source-material"
+            )
             if candidate_source_material.exists():
                 if candidate_source_material.is_dir():
                     shutil.rmtree(candidate_source_material)
@@ -2407,6 +3016,17 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
         _promote_trace_result_files(candidate, referenced_result_files)
         (candidate / ".DS_Store").unlink(missing_ok=True)
         (candidate / "assets" / ".DS_Store").unlink(missing_ok=True)
+        _assert_delivery_tree_has_no_symlinks(candidate, label="promotion candidate")
+        try:
+            # The manifest is state-bound, so reread it from the exact
+            # candidate directory after all source material has been copied.
+            # This prevents a late snapshot/link mutation from riding beside a
+            # trace that still names its original attachment hash.
+            _validate_input_asset_materialization(state, candidate)
+        except (FileNotFoundError, FileExistsError, ValueError) as error:
+            raise RuntimeError(
+                "candidate delivery input asset validation failed: " + str(error)
+            ) from error
 
         # Verify the candidate after all staged provenance and retained result
         # files are copied, but before the directory swap.  This prevents a
@@ -2436,9 +3056,11 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
             backup.replace(canonical)
             moved_original = False
             raise
-    except OSError:
+    except (OSError, ValueError) as error:
         if moved_original and backup.exists() and not canonical.exists():
             backup.replace(canonical)
+        if isinstance(error, ValueError):
+            raise RuntimeError(str(error)) from error
         raise
     finally:
         if publish_root.exists():
@@ -3064,6 +3686,7 @@ def create_state(raw_request: str, folder: Path) -> dict[str, Any]:
         "revision_history": [],
         "delivery_stages": {},
         "input_assets": [],
+        "input_asset_manifest": None,
     }
 
 
@@ -3078,6 +3701,10 @@ def begin_in_place_revision(
         raise ValueError("a revision request is required")
     for key in ("revision_scope_validation", "revision_stop_reason", "scope_clarification"):
         state.pop(key, None)
+    # A prior delivery's assets are now canonical baseline material. They must
+    # not remain implicitly authorized as new input for a later revision.
+    state["input_assets"] = []
+    state.pop("input_asset_manifest", None)
     folder = Path(str(state["folder"]))
     prd_path = folder / "prd.md"
     known_ids = _trace_requirement_ids(prd_path)
@@ -3086,6 +3713,7 @@ def begin_in_place_revision(
         "request": request,
         "prd_before_sha256": _artifact_digest(prd_path),
         "html_before_sha256": _artifact_digest(folder / "prd.html"),
+        "assets_before_sha256": _revision_asset_digests(folder),
         "baseline_requirement_ids": known_ids,
         "mode": "in_place_revision",
     })
@@ -3313,7 +3941,10 @@ def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = 
     latest = _confirmed_fact_source(state)
     role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
     target = _delivery_folder(state) / artifact
-    available_assets = [Path(item).name for item in state.get("input_assets", [])]
+    available_assets = [
+        str(record["name"])
+        for record in _input_asset_records(state, _delivery_folder(state))
+    ]
     variant = _delivery_variant(state)
     task_mode = _task_mode(state)
     prd_template = "templates/implemented-feature-prd-template.md" if task_mode == "implemented_feature_prd" else "templates/prd-template.md"
@@ -3438,7 +4069,12 @@ def _run_artifact_agent(
     real_folder = _delivery_folder(state)
     with tempfile.TemporaryDirectory(prefix=f".{real_folder.name}.stage-", dir=str(real_folder.parent)) as stage_name:
         stage_folder = Path(stage_name) / real_folder.name
-        shutil.copytree(real_folder, stage_folder)
+        real_snapshot = Path(stage_name) / ".controller-workspace-before"
+        _snapshot_delivery_workspace(real_folder, real_snapshot)
+        # Build the worker view from the frozen snapshot so a concurrent or
+        # misdirected write cannot become part of the stage by accident.
+        shutil.copytree(real_snapshot, stage_folder)
+        _discard_non_content_assets(stage_folder)
         stage_state = {**state, "folder": str(stage_folder), "delivery_workspace": str(stage_folder)}
         stage_target = stage_folder / artifact
         stage_before_sha256 = _artifact_digest(stage_target)
@@ -3491,7 +4127,26 @@ def _run_artifact_agent(
             # from the project staging copy so the promised artifact is writable.
             result = {}
             for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
-                result = worker(provider, _artifact_prompt(stage_state, artifact, repair_errors), stage_folder, timeout, model, None, False, 8000)
+                attempt_snapshot = Path(stage_name) / f".controller-workspace-before-{attempt}"
+                _snapshot_delivery_workspace(real_folder, attempt_snapshot)
+                try:
+                    result = worker(
+                        provider, _artifact_prompt(stage_state, artifact, repair_errors),
+                        stage_folder, timeout, model, None, False, 8000,
+                    )
+                except BaseException:
+                    # A worker exception is still an out-of-stage-write risk.
+                    # Restore before propagating the original controller error.
+                    _restore_delivery_workspace_snapshot(attempt_snapshot, real_folder)
+                    raise
+                try:
+                    _restore_delivery_workspace_snapshot(attempt_snapshot, real_folder)
+                except (OSError, ValueError) as error:
+                    result.update({
+                        "status": "failed",
+                        "error": f"controller could not restore the delivery workspace after Agent execution: {error}",
+                        "failure_category": "delivery_workspace_restore_failed",
+                    })
                 result["attempt"] = attempt
                 result["expected_artifact"] = str(stage_target)
                 result["artifact_before_sha256"] = stage_before_sha256
@@ -3507,6 +4162,14 @@ def _run_artifact_agent(
                     or not _is_retryable_agent_failure(result)
                 ):
                     break
+        try:
+            _assert_delivery_tree_has_no_symlinks(stage_folder, label="Agent staging workspace")
+        except ValueError as error:
+            result.update({
+                "status": "failed",
+                "error": f"Agent staging workspace integrity check failed: {error}",
+                "failure_category": "delivery_workspace_integrity_failed",
+            })
         if (
             artifact == "prd.md"
             and stage_target.is_file()
@@ -3523,9 +4186,49 @@ def _run_artifact_agent(
         if artifact == "prd.md" and _delivery_variant(state) == "in_place_revision":
             manifest = state.get("revision_scope_manifest")
             if isinstance(manifest, dict) and manifest.get("schema_version") == 1:
+                baseline = stage_folder / ".revision-baseline" / "prd.md"
+                scope_merge: dict[str, Any] | None = None
+                if (
+                    result.get("status") == "complete"
+                    and stage_target.is_file()
+                    and baseline.is_file()
+                ):
+                    # The full staged PRD is useful context for the writer, but
+                    # its authority ends at the confirmed revision surface.
+                    # Rebuild the candidate from the frozen baseline before
+                    # validating so a model's unrelated rewrite cannot turn a
+                    # narrow confirmed revision into a user-input question.
+                    scope_merge = constrain_revision_markdown(
+                        manifest,
+                        baseline_markdown=baseline.read_text(encoding="utf-8"),
+                        candidate_markdown=stage_target.read_text(encoding="utf-8"),
+                    )
+                    if scope_merge.get("status") == "merged":
+                        merged_markdown = str(scope_merge.get("markdown", ""))
+                        if merged_markdown != stage_target.read_text(encoding="utf-8"):
+                            _atomic_write_text(stage_target, merged_markdown)
+                        result["controller_scope_repair"] = {
+                            "status": "applied",
+                            "preserved": list(scope_merge.get("preserved", [])),
+                        }
+                    else:
+                        result["controller_scope_repair"] = {
+                            "status": "failed",
+                            "failures": list(scope_merge.get("failures", [])),
+                        }
                 scope_report = _validate_staged_revision_scope(stage_state, stage_folder)
                 state["revision_scope_validation"] = stage_state.get("revision_scope_validation", {})
+                staged_attestation = stage_state.get("revision_asset_attestation")
+                if isinstance(staged_attestation, Mapping):
+                    state["revision_asset_attestation"] = dict(staged_attestation)
+                else:
+                    state.pop("revision_asset_attestation", None)
                 scope_failures = list(scope_report.get("failures", [])) if isinstance(scope_report, dict) else []
+                if scope_merge and scope_merge.get("status") != "merged":
+                    scope_failures = [
+                        *list(scope_merge.get("failures", [])),
+                        *scope_failures,
+                    ]
                 violation = "\n".join(scope_failures)
             else:
                 baseline = stage_folder / ".revision-baseline" / "prd.md"
@@ -3537,17 +4240,6 @@ def _run_artifact_agent(
                     "status": "failed", "exit_code": 1,
                     "failure_category": "revision_scope_violation", "error": violation,
                 })
-                question = (
-                    "检测到 PRD 修改超出当前确认范围。请确认是否允许这些额外章节一并修改；"
-                    "若不允许，控制器将恢复未授权内容。"
-                )
-                state["status"] = "needs_input"
-                state["termination"] = "needs_input"
-                state["last_error"] = violation
-                state["scope_clarification"] = {"artifact": artifact, "question": question, "violation": violation}
-                if state.get("turns"):
-                    state["turns"][-1]["questions"] = [question]
-                    state["turns"][-1].setdefault("buckets", {})["must_answer_before_generation"] = [question]
         stage_after_sha256 = _artifact_digest(stage_target)
         # A changed staged file is necessary but not sufficient: the caller
         # must also be attributable before its bytes can enter the delivery
@@ -3629,24 +4321,197 @@ def _run_artifact_agent(
     return attributable and promoted
 
 
+_REVIEW_EVIDENCE_QUOTE_RE = re.compile(
+    r'"([^"\n]{3,})"|“([^”\n]{3,})”|`([^`\n]{3,})`|「([^」\n]{3,})」'
+)
+_ASSET_PROVENANCE_REQUEST_RE = re.compile(
+    r"(?:"
+    r"(?:asset|image|figure|screenshot|media|图片|图示|截图|资源).{0,56}"
+    r"(?:exist(?:ence)?|source|provenance|hash|sha-?256|file|path|存在|来源|哈希|校验|证明)"
+    r"|(?:prove|verify|confirm|证明|验证|确认).{0,56}"
+    r"(?:asset|image|figure|screenshot|media|图片|图示|截图|资源)"
+    r")",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _is_in_place_prd_review(state: Mapping[str, Any], artifact: str) -> bool:
+    return artifact == "prd.md" and _delivery_variant(dict(state)) == "in_place_revision"
+
+
+def _revision_asset_attestation_for_review(state: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the current controller-owned media attestation for review input."""
+    direct = state.get("revision_asset_attestation")
+    if isinstance(direct, Mapping):
+        return dict(direct)
+    validation = state.get("revision_scope_validation")
+    if isinstance(validation, Mapping):
+        attestation = validation.get("asset_attestation")
+        if isinstance(attestation, Mapping):
+            return dict(attestation)
+    return {}
+
+
+def _normalise_review_strings(value: object) -> list[str]:
+    items = value if isinstance(value, list) else [value]
+    return [str(item).strip() for item in items if str(item).strip()]
+
+
+def _quoted_selected_evidence_is_present(
+    state: Mapping[str, Any], requirement_ids: Sequence[str], evidence: str,
+) -> bool:
+    """Require a reviewer quote that the selected PRD section actually contains."""
+    prd_path = _delivery_folder(dict(state)) / "prd.md"
+    if not prd_path.is_file():
+        return False
+    sections = requirement_sections(prd_path.read_text(encoding="utf-8"))
+    selected_text = "\n".join(
+        str(sections[requirement_id].get("content", ""))
+        for requirement_id in requirement_ids
+        if requirement_id in sections
+    )
+    normalized_selected = re.sub(r"\s+", " ", selected_text).strip()
+    if not normalized_selected:
+        return False
+    quotes = [next(part for part in match.groups() if part is not None).strip()
+              for match in _REVIEW_EVIDENCE_QUOTE_RE.finditer(evidence)]
+    return any(
+        re.sub(r"\s+", " ", quote) in normalized_selected
+        for quote in quotes
+    )
+
+
+def _revision_review_contract_error(
+    state: dict[str, Any], review: Mapping[str, Any], review_status: str,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Keep revision reviewer feedback inside the writer-owned selected surface."""
+    manifest = state.get("revision_scope_manifest")
+    selected = {
+        str(item).strip()
+        for item in manifest.get("requirement_ids", [])
+        if str(item).strip()
+    } if isinstance(manifest, Mapping) else set()
+    if not selected:
+        return [], "controller revision manifest has no selected requirement IDs"
+    legacy_findings = _normalise_review_strings(review.get("blocking_findings", []))
+    raw_findings = review.get("revision_findings", [])
+    if review_status == "pass":
+        if legacy_findings or raw_findings:
+            return [], "pass must not include blocking_findings or revision_findings"
+        return [], None
+    if review_status != "needs_revision":
+        return [], "status must be pass or needs_revision"
+    if legacy_findings:
+        return [], "in-place revision findings must use typed revision_findings, not blocking_findings"
+    if not isinstance(raw_findings, list) or not raw_findings:
+        return [], "needs_revision requires a non-empty typed revision_findings list"
+    attestation_passed = _revision_asset_attestation_for_review(state).get("status") == "passed"
+    normalized: list[dict[str, Any]] = []
+    for index, raw_finding in enumerate(raw_findings, start=1):
+        if not isinstance(raw_finding, Mapping):
+            return [], f"revision finding {index} must be an object"
+        kind = str(raw_finding.get("kind", "")).strip()
+        owner = str(raw_finding.get("owner", "")).strip()
+        raw_ids = raw_finding.get("requirement_ids")
+        if not isinstance(raw_ids, list):
+            return [], f"revision finding {index} requirement_ids must be a non-empty list"
+        requirement_ids = list(dict.fromkeys(str(item).strip() for item in raw_ids if str(item).strip()))
+        evidence = str(raw_finding.get("evidence", "")).strip()
+        repair = str(raw_finding.get("repair", "")).strip()
+        if kind not in REVISION_REVIEWER_FINDING_TYPES:
+            return [], f"revision finding {index} has unsupported kind: {kind or '<empty>'}"
+        if owner != "prd_writer":
+            return [], f"revision finding {index} owner must be prd_writer"
+        if not requirement_ids or any(item not in selected for item in requirement_ids):
+            return [], f"revision finding {index} must target only selected requirement IDs"
+        if not evidence or not repair:
+            return [], f"revision finding {index} requires non-empty evidence and repair"
+        if not any(re.search(rf"(?<![0-9.]){re.escape(item)}(?![0-9.])", evidence) for item in requirement_ids):
+            return [], f"revision finding {index} evidence must name its selected requirement ID"
+        if not _quoted_selected_evidence_is_present(state, requirement_ids, evidence):
+            return [], f"revision finding {index} evidence must quote the selected PRD section"
+        if attestation_passed and _ASSET_PROVENANCE_REQUEST_RE.search("\n".join((evidence, repair))):
+            return [], (
+                f"revision finding {index} asks the PRD writer to prove controller-owned asset existence or provenance"
+            )
+        normalized.append({
+            "kind": kind,
+            "owner": owner,
+            "requirement_ids": requirement_ids,
+            "evidence": evidence,
+            "repair": repair,
+        })
+    return normalized, None
+
+
+def _record_review_contract_rejection(state: dict[str, Any], artifact: str, reason: str) -> None:
+    state["review_contract_rejection"] = {
+        "artifact": artifact,
+        "reason": reason,
+        "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+
+
+def _reject_revision_review_contract(
+    state: dict[str, Any], artifact: str, reason: str, state_path: Path | None,
+) -> tuple[bool, str]:
+    """Persist only the controller diagnosis for an invalid reviewer response."""
+    stage = _stage(state, artifact)
+    stage["review_status"] = "failed"
+    stage["review_findings"] = []
+    stage.pop("revision_findings", None)
+    stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    stage["scope_fingerprint"] = _confirmed_scope_fingerprint(state)
+    stage["pm_copilot_version"] = _active_runtime_version()
+    _record_review_contract_rejection(state, artifact, reason)
+    state["last_error"] = f"Stage Quality Review Agent returned an invalid revision review contract: {reason}"
+    _checkpoint(state, state_path)
+    return False, state["last_error"]
+
+
 def _artifact_review_prompt(state: dict[str, Any], artifact: str, review_path: Path) -> str:
     target = _delivery_folder(state) / artifact
     revision_contract = ""
-    if artifact == "prd.md" and _delivery_variant(state) == "in_place_revision":
+    review_output_contract = f"""Write ONLY one JSON object to {review_path} (UTF-8):
+{{"status":"pass"|"needs_revision","summary":"", "blocking_findings":["specific repair"], "acceptance_evidence":["checked condition"]}}
+Use pass only when blocking_findings is empty and acceptance_evidence proves
+the artifact's required handoff conditions. Empty proof is needs_revision."""
+    if _is_in_place_prd_review(state, artifact):
         manifest = state.get("revision_scope_manifest")
-        validation = state.get("revision_scope_validation")
+        attestation = _revision_asset_attestation_for_review(state)
+        correction = state.get("review_contract_correction")
+        correction = correction if isinstance(correction, Mapping) and correction.get("artifact") == artifact else {}
         revision_contract = f"""
 Controller-owned revision scope contract:
 {json.dumps(manifest if isinstance(manifest, dict) else {}, ensure_ascii=False, separators=(",", ":"))}
-Controller scope-validation summary:
-{json.dumps(validation if isinstance(validation, dict) else {}, ensure_ascii=False, separators=(",", ":"))}
-The controller has already checked the frozen baseline. Assess image count,
-order, copy, and acceptance constraints only inside the contract's
-requirement_ids. Do not block the review because an unselected requirement or
-its existing image/copy remains in the PRD: it is protected baseline content,
-not an extension of this revision. Every blocking finding must cite at least
-one selected requirement ID and quote its evidence from that selected section.
+Controller-owned staged asset attestation:
+{json.dumps(attestation, ensure_ascii=False, separators=(",", ":"))}
+The revision scope manifest and staged asset attestation are authoritative and
+override stale wording in the raw request, prior run history, or any prior
+reviewer output. The controller attestation is conclusive for selected-asset
+existence, source, bytes, and SHA-256 integrity. Do not ask the PRD writer to
+prove, re-check, or change controller-owned asset provenance.
+
+The controller has already checked the frozen baseline. Assess behavior, copy,
+acceptance constraints, and selected-section media semantics only inside the
+contract's requirement_ids. Do not block the review because an unselected
+requirement or its existing image/copy remains in the PRD: it is protected
+baseline content, not an extension of this revision.
+
+For each needed repair, use exactly one typed revision_finding object:
+{{"kind":"selected_behavior_gap|selected_copy_gap|selected_acceptance_gap|selected_media_semantics_gap","owner":"prd_writer","requirement_ids":["5.1"],"evidence":"5.1: \\"exact quote from the selected PRD section\\"","repair":"specific writer repair"}}
+Every finding must target only selected requirement IDs, name those IDs in its
+evidence, and include an exact quote from the selected PRD section. The only
+permitted owner is prd_writer. Do not emit findings for controller ownership,
+unselected content, asset existence, asset source, asset bytes, or hashes.
+{("The prior response violated this output contract. Correct only this issue: " + str(correction.get("reason", "")).strip()) if correction else ""}
 """
+        review_output_contract = f"""Write ONLY one JSON object to {review_path} (UTF-8):
+{{"status":"pass"|"needs_revision","summary":"", "blocking_findings":[], "revision_findings":[{{"kind":"selected_behavior_gap|selected_copy_gap|selected_acceptance_gap|selected_media_semantics_gap","owner":"prd_writer","requirement_ids":["5.1"],"evidence":"5.1: \\"exact quote from selected PRD\\"","repair":"specific writer repair"}}], "acceptance_evidence":["checked condition"]}}
+For pass, both blocking_findings and revision_findings must be empty, and
+acceptance_evidence must prove the selected revision's handoff conditions. For
+needs_revision, blocking_findings must remain empty and revision_findings must
+be a non-empty list that obeys the typed contract above."""
     return f"""You are the independent Stage Quality Review Agent in a production PM run.
 Read only {target}. Check whether this single artifact is complete, internally
 consistent with the user-confirmed scope, and sufficient for its immediate
@@ -3670,10 +4535,7 @@ rules only within the revised requirement sections. Existing images and
 requirements outside that subset are protected baseline content and must not
 be treated as conflicts.
 
-Write ONLY one JSON object to {review_path} (UTF-8):
-{{"status":"pass"|"needs_revision","summary":"", "blocking_findings":["specific repair"], "acceptance_evidence":["checked condition"]}}
-Use pass only when blocking_findings is empty and acceptance_evidence proves
-the artifact's required handoff conditions. Empty proof is needs_revision.
+{review_output_contract}
 
 Original request: {state['raw_request']}
 Confirmed scope: {json.dumps(_confirmed_fact_source(state).get('scope', {}), ensure_ascii=False)}
@@ -3732,15 +4594,82 @@ def _review_artifact(
     real_folder = _delivery_folder(state)
     if artifact == "run-log.yaml" and _is_controller_deterministic_trace(real_folder / artifact):
         return _review_controller_trace(state, artifact, state_path)
+    result: dict[str, Any] = {}
+    review_text = ""
     with tempfile.TemporaryDirectory(prefix=f".{real_folder.name}.review-", dir=str(real_folder.parent)) as review_dir:
         review_folder = Path(review_dir) / real_folder.name
-        shutil.copytree(real_folder, review_folder)
+        real_snapshot = Path(review_dir) / ".controller-workspace-before"
+        _snapshot_delivery_workspace(real_folder, real_snapshot)
+        shutil.copytree(real_snapshot, review_folder)
+        _discard_non_content_assets(review_folder)
         review_path = review_folder / ".stage-review.json"
-        result = {}
+        # A prior response can be valid JSON and still be unrelated to this
+        # artifact version. Remove it before every independent review call.
+        if review_path.exists() or review_path.is_symlink():
+            if review_path.is_dir() and not review_path.is_symlink():
+                shutil.rmtree(review_path)
+            else:
+                review_path.unlink()
         for attempt in range(1, MAX_ATTRIBUTABLE_AGENT_ATTEMPTS + 1):
-            result = worker(provider, _artifact_review_prompt({**state, "folder": str(review_folder)}, artifact, review_path), review_folder, min(timeout, STAGE_REVIEW_TIMEOUT_MINUTES), model, None, False, 8000)
+            if review_path.exists() or review_path.is_symlink():
+                if review_path.is_dir() and not review_path.is_symlink():
+                    shutil.rmtree(review_path)
+                else:
+                    review_path.unlink()
+            review_before_sha256 = _artifact_digest(review_path)
+            review_before_mtime = review_path.stat().st_mtime_ns if review_path.is_file() else None
+            review_state = {
+                **state,
+                "folder": str(review_folder),
+                "delivery_workspace": str(review_folder),
+            }
+            attempt_snapshot = Path(review_dir) / f".controller-workspace-before-{attempt}"
+            _snapshot_delivery_workspace(real_folder, attempt_snapshot)
+            try:
+                result = worker(
+                    provider, _artifact_review_prompt(review_state, artifact, review_path),
+                    review_folder, min(timeout, STAGE_REVIEW_TIMEOUT_MINUTES),
+                    model, None, False, 8000,
+                )
+            except BaseException:
+                _restore_delivery_workspace_snapshot(attempt_snapshot, real_folder)
+                raise
+            try:
+                _restore_delivery_workspace_snapshot(attempt_snapshot, real_folder)
+            except (OSError, ValueError) as error:
+                result.update({
+                    "status": "failed",
+                    "error": f"controller could not restore the delivery workspace after stage review: {error}",
+                    "failure_category": "delivery_workspace_restore_failed",
+                })
+            try:
+                _assert_delivery_tree_has_no_symlinks(review_folder, label="stage review workspace")
+            except ValueError as error:
+                result.update({
+                    "status": "failed",
+                    "error": f"stage review workspace integrity check failed: {error}",
+                    "failure_category": "review_workspace_integrity_failed",
+                })
+            review_after_sha256 = _artifact_digest(review_path)
+            review_after_mtime = review_path.stat().st_mtime_ns if review_path.is_file() else None
+            if result.get("status") == "complete" and (
+                not review_path.is_file()
+                or review_after_sha256 == review_before_sha256
+                or review_after_mtime == review_before_mtime
+            ):
+                result.update({
+                    "status": "failed",
+                    "error": "Stage Quality Review Agent did not write a fresh review response in its isolated workspace",
+                    "failure_category": "review_response_not_fresh",
+                })
             result["attempt"] = attempt
-            attributable = _record_agent_call(state, result, phase="stage_quality_review", artifact=artifact)
+            record = dict(result)
+            if _is_in_place_prd_review(state, artifact):
+                # The response remains ephemeral until its typed contract is
+                # verified below, so invalid free-form repairs cannot leak to
+                # a writer through durable controller state.
+                record["output"] = "review response held for controller contract validation"
+            attributable = _record_agent_call(state, record, phase="stage_quality_review", artifact=artifact)
             if (
                 attributable
                 or result.get("cleanup_blocked")
@@ -3766,25 +4695,46 @@ def _review_artifact(
         _checkpoint(state, state_path)
         return False, result.get("error", "Stage Quality Review Agent failed")
     try:
-        review = _extract_json(review_text or result.get("output", ""))
+        review = _extract_json(review_text)
     except (ValueError, json.JSONDecodeError) as error:
+        if _is_in_place_prd_review(state, artifact):
+            return _reject_revision_review_contract(
+                state, artifact, f"review response is not valid JSON: {error}", state_path,
+            )
         _stage(state, artifact)["review_status"] = "failed"
         _checkpoint(state, state_path)
         return False, f"Stage Quality Review Agent returned invalid JSON: {error}"
-    findings = review.get("blocking_findings", [])
-    if not isinstance(findings, list):
-        findings = [findings]
-    findings = [str(item).strip() for item in findings if str(item).strip()]
     acceptance_evidence = review.get("acceptance_evidence", [])
     if not isinstance(acceptance_evidence, list):
         acceptance_evidence = [acceptance_evidence]
     acceptance_evidence = [str(item).strip() for item in acceptance_evidence if str(item).strip()]
     review_status = str(review.get("status", "")).strip().lower()
+    typed_findings: list[dict[str, Any]] = []
+    if _is_in_place_prd_review(state, artifact):
+        typed_findings, contract_error = _revision_review_contract_error(state, review, review_status)
+        if contract_error:
+            return _reject_revision_review_contract(state, artifact, contract_error, state_path)
+        findings = [
+            "\n".join((
+                f"[{finding['kind']}] {', '.join(finding['requirement_ids'])}",
+                f"Selected evidence: {finding['evidence']}",
+                f"Repair: {finding['repair']}",
+            ))
+            for finding in typed_findings
+        ]
+        state.pop("review_contract_rejection", None)
+        state.pop("review_contract_correction", None)
+    else:
+        findings = _normalise_review_strings(review.get("blocking_findings", []))
     if review_status == "needs_revision" and not findings:
         _stage(state, artifact)["review_status"] = "failed"
         _checkpoint(state, state_path)
         return False, "Stage Quality Review Agent returned needs_revision without specific blocking_findings"
     if review_status == "pass" and not acceptance_evidence:
+        if _is_in_place_prd_review(state, artifact):
+            return _reject_revision_review_contract(
+                state, artifact, "pass requires non-empty acceptance_evidence", state_path,
+            )
         _stage(state, artifact)["review_status"] = "failed"
         _checkpoint(state, state_path)
         return False, "Stage Quality Review Agent returned pass without acceptance_evidence"
@@ -3793,6 +4743,8 @@ def _review_artifact(
     stage["review_status"] = "passed" if passed else "needs_revision"
     stage["reviewed_sha256"] = _artifact_digest(real_folder / artifact)
     stage["review_findings"] = findings
+    if _is_in_place_prd_review(state, artifact):
+        stage["revision_findings"] = typed_findings
     stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     stage["scope_fingerprint"] = _confirmed_scope_fingerprint(state)
     stage["pm_copilot_version"] = _active_runtime_version()
@@ -3839,10 +4791,46 @@ def _deliver_artifact_to_quality_gate(
                 state["last_error"] = findings
                 _checkpoint(state, state_path)
                 return False
-    for revision in range(max_revisions + 1):
+    if _is_in_place_prd_review(state, artifact):
+        # A correction prompt is valid for exactly one reviewer retry. Do not
+        # let stale output from a previous delivery attempt steer this pass.
+        for key in ("review_contract_rejection", "review_contract_correction"):
+            value = state.get(key)
+            if isinstance(value, Mapping) and value.get("artifact") == artifact:
+                state.pop(key, None)
+    reviewer_contract_retries = 0
+    revision = 0
+    while revision <= max_revisions:
         passed, findings = _review_artifact(state, artifact, provider, timeout, worker, state_path, model)
         if passed:
             return True
+        rejection = state.get("review_contract_rejection")
+        if (
+            _is_in_place_prd_review(state, artifact)
+            and isinstance(rejection, Mapping)
+            and rejection.get("artifact") == artifact
+        ):
+            reason = str(rejection.get("reason") or "invalid reviewer contract")
+            if reviewer_contract_retries >= 1:
+                stage["review_status"] = "failed"
+                state["revision_stop_reason"] = f"{artifact} stage review contract rejected twice"
+                state["last_error"] = (
+                    "Stage Quality Review Agent returned invalid revision feedback after one correction retry: "
+                    f"{reason}"
+                )
+                _checkpoint(state, state_path)
+                return False
+            reviewer_contract_retries += 1
+            state["review_contract_correction"] = {
+                "artifact": artifact,
+                "reason": reason,
+                "attempt": reviewer_contract_retries,
+            }
+            state.pop("review_contract_rejection", None)
+            _checkpoint(state, state_path)
+            # An invalid reviewer response never reaches the PRD writer or
+            # consumes the content-repair budget.
+            continue
         if revision >= max_revisions:
             state["revision_stop_reason"] = f"{artifact} stage quality budget exhausted"
             state["last_error"] = findings
@@ -3864,6 +4852,7 @@ def _deliver_artifact_to_quality_gate(
         _record_revision(state, artifact, before, after, "changed")
         state["revision_loops"] = state.get("revision_loops", 0) + 1
         _checkpoint(state, state_path)
+        revision += 1
     return False
 
 
@@ -3890,6 +4879,24 @@ def _validate_delivery(folder: Path, staging: bool = False) -> list[dict[str, An
 def _validate_staged_delivery(state: dict[str, Any], folder: Path) -> list[dict[str, Any]]:
     """Run global validators plus the semantic contract for an in-place revision."""
     checks = _validate_delivery(folder, staging=True)
+    try:
+        _assert_delivery_tree_has_no_symlinks(folder, label="staged delivery workspace")
+        _validate_input_asset_materialization(state, folder)
+        checks.append({
+            "command": "controller input-asset materialization validation",
+            "status": "passed",
+            "exit_code": 0,
+            "stdout": "controller snapshots and published input assets match",
+            "stderr": "",
+        })
+    except (FileNotFoundError, FileExistsError, OSError, ValueError) as error:
+        checks.append({
+            "command": "controller input-asset materialization validation",
+            "status": "failed",
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": str(error),
+        })
     report = _validate_staged_revision_scope(state, folder, include_rendered_html=True)
     if report is not None:
         failures = list(report.get("failures", [])) if isinstance(report, dict) else ["revision scope report is unavailable"]
@@ -3942,9 +4949,25 @@ def _confirmed_delivery_impl(
         state["termination"] = "human_checkpoint"
         state["last_error"] = "Explicit user confirmation is required before delivery"
         return
+    _migrate_stale_internal_scope_clarification(state)
     restart_requested = bool(state.pop("restart_delivery", False))
     _migrate_legacy_confirmed_revision_scope(state)
     _clear_inactive_revision_scope(state)
+    asset_problem = _input_asset_problem(state)
+    if asset_problem:
+        _set_needs_input(
+            state,
+            "已确认的图片或视频附件无法从控制器快照验证。请重新通过 --asset 附加原始文件；"
+            "重新确认后才会继续生成，系统不会用现有图替代或猜测附件内容。",
+            reason=asset_problem,
+            field="input_assets",
+        )
+        _checkpoint(state, state_path)
+        return
+    # A legacy run may have been migrated from raw input paths above. Persist
+    # that state before any staging or Agent work so a later interruption never
+    # leaves the newly written snapshot orphaned from its manifest descriptor.
+    _checkpoint(state, state_path)
     _materialize_revision_scope_manifest(state)
     _record_confirmed_extraction_selection(state)
     input_problem = _delivery_input_problem(state, require_selection=True)
@@ -4279,16 +5302,15 @@ def main() -> int:
     folder.mkdir(parents=True, exist_ok=True)
     state_path = folder / "interactive-run.json"
     state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else create_state(raw_request, folder)
-    if args.asset:
-        resolved_assets = [str(Path(value).expanduser().resolve()) for value in args.asset]
-        state["input_assets"] = list(dict.fromkeys([*state.get("input_assets", []), *resolved_assets]))
     if state.get("mode") != "interactive":
         parser.error("run folder is not an interactive production run")
     if _recover_interrupted_delivery(state, folder):
         _write_json(state_path, state)
+    if _migrate_stale_internal_scope_clarification(state):
+        _write_json(state_path, state)
     delivery_needs_input_field = _confirmed_delivery_needs_input_field(state)
     cli_delivery_input_provided = bool(
-        args.extract_from or args.implemented_evidence or args.revision_requirement_id
+        args.extract_from or args.implemented_evidence or args.revision_requirement_id or args.asset
     )
     if args.revise:
         required_input = state.get("required_input")
@@ -4333,6 +5355,11 @@ def main() -> int:
         try:
             register_implemented_feature_evidence(state, args.implemented_evidence)
         except (FileNotFoundError, ValueError) as error:
+            parser.error(str(error))
+    if args.asset:
+        try:
+            register_input_assets(state, [Path(value).expanduser().resolve() for value in args.asset])
+        except (FileNotFoundError, FileExistsError, ValueError) as error:
             parser.error(str(error))
     if cli_delivery_input_provided:
         _resume_confirmed_delivery_after_cli_input(state, delivery_needs_input_field)

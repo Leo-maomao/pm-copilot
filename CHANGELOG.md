@@ -6,6 +6,13 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.107] - 2026-09-04
+
+- Make detached Seawork Agent attribution tolerate the bounded interval in which a newly acknowledged Agent ID is not yet visible through `inspect`, while retaining exact ID and provider/model verification.
+- Treat only deliverable assets as PRD evidence: exclude hidden operating-system metadata and reject symbolic-link assets so staging, scope validation, evidence discovery, and promotion cannot read bytes outside the delivery workspace.
+- Snapshot user-provided assets into controller-owned, content-addressed input records; allow damaged snapshot manifests to be restored only from a complete, byte-identical reattachment set.
+- For confirmed in-place PRD revisions, deterministically preserve unselected content, make the reviewer use an isolated staged copy and typed selected-ID findings, and reject reviewer requests for controller-owned asset provenance before they can consume writer retries.
+
 ## [6.2.106] - 2026-09-04
 
 - Give in-place PRD writers the same controller-owned scope contract used by deterministic validation, including selected IDs, local image count/order, protected sections/assets, linked-copy allowance, and material-versus-media version-history rules.

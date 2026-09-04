@@ -3,10 +3,15 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from revision_scope import (
+    asset_digests,
     build_revision_scope_manifest,
+    constrain_revision_markdown,
+    is_content_asset_relative_path,
     validate_rendered_html_scope,
     validate_revision_scope,
 )
@@ -98,6 +103,71 @@ class RevisionScopeTests(unittest.TestCase):
             {"5.1": ["assets/execution-success.png", "assets/execution-failure.png"]},
         )
 
+    def test_asset_inventory_excludes_hidden_and_platform_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            assets = root / "assets"
+            assets.mkdir()
+            (assets / "visible.png").write_bytes(b"visible")
+            (assets / ".DS_Store").write_bytes(b"finder")
+            (assets / ".hidden.png").write_bytes(b"hidden")
+            (assets / "Thumbs.db").write_bytes(b"explorer")
+            (assets / ".metadata").mkdir()
+            (assets / ".metadata" / "nested.png").write_bytes(b"metadata")
+
+            digests = asset_digests(root)
+
+        self.assertEqual(set(digests), {"assets/visible.png"})
+        self.assertTrue(is_content_asset_relative_path("visible.png"))
+        self.assertFalse(is_content_asset_relative_path(".DS_Store"))
+        self.assertFalse(is_content_asset_relative_path(".hidden.png"))
+        self.assertFalse(is_content_asset_relative_path(".metadata/nested.png"))
+        self.assertFalse(is_content_asset_relative_path("Thumbs.db"))
+
+    def test_asset_inventory_rejects_symbolic_links_before_scope_validation(self) -> None:
+        """A staged asset link must never be dereferenced outside the run folder."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            assets = root / "assets"
+            assets.mkdir()
+            outside_file = root / "outside.png"
+            outside_file.write_bytes(b"outside")
+            try:
+                (assets / "linked-file.png").symlink_to(outside_file)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable in this environment: {error}")
+
+            with self.assertRaisesRegex(ValueError, r"symbolic link: assets/linked-file\.png"):
+                asset_digests(root)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            assets = root / "assets"
+            assets.mkdir()
+            outside_directory = root / "outside-assets"
+            outside_directory.mkdir()
+            (outside_directory / "outside.png").write_bytes(b"outside")
+            try:
+                (assets / "linked-directory").symlink_to(outside_directory, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable in this environment: {error}")
+
+            with self.assertRaisesRegex(ValueError, r"symbolic link: assets/linked-directory"):
+                asset_digests(root)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            outside_directory = root / "outside-assets"
+            outside_directory.mkdir()
+            (outside_directory / "outside.png").write_bytes(b"outside")
+            try:
+                (root / "assets").symlink_to(outside_directory, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"symbolic links are unavailable in this environment: {error}")
+
+            with self.assertRaisesRegex(ValueError, r"asset directory must not be a symbolic link"):
+                asset_digests(root)
+
     def test_extra_or_wrong_order_selected_image_fails_without_counting_other_sections(self) -> None:
         extra = UPDATED.replace(
             '[[prd-detail-media src="./assets/execution-failure.png" alt="failure" copy="执行失败"]]',
@@ -137,6 +207,325 @@ class RevisionScopeTests(unittest.TestCase):
         report = self.validate(unrelated)
         self.assertEqual(report["status"], "failed")
         self.assertIn("outside the confirmed revision scope", "\n".join(report["failures"]))
+
+    def test_constrained_merge_keeps_current_style_copy_rows_when_legacy_label_changes(self) -> None:
+        """A label rename must not make the controller retain stale user copy.
+
+        The real PRD table uses a visible-copy column plus usage location and
+        parameters.  ``任务编号：{taskId}`` becoming ``Task ID`` has no matching
+        first cell, but the parameter/usage cells still give the controller a
+        deterministic ownership anchor.
+        """
+        baseline = """# Canvas PRD
+
+## 四、需求清单
+| 详情编号 | 需求名称 | 需求摘要 |
+| --- | --- | --- |
+| 5.1 | 节点错误与 TaskID 展示 | 旧错误详情层 |
+| 5.2 | 上传音频节点 | 保留上传规则 |
+
+## 五、需求详情
+### 5.1 节点错误与 TaskID 展示
+| 维度 | 需求说明 |
+| --- | --- |
+| 需求详情 | 节点执行失败时展示旧错误详情。 |
+
+### 5.2 上传音频节点
+| 维度 | 需求说明 |
+| --- | --- |
+| 需求详情 | 保留上传节点原有规则。 |
+
+## 六、多语言需求
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 失败 | 节点标题栏失败状态 | / |
+| 执行失败 | 错误详情标题 | / |
+| 任务编号：{taskId} | 错误详情第一行 | {taskId} |
+| 复制成功 | TaskID 复制反馈 | / |
+| 宫格排列 | 整理菜单 | / |
+"""
+        candidate = """# Canvas PRD
+
+## 四、需求清单
+| 详情编号 | 需求名称 | 需求摘要 |
+| --- | --- | --- |
+| 5.1 | 节点执行结果提示 | 成功和失败状态图标与结果弹窗 |
+| 5.2 | 被错误改写的上传节点 | 不应跨范围改写 |
+
+## 五、需求详情
+### 5.1 节点执行结果提示
+| 维度 | 需求说明 |
+| --- | --- |
+| 需求详情 | 成功和失败均显示状态图标；成功显示 Task ID，失败显示 Task ID 与失败原因。Task ID 缺失时显示任务 ID 暂未返回；复制失败时显示复制失败，请重试；失败原因为空时显示节点执行失败，请稍后重试。 |
+
+### 5.2 上传音频节点
+| 维度 | 需求说明 |
+| --- | --- |
+| 需求详情 | 被错误改写的上传规则。 |
+
+## 六、多语言需求
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 执行成功 | 成功结果弹窗标题 | / |
+| 执行失败 | 失败结果弹窗标题 | / |
+| Task ID | 成功和失败结果弹窗 | {taskId} |
+| 失败原因 | 失败结果弹窗 | / |
+| Task ID 已复制 | Task ID 复制成功反馈 | / |
+| 复制失败，请重试 | Task ID 复制失败反馈 | / |
+| 任务 ID 暂未返回 | Task ID 缺失提示 | / |
+| 节点执行失败，请稍后重试 | 空失败原因提示 | / |
+| 宫格排列 | 被错误改写的整理菜单 | / |
+"""
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={},
+            requirement_ids=["5.1"],
+            confirmed_scope_text="仅更新 5.1 对应中文用户可见文案。",
+            authority="explicit user confirmation",
+        )
+
+        merged = constrain_revision_markdown(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=candidate,
+        )
+
+        self.assertEqual(merged["status"], "merged")
+        markdown = str(merged["markdown"])
+        self.assertIn("| 5.1 | 节点执行结果提示 | 成功和失败状态图标与结果弹窗 |", markdown)
+        self.assertIn("| 5.2 | 上传音频节点 | 保留上传规则 |", markdown)
+        self.assertIn("| 需求详情 | 保留上传节点原有规则。 |", markdown)
+        self.assertIn("| Task ID | 成功和失败结果弹窗 | {taskId} |", markdown)
+        self.assertNotIn("任务编号：{taskId}", markdown)
+        self.assertIn("| 宫格排列 | 整理菜单 | / |", markdown)
+        self.assertNotIn("被错误改写的整理菜单", markdown)
+
+        report = validate_revision_scope(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=markdown,
+            baseline_assets={},
+            candidate_assets={},
+        )
+        self.assertEqual(report["status"], "passed", report["failures"])
+
+    def test_constrained_merge_preserves_unmatched_localization_rows_between_selected_rows(self) -> None:
+        baseline = """| 5.1 | 保存状态 |
+| 5.2 | 上传状态 |
+
+### 5.1 保存状态
+保存成功和保存失败均提供反馈。
+
+### 5.2 上传状态
+保留上传反馈。
+
+## 六、多语言需求
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 保存成功 | 5.1 保存反馈 | / |
+| 上传完成 | 5.2 上传反馈 | / |
+| 保存失败 | 5.1 保存错误 | / |
+"""
+        candidate = """| 5.1 | 保存状态 |
+| 5.2 | 上传状态 |
+
+### 5.1 保存状态
+保存成功和保存失败均提供明确反馈与重试入口。
+
+### 5.2 上传状态
+被错误改写的上传反馈。
+
+## 六、多语言需求
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 保存成功 | 5.1 保存完成反馈 | / |
+| 上传完成 | 被错误改写的上传反馈 | / |
+| 保存失败 | 5.1 保存失败反馈 | / |
+"""
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={},
+            requirement_ids=["5.1"],
+            confirmed_scope_text="仅更新 5.1 对应中文用户可见文案。",
+            authority="explicit user confirmation",
+        )
+
+        merged = constrain_revision_markdown(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=candidate,
+        )
+
+        self.assertEqual(merged["status"], "merged")
+        markdown = str(merged["markdown"])
+        self.assertIn("| 保存成功 | 5.1 保存完成反馈 | / |", markdown)
+        self.assertIn("| 保存失败 | 5.1 保存失败反馈 | / |", markdown)
+        self.assertIn("| 上传完成 | 5.2 上传反馈 | / |", markdown)
+        self.assertNotIn("被错误改写的上传反馈", markdown)
+
+    def test_constrained_merge_matches_copy_table_by_identity_after_preceding_table_is_deleted(self) -> None:
+        """A removed unrelated table must not shift a later table's ownership."""
+        baseline = """# Canvas PRD
+
+### 5.1 Foo Key flow
+The visible copy is `Foo Key`.
+
+## Copy collection A
+| Copy Key | Usage | Parameters |
+| --- | --- | --- |
+| Foo Key | Feature A status | / |
+| Stable A | Feature A helper | / |
+
+## Copy collection B
+| Copy Key | Usage | Parameters |
+| --- | --- | --- |
+| Foo Key | Feature B status | / |
+| Stable B | Feature B helper | / |
+"""
+        candidate = """# Canvas PRD
+
+### 5.1 Foo Key flow
+The visible copy is `Foo Key v2`.
+
+## Copy collection B
+| Copy Key | Usage | Parameters |
+| --- | --- | --- |
+| Foo Key v2 | Feature B status | / |
+| Stable B | Feature B helper | / |
+"""
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={},
+            requirement_ids=["5.1"],
+            confirmed_scope_text="Update 5.1 Foo Key copy.",
+            authority="explicit user confirmation",
+        )
+
+        merged = constrain_revision_markdown(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=candidate,
+        )
+
+        self.assertEqual(merged["status"], "merged", merged["failures"])
+        markdown = str(merged["markdown"])
+        self.assertIn("| Foo Key | Feature A status | / |", markdown)
+        self.assertIn("| Stable A | Feature A helper | / |", markdown)
+        self.assertIn("| Foo Key v2 | Feature B status | / |", markdown)
+        self.assertNotIn("| Foo Key v2 | Feature A status | / |", markdown)
+
+        report = validate_revision_scope(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=markdown,
+            baseline_assets={},
+            candidate_assets={},
+        )
+        self.assertEqual(report["status"], "passed", report["failures"])
+
+    def test_constrained_merge_rejects_ambiguous_duplicate_copy_rows(self) -> None:
+        """Identical rows have no safe position-based identity during a rename."""
+        baseline = """# Canvas PRD
+
+### 5.1 Foo Key flow
+The visible copy is `Foo Key`.
+
+## Copy collection
+| Copy Key | Usage | Parameters |
+| --- | --- | --- |
+| Foo Key | Shared destination | / |
+| Foo Key | Shared destination | / |
+"""
+        candidate = """# Canvas PRD
+
+### 5.1 Foo Key flow
+The visible copy is `Foo Key v2`.
+
+## Copy collection
+| Copy Key | Usage | Parameters |
+| --- | --- | --- |
+| Foo Key v2 | Shared destination | / |
+| Foo Key | Shared destination | / |
+"""
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={},
+            requirement_ids=["5.1"],
+            confirmed_scope_text="Update 5.1 Foo Key copy.",
+            authority="explicit user confirmation",
+        )
+
+        merged = constrain_revision_markdown(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=candidate,
+        )
+
+        self.assertEqual(merged["status"], "failed")
+        self.assertIn("baseline row anchor is ambiguous", "\n".join(merged["failures"]))
+        markdown = str(merged["markdown"])
+        self.assertIn("| Foo Key | Shared destination | / |", markdown)
+        self.assertNotIn("| Foo Key v2 | Shared destination | / |", markdown)
+
+    def test_constrained_merge_allows_only_an_explicitly_confirmed_selected_deletion(self) -> None:
+        baseline = """| 5.1 | 保留能力 |
+| 5.2 | 待删除能力 |
+| 5.3 | 保留能力二 |
+
+### 5.1 保留能力
+保留规则。
+
+### 5.2 待删除能力
+待删除规则。
+
+### 5.3 保留能力二
+保留规则二。
+"""
+        candidate = """| 5.1 | 保留能力 |
+| 5.3 | 保留能力二 |
+
+### 5.1 保留能力
+保留规则。
+
+### 5.3 保留能力二
+保留规则二。
+"""
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={},
+            requirement_ids=["5.2"],
+            confirmed_scope_text="用户确认：删除需求 5.2，保留其他需求。",
+            authority="explicit user confirmation",
+        )
+
+        self.assertEqual(manifest["deleted_requirement_ids"], ["5.2"])
+        merged = constrain_revision_markdown(
+            manifest, baseline_markdown=baseline, candidate_markdown=candidate,
+        )
+
+        self.assertEqual(merged["status"], "merged", merged["failures"])
+        self.assertEqual(merged["markdown"], candidate)
+        report = validate_revision_scope(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=str(merged["markdown"]),
+            baseline_assets={},
+            candidate_assets={},
+        )
+        self.assertEqual(report["status"], "passed", report["failures"])
+
+        unconfirmed = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={},
+            requirement_ids=["5.2"],
+            confirmed_scope_text="仅更新需求 5.2 的文案。",
+            authority="explicit user confirmation",
+        )
+        rejected = constrain_revision_markdown(
+            unconfirmed, baseline_markdown=baseline, candidate_markdown=candidate,
+        )
+        self.assertEqual(rejected["status"], "failed")
+        self.assertIn("absent from the candidate", "\n".join(rejected["failures"]))
 
     def test_material_selected_revision_may_append_but_not_rewrite_version_history(self) -> None:
         baseline = """# Canvas PRD

@@ -60,9 +60,37 @@ EXACT_IMAGE_SET_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Asset trees are delivery content, not a mirror of an author's filesystem.
+# Finder/Explorer metadata is non-renderable in a PRD and unstable across
+# copies, so it cannot participate in a revision's content baseline.
+NON_CONTENT_ASSET_FILENAMES = frozenset({
+    "thumbs.db",
+    "ehthumbs.db",
+    "desktop.ini",
+    "icon\r",
+})
+
 
 def digest_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def is_content_asset_relative_path(value: Path | str) -> bool:
+    """Return whether an assets/-relative path is deliverable PRD content.
+
+    Hidden files and directories are deliberately excluded rather than merely
+    ignoring one operating-system filename. They are not stable, addressable
+    PRD media, and treating them as protected resources makes a copied stage
+    disagree with its canonical source. Known non-hidden OS metadata files
+    receive the same treatment.
+    """
+    path = Path(value)
+    if path.is_absolute() or not path.parts:
+        return False
+    for part in path.parts:
+        if part in {"", ".", ".."} or part.startswith("."):
+            return False
+    return path.name.casefold() not in NON_CONTENT_ASSET_FILENAMES
 
 
 def normalize_image_reference(value: str) -> str:
@@ -135,6 +163,8 @@ def requirement_sections(text: str) -> dict[str, dict[str, Any]]:
         sections[requirement_id] = {
             "id": requirement_id,
             "title": match.group("title").strip(),
+            "start": match.start(),
+            "end": next_start,
             "content": content,
             "sha256": digest_bytes(content.encode("utf-8")),
             "image_refs": markdown_image_refs(content),
@@ -151,19 +181,65 @@ def requirement_rows(text: str) -> dict[str, str]:
 
 
 def asset_digests(root: Path) -> dict[str, str]:
-    """Hash local asset bytes with output-root-relative paths."""
+    """Hash deliverable local asset bytes with output-root-relative paths.
+
+    A staged delivery must be self-contained.  ``Path.is_file()`` follows
+    symbolic links, which used to let a link in ``assets/`` hash bytes outside
+    the staging directory and then be silently dereferenced by a later copy.
+    Reject links at inventory time instead: both the baseline and the staged
+    validation paths call this function before a revision can be promoted.
+    """
     assets = root / "assets"
+    if assets.is_symlink():
+        raise ValueError("PRD asset directory must not be a symbolic link: assets")
     if not assets.is_dir():
         return {}
-    return {
-        path.relative_to(root).as_posix(): digest_bytes(path.read_bytes())
-        for path in sorted(assets.rglob("*"))
-        if path.is_file()
-    }
+    digests: dict[str, str] = {}
+    for path in sorted(assets.rglob("*")):
+        relative = path.relative_to(assets)
+        if path.is_symlink():
+            raise ValueError(
+                "PRD asset tree must not contain a symbolic link: "
+                f"assets/{relative.as_posix()}"
+            )
+        if path.is_file() and is_content_asset_relative_path(relative):
+            digests[path.relative_to(root).as_posix()] = digest_bytes(path.read_bytes())
+    return digests
 
 
 def _deduplicate(items: Iterable[str]) -> list[str]:
     return list(dict.fromkeys(item for item in items if item))
+
+
+_DELETION_INTENT_RE = re.compile(
+    r"(?:删除|删掉|移除|去除|废弃|下线|delete|remove|drop)", re.IGNORECASE,
+)
+_NEGATED_DELETION_INTENT_RE = re.compile(
+    r"(?:不|不要|无需|not\s+to|do\s+not|don't)\s*(?:删除|删掉|移除|去除|废弃|下线|delete|remove|drop)",
+    re.IGNORECASE,
+)
+
+
+def _explicitly_deleted_requirement_ids(scope_text: str, selected: Sequence[str]) -> list[str]:
+    """Return only selectors explicitly paired with a confirmed delete intent.
+
+    A selected ID alone authorizes a revision, never a destructive removal.
+    Keep the evidence local to one sentence and close to the delete verb so a
+    sentence such as "delete 5.2; retain 5.3" cannot accidentally authorize
+    both IDs. Ambiguous wording intentionally leaves the ID protected.
+    """
+    deleted: list[str] = []
+    for sentence in re.split(r"[\r\n。！？!?；;,，]+", scope_text):
+        if not _DELETION_INTENT_RE.search(sentence) or _NEGATED_DELETION_INTENT_RE.search(sentence):
+            continue
+        action_offsets = [match.start() for match in _DELETION_INTENT_RE.finditer(sentence)]
+        for requirement_id in selected:
+            id_match = re.search(
+                rf"(?<![0-9.]){re.escape(requirement_id)}(?![0-9.])", sentence,
+            )
+            if id_match and any(abs(id_match.start() - offset) <= 40 for offset in action_offsets):
+                deleted.append(requirement_id)
+    return _deduplicate(deleted)
 
 
 def _asset_references(text: str) -> list[str]:
@@ -189,11 +265,13 @@ def build_revision_scope_manifest(
     """
     selected = _deduplicate(str(item).strip() for item in requirement_ids)
     baseline_sections = requirement_sections(baseline_markdown)
+    deleted = _explicitly_deleted_requirement_ids(confirmed_scope_text, selected)
     evidence_refs = _asset_references(confirmed_scope_text)
     image_contracts: list[dict[str, Any]] = []
-    if len(selected) == 1 and evidence_refs:
+    active_selected = [item for item in selected if item not in deleted]
+    if len(active_selected) == 1 and evidence_refs:
         image_contracts.append({
-            "requirement_ids": selected,
+            "requirement_ids": active_selected,
             "required_image_refs": evidence_refs,
             "exact_count": bool(EXACT_IMAGE_SET_RE.search(confirmed_scope_text)),
             "fixed_order": bool(FIXED_ORDER_RE.search(confirmed_scope_text)),
@@ -203,6 +281,7 @@ def build_revision_scope_manifest(
         "schema_version": 1,
         "mode": "in_place_revision",
         "requirement_ids": selected,
+        "deleted_requirement_ids": deleted,
         "selectors": _deduplicate(str(item).strip() for item in selectors),
         "authority": authority,
         "baseline": {
@@ -242,6 +321,235 @@ def _row_key(row: str) -> str:
     return re.sub(r"\s+", " ", cells[0]) if cells else ""
 
 
+def _table_cells(row: str) -> list[str]:
+    """Return Markdown table cells without treating prose pipes as structure."""
+    if not row.lstrip().startswith("|"):
+        return []
+    return [cell.strip() for cell in row.strip().strip("|").split("|")]
+
+
+def _normalized_table_cells(row: str) -> tuple[str, ...]:
+    """Return table cells normalized for identity checks without changing bytes."""
+    return tuple(
+        re.sub(r"\s+", " ", cell).strip().casefold()
+        for cell in _table_cells(row)
+    )
+
+
+def _table_separator_row(row: str) -> bool:
+    cells = _table_cells(row)
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+
+
+def _localization_table_blocks(text: str) -> list[dict[str, Any]]:
+    """Locate actual localization tables, never generic requirement tables.
+
+    Linked copy may only be revised inside a table whose header identifies it as
+    copy/localization content.  Looking at arbitrary pipe rows made a selected
+    requirement-list row look like a translation row when its title shared a
+    word with the selected detail.
+    """
+    lines = text.splitlines(keepends=True)
+    blocks: list[dict[str, Any]] = []
+    index = 0
+    while index < len(lines):
+        if not lines[index].lstrip().startswith("|"):
+            index += 1
+            continue
+        start = index
+        while index < len(lines) and lines[index].lstrip().startswith("|"):
+            index += 1
+        end = index
+        if (
+            end - start >= 3
+            and _table_separator_row(lines[start + 1])
+            and LINKED_COPY_RE.search(" ".join(_table_cells(lines[start])))
+        ):
+            blocks.append({
+                "start": start,
+                "end": end,
+                "data_indexes": list(range(start + 2, end)),
+            })
+    return blocks
+
+
+def _ascii_copy_tokens(value: str) -> set[str]:
+    """Extract stable ASCII copy identifiers such as ``Task ID`` / ``taskId``."""
+    tokens: set[str] = set()
+    for fragment in re.findall(r"[A-Za-z][A-Za-z0-9 _-]*", value):
+        normalized = re.sub(r"[^a-z0-9]", "", fragment.casefold())
+        if len(normalized) >= 4 and normalized not in {
+            "copy", "error", "node", "status", "task", "title", "result",
+        }:
+            tokens.add(normalized)
+    return tokens
+
+
+def _chinese_copy_ngrams(value: str) -> set[str]:
+    """Extract specific CJK copy fragments while excluding broad two-character words."""
+    ngrams: set[str] = set()
+    for run in re.findall(r"[\u3400-\u9fff]{3,}", value):
+        ngrams.update(run[start:start + 3] for start in range(len(run) - 2))
+    return ngrams
+
+
+def _weakly_renamed_copy_key(key: str, candidate_keys: Iterable[str]) -> bool:
+    """Recognize a short renamed label only when a candidate label contains it.
+
+    This is deliberately weaker than a row ownership match and is used only to
+    bridge the adjacent legacy row of an already anchored localization group.
+    It covers changes such as ``失败`` -> ``执行失败`` without allowing arbitrary
+    localization-table edits.
+    """
+    normalized = re.sub(r"\s+", "", key).strip()
+    if not normalized:
+        return False
+    for candidate_key in candidate_keys:
+        candidate = re.sub(r"\s+", "", candidate_key).strip()
+        if not candidate:
+            continue
+        if normalized.isascii() and candidate.isascii():
+            compact = re.sub(r"[^a-z0-9]", "", normalized.casefold())
+            candidate_compact = re.sub(r"[^a-z0-9]", "", candidate.casefold())
+            if len(compact) >= 4 and (compact in candidate_compact or candidate_compact in compact):
+                return True
+        elif re.fullmatch(r"[\u3400-\u9fff]{2,}", normalized) and normalized in candidate:
+            return True
+    return False
+
+
+def _localization_row_match_score(baseline_row: str, candidate_row: str) -> int:
+    """Score a deterministic row-level correspondence inside one copy table."""
+    baseline_cells = _normalized_table_cells(baseline_row)
+    candidate_cells = _normalized_table_cells(candidate_row)
+    baseline_key = baseline_cells[0] if baseline_cells else ""
+    candidate_key = candidate_cells[0] if candidate_cells else ""
+    if not baseline_key or not candidate_key:
+        return 0
+    if baseline_cells == candidate_cells:
+        return 200
+    context_evidence = 0
+    for baseline_cell, candidate_cell in zip(baseline_cells[1:], candidate_cells[1:]):
+        if baseline_cell == candidate_cell:
+            context_evidence += 12
+        elif _ascii_copy_tokens(baseline_cell) & _ascii_copy_tokens(candidate_cell):
+            context_evidence += 6
+        elif _chinese_copy_ngrams(baseline_cell) & _chinese_copy_ngrams(candidate_cell):
+            context_evidence += 4
+    if baseline_key == candidate_key:
+        # The visible copy can repeat. Matching usage/parameter cells make a
+        # same-label row distinguishable without treating its position as an
+        # identity signal.
+        return 100 + min(context_evidence, 30)
+    if baseline_cells[1:] and baseline_cells[1:] == candidate_cells[1:]:
+        # A renamed label with an unchanged usage/parameter tuple is stronger
+        # than a word-overlap guess, but remains weaker than the same label.
+        return 90
+    baseline_ascii = _ascii_copy_tokens(baseline_row)
+    candidate_ascii = _ascii_copy_tokens(candidate_row)
+    if baseline_ascii & candidate_ascii:
+        return 80 + min(context_evidence, 15)
+    baseline_chinese = _chinese_copy_ngrams(baseline_row)
+    candidate_chinese = _chinese_copy_ngrams(candidate_row)
+    if baseline_chinese & candidate_chinese:
+        return 60 + min(context_evidence, 15)
+    if _weakly_renamed_copy_key(baseline_key, [candidate_key]):
+        return 20
+    return 0
+
+
+def _localization_heading_context(lines: Sequence[str], table_start: int) -> tuple[tuple[int, str], ...]:
+    """Return the stable Markdown-heading ancestry for a localization table."""
+    headings: list[tuple[int, str]] = []
+    for line in lines[:table_start]:
+        match = SECTION_HEADING_RE.match(line.rstrip("\r\n"))
+        if not match:
+            continue
+        level = len(match.group("hashes"))
+        title = _section_title(match.group("title"))
+        while headings and headings[-1][0] >= level:
+            headings.pop()
+        headings.append((level, title))
+    return tuple(headings)
+
+
+def _localization_table_identity(
+    block: Mapping[str, Any], lines: Sequence[str], copy_terms: set[str],
+) -> dict[str, Any]:
+    """Build non-positional evidence for matching a localization table.
+
+    A complete candidate may remove an unrelated preceding table, so table
+    ordinal is not an identity. The immutable header, heading ancestry, and
+    unselected rows are safe evidence because none is authorized to change.
+    """
+    start = int(block["start"])
+    stable_rows = frozenset(
+        _normalized_table_cells(lines[index])
+        for index in block["data_indexes"]
+        if not _linked_copy_key(lines[index], copy_terms)
+    )
+    return {
+        "header": _normalized_table_cells(lines[start]),
+        "heading_context": _localization_heading_context(lines, start),
+        "stable_rows": stable_rows,
+    }
+
+
+def _matching_baseline_localization_table(
+    candidate_block: Mapping[str, Any],
+    *,
+    candidate_lines: Sequence[str],
+    baseline_blocks: Sequence[Mapping[str, Any]],
+    baseline_lines: Sequence[str],
+    copy_terms: set[str],
+) -> tuple[int | None, str | None]:
+    """Return the only baseline table attributable to a candidate table.
+
+    Prefer matching heading ancestry when it survives the candidate rewrite;
+    otherwise require a uniquely strongest stable-row overlap. A table with no
+    unique identity is unsafe to merge, even if it happens to be at a familiar
+    ordinal position.
+    """
+    candidate_identity = _localization_table_identity(
+        candidate_block, candidate_lines, copy_terms,
+    )
+    baseline_identities = [
+        _localization_table_identity(block, baseline_lines, copy_terms)
+        for block in baseline_blocks
+    ]
+    header_matches = [
+        index
+        for index, identity in enumerate(baseline_identities)
+        if identity["header"] == candidate_identity["header"]
+    ]
+    if not header_matches:
+        return None, "cannot safely merge linked localization rows without a matching baseline table identity"
+
+    context_matches = [
+        index
+        for index in header_matches
+        if candidate_identity["heading_context"]
+        and baseline_identities[index]["heading_context"] == candidate_identity["heading_context"]
+    ]
+    eligible = context_matches or header_matches
+    overlap_counts = {
+        index: len(candidate_identity["stable_rows"] & baseline_identities[index]["stable_rows"])
+        for index in eligible
+    }
+    best_overlap = max(overlap_counts.values(), default=0)
+    if best_overlap:
+        best_matches = [
+            index for index in eligible
+            if overlap_counts[index] == best_overlap
+        ]
+        if len(best_matches) == 1:
+            return best_matches[0], None
+        return None, "cannot safely merge linked localization rows because the matching baseline table is ambiguous"
+    if len(eligible) == 1:
+        return eligible[0], None
+    return None, "cannot safely merge linked localization rows because the matching baseline table is ambiguous"
+
+
 def _selected_copy_terms(candidate_sections: Mapping[str, Mapping[str, Any]]) -> set[str]:
     terms: set[str] = set()
     for section in candidate_sections.values():
@@ -253,28 +561,39 @@ def _selected_copy_terms(candidate_sections: Mapping[str, Mapping[str, Any]]) ->
     return terms
 
 
-def _linked_copy_key(key: str, copy_terms: set[str]) -> bool:
-    """Match a localization key to selected requirement copy without broad words.
+def _linked_copy_key(value: str, copy_terms: set[str]) -> bool:
+    """Match a localization row to selected content using stable cell evidence.
 
-    Exact/subsequence matches handle labels such as ``Task ID``. For Chinese
-    copy, a three-character shared run allows a renamed label such as
-    ``旧执行结果`` to be replaced by the selected ``节点执行结果`` while avoiding
-    a generic one-word overlap like ``节点``.
+    A copy label is intentionally allowed to change.  Therefore the full row,
+    including its usage location and parameter cell, participates in matching:
+    ``任务编号：{taskId}`` remains attributable when the new label is ``Task ID``.
+    Three-character CJK fragments and normalized non-generic ASCII identifiers
+    avoid accepting a generic one-word overlap as scope authority.
     """
-    normalized_key = re.sub(r"\s+", " ", key).strip()
-    if not normalized_key:
+    normalized_value = re.sub(r"\s+", " ", value).strip()
+    if not normalized_value:
         return False
+    value_ascii = _ascii_copy_tokens(normalized_value)
+    value_chinese = _chinese_copy_ngrams(normalized_value)
     for term in copy_terms:
         normalized_term = re.sub(r"\s+", " ", term).strip()
-        if normalized_key in normalized_term or normalized_term in normalized_key:
+        if not normalized_term:
+            continue
+        term_ascii = _ascii_copy_tokens(normalized_term)
+        term_chinese = _chinese_copy_ngrams(normalized_term)
+        # Media attributes such as ``copy``, ``alt`` and ``png`` are not
+        # localization ownership evidence. Only normalized, non-generic ASCII
+        # identifiers or meaningful CJK fragments can match a table row.
+        if not term_ascii and not term_chinese:
+            continue
+        if any(
+            token in other or other in token
+            for token in value_ascii
+            for other in term_ascii
+        ):
             return True
-        key_runs = re.findall(r"[\u3400-\u9fff]{3,}", normalized_key)
-        term_runs = re.findall(r"[\u3400-\u9fff]{3,}", normalized_term)
-        for key_run in key_runs:
-            for term_run in term_runs:
-                for start in range(len(key_run) - 2):
-                    if key_run[start:start + 3] in term_run:
-                        return True
+        if value_chinese & term_chinese:
+            return True
     return False
 
 
@@ -283,17 +602,21 @@ def _remove_authorized_localization_rows(
 ) -> str:
     if not copy_terms:
         return text
-    lines: list[str] = []
-    for line in text.splitlines(keepends=True):
-        if not line.lstrip().startswith("|"):
-            lines.append(line)
-            continue
-        key = _row_key(line)
-        if key and (key in row_keys or _linked_copy_key(key, copy_terms)):
-            row_keys.add(key)
-            continue
-        lines.append(line)
-    return "".join(lines)
+    lines = text.splitlines(keepends=True)
+    removable: set[int] = set()
+    for block in _localization_table_blocks(text):
+        for index in block["data_indexes"]:
+            line = lines[index]
+            key = _row_key(line)
+            if not key:
+                continue
+            linked = _linked_copy_key(line, copy_terms)
+            renamed = not mutate_keys and _weakly_renamed_copy_key(key, row_keys)
+            if key in row_keys or linked or renamed:
+                removable.add(index)
+                if mutate_keys:
+                    row_keys.add(key)
+    return "".join(line for index, line in enumerate(lines) if index not in removable)
 
 
 def _version_history_append_only(
@@ -451,6 +774,399 @@ def _contains_ordered(items: Sequence[str], expected: Sequence[str]) -> bool:
     return position == len(expected)
 
 
+def build_revision_asset_attestation(
+    manifest: Mapping[str, Any],
+    *,
+    candidate_markdown: str,
+    candidate_assets: Mapping[str, str],
+) -> dict[str, Any]:
+    """Describe which selected-section assets exist in this staged workspace.
+
+    Asset provenance is a controller concern: a PRD writer can choose an
+    attested reference, but must not be asked to prove where its bytes came
+    from.  The attestation deliberately distinguishes immutable baseline bytes
+    from files copied from the confirmed input set.  It is generated from the
+    actual staged directory, never from an Agent assertion.
+    """
+    selected = {
+        str(item).strip()
+        for item in manifest.get("requirement_ids", [])
+        if str(item).strip()
+    }
+    baseline = manifest.get("baseline")
+    baseline = baseline if isinstance(baseline, Mapping) else {}
+    baseline_assets = baseline.get("assets")
+    baseline_assets = {
+        str(path): str(digest)
+        for path, digest in baseline_assets.items()
+    } if isinstance(baseline_assets, Mapping) else {}
+    allowed_new = manifest.get("allowed_new_assets")
+    allowed_new = {
+        str(path): str(digest)
+        for path, digest in allowed_new.items()
+    } if isinstance(allowed_new, Mapping) else {}
+    candidate = {str(path): str(digest) for path, digest in candidate_assets.items()}
+
+    def source_for(path: str) -> tuple[str, str | None]:
+        if path in baseline_assets:
+            return "baseline", baseline_assets[path]
+        if path in allowed_new:
+            return "copied_input", allowed_new[path]
+        return "unattested", None
+
+    inventory: list[dict[str, Any]] = []
+    for path in sorted(set(baseline_assets) | set(allowed_new)):
+        origin, expected_digest = source_for(path)
+        actual_digest = candidate.get(path)
+        inventory.append({
+            "path": path,
+            "origin": origin,
+            "sha256": actual_digest or "",
+            "status": (
+                "available" if actual_digest == expected_digest
+                else "missing" if actual_digest is None
+                else "digest_mismatch"
+            ),
+        })
+
+    sections = requirement_sections(candidate_markdown)
+    selected_assets: dict[str, list[dict[str, Any]]] = {}
+    missing_required_assets: list[str] = []
+    unattested_selected_assets: list[str] = []
+    invalid_selected_references: list[str] = []
+    for requirement_id in sorted(selected):
+        entries: list[dict[str, Any]] = []
+        for reference in sections.get(requirement_id, {}).get("image_refs", []):
+            path = normalize_image_reference(str(reference))
+            if not path.startswith("assets/"):
+                invalid_selected_references.append(f"{requirement_id}:{path}")
+                entries.append({
+                    "path": path,
+                    "origin": "invalid",
+                    "sha256": "",
+                    "status": "invalid_reference",
+                })
+                continue
+            origin, expected_digest = source_for(path)
+            actual_digest = candidate.get(path)
+            status = (
+                "available" if expected_digest is not None and actual_digest == expected_digest
+                else "missing" if actual_digest is None
+                else "unattested" if expected_digest is None
+                else "digest_mismatch"
+            )
+            entries.append({
+                "path": path,
+                "origin": origin,
+                "sha256": actual_digest or "",
+                "status": status,
+            })
+            if status in {"missing", "digest_mismatch"}:
+                missing_required_assets.append(path)
+            elif status == "unattested":
+                unattested_selected_assets.append(path)
+        selected_assets[requirement_id] = entries
+
+    for contract in manifest.get("image_contracts", []):
+        if not isinstance(contract, Mapping):
+            continue
+        for reference in contract.get("required_image_refs", []):
+            path = normalize_image_reference(str(reference))
+            if path not in candidate:
+                missing_required_assets.append(path)
+
+    missing_required_assets = sorted(set(missing_required_assets))
+    unattested_selected_assets = sorted(set(unattested_selected_assets))
+    invalid_selected_references = sorted(set(invalid_selected_references))
+    failures: list[str] = []
+    if missing_required_assets:
+        failures.append(
+            "selected requirement asset is not present with attested bytes in the staged workspace: "
+            + ", ".join(missing_required_assets)
+        )
+    if unattested_selected_assets:
+        failures.append(
+            "selected requirement references an asset outside the controller-owned inventory: "
+            + ", ".join(unattested_selected_assets)
+        )
+    if invalid_selected_references:
+        failures.append(
+            "selected requirement image reference must stay under assets/: "
+            + ", ".join(invalid_selected_references)
+        )
+    return {
+        "schema_version": 1,
+        "status": "passed" if not failures else "failed",
+        "available_assets": [entry for entry in inventory if entry["status"] == "available"],
+        "selected_requirement_assets": selected_assets,
+        "missing_required_assets": missing_required_assets,
+        "unattested_selected_assets": unattested_selected_assets,
+        "invalid_selected_references": invalid_selected_references,
+        "failures": failures,
+    }
+
+
+def _replace_requirement_rows(
+    baseline_markdown: str, candidate_markdown: str, selected: set[str],
+) -> str:
+    """Carry selected list rows into an otherwise baseline-derived document."""
+    candidate_rows = requirement_rows(candidate_markdown)
+    result = baseline_markdown
+    for requirement_id in sorted(selected, key=lambda item: (item.count("."), item), reverse=True):
+        row = candidate_rows.get(requirement_id)
+        if not row:
+            continue
+        pattern = re.compile(rf"(?m)^\|\s*{re.escape(requirement_id)}\s*\|.*(?:\n|$)")
+        result, _ = pattern.subn(row, result, count=1)
+    return result
+
+
+def _remove_requirement_rows(markdown: str, requirement_ids: set[str]) -> str:
+    """Remove only explicitly authorized requirement-list rows."""
+    if not requirement_ids:
+        return markdown
+    pattern = "|".join(re.escape(item) for item in sorted(requirement_ids, key=len, reverse=True))
+    return re.sub(rf"(?m)^\|\s*(?:{pattern})\s*\|.*(?:\n|$)", "", markdown)
+
+
+def _append_version_history_rows(baseline_markdown: str, rows: Sequence[str]) -> str:
+    if not rows:
+        return baseline_markdown
+    section = _version_history_section(baseline_markdown)
+    if section is None:
+        return baseline_markdown
+    body = str(section["body"])
+    offset = 0
+    insertion = None
+    for line in body.splitlines(keepends=True):
+        offset += len(line)
+        if VERSION_RECORD_ROW_RE.match(line):
+            insertion = offset
+    if insertion is None:
+        return baseline_markdown
+    appended = "".join(row.rstrip("\r\n") + "\n" for row in rows)
+    body = body[:insertion] + appended + body[insertion:]
+    return (
+        baseline_markdown[:int(section["body_start"])]
+        + body
+        + baseline_markdown[int(section["end"]):]
+    )
+
+
+def _merge_linked_localization_rows(
+    baseline_markdown: str, candidate_markdown: str, copy_terms: set[str],
+) -> tuple[str, list[str]]:
+    """Carry selected-copy table segments while keeping all other rows intact.
+
+    The source and candidate can use different visible labels for the same
+    message.  We pair only recognized localization tables, then anchor a
+    segment using the full row (usage location and parameter cells included).
+    An adjacent short renamed label can join an already anchored segment, but
+    an unanchored table change is retained from the baseline rather than being
+    silently authorized.
+    """
+    if not copy_terms:
+        return baseline_markdown, []
+    baseline_lines = baseline_markdown.splitlines(keepends=True)
+    candidate_lines = candidate_markdown.splitlines(keepends=True)
+    baseline_blocks = _localization_table_blocks(baseline_markdown)
+    candidate_blocks = _localization_table_blocks(candidate_markdown)
+    failures: list[str] = []
+    replacements: list[tuple[int, list[str]]] = []
+    claimed_baseline_tables: set[int] = set()
+    for candidate_block in candidate_blocks:
+        candidate_indexes = [
+            index for index in candidate_block["data_indexes"]
+            if _linked_copy_key(candidate_lines[index], copy_terms)
+        ]
+        if not candidate_indexes:
+            continue
+        table_index, table_failure = _matching_baseline_localization_table(
+            candidate_block,
+            candidate_lines=candidate_lines,
+            baseline_blocks=baseline_blocks,
+            baseline_lines=baseline_lines,
+            copy_terms=copy_terms,
+        )
+        if table_failure:
+            failures.append(table_failure)
+            continue
+        assert table_index is not None
+        if table_index in claimed_baseline_tables:
+            failures.append(
+                "cannot safely merge linked localization rows because multiple candidate tables map to one baseline table"
+            )
+            continue
+        claimed_baseline_tables.add(table_index)
+        baseline_block = baseline_blocks[table_index]
+        baseline_indexes = [
+            index for index in baseline_block["data_indexes"]
+            if _linked_copy_key(baseline_lines[index], copy_terms)
+        ]
+        candidate_keys = [_row_key(candidate_lines[index]) for index in candidate_indexes]
+        if baseline_indexes:
+            first = min(baseline_indexes)
+            last = max(baseline_indexes)
+            # Visible labels such as "失败" may have been expanded to
+            # "执行失败". Include only adjacent rows with that direct rename
+            # evidence; no semantic guess permits distant table rows.
+            for index in (first - 1, last + 1):
+                if (
+                    index in baseline_block["data_indexes"]
+                    and _weakly_renamed_copy_key(_row_key(baseline_lines[index]), candidate_keys)
+                ):
+                    baseline_indexes.append(index)
+        if not baseline_indexes:
+            failures.append(
+                "cannot safely merge linked localization rows without a baseline row anchor"
+            )
+            continue
+        assignments: dict[int, list[str]] = {}
+        last_assignment: int | None = None
+        claimed_anchor_indexes: set[int] = set()
+        for candidate_index in candidate_indexes:
+            candidate_row = candidate_lines[candidate_index]
+            scores = [
+                (_localization_row_match_score(baseline_lines[index], candidate_row), index)
+                for index in baseline_indexes
+            ]
+            available_scores = [
+                item for item in scores
+                if item[0] > 0 and item[1] not in claimed_anchor_indexes
+            ]
+            score = max((item[0] for item in available_scores), default=0)
+            best_indexes = [
+                index for item_score, index in available_scores
+                if item_score == score
+            ]
+            if score and len(best_indexes) != 1:
+                failures.append(
+                    "cannot safely merge linked localization row because its baseline row anchor is ambiguous"
+                )
+                continue
+            target_index = best_indexes[0] if best_indexes else -1
+            if score == 0:
+                # New copy can be inserted beside a preceding anchored row,
+                # but never across an unmatched row belonging to another
+                # requirement. Before the first anchor it belongs with the
+                # first anchored row.
+                target_index = last_assignment if last_assignment is not None else min(baseline_indexes)
+            else:
+                claimed_anchor_indexes.add(target_index)
+            assignments.setdefault(target_index, []).append(candidate_row)
+            last_assignment = target_index
+        replacements.extend(sorted(assignments.items()))
+    if failures:
+        return baseline_markdown, failures
+    if not replacements:
+        return baseline_markdown, []
+    replacements.sort(key=lambda item: item[0], reverse=True)
+    for index, rows in replacements:
+        baseline_lines[index:index + 1] = rows
+    return "".join(baseline_lines), []
+
+
+def constrain_revision_markdown(
+    manifest: Mapping[str, Any],
+    *,
+    baseline_markdown: str,
+    candidate_markdown: str,
+) -> dict[str, Any]:
+    """Rebuild a revision from the baseline plus only controller-authorized deltas.
+
+    An Artifact Agent receives a complete staged PRD so it can understand local
+    context, but it is not allowed to replace unrelated sections merely because
+    it rewrote the whole file.  This constrained merge is deterministic: only
+    selected detail sections/list rows, authorized linked-copy rows, and a
+    valid append-only version history delta can cross from the candidate into
+    the controller's baseline.  It is intentionally a safety recovery, not a
+    replacement for the writer contract.
+    """
+    selected = {
+        str(item).strip()
+        for item in manifest.get("requirement_ids", [])
+        if str(item).strip()
+    }
+    baseline_sections = requirement_sections(baseline_markdown)
+    candidate_sections = requirement_sections(candidate_markdown)
+    deleted = {
+        str(item).strip()
+        for item in manifest.get("deleted_requirement_ids", [])
+        if str(item).strip()
+    }
+    failures: list[str] = []
+    unknown_deleted = deleted - selected
+    if unknown_deleted:
+        failures.append(
+            "deletion contract names requirement IDs outside the confirmed revision scope: "
+            + ", ".join(sorted(unknown_deleted))
+        )
+    for requirement_id in sorted(selected):
+        if requirement_id not in baseline_sections:
+            failures.append(f"selected requirement section {requirement_id} is absent from the baseline")
+        elif requirement_id in deleted and requirement_id in candidate_sections:
+            failures.append(f"explicitly deleted requirement section {requirement_id} is still present in the candidate")
+        elif requirement_id not in deleted and requirement_id not in candidate_sections:
+            failures.append(f"selected requirement section {requirement_id} is absent from the candidate")
+    if failures:
+        return {
+            "schema_version": 1,
+            "status": "failed",
+            "markdown": baseline_markdown,
+            "failures": failures,
+            "preserved": [],
+        }
+
+    result = baseline_markdown
+    # Replace slices from the end so offsets remain valid.
+    for requirement_id, section in sorted(
+        baseline_sections.items(), key=lambda item: int(item[1]["start"]), reverse=True,
+    ):
+        if requirement_id not in selected:
+            continue
+        if requirement_id in deleted:
+            result = result[:int(section["start"])] + result[int(section["end"]):]
+            continue
+        candidate = candidate_sections[requirement_id]
+        result = (
+            result[:int(section["start"])]
+            + str(candidate["content"])
+            + result[int(section["end"]):]
+        )
+    result = _remove_requirement_rows(result, deleted)
+    result = _replace_requirement_rows(result, candidate_markdown, selected - deleted)
+
+    selected_sections = {
+        requirement_id: candidate_sections[requirement_id]
+        for requirement_id in selected - deleted
+    }
+    derivatives = manifest.get("allowed_derivatives")
+    derivatives = derivatives if isinstance(derivatives, Mapping) else {}
+    if derivatives.get("linked_localization_rows"):
+        result, linked_failures = _merge_linked_localization_rows(
+            result, candidate_markdown, _selected_copy_terms(selected_sections),
+        )
+        failures.extend(linked_failures)
+    if derivatives.get("append_only_version_history"):
+        _, added_rows, history_failures = _version_history_append_only(
+            baseline_markdown, candidate_markdown,
+        )
+        failures.extend(history_failures)
+        if not history_failures:
+            result = _append_version_history_rows(result, added_rows)
+    return {
+        "schema_version": 1,
+        "status": "merged" if not failures else "failed",
+        "markdown": result,
+        "failures": failures,
+        "preserved": [
+            "unselected requirement sections and list rows",
+            "unselected document metadata and prose",
+            "unselected localization rows",
+        ],
+    }
+
+
 def validate_revision_scope(
     manifest: Mapping[str, Any],
     *,
@@ -465,8 +1181,18 @@ def validate_revision_scope(
     candidate_sections = requirement_sections(candidate_markdown)
     failures: list[str] = []
     checks: list[str] = []
+    deleted = {
+        str(item).strip()
+        for item in manifest.get("deleted_requirement_ids", [])
+        if str(item).strip()
+    }
     if not selected:
         failures.append("in-place revision has no confirmed requirement selector")
+    if deleted - selected:
+        failures.append(
+            "deletion contract names requirement IDs outside the confirmed revision scope: "
+            + ", ".join(sorted(deleted - selected))
+        )
 
     for requirement_id, baseline_section in baseline_sections.items():
         if requirement_id in selected:
@@ -482,6 +1208,18 @@ def validate_revision_scope(
 
     baseline_rows = requirement_rows(baseline_markdown)
     candidate_rows = requirement_rows(candidate_markdown)
+    for requirement_id in sorted(selected):
+        if requirement_id not in baseline_sections:
+            failures.append(f"selected requirement section {requirement_id} is absent from the baseline")
+        elif requirement_id in deleted:
+            if requirement_id in candidate_sections:
+                failures.append(f"explicitly deleted requirement section {requirement_id} is still present")
+            if requirement_id in baseline_rows and requirement_id in candidate_rows:
+                failures.append(f"explicitly deleted requirement-list row {requirement_id} is still present")
+        elif requirement_id not in candidate_sections:
+            failures.append(f"selected requirement section {requirement_id} was removed without explicit deletion authorization")
+        elif requirement_id in baseline_rows and requirement_id not in candidate_rows:
+            failures.append(f"selected requirement-list row {requirement_id} was removed without explicit deletion authorization")
     for requirement_id, baseline_row in baseline_rows.items():
         if requirement_id in selected:
             continue
@@ -569,6 +1307,13 @@ def validate_revision_scope(
         if path not in baseline_assets and allowed_new.get(path) != digest:
             failures.append(f"unconfirmed asset was added: {path}")
 
+    asset_attestation = build_revision_asset_attestation(
+        manifest,
+        candidate_markdown=candidate_markdown,
+        candidate_assets=candidate_assets,
+    )
+    failures.extend(asset_attestation["failures"])
+
     if not failures:
         checks.extend([
             "unselected requirement sections and list rows match the baseline",
@@ -590,6 +1335,7 @@ def validate_revision_scope(
         },
         "allowed_linked_copy_rows": sorted(linked_copy_keys),
         "allowed_version_history_rows": added_version_history_rows,
+        "asset_attestation": asset_attestation,
         "checks": checks,
         "failures": failures,
     }

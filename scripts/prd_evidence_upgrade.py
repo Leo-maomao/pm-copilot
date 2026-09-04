@@ -20,6 +20,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable
 
+from revision_scope import is_content_asset_relative_path
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MEDIA_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".mov", ".mp4", ".webm"}
@@ -358,7 +360,12 @@ def real_assets(folder: Path, records: list[Evidence]) -> list[dict[str, str]]:
     if not assets.is_dir():
         return result
     for path in sorted(assets.rglob("*")):
-        if not path.is_file() or path.name in RUNTIME_ASSET_NAMES or path.suffix.lower() not in MEDIA_SUFFIXES:
+        if (
+            not path.is_file()
+            or not is_content_asset_relative_path(path.relative_to(assets))
+            or path.name in RUNTIME_ASSET_NAMES
+            or path.suffix.lower() not in MEDIA_SUFFIXES
+        ):
             continue
         if path.suffix.lower() not in IMAGE_SUFFIXES:
             continue
