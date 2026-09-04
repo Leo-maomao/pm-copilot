@@ -34,6 +34,21 @@ class PmCopilotMcpTest(unittest.TestCase):
         state.update(overrides)
         (folder / "interactive-run.json").write_text(json.dumps(state), encoding="utf-8")
 
+    def write_runtime(self, root: Path, runtime_version: str, wrapper_version: str, *, manifest: bool = True) -> tuple[Path, Path]:
+        runtime = root / "global-runtime"
+        runtime.mkdir()
+        (runtime / "VERSION").write_text(f"{runtime_version}\n", encoding="utf-8")
+        plugin_root = (
+            root / ".codex" / "plugins" / "cache" / "personal" / "pm-copilot" / wrapper_version
+        )
+        wrapper = plugin_root / "scripts" / "pm_copilot_mcp.py"
+        wrapper.parent.mkdir(parents=True)
+        if manifest:
+            manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
+            manifest_path.parent.mkdir()
+            manifest_path.write_text(json.dumps({"version": wrapper_version}), encoding="utf-8")
+        return runtime, wrapper
+
     def test_status_reports_controller_state_not_agent_narrative(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
@@ -43,6 +58,61 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertEqual(summary["status"], "awaiting_confirmation")
             self.assertEqual(summary["delivery_calls"], [])
             self.assertNotIn("confirmed-requirements.md", summary["artifacts"])
+
+    def test_status_reports_matching_cached_wrapper_and_runtime_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "run"
+            folder.mkdir()
+            self.write_state(folder)
+            runtime, wrapper = self.write_runtime(root, "6.2.104", "6.2.104+codex.cachebuster")
+            with patch.object(MCP, "RUNTIME_HOME", runtime), patch.object(MCP, "WRAPPER_SCRIPT", wrapper):
+                summary = MCP.run_summary(str(folder))
+            self.assertFalse(summary["runtime_restart_required"])
+            self.assertEqual(summary["runtime_provenance"], {
+                "wrapper": {
+                    "script_path": str(wrapper.resolve()),
+                    "plugin_version": "6.2.104+codex.cachebuster",
+                    "plugin_version_source": "plugin_manifest",
+                    "is_persistent_cache": True,
+                },
+                "canonical_runtime": {
+                    "path": str(runtime.resolve()),
+                    "version": "6.2.104",
+                },
+            })
+
+    def test_status_flags_stale_deleted_cache_wrapper_from_its_path_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "run"
+            folder.mkdir()
+            self.write_state(folder)
+            runtime, wrapper = self.write_runtime(root, "6.2.104", "6.2.103+codex.cachebuster", manifest=False)
+            with patch.object(MCP, "RUNTIME_HOME", runtime), patch.object(MCP, "WRAPPER_SCRIPT", wrapper):
+                summary = MCP.run_summary(str(folder))
+            self.assertTrue(summary["runtime_restart_required"])
+            self.assertEqual(summary["runtime_provenance"]["wrapper"]["plugin_version"], "6.2.103+codex.cachebuster")
+            self.assertEqual(summary["runtime_provenance"]["wrapper"]["plugin_version_source"], "cache_path")
+
+    def test_status_does_not_flag_a_non_cache_wrapper_with_a_different_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "run"
+            folder.mkdir()
+            self.write_state(folder)
+            runtime = root / "global-runtime"
+            runtime.mkdir()
+            (runtime / "VERSION").write_text("6.2.104\n", encoding="utf-8")
+            wrapper = root / "plugin-source" / "scripts" / "pm_copilot_mcp.py"
+            wrapper.parent.mkdir(parents=True)
+            manifest_path = wrapper.parent.parent / ".codex-plugin" / "plugin.json"
+            manifest_path.parent.mkdir()
+            manifest_path.write_text(json.dumps({"version": "6.2.103+codex.source"}), encoding="utf-8")
+            with patch.object(MCP, "RUNTIME_HOME", runtime), patch.object(MCP, "WRAPPER_SCRIPT", wrapper):
+                summary = MCP.run_summary(str(folder))
+            self.assertFalse(summary["runtime_restart_required"])
+            self.assertFalse(summary["runtime_provenance"]["wrapper"]["is_persistent_cache"])
 
     def test_confirm_requires_awaiting_confirmation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -143,12 +213,19 @@ class PmCopilotMcpTest(unittest.TestCase):
 
     def test_cli_status_uses_the_same_canonical_summary(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            folder = Path(temporary)
+            root = Path(temporary)
+            folder = root / "run"
+            folder.mkdir()
             self.write_state(folder)
+            runtime, wrapper = self.write_runtime(root, "6.2.104", "6.2.103+codex.cachebuster")
             stdout = io.StringIO()
-            with patch.object(sys, "argv", ["pm_copilot_mcp.py", "--run-folder", str(folder), "--status"]), patch("sys.stdout", stdout):
+            with patch.object(MCP, "RUNTIME_HOME", runtime), patch.object(MCP, "WRAPPER_SCRIPT", wrapper), patch.object(
+                sys, "argv", ["pm_copilot_mcp.py", "--run-folder", str(folder), "--status"],
+            ), patch("sys.stdout", stdout):
                 self.assertEqual(MCP.main(), 0)
-            self.assertEqual(json.loads(stdout.getvalue())["status"], "awaiting_confirmation")
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["status"], "awaiting_confirmation")
+            self.assertTrue(payload["runtime_restart_required"])
 
 
 if __name__ == "__main__":

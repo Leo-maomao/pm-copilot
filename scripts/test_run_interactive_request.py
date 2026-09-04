@@ -14,8 +14,10 @@ from unittest.mock import patch
 
 import yaml
 
+from validate_agent_trace import validate_artifact_lineage
 from run_interactive_request import (
     _active_runtime_version,
+    _artifact_digest,
     _atomic_copy,
     _artifact_prompt,
     _confirmed_delivery,
@@ -28,6 +30,7 @@ from run_interactive_request import (
     _finalize_deterministic_trace,
     _materialize_controller_trace,
     _materialize_revision_evidence,
+    _materialize_revision_scope_manifest,
     _migrate_legacy_confirmed_revision_scope,
     _normalise_trace_runtime_evidence,
     _prepare_delivery_workspace,
@@ -35,11 +38,13 @@ from run_interactive_request import (
     _rollback_delivery_promotion,
     _revision_scope_violation,
     _restart_delivery_attempt,
+    _retry_failure_guard_decision,
     _recover_interrupted_delivery,
     _review_artifact,
     _retry_reuse_cache_folder,
     _snapshot_reusable_delivery_artifacts,
     _trace_lineage,
+    _validate_staged_revision_scope,
     _write_json,
     _normalise_intake,
     _request_looks_like_extraction,
@@ -208,6 +213,39 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(revised["status"], "needs_input")
             self.assertEqual(revised["required_input"]["field"], "revision_selector")
             self.assertEqual(revised["agent_calls"], [])
+
+    def test_new_delivery_ignores_retained_revision_history_for_staging_and_trace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            canonical = Path(temporary) / "canonical"
+            canonical.mkdir()
+            (canonical / "prd.md").write_text("# Previous PRD\n", encoding="utf-8")
+            (canonical / "prd.html").write_text("<html>previous</html>\n", encoding="utf-8")
+            state = create_state("创建新的需求文档", canonical)
+            state.update({
+                "delivery_variant": "new",
+                "revision_history": [{
+                    "mode": "in_place_revision",
+                    "request": "旧的 5.1 修订",
+                    "prd_before_sha256": _artifact_digest(canonical / "prd.md"),
+                    "html_before_sha256": _artifact_digest(canonical / "prd.html"),
+                }],
+                "turns": [{
+                    "summary": "已确认新需求", "scope": {"goal": "创建新 PRD", "in_scope": ["新需求"]},
+                    "assumptions": [], "risks": [], "buckets": {},
+                }],
+                "user_confirmation": {"confirmed": True, "source": "test"},
+            })
+            workspace = _prepare_delivery_workspace(state)
+            self.assertFalse((workspace / ".revision-baseline").exists())
+
+            def worker(provider, prompt, cwd, *args):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                target.write_text("# New PRD\n", encoding="utf-8")
+                return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
+            self.assertTrue(_run_artifact_agent(state, "run-log.yaml", "test", 1, worker=worker))
+            self.assertFalse((workspace / "revision-evidence.json").exists())
 
     def test_revision_source_drift_pauses_before_staging_or_agent_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1485,6 +1523,90 @@ class InteractiveRequestTest(unittest.TestCase):
             )
             self.assertEqual((canonical / "confirmed-requirements.md").read_text(encoding="utf-8"), "# confirmed\n")
 
+    def test_promotion_retains_scope_report_referenced_by_revision_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            (workspace / "confirmed-requirements.md").write_text("# confirmed\n", encoding="utf-8")
+            (workspace / "prd.md").write_text("### 5.1 Revised requirement\n", encoding="utf-8")
+            (workspace / "prd.html").write_text("<!doctype html><html></html>\n", encoding="utf-8")
+            (workspace / "assets").mkdir()
+
+            manifest = {
+                "schema_version": 1,
+                "requirement_ids": ["5.1"],
+                "baseline": {"requirement_sections": {"5.1": {"sha256": "baseline"}}},
+            }
+            manifest_sha256 = hashlib.sha256(
+                json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+            staged_report = workspace / "tool-results" / "revision-scope-validation.json"
+            staged_report.parent.mkdir()
+            staged_report.write_text(
+                json.dumps({"status": "passed", "manifest_sha256": manifest_sha256}),
+                encoding="utf-8",
+            )
+            (workspace / "revision-evidence.json").write_text(json.dumps({
+                "mode": "in_place_revision",
+                "controller_scope_ids": ["5.1"],
+                "deleted_requirement_ids": [],
+                "baseline_requirement_ids": ["5.1"],
+                "scope_manifest": manifest,
+                "scope_validation": {
+                    "status": "passed",
+                    "report_path": "tool-results/revision-scope-validation.json",
+                    "manifest_sha256": manifest_sha256,
+                },
+            }), encoding="utf-8")
+            (workspace / "run-log.yaml").write_text(yaml.safe_dump({
+                "agent_strategy": {"task_mode": "prd_delivery"},
+                "resume_checkpoint": {"task_mode": "prd_delivery"},
+                "artifact_lineage": {
+                    "mode": "in_place_revision",
+                    "target_prd_path": "prd.md",
+                    "target_html_path": "prd.html",
+                    "revision_evidence_path": "revision-evidence.json",
+                    "revised_requirement_ids": ["5.1"],
+                    "deleted_requirement_ids": [],
+                    "historical_artifacts": [{
+                        "path": "prd.md",
+                        "role": "comparison_only",
+                        "excluded_from_current_facts": True,
+                    }],
+                    "output_folder_reset": False,
+                },
+            }, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            state = create_state("修订 5.1", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            _promote_delivery_workspace(state)
+
+            self.assertEqual(
+                (canonical / "tool-results" / "revision-scope-validation.json").read_text(encoding="utf-8"),
+                staged_report.read_text(encoding="utf-8"),
+            )
+            self.assertEqual(validate_artifact_lineage(canonical / "run-log.yaml"), [])
+
+    def test_promotion_rejects_revision_scope_report_path_outside_staging(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            workspace.mkdir(parents=True)
+            (workspace / "revision-evidence.json").write_text(json.dumps({
+                "scope_validation": {"report_path": "../outside.json"},
+            }), encoding="utf-8")
+            (workspace / "run-log.yaml").write_text("trace: current\n", encoding="utf-8")
+            state = create_state("修订 5.1", canonical)
+            state["delivery_workspace"] = str(workspace)
+
+            with self.assertRaisesRegex(RuntimeError, "scope_validation report_path escapes the staged run folder"):
+                _promote_delivery_workspace(state)
+
     def test_promotion_replaces_source_material_from_the_validated_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1805,6 +1927,79 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(canonical, Path(state["folder"]))
             self.assertEqual(restored.resolve(), workspace.resolve())
 
+    def test_in_place_recovery_rebuilds_scope_report_before_trace_materialization(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "pm-copilot-outputs" / "example"
+            workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+            canonical.mkdir(parents=True)
+            (canonical / "assets").mkdir()
+            baseline_prd = "| 5.1 | Result |\n\n### 5.1 Result\nOld rule.\n"
+            revised_prd = baseline_prd.replace("Old rule.", "Revised rule.")
+            baseline_html = "<!doctype html><html><body>baseline</body></html>\n"
+            revised_html = "<!doctype html><html><body>revised</body></html>\n"
+            (canonical / "prd.md").write_text(baseline_prd, encoding="utf-8")
+            (canonical / "prd.html").write_text(baseline_html, encoding="utf-8")
+            workspace.mkdir(parents=True)
+            (workspace / "prd.md").write_text(revised_prd, encoding="utf-8")
+            (workspace / "prd.html").write_text(revised_html, encoding="utf-8")
+            stale_report = workspace / "tool-results" / "revision-scope-validation.json"
+            stale_report.parent.mkdir()
+            stale_report.write_text('{"status":"passed","origin":"discarded-workspace"}\n', encoding="utf-8")
+
+            state = create_state("修订 5.1", canonical)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "revision_history": [{
+                    "mode": "in_place_revision",
+                    "request": "仅修订 5.1",
+                    "prd_before_sha256": hashlib.sha256(baseline_prd.encode("utf-8")).hexdigest(),
+                    "html_before_sha256": hashlib.sha256(baseline_html.encode("utf-8")).hexdigest(),
+                    "baseline_requirement_ids": ["5.1"],
+                }],
+                "confirmed_fact_packet": {
+                    "summary": "已确认修订范围",
+                    "scope": {"goal": "修订 5.1", "in_scope": ["5.1"]},
+                    "assumptions": [], "decisions": [], "risks": [],
+                },
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "delivery_workspace": str(workspace),
+            })
+            manifest = _materialize_revision_scope_manifest(state)
+            fingerprint = _confirmed_scope_fingerprint(state)
+            digest = hashlib.sha256(revised_prd.encode("utf-8")).hexdigest()
+            state["delivery_stages"] = {
+                "prd.md": {
+                    "artifact_status": "promoted",
+                    "review_status": "passed",
+                    "artifact_sha256": digest,
+                    "reviewed_sha256": digest,
+                    "scope_fingerprint": fingerprint,
+                    "pm_copilot_version": _active_runtime_version(),
+                },
+            }
+            state["revision_scope_validation"] = {
+                "status": "passed",
+                "report_path": "tool-results/revision-scope-validation.json",
+                "manifest_sha256": "old-workspace-report",
+            }
+
+            _restart_delivery_attempt(state)
+            restored = _prepare_delivery_workspace(state)
+
+            report = json.loads((restored / "tool-results" / "revision-scope-validation.json").read_text(encoding="utf-8"))
+            expected_manifest_sha256 = hashlib.sha256(
+                json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+            self.assertEqual(report["status"], "passed")
+            self.assertEqual(report["manifest_sha256"], expected_manifest_sha256)
+            self.assertNotIn("discarded-workspace", json.dumps(report))
+            self.assertEqual(state["delivery_stages"]["prd.md"]["reuse_source"], "prior_verified_delivery_workspace")
+
+            _materialize_controller_trace(state, restored / "run-log.yaml")
+            self.assertEqual(validate_artifact_lineage(restored / "run-log.yaml"), [])
+
     def test_retry_reuse_rejects_fingerprint_version_review_and_hash_mismatches(self) -> None:
         with self.subTest("review mismatch is never snapshotted"):
             with tempfile.TemporaryDirectory() as temporary:
@@ -1965,6 +2160,43 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(persisted["termination"], "retry_required")
             self.assertNotEqual(persisted["status"], "delivery")
 
+    def test_identical_recovery_attempts_stop_before_another_agent_call(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            state = create_state("做一个 PRD", folder)
+            state.update({
+                "status": "recovery_required",
+                "termination": "retry_required",
+                "restart_delivery": True,
+                "last_error": "Seawork control plane unavailable",
+                "last_failure_category": "control_plane_unavailable",
+                "recovery": {"failed_stage": "confirmed-requirements.md"},
+                "turns": [{"summary": "已澄清", "scope": {"goal": "稳定目标"}, "assumptions": [], "risks": []}],
+                "confirmed_fact_packet": {"summary": "已澄清", "scope": {"goal": "稳定目标"}, "assumptions": [], "risks": []},
+                "user_confirmation": {"confirmed": True, "source": "test"},
+            })
+            decision = _retry_failure_guard_decision(state, "seawork", "codex/gpt-5.6-terra")
+            state["delivery_failure_history"] = [
+                {"failure_fingerprint": decision["fingerprint"], "outcome": "no_progress"},
+                {"failure_fingerprint": decision["fingerprint"], "outcome": "no_progress"},
+            ]
+            dispatched = False
+
+            def worker(*args, **kwargs):
+                nonlocal dispatched
+                dispatched = True
+                return {"provider": "seawork", "model": "codex/gpt-5.6-terra", "status": "failed"}
+
+            _confirmed_delivery(
+                state, "seawork", 1, worker=worker,
+                model="codex/gpt-5.6-terra",
+            )
+            self.assertFalse(dispatched)
+            self.assertEqual(state["status"], "failed")
+            self.assertEqual(state["termination"], "needs_maintenance")
+            self.assertEqual(state["recovery"]["status"], "needs_maintenance")
+            self.assertEqual(state["delivery_failure_guard"]["no_progress_attempts"], 2)
+
     def test_confirmation_freezes_fact_packet_for_downstream_agents(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
@@ -1994,6 +2226,92 @@ class InteractiveRequestTest(unittest.TestCase):
                 "no confirmed requirement selector",
                 _revision_scope_violation(candidate, baseline, []) or "",
             )
+
+    def test_controller_scope_contract_allows_selected_images_and_linked_copy_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            canonical = Path(temporary) / "canonical"
+            assets = canonical / "assets"
+            assets.mkdir(parents=True)
+            for name in ("old-result.png", "execution-success.png", "execution-failure.png", "upload-node.png"):
+                (assets / name).write_bytes(name.encode("utf-8"))
+            baseline = (
+                "| 5.1 | 节点执行结果 |\n| 5.2 | 上传节点 |\n\n"
+                "### 5.1 节点执行结果\n旧规则。\n"
+                "[[prd-detail-media src=\"./assets/old-result.png\" alt=\"old\" copy=\"旧执行结果\"]]\n\n"
+                "### 5.2 上传节点\n保留上传规则。\n"
+                "[[prd-detail-media src=\"./assets/upload-node.png\" alt=\"upload\" copy=\"上传节点\"]]\n\n"
+                "## 六、多语言需求\n| 文案 | 说明 |\n| --- | --- |\n"
+                "| 旧执行结果 | 旧说明 |\n| 上传节点 | 保留说明 |\n"
+            )
+            candidate = baseline.replace(
+                "旧规则。\n[[prd-detail-media src=\"./assets/old-result.png\" alt=\"old\" copy=\"旧执行结果\"]]",
+                "执行成功和执行失败。\n"
+                "[[prd-detail-media src=\"./assets/execution-success.png\" alt=\"success\" copy=\"执行成功\"]]\n"
+                "[[prd-detail-media src=\"./assets/execution-failure.png\" alt=\"failure\" copy=\"执行失败\"]]",
+            ).replace("| 旧执行结果 | 旧说明 |", "| 执行成功 | 成功标题 |\n| 执行失败 | 失败标题 |")
+            (canonical / "prd.md").write_text(baseline, encoding="utf-8")
+            (canonical / "prd.html").write_text("<html>baseline</html>\n", encoding="utf-8")
+            state = create_state("更新 5.1", canonical)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "revision_history": [{
+                    "mode": "in_place_revision", "request": (
+                        "仅更新 5.1 对应多语言文案；5.1 仅保留两张固定顺序图示："
+                        "./assets/execution-success.png、./assets/execution-failure.png；不引用第三张图。"
+                    ),
+                    "prd_before_sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                    "html_before_sha256": hashlib.sha256(b"<html>baseline</html>\n").hexdigest(),
+                }],
+                "confirmed_fact_packet": {
+                    "scope": {"goal": "更新 5.1", "in_scope": ["5.1 对应中文文案和两张固定图示"]},
+                    "decisions": [], "assumptions": [], "risks": [],
+                },
+                "user_confirmation": {"confirmed": True, "source": "test"},
+            })
+            manifest = _materialize_revision_scope_manifest(state)
+            self.assertEqual(manifest["image_contracts"][0]["requirement_ids"], ["5.1"])
+            workspace = _prepare_delivery_workspace(state)
+
+            def worker(provider, prompt, cwd, *args):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                target.write_text(candidate, encoding="utf-8")
+                return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            self.assertTrue(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
+            report = json.loads((workspace / "tool-results" / "revision-scope-validation.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "passed")
+            updated = (workspace / "prd.md").read_text(encoding="utf-8")
+            self.assertIn("上传节点\n保留上传规则", updated)
+            self.assertIn("assets/upload-node.png", updated)
+
+    def test_controller_scope_contract_rejects_unselected_section_changes_before_review(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            canonical = Path(temporary) / "canonical"
+            canonical.mkdir()
+            baseline = "| 5.1 | A |\n| 5.2 | B |\n\n### 5.1 A\nold\n\n### 5.2 B\nprotected\n"
+            (canonical / "prd.md").write_text(baseline, encoding="utf-8")
+            (canonical / "prd.html").write_text("<html>baseline</html>\n", encoding="utf-8")
+            state = create_state("更新 5.1", canonical)
+            state.update({
+                "delivery_variant": "in_place_revision", "revision_requirement_ids": ["5.1"],
+                "revision_history": [{
+                    "mode": "in_place_revision", "request": "仅更新 5.1",
+                    "prd_before_sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                    "html_before_sha256": hashlib.sha256(b"<html>baseline</html>\n").hexdigest(),
+                }],
+                "confirmed_fact_packet": {"scope": {"goal": "更新 5.1"}, "decisions": [], "assumptions": [], "risks": []},
+            })
+            _materialize_revision_scope_manifest(state)
+            _prepare_delivery_workspace(state)
+
+            def worker(provider, prompt, cwd, *args):
+                target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
+                target.write_text(baseline.replace("protected", "mutated"), encoding="utf-8")
+                return {"provider": provider, "model": "test", "status": "complete", "output": "written", "error": ""}
+
+            self.assertFalse(_run_artifact_agent(state, "prd.md", "test", 1, worker=worker))
+            self.assertIn("protected requirement section 5.2 changed", state["last_error"])
 
     def test_revision_skips_global_controller_transforms_outside_confirmed_scope(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

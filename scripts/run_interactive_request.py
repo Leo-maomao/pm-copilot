@@ -28,11 +28,22 @@ from typing import Any, Callable, Sequence
 import yaml
 
 from agent_runtime import execute
+from delivery_failure_guard import (
+    build_delivery_failure_fingerprint,
+    decide_delivery_failure_attempt,
+    failure_attempt_record,
+)
 from ensure_runtime_current import ensure_current
 from project_workspace import resolve as resolve_project_workspace
 from runtime_limits import (
-    DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIVE_MAX_REVISIONS,
-    DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,
+    DEFAULT_EXECUTION_TIMEOUT_MINUTES, DEFAULT_INTERACTIVE_IDENTICAL_FAILURE_LIMIT,
+    DEFAULT_INTERACTIVE_MAX_REVISIONS, DEFAULT_INTERACTIVE_TIMEOUT_MINUTES,
+)
+from revision_scope import (
+    asset_digests as _revision_asset_digests,
+    build_revision_scope_manifest,
+    validate_rendered_html_scope,
+    validate_revision_scope,
 )
 from validate_agent_trace import (
     validate_artifact_lineage,
@@ -637,13 +648,22 @@ def _migrate_legacy_confirmed_revision_scope(state: dict[str, Any]) -> bool:
     parsing. It trusts only the frozen confirmation packet, requires one exact
     current requirement ID, and refuses source-drifted or ambiguous records.
     """
+    variant = _delivery_variant(state)
     history = state.get("revision_history")
-    has_legacy_revision_history = isinstance(history, list) and bool(history)
-    if _delivery_variant(state) != "in_place_revision" and not has_legacy_revision_history:
+    required = state.get("required_input")
+    legacy_default_revision = bool(
+        variant == "new"
+        and isinstance(history, list)
+        and history
+        and isinstance(history[-1], dict)
+        and history[-1].get("mode") == "in_place_revision"
+        and isinstance(required, dict)
+        and str(required.get("field", "")).strip() == "revision_selector"
+    )
+    if variant != "in_place_revision" and not legacy_default_revision:
         return False
     if _trace_values(state.get("revision_requirement_ids")):
         return False
-    required = state.get("required_input")
     if isinstance(required, dict) and str(required.get("field", "")).strip() not in {"", "revision_selector"}:
         return False
     packet = state.get("confirmed_fact_packet")
@@ -684,6 +704,64 @@ def _migrate_legacy_confirmed_revision_scope(state: dict[str, Any]) -> bool:
     }
     state.pop("required_input", None)
     return True
+
+
+def _confirmed_revision_scope_text(state: dict[str, Any]) -> str:
+    """Collect only user-confirmed text used to form a revision contract."""
+    latest = _confirmed_fact_source(state) if state.get("turns") or state.get("confirmed_fact_packet") else {}
+    history = state.get("revision_history") if _delivery_variant(state) == "in_place_revision" else []
+    latest_revision = history[-1] if isinstance(history, list) and history and isinstance(history[-1], dict) else {}
+    values = [
+        str(latest_revision.get("request", "")),
+        str(state.get("raw_request", "")),
+        str(latest.get("user_text", "")) if isinstance(latest, dict) else "",
+        json.dumps(latest.get("scope", {}), ensure_ascii=False) if isinstance(latest, dict) else "",
+        json.dumps(latest.get("decisions", []), ensure_ascii=False) if isinstance(latest, dict) else "",
+    ]
+    return "\n".join(item for item in values if item.strip())
+
+
+def _confirmed_input_asset_digests(state: dict[str, Any]) -> dict[str, str]:
+    """Allow only controller-copied user assets to be new during a revision."""
+    assets: dict[str, str] = {}
+    for raw_source in state.get("input_assets", []):
+        source = Path(str(raw_source)).expanduser()
+        digest = _artifact_digest(source)
+        if digest:
+            assets[f"assets/{source.name}"] = digest
+    return assets
+
+
+def _materialize_revision_scope_manifest(state: dict[str, Any]) -> dict[str, Any] | None:
+    """Freeze a revision's local semantics after the user confirms them.
+
+    Older runs retained only selected IDs.  Rebuild their contract from the
+    frozen confirmation packet and untouched canonical baseline before a new
+    delivery attempt, so recovery does not keep depending on a stale prompt.
+    """
+    if _delivery_variant(state) != "in_place_revision":
+        return None
+    canonical = _canonical_folder(state)
+    prd_path = canonical / "prd.md"
+    if not prd_path.is_file():
+        return None
+    selected = _trace_values(state.get("revision_requirement_ids"))
+    if not selected:
+        return None
+    previous = state.get("revision_scope_manifest")
+    previous = previous if isinstance(previous, dict) else {}
+    manifest = build_revision_scope_manifest(
+        baseline_markdown=prd_path.read_text(encoding="utf-8"),
+        baseline_assets=_revision_asset_digests(canonical),
+        requirement_ids=selected,
+        confirmed_scope_text=_confirmed_revision_scope_text(state),
+        authority=str(previous.get("authority", "user-confirmed revision scope")),
+        selectors=_trace_values(previous.get("selectors")),
+        allowed_new_assets=_confirmed_input_asset_digests(state),
+    )
+    manifest["selector_status"] = "resolved"
+    state["revision_scope_manifest"] = manifest
+    return manifest
 
 
 def _delivery_input_question(state: dict[str, Any]) -> tuple[str, str]:
@@ -1159,7 +1237,7 @@ def _trace_scope_ids(state: dict[str, Any], prd_path: Path) -> list[str]:
     """
     current_ids = _trace_requirement_ids(prd_path)
     requested = _trace_values(state.get("revision_requirement_ids"))
-    if not requested and state.get("revision_history"):
+    if not requested and _delivery_variant(state) == "in_place_revision" and state.get("revision_history"):
         requested = _extract_requirement_ids(
             str(state["revision_history"][-1].get("request", state.get("raw_request", ""))),
             current_ids,
@@ -1169,6 +1247,8 @@ def _trace_scope_ids(state: dict[str, Any], prd_path: Path) -> list[str]:
 
 def _revision_baseline_requirement_ids(state: dict[str, Any], prd_path: Path) -> list[str]:
     """Return the requirement inventory frozen before an in-place revision."""
+    if _delivery_variant(state) != "in_place_revision":
+        return []
     history = state.get("revision_history")
     latest = history[-1] if isinstance(history, list) and history and isinstance(history[-1], dict) else {}
     recorded = _trace_values(latest.get("baseline_requirement_ids"))
@@ -1258,6 +1338,8 @@ def _trace_lineage(state: dict[str, Any], prd_path: Path) -> dict[str, Any]:
 
 def _materialize_revision_evidence(state: dict[str, Any], target: Path) -> None:
     """Persist the before-state proof for any in-place update before promotion."""
+    if _delivery_variant(state) != "in_place_revision":
+        return
     history = state.get("revision_history") or []
     if not history:
         return
@@ -1272,6 +1354,11 @@ def _materialize_revision_evidence(state: dict[str, Any], target: Path) -> None:
         "controller_scope_ids": _trace_scope_ids(state, prd_path),
         "deleted_requirement_ids": _deleted_revision_requirement_ids(state, prd_path),
         "baseline_requirement_ids": _revision_baseline_requirement_ids(state, prd_path),
+        "scope_manifest": state.get("revision_scope_manifest", {}),
+        "scope_validation": state.get("revision_scope_validation", {
+            "status": "not_run",
+            "report_path": "tool-results/revision-scope-validation.json",
+        }),
     })
 
 
@@ -1607,7 +1694,7 @@ def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
     packet_copy = json.loads(json.dumps(packet, ensure_ascii=False, sort_keys=True))
     if isinstance(packet_copy, dict):
         packet_copy.pop("confirmed_at", None)
-    revisions = state.get("revision_history") or []
+    revisions = state.get("revision_history") if _delivery_variant(state) == "in_place_revision" else []
     latest_revision = revisions[-1] if isinstance(revisions, list) and revisions else {}
     revision_evidence = {
         key: value
@@ -1636,6 +1723,137 @@ def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _revision_baseline_fingerprint(state: dict[str, Any]) -> str | None:
+    """Identify the immutable PRD baseline that a recovery must not replay over."""
+    if _delivery_variant(state) != "in_place_revision":
+        return None
+    history = state.get("revision_history")
+    latest = history[-1] if isinstance(history, list) and history and isinstance(history[-1], dict) else {}
+    baseline = {
+        "prd": latest.get("prd_before_sha256") or _artifact_digest(_canonical_folder(state) / "prd.md"),
+        "html": latest.get("html_before_sha256") or _artifact_digest(_canonical_folder(state) / "prd.html"),
+    }
+    if not any(baseline.values()):
+        return None
+    encoded = json.dumps(baseline, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _delivery_precondition_fingerprint(state: dict[str, Any]) -> str:
+    """Capture inputs whose change makes a recovered attempt meaningful again."""
+    canonical = _canonical_folder(state)
+    payload = {
+        "prd_sha256": _artifact_digest(canonical / "prd.md"),
+        "html_sha256": _artifact_digest(canonical / "prd.html"),
+        "scope_manifest": state.get("revision_scope_manifest", {}),
+        "input_assets": _confirmed_input_asset_digests(state),
+        "context_source": state.get("context_source", {}),
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _failed_delivery_artifact(state: dict[str, Any]) -> str:
+    recovery = state.get("recovery")
+    if isinstance(recovery, dict) and str(recovery.get("failed_stage", "")).strip():
+        return str(recovery["failed_stage"]).strip()
+    for artifact, stage in reversed(list(state.get("delivery_stages", {}).items())):
+        if isinstance(stage, dict) and stage.get("artifact_status") == "failed":
+            return str(artifact)
+    return "delivery"
+
+
+def _normalise_delivery_failure_category(value: object) -> str:
+    detail = str(value or "").strip().lower()
+    if "control_plane" in detail or "control plane" in detail or "inspect response" in detail:
+        return "control_plane_unavailable"
+    if "stream disconnected" in detail or "stream_disconnected" in detail:
+        return "stream_disconnected"
+    if "revision_scope" in detail or "scope contract" in detail:
+        return "revision_scope_violation"
+    if "not changed" in detail or "no_output" in detail:
+        return "artifact_unchanged"
+    if "validation" in detail:
+        return "validation_failed"
+    return re.sub(r"[^a-z0-9]+", "_", detail).strip("_")[:80] or "delivery_failed"
+
+
+def _failed_delivery_runtime(
+    state: dict[str, Any], artifact: str, provider: str, model: str | None,
+) -> tuple[str, str | None]:
+    for call in reversed(state.get("agent_calls", [])):
+        if not isinstance(call, dict) or str(call.get("artifact", "")) != artifact:
+            continue
+        return str(call.get("provider") or provider), str(call.get("model") or model or "") or None
+    recovery = state.get("recovery")
+    failed_runtime = recovery.get("failed_runtime") if isinstance(recovery, dict) else None
+    if isinstance(failed_runtime, dict):
+        return (
+            str(failed_runtime.get("provider") or provider),
+            str(failed_runtime.get("model") or model or "") or None,
+        )
+    return provider, model
+
+
+def _delivery_failure_guard_context(
+    state: dict[str, Any], provider: str, model: str | None,
+) -> dict[str, Any]:
+    artifact = _failed_delivery_artifact(state)
+    failed_provider, failed_model = _failed_delivery_runtime(state, artifact, provider, model)
+    category = _normalise_delivery_failure_category(
+        state.get("last_failure_category") or state.get("last_error")
+    )
+    return {
+        "scope_fingerprint": _confirmed_scope_fingerprint(state),
+        "baseline_digest": _revision_baseline_fingerprint(state),
+        "runtime_version": _active_runtime_version(),
+        "controller_version": _artifact_digest(Path(__file__).resolve()),
+        "requested_provider": failed_provider,
+        "requested_model": failed_model,
+        "failed_artifact": artifact,
+        "failure_category": category,
+        "precondition_digest": _delivery_precondition_fingerprint(state),
+    }
+
+
+def _retry_failure_guard_decision(
+    state: dict[str, Any], provider: str, model: str | None,
+) -> dict[str, Any]:
+    context = _delivery_failure_guard_context(state, provider, model)
+    fingerprint = build_delivery_failure_fingerprint(**context)
+    history = state.get("delivery_failure_history", [])
+    decision = decide_delivery_failure_attempt(
+        history if isinstance(history, list) else [],
+        fingerprint=fingerprint,
+        no_progress_limit=DEFAULT_INTERACTIVE_IDENTICAL_FAILURE_LIMIT,
+    )
+    result = {**decision.as_dict(), "context": context}
+    state["delivery_failure_guard"] = result
+    return result
+
+
+def _record_delivery_failure(state: dict[str, Any], provider: str, model: str | None) -> None:
+    """Persist a compact no-progress fact once a launched delivery reaches failure."""
+    if state.get("status") not in {"failed", "recovery_required"}:
+        return
+    active = state.pop("active_delivery_attempt", None)
+    if not isinstance(active, dict):
+        return
+    context = _delivery_failure_guard_context(state, provider, model)
+    fingerprint = build_delivery_failure_fingerprint(**context)
+    record = failure_attempt_record(fingerprint)
+    record.update({
+        "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "failed_artifact": context["failed_artifact"],
+        "failure_category": context["failure_category"],
+        "runtime_version": context["runtime_version"],
+        "requested_provider": context["requested_provider"],
+        "requested_model": context["requested_model"],
+    })
+    state.setdefault("delivery_failure_history", []).append(record)
+    state["delivery_failure_guard"] = _retry_failure_guard_decision(state, provider, model)
 
 
 def _retry_reuse_cache_folder(state: dict[str, Any]) -> Path:
@@ -1728,6 +1946,7 @@ def _restore_reusable_delivery_artifacts(state: dict[str, Any], workspace: Path)
         state["retry_reuse"] = {"status": "discarded", "reason": "scope_or_runtime_changed"}
         return
     restored: list[str] = []
+    reuse_reason = "verified_stage_reused"
     for item in manifest.get("artifacts", []):
         if not isinstance(item, dict):
             continue
@@ -1758,10 +1977,27 @@ def _restore_reusable_delivery_artifacts(state: dict[str, Any], workspace: Path)
             if html_digest and _artifact_digest(html) == html_digest:
                 _atomic_copy(html, workspace / html.name)
         restored.append(artifact)
+    if "prd.md" in restored and _delivery_variant(state) == "in_place_revision":
+        # A cached PRD is content evidence, not a substitute for the scope
+        # report that binds it to this attempt's frozen baseline. Regenerate
+        # the report inside the new workspace before trace materialization;
+        # otherwise revision-evidence.json could point to a discarded prior
+        # staging directory.
+        scope_report = _validate_staged_revision_scope(state, workspace)
+        if not isinstance(scope_report, dict) or scope_report.get("status") != "passed":
+            baseline = workspace / ".revision-baseline" / "prd.md"
+            if baseline.is_file():
+                _atomic_copy(baseline, workspace / "prd.md")
+            state.get("delivery_stages", {}).pop("prd.md", None)
+            state["artifacts"] = [
+                artifact for artifact in state.get("artifacts", []) if artifact != "prd.md"
+            ]
+            restored.remove("prd.md")
+            reuse_reason = "scope_validation_failed"
     shutil.rmtree(cache)
     state["retry_reuse"] = {
         "status": "consumed" if restored else "discarded",
-        "reason": "verified_stage_reused" if restored else "cache_hash_mismatch",
+        "reason": reuse_reason if restored else "cache_hash_mismatch",
         "artifacts": restored,
         "scope_fingerprint": fingerprint,
         "pm_copilot_version": version,
@@ -1807,7 +2043,7 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
         shutil.rmtree(workspace.parent)
     workspace.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(canonical, workspace, ignore=shutil.ignore_patterns(".delivery-stage", ".DS_Store"))
-    if state.get("revision_history") and (workspace / "prd.md").is_file():
+    if _delivery_variant(state) == "in_place_revision" and (workspace / "prd.md").is_file():
         baseline = workspace / ".revision-baseline"
         baseline.mkdir(parents=True, exist_ok=True)
         shutil.copy2(workspace / "prd.md", baseline / "prd.md")
@@ -1839,6 +2075,69 @@ def _revision_scope_violation(stage_target: Path, baseline: Path, allowed_ids: S
     return None
 
 
+def _revision_scope_report_path(folder: Path) -> Path:
+    return folder / "tool-results" / "revision-scope-validation.json"
+
+
+def _validate_staged_revision_scope(
+    state: dict[str, Any], folder: Path, *, include_rendered_html: bool = False,
+) -> dict[str, Any] | None:
+    """Validate an in-place revision against its controller-owned baseline.
+
+    General document validators continue to check resource integrity across the
+    whole PRD. This check owns only revision semantics: selected requirement
+    constraints and preservation of everything the user did not authorize.
+    """
+    if _delivery_variant(state) != "in_place_revision":
+        return None
+    manifest = state.get("revision_scope_manifest")
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
+        return {
+            "schema_version": 1,
+            "status": "failed",
+            "failures": ["in-place revision scope contract was not materialized before validation"],
+        }
+    baseline = folder / ".revision-baseline" / "prd.md"
+    candidate = folder / "prd.md"
+    if not baseline.is_file() or not candidate.is_file():
+        return {
+            "schema_version": 1,
+            "status": "failed",
+            "failures": ["in-place revision scope validation requires staged baseline and prd.md"],
+        }
+    baseline_assets = manifest.get("baseline", {}).get("assets", {})
+    baseline_assets = baseline_assets if isinstance(baseline_assets, dict) else {}
+    report = validate_revision_scope(
+        manifest,
+        baseline_markdown=baseline.read_text(encoding="utf-8"),
+        candidate_markdown=candidate.read_text(encoding="utf-8"),
+        baseline_assets={str(path): str(digest) for path, digest in baseline_assets.items()},
+        candidate_assets=_revision_asset_digests(folder),
+    )
+    if include_rendered_html and report.get("status") == "passed":
+        html_path = folder / "prd.html"
+        if not html_path.is_file():
+            report.setdefault("failures", []).append("rendered prd.html is missing for revision scope validation")
+        else:
+            report.setdefault("failures", []).extend(
+                validate_rendered_html_scope(report, html_path.read_text(encoding="utf-8"))
+            )
+        if report.get("failures"):
+            report["status"] = "failed"
+    report["validated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    report["manifest_sha256"] = hashlib.sha256(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    _write_json(_revision_scope_report_path(folder), report)
+    state["revision_scope_validation"] = {
+        "status": report.get("status"),
+        "report_path": "tool-results/revision-scope-validation.json",
+        "manifest_sha256": report["manifest_sha256"],
+        "failures": list(report.get("failures", [])),
+    }
+    return report
+
+
 def _restart_delivery_attempt(state: dict[str, Any]) -> None:
     """Discard stale stage acceptance before a user-confirmed recovery attempt."""
     _snapshot_reusable_delivery_artifacts(state)
@@ -1852,6 +2151,28 @@ def _restart_delivery_attempt(state: dict[str, Any]) -> None:
     state["artifacts"] = [item for item in state.get("artifacts", []) if item == "discussion.md"]
     state.pop("recovery", None)
     state.pop("revision_stop_reason", None)
+
+
+def _staged_tool_result_file(
+    root: Path, raw_reference: str, *, reference_name: str,
+) -> tuple[Path, Path]:
+    """Resolve one retained tool result without allowing a staged-root escape."""
+    candidate = (root / raw_reference).resolve()
+    try:
+        relative = candidate.relative_to(root)
+    except ValueError as error:
+        raise RuntimeError(
+            f"{reference_name} escapes the staged run folder: {raw_reference}"
+        ) from error
+    if not relative.parts or relative.parts[0] != "tool-results":
+        raise RuntimeError(
+            f"{reference_name} must be under tool-results/: {raw_reference}"
+        )
+    if not candidate.is_file():
+        raise FileNotFoundError(
+            f"{reference_name} is missing from the staged run folder: {raw_reference}"
+        )
+    return relative, candidate
 
 
 def _trace_result_files(run_log: Path) -> list[tuple[Path, Path]]:
@@ -1877,21 +2198,9 @@ def _trace_result_files(run_log: Path) -> list[tuple[Path, Path]]:
             for key, child in value.items():
                 if key == "result_ref" and isinstance(child, str) and child.strip():
                     raw_reference = child.strip()
-                    candidate = (root / raw_reference).resolve()
-                    try:
-                        relative = candidate.relative_to(root)
-                    except ValueError as error:
-                        raise RuntimeError(
-                            f"trace result_ref escapes the staged run folder: {raw_reference}"
-                        ) from error
-                    if not relative.parts or relative.parts[0] != "tool-results":
-                        raise RuntimeError(
-                            f"trace result_ref must be under tool-results/: {raw_reference}"
-                        )
-                    if not candidate.is_file():
-                        raise FileNotFoundError(
-                            f"trace result_ref is missing from the staged run folder: {raw_reference}"
-                        )
+                    relative, candidate = _staged_tool_result_file(
+                        root, raw_reference, reference_name="trace result_ref",
+                    )
                     found[relative] = candidate
                 else:
                     visit(child)
@@ -1903,10 +2212,47 @@ def _trace_result_files(run_log: Path) -> list[tuple[Path, Path]]:
     return sorted(found.items(), key=lambda item: item[0].as_posix())
 
 
+def _revision_evidence_result_files(revision_evidence: Path) -> list[tuple[Path, Path]]:
+    """Resolve controller validation evidence retained through revision evidence.
+
+    ``revision-evidence.json`` is an artifact-lineage dependency rather than a
+    trace ``result_ref``.  Its scope report must therefore be retained in the
+    same publish transaction, with the same root and symlink protections as
+    direct trace references.
+    """
+    if not revision_evidence.is_file():
+        return []
+    root = revision_evidence.parent.resolve()
+    evidence_path = revision_evidence.resolve()
+    try:
+        evidence_path.relative_to(root)
+    except ValueError as error:
+        raise RuntimeError("revision evidence escapes the staged run folder") from error
+    try:
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        # The candidate lineage validator will surface malformed evidence. Do
+        # not infer a retention path from unreadable content.
+        return []
+    if not isinstance(evidence, dict):
+        return []
+    validation = evidence.get("scope_validation")
+    if not isinstance(validation, dict):
+        return []
+    raw_reference = validation.get("report_path")
+    if not isinstance(raw_reference, str) or not raw_reference.strip():
+        return []
+    return [_staged_tool_result_file(
+        root,
+        raw_reference.strip(),
+        reference_name="revision scope_validation report_path",
+    )]
+
+
 def _promote_trace_result_files(
     destination_root: Path, referenced_files: Sequence[tuple[Path, Path]],
 ) -> None:
-    """Atomically retain only evidence explicitly referenced by the final trace."""
+    """Atomically retain only controller-authorized staged tool-result evidence."""
     temporary_results = destination_root / ".tool-results.promoting"
     if temporary_results.exists():
         shutil.rmtree(temporary_results)
@@ -1960,7 +2306,16 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
     """
     canonical = _canonical_folder(state)
     workspace = _delivery_folder(state)
-    referenced_result_files = _trace_result_files(workspace / "run-log.yaml")
+    revision_evidence = workspace / "revision-evidence.json"
+    retained_result_files = {
+        relative: source
+        for relative, source in _trace_result_files(workspace / "run-log.yaml")
+    }
+    for relative, source in _revision_evidence_result_files(revision_evidence):
+        retained_result_files[relative] = source
+    referenced_result_files = sorted(
+        retained_result_files.items(), key=lambda item: item[0].as_posix(),
+    )
     for name in ("confirmed-requirements.md", "prd.md", "prd.html", "run-log.yaml"):
         source = workspace / name
         if not source.is_file():
@@ -2014,7 +2369,6 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
             else:
                 candidate_source_material.unlink()
 
-        revision_evidence = workspace / "revision-evidence.json"
         if revision_evidence.is_file():
             _atomic_copy(revision_evidence, candidate / revision_evidence.name)
         _promote_trace_result_files(candidate, referenced_result_files)
@@ -2312,6 +2666,7 @@ def _mark_attribution_recovery(
             completed.append({"artifact": artifact, "sha256": stage.get("artifact_sha256")})
     state["status"] = "recovery_required"
     state["termination"] = "retry_required"
+    state["last_failure_category"] = "attribution_unverified"
     state["recovery"] = {
         "status": "retry_required",
         "failed_stage": failed_stage,
@@ -2839,13 +3194,14 @@ unverified product intent and must remain explicit rather than invented.
         # the final, mechanical stage disproportionately prone to a stream
         # interruption before it ever opened the target file.
         trace_calls = _trace_agent_evidence(state)
-        revision_history = state.get("revision_history", [])
+        revision = variant == "in_place_revision"
+        revision_history = state.get("revision_history", []) if revision else []
         revision_ids = list(state.get("revision_requirement_ids") or [])
         if not revision_ids and revision_history:
             revision_ids = _extract_requirement_ids(str(revision_history[-1].get("request", "")))
         lineage = {
-            "mode": "in_place_revision" if revision_history else "new_delivery",
-            "revised_requirement_ids": revision_ids if revision_history else [],
+            "mode": "in_place_revision" if revision else "extraction_run" if variant == "extract_to_new" else "new_delivery",
+            "revised_requirement_ids": revision_ids if revision else [],
         }
         trace_packet = {
             "confirmation": state.get("user_confirmation"),
@@ -3002,11 +3358,18 @@ def _run_artifact_agent(
                 stage_target,
                 compact_requirement_numbers(stage_target.read_text(encoding="utf-8")),
             )
-        if artifact == "prd.md" and state.get("revision_history"):
-            baseline = stage_folder / ".revision-baseline" / "prd.md"
-            violation = _revision_scope_violation(
-                stage_target, baseline, state.get("revision_requirement_ids", []),
-            )
+        if artifact == "prd.md" and _delivery_variant(state) == "in_place_revision":
+            manifest = state.get("revision_scope_manifest")
+            if isinstance(manifest, dict) and manifest.get("schema_version") == 1:
+                scope_report = _validate_staged_revision_scope(stage_state, stage_folder)
+                state["revision_scope_validation"] = stage_state.get("revision_scope_validation", {})
+                scope_failures = list(scope_report.get("failures", [])) if isinstance(scope_report, dict) else []
+                violation = "\n".join(scope_failures)
+            else:
+                baseline = stage_folder / ".revision-baseline" / "prd.md"
+                violation = _revision_scope_violation(
+                    stage_target, baseline, state.get("revision_requirement_ids", []),
+                )
             if violation:
                 result.update({
                     "status": "failed", "exit_code": 1,
@@ -3042,7 +3405,11 @@ def _run_artifact_agent(
                 text = stage_target.read_text(encoding="utf-8")
                 _atomic_write_text(stage_target, text.replace(str(stage_folder), str(real_folder)))
             _atomic_copy(stage_target, target)
-            if artifact == "run-log.yaml" and state.get("revision_history"):
+            if artifact == "prd.md" and _delivery_variant(state) == "in_place_revision":
+                scope_report = _revision_scope_report_path(stage_folder)
+                if scope_report.is_file():
+                    _atomic_copy(scope_report, _revision_scope_report_path(real_folder))
+            if artifact == "run-log.yaml" and _delivery_variant(state) == "in_place_revision":
                 # The in-place trace contract points to controller-created
                 # revision evidence. Promote that companion file together with
                 # the trace so validation never observes a dangling path from
@@ -3076,6 +3443,7 @@ def _run_artifact_agent(
     stage["expected_artifact"] = str(stage_target_for_record)
     stage["source_before_sha256"] = stage_before_sha256
     stage["source_after_sha256"] = stage_after_sha256
+    stage["failure_category"] = result.get("failure_category")
     stage["scope_fingerprint"] = _confirmed_scope_fingerprint(state)
     stage["pm_copilot_version"] = _active_runtime_version()
     stage["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
@@ -3093,12 +3461,30 @@ def _run_artifact_agent(
             f"{artifact} was not changed in the project staging directory"
             + (f": {detail}" if detail else "")
         )
+    if not promoted:
+        state["last_failure_category"] = result.get("failure_category") or state.get("last_error")
     _checkpoint(state, state_path)
     return attributable and promoted
 
 
 def _artifact_review_prompt(state: dict[str, Any], artifact: str, review_path: Path) -> str:
     target = _delivery_folder(state) / artifact
+    revision_contract = ""
+    if artifact == "prd.md" and _delivery_variant(state) == "in_place_revision":
+        manifest = state.get("revision_scope_manifest")
+        validation = state.get("revision_scope_validation")
+        revision_contract = f"""
+Controller-owned revision scope contract:
+{json.dumps(manifest if isinstance(manifest, dict) else {}, ensure_ascii=False, separators=(",", ":"))}
+Controller scope-validation summary:
+{json.dumps(validation if isinstance(validation, dict) else {}, ensure_ascii=False, separators=(",", ":"))}
+The controller has already checked the frozen baseline. Assess image count,
+order, copy, and acceptance constraints only inside the contract's
+requirement_ids. Do not block the review because an unselected requirement or
+its existing image/copy remains in the PRD: it is protected baseline content,
+not an extension of this revision. Every blocking finding must cite at least
+one selected requirement ID and quote its evidence from that selected section.
+"""
     return f"""You are the independent Stage Quality Review Agent in a production PM run.
 Read only {target}. Check whether this single artifact is complete, internally
 consistent with the user-confirmed scope, and sufficient for its immediate
@@ -3131,6 +3517,7 @@ Original request: {state['raw_request']}
 Confirmed scope: {json.dumps(_confirmed_fact_source(state).get('scope', {}), ensure_ascii=False)}
 Final user-confirmed evidence packet: {json.dumps(_confirmation_packet(state), ensure_ascii=False)}
 Artifact under review: {artifact}
+{revision_contract}
 """
 
 
@@ -3338,6 +3725,22 @@ def _validate_delivery(folder: Path, staging: bool = False) -> list[dict[str, An
     return checks
 
 
+def _validate_staged_delivery(state: dict[str, Any], folder: Path) -> list[dict[str, Any]]:
+    """Run global validators plus the semantic contract for an in-place revision."""
+    checks = _validate_delivery(folder, staging=True)
+    report = _validate_staged_revision_scope(state, folder, include_rendered_html=True)
+    if report is not None:
+        failures = list(report.get("failures", [])) if isinstance(report, dict) else ["revision scope report is unavailable"]
+        checks.append({
+            "command": "revision_scope.validate staged prd.md/prd.html",
+            "status": "passed" if not failures else "failed",
+            "exit_code": 0 if not failures else 1,
+            "stdout": "\n".join(report.get("checks", [])) if isinstance(report, dict) else "",
+            "stderr": "\n".join(failures),
+        })
+    return checks
+
+
 def _validation_failure_targets_trace(checks: list[dict[str, Any]]) -> bool:
     """Tell a trace-contract failure from a PRD-content failure.
 
@@ -3377,9 +3780,9 @@ def _confirmed_delivery_impl(
         state["termination"] = "human_checkpoint"
         state["last_error"] = "Explicit user confirmation is required before delivery"
         return
-    if state.pop("restart_delivery", False):
-        _restart_delivery_attempt(state)
+    restart_requested = bool(state.pop("restart_delivery", False))
     _migrate_legacy_confirmed_revision_scope(state)
+    _materialize_revision_scope_manifest(state)
     _record_confirmed_extraction_selection(state)
     input_problem = _delivery_input_problem(state, require_selection=True)
     if input_problem:
@@ -3399,6 +3802,27 @@ def _confirmed_delivery_impl(
         _set_needs_input(state, question, reason=input_problem, field=field)
         _checkpoint(state, state_path)
         return
+    if restart_requested:
+        guard = _retry_failure_guard_decision(state, provider, model)
+        if guard.get("blocked"):
+            state["status"] = "failed"
+            state["termination"] = "needs_maintenance"
+            state["last_error"] = (
+                "identical delivery failure was already retried without any input, runtime, model, "
+                "baseline, or controller-code change; maintenance is required before another Agent call"
+            )
+            state["recovery"] = {
+                "status": "needs_maintenance",
+                "failed_stage": guard["context"]["failed_artifact"],
+                "failure_category": guard["context"]["failure_category"],
+                "failure_fingerprint": guard["fingerprint"],
+                "no_progress_attempts": guard["no_progress_attempts"],
+                "no_progress_limit": guard["no_progress_limit"],
+                "retry_condition": "change controller/runtime/provider/model/input/baseline before retrying",
+            }
+            _checkpoint(state, state_path)
+            return
+        _restart_delivery_attempt(state)
     deadline = time.monotonic() + max(1, interactive_timeout) * 60
 
     def ensure_budget(stage: str) -> bool:
@@ -3407,6 +3831,7 @@ def _confirmed_delivery_impl(
         state["status"] = "recovery_required"
         state["termination"] = "retry_required"
         state["last_error"] = f"interactive delivery budget exhausted before {stage}"
+        state["last_failure_category"] = "interactive_budget_exhausted"
         state["recovery"] = {
             "status": "retry_required", "failed_stage": stage,
             "delivery_workspace": str(_delivery_folder(state)),
@@ -3436,6 +3861,11 @@ def _confirmed_delivery_impl(
     state["controller_pid"] = os.getpid()
     state["controller_started_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
     state["last_error"] = None
+    state.pop("last_failure_category", None)
+    state["active_delivery_attempt"] = {
+        "started_at": state["controller_started_at"],
+        "scope_fingerprint": _confirmed_scope_fingerprint(state),
+    }
     _checkpoint(state, state_path)
 
     for artifact in ("confirmed-requirements.md", "prd.md", "run-log.yaml"):
@@ -3464,7 +3894,7 @@ def _confirmed_delivery_impl(
     for revision in range(max_revisions + 1):
         if not ensure_budget("final validation"):
             return
-        checks = _validate_delivery(folder, staging=True)
+        checks = _validate_staged_delivery(state, folder)
         all_checks.extend(checks)
         final_checks = checks
         state["validation"] = all_checks
@@ -3476,7 +3906,7 @@ def _confirmed_delivery_impl(
             # that state from the controller's actual first-pass results, then
             # rerun validators so pending is never left in a final artifact.
             _finalize_deterministic_trace(folder, checks)
-            checks = _validate_delivery(folder, staging=True)
+            checks = _validate_staged_delivery(state, folder)
             all_checks.extend(checks)
             final_checks = checks
             state["validation"] = all_checks
@@ -3561,6 +3991,7 @@ def _confirmed_delivery_impl(
     else:
         state["status"] = "failed"
         state["termination"] = "failed"
+        state["last_failure_category"] = "final_validation_failed"
     if state["status"] not in {"complete", "recovery_required"}:
         state["artifacts"] = [item for item in state.get("artifacts", []) if item not in {"prd.md", "prd.html", "run-log.yaml", "assets/"}]
     _checkpoint(state, state_path)
@@ -3601,7 +4032,11 @@ def _confirmed_delivery(
                 state["status"] = "failed"
                 state["termination"] = "failed"
                 state["last_error"] = state.get("last_error") or "controller exited before delivery reached a terminal state"
-            _checkpoint(state, state_path)
+        if state.get("status") in {"failed", "recovery_required"}:
+            _record_delivery_failure(state, provider, model)
+        else:
+            state.pop("active_delivery_attempt", None)
+        _checkpoint(state, state_path)
 
 
 def main() -> int:

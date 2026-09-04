@@ -6,6 +6,15 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.105] - 2026-09-04
+
+- Materialize a controller-owned scope contract for in-place PRD revisions, preserving unselected requirement sections and assets while validating selected image, order, and linked-copy constraints in both Markdown and rendered HTML.
+- Permit only a complete, append-only version-history record for a material scoped revision; retain every historical record and reject version changes for layout-only media updates.
+- Retain revision-scope evidence transactionally during promotion, so published revision lineage cannot point to a discarded staged validation report.
+- Add a persistent identical-failure circuit breaker that blocks repeated no-progress delivery resumes unless the scope, baseline, runtime, provider/model, inputs, or controller code changed.
+- Expose MCP wrapper/runtime provenance and an explicit restart-required signal when a cached plugin wrapper does not match the current PM Copilot runtime.
+- Keep the explicit `new`, `in_place_revision`, and `extract_to_new` delivery variants isolated even when legacy state retains old revision history.
+
 ## [6.2.104] - 2026-09-04
 
 - Normalize Seawork inspect records across lowercase, camelCase, and PascalCase field names before strict Agent ID, provider/model, terminal-state, and staged-artifact verification.

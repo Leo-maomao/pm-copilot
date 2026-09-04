@@ -14,10 +14,104 @@ from typing import Any
 
 RUNTIME_HOME = Path(os.environ.get("PM_COPILOT_HOME", str(Path.home() / ".agents" / "pm-copilot"))).expanduser()
 CONTROLLER = RUNTIME_HOME / "scripts" / "run_interactive_request.py"
+WRAPPER_SCRIPT = Path(__file__).resolve()
+_CACHE_PATH_MARKER = (".codex", "plugins", "cache")
 
 
 def _error(message: str) -> dict[str, Any]:
     return {"ok": False, "error": message}
+
+
+def _resolved_path(path: Path) -> Path:
+    """Resolve a path for reporting without making a missing cache bundle fatal."""
+    try:
+        return path.expanduser().resolve()
+    except (OSError, RuntimeError):
+        return path.expanduser().absolute()
+
+
+def _read_optional_version(path: Path) -> str | None:
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return value or None
+
+
+def _cache_wrapper_version(path: Path) -> str | None:
+    """Read the version encoded in a versioned Codex plugin-cache path."""
+    parts = path.parts
+    marker_length = len(_CACHE_PATH_MARKER)
+    for index in range(len(parts) - marker_length + 1):
+        if parts[index:index + marker_length] != _CACHE_PATH_MARKER:
+            continue
+        try:
+            scripts_index = parts.index("scripts", index + marker_length)
+        except ValueError:
+            return None
+        if scripts_index <= index + marker_length:
+            return None
+        version = parts[scripts_index - 1].strip()
+        return version or None
+    return None
+
+
+def _plugin_manifest_version(path: Path) -> str | None:
+    manifest = path.parent.parent / ".codex-plugin" / "plugin.json"
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    value = payload.get("version") if isinstance(payload, dict) else None
+    if value is None:
+        return None
+    version = str(value).strip()
+    return version or None
+
+
+def _version_base(version: str | None) -> str | None:
+    if not version:
+        return None
+    value = version.partition("+")[0].strip()
+    return value or None
+
+
+def _runtime_provenance() -> tuple[dict[str, Any], bool]:
+    """Report the loaded wrapper and the runtime that it will dispatch to.
+
+    Codex keeps MCP processes alive across plugin-cache refreshes. A cached
+    wrapper can therefore outlive the bundle on disk while continuing to
+    delegate to the global runtime. The signal is informational: delivery
+    dispatch remains unchanged.
+    """
+    wrapper_path = _resolved_path(WRAPPER_SCRIPT)
+    cache_version = _cache_wrapper_version(wrapper_path)
+    manifest_version = _plugin_manifest_version(wrapper_path)
+    wrapper_version = manifest_version or cache_version
+    wrapper_version_source = (
+        "plugin_manifest" if manifest_version else "cache_path" if cache_version else None
+    )
+    runtime_path = _resolved_path(RUNTIME_HOME)
+    runtime_version = _read_optional_version(runtime_path / "VERSION")
+    is_cached_wrapper = cache_version is not None
+    restart_required = bool(
+        is_cached_wrapper
+        and _version_base(wrapper_version)
+        and runtime_version
+        and _version_base(wrapper_version) != _version_base(runtime_version)
+    )
+    return {
+        "wrapper": {
+            "script_path": str(wrapper_path),
+            "plugin_version": wrapper_version,
+            "plugin_version_source": wrapper_version_source,
+            "is_persistent_cache": is_cached_wrapper,
+        },
+        "canonical_runtime": {
+            "path": str(runtime_path),
+            "version": runtime_version,
+        },
+    }, restart_required
 
 
 def _load_run(run_folder: str) -> tuple[Path, dict[str, Any]]:
@@ -54,6 +148,7 @@ def run_summary(run_folder: str) -> dict[str, Any]:
     folder, state = _load_run(run_folder)
     recovery = state.get("recovery") or _legacy_interruption(folder, state)
     status = "recovery_required" if recovery and state.get("status") == "awaiting_confirmation" else state.get("status")
+    runtime_provenance, runtime_restart_required = _runtime_provenance()
     delivery_calls = [
         {
             "artifact": call.get("artifact"),
@@ -75,6 +170,8 @@ def run_summary(run_folder: str) -> dict[str, Any]:
         "recovery": recovery,
         "delivery_calls": delivery_calls,
         "next_questions": latest_turn.get("questions", []) if state.get("status") == "needs_input" else [],
+        "runtime_provenance": runtime_provenance,
+        "runtime_restart_required": runtime_restart_required,
     }
 
 

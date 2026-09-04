@@ -118,6 +118,64 @@ class ArtifactLineageTests(unittest.TestCase):
             revision_log = self._write_trace(folder, revision)
             self.assertEqual(validate_artifact_lineage(revision_log), [])
 
+    def test_revision_scope_evidence_requires_a_matching_passed_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "prd.md").write_text("### 5.1 修订\n", encoding="utf-8")
+            (folder / "prd.html").write_text("<html></html>", encoding="utf-8")
+            manifest = {
+                "schema_version": 1,
+                "requirement_ids": ["5.1"],
+                "baseline": {"requirement_sections": {"5.1": {"sha256": "a"}}},
+            }
+            manifest_sha256 = hashlib.sha256(
+                json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+            report = folder / "tool-results" / "revision-scope-validation.json"
+            report.parent.mkdir()
+            report.write_text(json.dumps({"status": "passed", "manifest_sha256": manifest_sha256}), encoding="utf-8")
+            (folder / "revision-evidence.json").write_text(json.dumps({
+                "mode": "in_place_revision",
+                "controller_scope_ids": ["5.1"],
+                "deleted_requirement_ids": [],
+                "baseline_requirement_ids": ["5.1"],
+                "scope_manifest": manifest,
+                "scope_validation": {
+                    "status": "passed",
+                    "report_path": "tool-results/revision-scope-validation.json",
+                    "manifest_sha256": manifest_sha256,
+                },
+            }), encoding="utf-8")
+            trace = self._base_trace("in_place_revision")
+            trace["artifact_lineage"] = {
+                "mode": "in_place_revision",
+                "target_prd_path": "prd.md",
+                "target_html_path": "prd.html",
+                "revision_evidence_path": "revision-evidence.json",
+                "revised_requirement_ids": ["5.1"],
+                "deleted_requirement_ids": [],
+                "historical_artifacts": [{
+                    "path": "prd.md", "role": "comparison_only", "excluded_from_current_facts": True,
+                }],
+                "output_folder_reset": False,
+            }
+            run_log = self._write_trace(folder, trace)
+            self.assertEqual(validate_artifact_lineage(run_log), [])
+            evidence = json.loads((folder / "revision-evidence.json").read_text(encoding="utf-8"))
+            evidence["scope_manifest"]["baseline"]["requirement_sections"]["5.1"]["sha256"] = "tampered"
+            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
+            failures = validate_artifact_lineage(run_log)
+            self.assertTrue(any("must match the retained scope manifest" in failure for failure in failures))
+            evidence["scope_manifest"] = manifest
+            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
+            report.write_text(json.dumps({"status": "failed", "manifest_sha256": manifest_sha256}), encoding="utf-8")
+            failures = validate_artifact_lineage(run_log)
+            self.assertTrue(any("scope_validation report" in failure for failure in failures))
+            evidence["scope_validation"]["report_path"] = "tool-results/../../outside.json"
+            (folder / "revision-evidence.json").write_text(json.dumps(evidence), encoding="utf-8")
+            failures = validate_artifact_lineage(run_log)
+            self.assertTrue(any("stay inside the run folder" in failure for failure in failures))
+
     def test_requires_immutable_extraction_snapshot_and_matching_hash(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

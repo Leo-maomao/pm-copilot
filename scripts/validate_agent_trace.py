@@ -728,6 +728,58 @@ def _validate_revision_evidence(
             "in_place_revision non-deleted revised_requirement_ids must exist in the final PRD: "
             + ", ".join(missing_remaining)
         )
+    # Scope contracts were introduced after the original evidence format. Keep
+    # historical completed runs readable, but when a controller records one it
+    # must prove that the matching local validator passed before promotion.
+    scope_manifest = evidence.get("scope_manifest")
+    if scope_manifest is None:
+        return
+    if not isinstance(scope_manifest, dict) or scope_manifest.get("schema_version") != 1:
+        failures.append("in_place_revision scope_manifest must use controller schema_version 1")
+        return
+    manifest_ids = _unique_string_list(scope_manifest.get("requirement_ids"), allow_empty=False)
+    if manifest_ids is None or set(manifest_ids) != revised_set:
+        failures.append("in_place_revision scope_manifest requirement_ids must match revised_requirement_ids")
+    baseline = scope_manifest.get("baseline")
+    if not isinstance(baseline, dict) or not isinstance(baseline.get("requirement_sections"), dict):
+        failures.append("in_place_revision scope_manifest must retain baseline requirement section evidence")
+    validation = evidence.get("scope_validation")
+    if not isinstance(validation, dict) or validation.get("status") != "passed":
+        failures.append("in_place_revision scope_validation must record a passed controller validation")
+        return
+    report_path = validation.get("report_path")
+    if not isinstance(report_path, str) or not report_path.startswith("tool-results/"):
+        failures.append("in_place_revision scope_validation must reference a tool-results report")
+        return
+    root = evidence_path.parent.resolve()
+    try:
+        report = (root / report_path).resolve()
+        relative = report.relative_to(root)
+    except ValueError:
+        failures.append("in_place_revision scope_validation report must stay inside the run folder")
+        return
+    if not relative.parts or relative.parts[0] != "tool-results":
+        failures.append("in_place_revision scope_validation must reference a tool-results report")
+        return
+    if not report.is_file():
+        failures.append("in_place_revision scope_validation report must exist in the run folder")
+        return
+    try:
+        report_value = json.loads(report.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        failures.append("in_place_revision scope_validation report must be readable JSON")
+        return
+    if not isinstance(report_value, dict) or report_value.get("status") != "passed":
+        failures.append("in_place_revision scope_validation report must record status: passed")
+        return
+    actual_manifest_hash = hashlib.sha256(
+        json.dumps(scope_manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    recorded_manifest_hash = validation.get("manifest_sha256")
+    if not isinstance(recorded_manifest_hash, str) or recorded_manifest_hash != actual_manifest_hash:
+        failures.append("in_place_revision scope_validation must match the retained scope manifest")
+    if report_value.get("manifest_sha256") != actual_manifest_hash:
+        failures.append("in_place_revision scope_validation report must match the retained scope manifest")
 
 
 def validate_artifact_lineage(
