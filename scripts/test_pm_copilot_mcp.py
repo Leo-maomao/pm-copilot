@@ -95,6 +95,38 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertEqual(summary["runtime_provenance"]["wrapper"]["plugin_version"], "6.2.103+codex.cachebuster")
             self.assertEqual(summary["runtime_provenance"]["wrapper"]["plugin_version_source"], "cache_path")
 
+    def test_status_distinguishes_historical_delivery_attempt_from_current_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "run"
+            folder.mkdir()
+            self.write_state(
+                folder,
+                status="recovery_required",
+                delivery_stages={
+                    "confirmed-requirements.md": {
+                        "artifact_status": "failed",
+                        "review_status": "not_started",
+                        "pm_copilot_version": "6.2.103",
+                        "updated_at": "2026-09-04T04:57:48.643488+00:00",
+                    },
+                },
+            )
+            runtime, wrapper = self.write_runtime(root, "6.2.105", "6.2.105+codex.cachebuster")
+            with patch.object(MCP, "RUNTIME_HOME", runtime), patch.object(MCP, "WRAPPER_SCRIPT", wrapper):
+                summary = MCP.run_summary(str(folder))
+            self.assertFalse(summary["runtime_restart_required"])
+            self.assertEqual(summary["runtime_provenance"]["canonical_runtime"]["version"], "6.2.105")
+            self.assertEqual(summary["run_attempt_provenance"], {
+                "artifact": "confirmed-requirements.md",
+                "artifact_status": "failed",
+                "review_status": "not_started",
+                "recorded_at": "2026-09-04T04:57:48.643488+00:00",
+                "pm_copilot_version": "6.2.103",
+                "canonical_runtime_version": "6.2.105",
+                "version_relation": "historical_attempt",
+            })
+
     def test_status_does_not_flag_a_non_cache_wrapper_with_a_different_version(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

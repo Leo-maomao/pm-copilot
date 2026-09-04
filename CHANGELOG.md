@@ -6,6 +6,12 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.106] - 2026-09-04
+
+- Give in-place PRD writers the same controller-owned scope contract used by deterministic validation, including selected IDs, local image count/order, protected sections/assets, linked-copy allowance, and material-versus-media version-history rules.
+- Treat a missing delivery variant as a new delivery rather than activating stale revision metadata; new and extracted deliveries now discard stale revision evidence during staging and promotion.
+- Surface the newest recorded stage attempt separately from the currently installed MCP runtime, so an old failed attempt cannot be mistaken for the version that a fresh retry will execute.
+
 ## [6.2.105] - 2026-09-04
 
 - Materialize a controller-owned scope contract for in-place PRD revisions, preserving unselected requirement sections and assets while validating selected image, order, and linked-copy constraints in both Markdown and rendered HTML.

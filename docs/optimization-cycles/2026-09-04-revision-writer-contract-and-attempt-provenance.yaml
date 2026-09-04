@@ -1,0 +1,43 @@
+id: revision-writer-contract-and-attempt-provenance-2026-09-04
+date: 2026-09-04
+goal: "Make constrained PRD revision generation, cross-mode recovery, and runtime status reporting consume unambiguous controller-owned state."
+practice_source:
+  source_type: support_feedback
+  source_run_id: "not retained in this repository"
+  user_corrections:
+    - "A local constraint must reach the writer, not only a later validator."
+    - "Historical execution metadata must not select the next delivery mode or look like the current runtime."
+observed_corrections:
+  - correction: "Use one semantic scope contract across writing, review, validation, rendering, and promotion."
+    affected_artifact: "in-place PRD revision"
+    severity: High
+  - correction: "Persist the operation shape explicitly and treat prior revision records only as audit history outside an active revision."
+    affected_artifact: "interactive delivery state"
+    severity: High
+generalized_failures:
+  - failure_code: writer_validator_scope_divergence
+    generalized_symptom: "A writer can make an avoidable first-pass conflict when a deterministic validator owns constraints that the writer never receives."
+    reusable_rule: "Project the controller-owned semantic contract into the writer prompt while retaining hashes and path checks inside deterministic validation."
+  - failure_code: stale_revision_state_cross_mode_leak
+    generalized_symptom: "A new or extracted PRD can inherit revision-only evidence requirements from historical metadata."
+    reusable_rule: "Use an explicit delivery variant for every workflow decision and remove inactive revision artifacts before promotion."
+  - failure_code: runtime_attempt_provenance_ambiguity
+    generalized_symptom: "Status output can conflate an old stage's recorded runtime version with the current executable runtime."
+    reusable_rule: "Report current runtime provenance and historical attempt provenance as distinct facts."
+fix_surface:
+  - scripts/run_interactive_request.py
+  - plugins/pm-copilot/scripts/pm_copilot_mcp.py
+  - scripts/test_run_interactive_request.py
+  - scripts/test_pm_copilot_mcp.py
+validation:
+  - "Writer prompt regression for scoped image/order, protected content, linked copy, and version-history rules"
+  - "New/extraction staging and promotion regression with stale revision evidence"
+  - "Historical attempt versus current runtime provenance regression"
+  - "Focused interactive controller, revision scope, trace, and MCP test suites"
+  - "Repository and runtime-routing validation"
+version_change: "6.2.105 -> 6.2.106"
+embedded_copy_sync_targets:
+  - "global PM Copilot runtime copy"
+  - "Codex PM Copilot plugin cache"
+remote_push_status: "pending until main is pushed"
+stop_condition: "A PRD revision may advance only when its writer, validator, reviewer, renderer, and promotion path agree on the same explicit delivery variant and controller-owned scope contract."

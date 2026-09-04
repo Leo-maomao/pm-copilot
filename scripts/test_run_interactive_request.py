@@ -220,9 +220,12 @@ class InteractiveRequestTest(unittest.TestCase):
             canonical.mkdir()
             (canonical / "prd.md").write_text("# Previous PRD\n", encoding="utf-8")
             (canonical / "prd.html").write_text("<html>previous</html>\n", encoding="utf-8")
+            (canonical / "revision-evidence.json").write_text(
+                '{"scope_validation":{"report_path":"tool-results/missing.json"}}\n',
+                encoding="utf-8",
+            )
             state = create_state("创建新的需求文档", canonical)
             state.update({
-                "delivery_variant": "new",
                 "revision_history": [{
                     "mode": "in_place_revision",
                     "request": "旧的 5.1 修订",
@@ -235,8 +238,10 @@ class InteractiveRequestTest(unittest.TestCase):
                 }],
                 "user_confirmation": {"confirmed": True, "source": "test"},
             })
+            state.pop("delivery_variant")
             workspace = _prepare_delivery_workspace(state)
             self.assertFalse((workspace / ".revision-baseline").exists())
+            self.assertFalse((workspace / "revision-evidence.json").exists())
 
             def worker(provider, prompt, cwd, *args):
                 target = Path(prompt.split("Write one complete artifact at ", 1)[1].split(".\n", 1)[0])
@@ -1118,6 +1123,75 @@ class InteractiveRequestTest(unittest.TestCase):
         self.assertIn("The controller renders and validates prd.html", prompt)
         self.assertIn("not a conflict", prompt)
 
+    def test_prd_writer_prompt_injects_complete_controller_revision_scope_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "canonical"
+            assets = canonical / "assets"
+            assets.mkdir(parents=True)
+            for name in ("old-result.png", "upload-node.png"):
+                (assets / name).write_bytes(name.encode("utf-8"))
+            baseline = (
+                "## 一、文档说明\n### 版本记录\n"
+                "| 版本 | 日期 | 变更摘要 | 负责人 |\n| --- | --- | --- | --- |\n"
+                "| v1.0 | 2026-09-01 | 首次创建 | PM |\n\n"
+                "## 四、需求清单\n| 5.1 | 节点执行结果 |\n| 5.2 | 上传节点 |\n\n"
+                "## 五、需求详情\n### 5.1 节点执行结果\n旧规则。\n"
+                "[[prd-detail-media src=\"./assets/old-result.png\" alt=\"old\" copy=\"旧执行结果\"]]\n\n"
+                "### 5.2 上传节点\n保留上传规则。\n"
+                "[[prd-detail-media src=\"./assets/upload-node.png\" alt=\"upload\" copy=\"上传节点\"]]\n\n"
+                "## 六、多语言需求\n| 文案 | 说明 |\n| --- | --- |\n"
+                "| 旧执行结果 | 旧说明 |\n| 上传节点 | 保留说明 |\n"
+            )
+            (canonical / "prd.md").write_text(baseline, encoding="utf-8")
+            (canonical / "prd.html").write_text("<html>baseline</html>\n", encoding="utf-8")
+            incoming = root / "incoming-assets"
+            incoming.mkdir()
+            input_assets = []
+            for name in ("execution-success.png", "execution-failure.png"):
+                path = incoming / name
+                path.write_bytes(name.encode("utf-8"))
+                input_assets.append(str(path))
+
+            state = create_state("更新 5.1", canonical)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_requirement_ids": ["5.1"],
+                "revision_history": [{
+                    "mode": "in_place_revision",
+                    "request": (
+                        "仅更新 5.1 对应多语言文案；5.1 仅保留两张固定顺序图示："
+                        "./assets/execution-success.png、./assets/execution-failure.png；不引用第三张图。"
+                    ),
+                    "prd_before_sha256": hashlib.sha256(baseline.encode("utf-8")).hexdigest(),
+                    "html_before_sha256": hashlib.sha256(b"<html>baseline</html>\n").hexdigest(),
+                }],
+                "confirmed_fact_packet": {
+                    "scope": {"goal": "更新 5.1", "in_scope": ["5.1 对应中文文案和两张固定图示"]},
+                    "decisions": [], "assumptions": [], "risks": [],
+                },
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "input_assets": input_assets,
+            })
+            _materialize_revision_scope_manifest(state)
+            _prepare_delivery_workspace(state)
+            prompt = _artifact_prompt(state, "prd.md")
+
+        self.assertIn("Controller-owned in-place revision scope contract (authoritative)", prompt)
+        self.assertIn('"selected_requirement_ids":["5.1"]', prompt)
+        self.assertIn('"protected_requirement_ids":["5.2"]', prompt)
+        self.assertIn('"protected_asset_paths":["assets/old-result.png","assets/upload-node.png"]', prompt)
+        self.assertIn('"allowed_new_asset_paths":["assets/execution-failure.png","assets/execution-success.png"]', prompt)
+        self.assertIn('"linked_localization_rows_allowed":true', prompt)
+        self.assertIn('"append_only_version_history_allowed":true', prompt)
+        self.assertIn("use exactly 2 local image marker(s)", prompt)
+        self.assertIn("assets/execution-success.png, assets/execution-failure.png", prompt)
+        self.assertIn("Keep their marker order exactly", prompt)
+        self.assertIn("Leave every unrelated localization row unchanged", prompt)
+        self.assertIn("existing version-history heading and every prior record are protected", prompt)
+        self.assertIn("material selected-requirement change", prompt)
+        self.assertIn("layout/media-only change", prompt)
+
     def test_stream_disconnected_agent_write_is_not_promoted_without_terminal_completion(self) -> None:
         calls = 0
         with tempfile.TemporaryDirectory() as temporary:
@@ -1513,6 +1587,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 '{"mode":"in_place_revision","prd_before_sha256":"old"}\n', encoding="utf-8",
             )
             state = create_state("修订需求", canonical)
+            state["delivery_variant"] = "in_place_revision"
             state["delivery_workspace"] = str(workspace)
 
             _promote_delivery_workspace(state)
@@ -1522,6 +1597,37 @@ class InteractiveRequestTest(unittest.TestCase):
                 '{"mode":"in_place_revision","prd_before_sha256":"old"}\n',
             )
             self.assertEqual((canonical / "confirmed-requirements.md").read_text(encoding="utf-8"), "# confirmed\n")
+
+    def test_non_revision_promotion_discards_stale_revision_evidence(self) -> None:
+        """New and extracted deliveries must not reuse a prior revision's proof."""
+        for variant in ("new", "extract_to_new"):
+            with self.subTest(delivery_variant=variant), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                canonical = root / "pm-copilot-outputs" / "example"
+                workspace = canonical.parent / ".example.delivery-stage" / canonical.name
+                canonical.mkdir(parents=True)
+                workspace.mkdir(parents=True)
+                stale_evidence = '{"scope_validation":{"report_path":"tool-results/missing.json"}}\n'
+                (canonical / "revision-evidence.json").write_text(stale_evidence, encoding="utf-8")
+                for name, content in {
+                    "confirmed-requirements.md": "# confirmed\n",
+                    "prd.md": "# current\n",
+                    "prd.html": "<!doctype html><html></html>\n",
+                    "run-log.yaml": "trace: current\n",
+                    "revision-evidence.json": stale_evidence,
+                }.items():
+                    (workspace / name).write_text(content, encoding="utf-8")
+                (workspace / "assets").mkdir()
+                state = create_state("新的独立需求", canonical)
+                state.update({
+                    "delivery_variant": variant,
+                    "delivery_workspace": str(workspace),
+                })
+
+                _promote_delivery_workspace(state)
+
+                self.assertFalse((canonical / "revision-evidence.json").exists())
+                self.assertEqual((canonical / "prd.md").read_text(encoding="utf-8"), "# current\n")
 
     def test_promotion_retains_scope_report_referenced_by_revision_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1580,6 +1686,7 @@ class InteractiveRequestTest(unittest.TestCase):
                 },
             }, allow_unicode=True, sort_keys=False), encoding="utf-8")
             state = create_state("修订 5.1", canonical)
+            state["delivery_variant"] = "in_place_revision"
             state["delivery_workspace"] = str(workspace)
 
             _promote_delivery_workspace(state)
@@ -1602,6 +1709,7 @@ class InteractiveRequestTest(unittest.TestCase):
             }), encoding="utf-8")
             (workspace / "run-log.yaml").write_text("trace: current\n", encoding="utf-8")
             state = create_state("修订 5.1", canonical)
+            state["delivery_variant"] = "in_place_revision"
             state["delivery_workspace"] = str(workspace)
 
             with self.assertRaisesRegex(RuntimeError, "scope_validation report_path escapes the staged run folder"):

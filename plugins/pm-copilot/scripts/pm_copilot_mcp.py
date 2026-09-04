@@ -114,6 +114,50 @@ def _runtime_provenance() -> tuple[dict[str, Any], bool]:
     }, restart_required
 
 
+def _run_attempt_provenance(
+    state: dict[str, Any], canonical_runtime_version: str | None,
+) -> dict[str, Any] | None:
+    """Expose the newest recorded stage attempt without confusing it with runtime state.
+
+    A resumed PRD run can retain delivery-stage metadata from an older global
+    runtime. That is useful failure evidence, but it must not be presented as
+    the version that a fresh controller invocation would dispatch today.
+    """
+    stages = state.get("delivery_stages")
+    if not isinstance(stages, dict):
+        return None
+    candidates: list[tuple[str, int, str, dict[str, Any], str]] = []
+    for index, (artifact, stage) in enumerate(stages.items()):
+        if not isinstance(stage, dict):
+            continue
+        version = str(stage.get("pm_copilot_version") or "").strip()
+        if not version:
+            continue
+        recorded_at = str(stage.get("updated_at") or "")
+        candidates.append((recorded_at, index, str(artifact), stage, version))
+    if not candidates:
+        return None
+    _, _, artifact, stage, attempt_version = max(candidates, key=lambda candidate: candidate[:2])
+    attempt_base = _version_base(attempt_version)
+    runtime_base = _version_base(canonical_runtime_version)
+    version_relation = (
+        "current_runtime"
+        if attempt_base and runtime_base and attempt_base == runtime_base
+        else "historical_attempt"
+        if attempt_base and runtime_base
+        else "runtime_version_unknown"
+    )
+    return {
+        "artifact": artifact,
+        "artifact_status": stage.get("artifact_status"),
+        "review_status": stage.get("review_status"),
+        "recorded_at": stage.get("updated_at"),
+        "pm_copilot_version": attempt_version,
+        "canonical_runtime_version": canonical_runtime_version,
+        "version_relation": version_relation,
+    }
+
+
 def _load_run(run_folder: str) -> tuple[Path, dict[str, Any]]:
     folder = Path(run_folder).expanduser().resolve()
     state_path = folder / "interactive-run.json"
@@ -149,6 +193,9 @@ def run_summary(run_folder: str) -> dict[str, Any]:
     recovery = state.get("recovery") or _legacy_interruption(folder, state)
     status = "recovery_required" if recovery and state.get("status") == "awaiting_confirmation" else state.get("status")
     runtime_provenance, runtime_restart_required = _runtime_provenance()
+    run_attempt_provenance = _run_attempt_provenance(
+        state, runtime_provenance["canonical_runtime"]["version"],
+    )
     delivery_calls = [
         {
             "artifact": call.get("artifact"),
@@ -172,6 +219,7 @@ def run_summary(run_folder: str) -> dict[str, Any]:
         "next_questions": latest_turn.get("questions", []) if state.get("status") == "needs_input" else [],
         "runtime_provenance": runtime_provenance,
         "runtime_restart_required": runtime_restart_required,
+        "run_attempt_provenance": run_attempt_provenance,
     }
 
 

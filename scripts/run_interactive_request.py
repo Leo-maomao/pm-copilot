@@ -158,11 +158,26 @@ def _request_looks_like_extraction(raw_request: str) -> bool:
 
 
 def _delivery_variant(state: dict[str, Any]) -> str:
-    """Return a persisted delivery shape, preserving compatibility with old runs."""
+    """Return the persisted delivery shape; history never selects a workflow."""
     variant = str(state.get("delivery_variant", "")).strip()
     if variant in DELIVERY_VARIANTS:
         return variant
-    return "in_place_revision" if state.get("revision_history") else "new"
+    return "new"
+
+
+def _clear_inactive_revision_scope(state: dict[str, Any]) -> None:
+    """Keep historical revision audit data from becoming active delivery state."""
+    if _delivery_variant(state) == "in_place_revision":
+        return
+    for key in (
+        "revision_requirement_ids",
+        "revision_scope_manifest",
+        "revision_scope_validation",
+        "revision_request",
+        "revision_stop_reason",
+        "scope_clarification",
+    ):
+        state.pop(key, None)
 
 
 def _task_mode(state: dict[str, Any]) -> str:
@@ -400,6 +415,7 @@ def register_extraction_source(state: dict[str, Any], source: Path) -> None:
     if not digest:
         raise ValueError("Extraction source PRD is empty")
     state["delivery_variant"] = "extract_to_new"
+    _clear_inactive_revision_scope(state)
     state["context_source"] = {
         "mode": "document-backed",
         "files_loaded": ["source-material/source-prd.md"],
@@ -568,6 +584,7 @@ def register_implemented_feature_evidence(state: dict[str, Any], source: Path) -
     packet_path, packet_sha256 = _write_implemented_evidence_packet(state, evidence)
     state["task_mode"] = "implemented_feature_prd"
     state["delivery_variant"] = "new"
+    _clear_inactive_revision_scope(state)
     context = state.get("context_source")
     context = dict(context) if isinstance(context, dict) else {}
     files_loaded = _trace_values(context.get("files_loaded"))
@@ -1684,6 +1701,7 @@ def _active_runtime_version() -> str:
 
 def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
     """Fingerprint only the facts that make an accepted stage reusable."""
+    revision = _delivery_variant(state) == "in_place_revision"
     packet = state.get("confirmed_fact_packet")
     if not isinstance(packet, dict):
         turns = state.get("turns")
@@ -1694,7 +1712,7 @@ def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
     packet_copy = json.loads(json.dumps(packet, ensure_ascii=False, sort_keys=True))
     if isinstance(packet_copy, dict):
         packet_copy.pop("confirmed_at", None)
-    revisions = state.get("revision_history") if _delivery_variant(state) == "in_place_revision" else []
+    revisions = state.get("revision_history") if revision else []
     latest_revision = revisions[-1] if isinstance(revisions, list) and revisions else {}
     revision_evidence = {
         key: value
@@ -1715,8 +1733,8 @@ def _confirmed_scope_fingerprint(state: dict[str, Any]) -> str:
         "context_source": state.get("context_source", {}),
         "confirmed_fact_packet": packet_copy,
         "revision": revision_evidence,
-        "revision_scope_manifest": state.get("revision_scope_manifest", {}),
-        "revision_requirement_ids": sorted(_trace_values(state.get("revision_requirement_ids"))),
+        "revision_scope_manifest": state.get("revision_scope_manifest", {}) if revision else {},
+        "revision_requirement_ids": sorted(_trace_values(state.get("revision_requirement_ids"))) if revision else [],
         "extraction_source": state.get("extraction_source", {}),
         "implemented_feature_evidence": state.get("implemented_feature_evidence", {}),
         "input_assets": sorted(input_assets, key=lambda item: (item["name"], str(item["sha256"]))),
@@ -1744,10 +1762,11 @@ def _revision_baseline_fingerprint(state: dict[str, Any]) -> str | None:
 def _delivery_precondition_fingerprint(state: dict[str, Any]) -> str:
     """Capture inputs whose change makes a recovered attempt meaningful again."""
     canonical = _canonical_folder(state)
+    revision = _delivery_variant(state) == "in_place_revision"
     payload = {
         "prd_sha256": _artifact_digest(canonical / "prd.md"),
         "html_sha256": _artifact_digest(canonical / "prd.html"),
-        "scope_manifest": state.get("revision_scope_manifest", {}),
+        "scope_manifest": state.get("revision_scope_manifest", {}) if revision else {},
         "input_assets": _confirmed_input_asset_digests(state),
         "context_source": state.get("context_source", {}),
     }
@@ -2047,6 +2066,15 @@ def _prepare_delivery_workspace(state: dict[str, Any]) -> Path:
         baseline = workspace / ".revision-baseline"
         baseline.mkdir(parents=True, exist_ok=True)
         shutil.copy2(workspace / "prd.md", baseline / "prd.md")
+    else:
+        # A prior canonical revision may retain provenance for audit, but a
+        # new/extracted delivery must neither validate nor republish it.
+        (workspace / "revision-evidence.json").unlink(missing_ok=True)
+        stale_baseline = workspace / ".revision-baseline"
+        if stale_baseline.is_dir():
+            shutil.rmtree(stale_baseline)
+        elif stale_baseline.exists():
+            stale_baseline.unlink()
     _copy_input_assets(state, workspace)
     state["delivery_workspace"] = str(workspace)
     _restore_reusable_delivery_artifacts(state, workspace)
@@ -2306,13 +2334,15 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
     """
     canonical = _canonical_folder(state)
     workspace = _delivery_folder(state)
-    revision_evidence = workspace / "revision-evidence.json"
+    revision = _delivery_variant(state) == "in_place_revision"
+    revision_evidence = workspace / "revision-evidence.json" if revision else None
     retained_result_files = {
         relative: source
         for relative, source in _trace_result_files(workspace / "run-log.yaml")
     }
-    for relative, source in _revision_evidence_result_files(revision_evidence):
-        retained_result_files[relative] = source
+    if revision_evidence is not None:
+        for relative, source in _revision_evidence_result_files(revision_evidence):
+            retained_result_files[relative] = source
     referenced_result_files = sorted(
         retained_result_files.items(), key=lambda item: item[0].as_posix(),
     )
@@ -2369,8 +2399,11 @@ def _promote_delivery_workspace(state: dict[str, Any]) -> Path:
             else:
                 candidate_source_material.unlink()
 
-        if revision_evidence.is_file():
+        candidate_revision_evidence = candidate / "revision-evidence.json"
+        if revision_evidence is not None and revision_evidence.is_file():
             _atomic_copy(revision_evidence, candidate / revision_evidence.name)
+        else:
+            candidate_revision_evidence.unlink(missing_ok=True)
         _promote_trace_result_files(candidate, referenced_result_files)
         (candidate / ".DS_Store").unlink(missing_ok=True)
         (candidate / "assets" / ".DS_Store").unlink(missing_ok=True)
@@ -3043,6 +3076,8 @@ def begin_in_place_revision(
     request = request.strip()
     if not request:
         raise ValueError("a revision request is required")
+    for key in ("revision_scope_validation", "revision_stop_reason", "scope_clarification"):
+        state.pop(key, None)
     folder = Path(str(state["folder"]))
     prd_path = folder / "prd.md"
     known_ids = _trace_requirement_ids(prd_path)
@@ -3147,6 +3182,133 @@ def _confirmed_fact_source(state: dict[str, Any]) -> dict[str, Any]:
     return state.get("confirmed_fact_packet") or state["turns"][-1]
 
 
+def _revision_scope_writer_contract(state: dict[str, Any]) -> str:
+    """Project the controller-owned revision contract into actionable writer rules.
+
+    The durable manifest includes baseline hashes for deterministic validation.
+    Those hashes do not help an Agent write a bounded revision and can needlessly
+    enlarge a delivery prompt, so provide its complete semantic boundary rather
+    than replaying integrity implementation details.
+    """
+    manifest = state.get("revision_scope_manifest")
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
+        return """
+Controller-owned in-place revision scope contract is unavailable. Do not infer
+or broaden a revision boundary from the request; preserve the staged PRD until
+the controller supplies a materialized scope contract.
+"""
+
+    selected_ids = _trace_values(manifest.get("requirement_ids"))
+    baseline = manifest.get("baseline")
+    baseline = baseline if isinstance(baseline, dict) else {}
+    baseline_sections = baseline.get("requirement_sections")
+    baseline_sections = baseline_sections if isinstance(baseline_sections, dict) else {}
+    protected_requirement_ids = [
+        requirement_id for requirement_id in baseline_sections
+        if str(requirement_id) not in selected_ids
+    ]
+    baseline_assets = baseline.get("assets")
+    baseline_assets = baseline_assets if isinstance(baseline_assets, dict) else {}
+    allowed_new_assets = manifest.get("allowed_new_assets")
+    allowed_new_assets = allowed_new_assets if isinstance(allowed_new_assets, dict) else {}
+    derivatives = manifest.get("allowed_derivatives")
+    derivatives = derivatives if isinstance(derivatives, dict) else {}
+
+    raw_image_contracts = manifest.get("image_contracts")
+    raw_image_contracts = raw_image_contracts if isinstance(raw_image_contracts, list) else []
+    image_contracts: list[dict[str, Any]] = []
+    for raw_contract in raw_image_contracts:
+        if not isinstance(raw_contract, dict):
+            continue
+        image_contracts.append({
+            "requirement_ids": _trace_values(raw_contract.get("requirement_ids")),
+            "required_image_refs": _trace_values(raw_contract.get("required_image_refs")),
+            "exact_count": bool(raw_contract.get("exact_count")),
+            "fixed_order": bool(raw_contract.get("fixed_order")),
+            "source": str(raw_contract.get("source", "")).strip(),
+        })
+
+    semantic_packet = {
+        "selected_requirement_ids": selected_ids,
+        "protected_requirement_ids": protected_requirement_ids,
+        "protected_asset_paths": list(baseline_assets),
+        "allowed_new_asset_paths": list(allowed_new_assets),
+        "selected_image_contracts": image_contracts,
+        "linked_localization_rows_allowed": bool(derivatives.get("linked_localization_rows")),
+        "append_only_version_history_allowed": bool(derivatives.get("append_only_version_history")),
+    }
+
+    image_rules: list[str] = []
+    for contract in image_contracts:
+        ids = ", ".join(contract["requirement_ids"]) or "the selected sections"
+        refs = list(contract["required_image_refs"])
+        refs_text = ", ".join(refs) or "(none)"
+        if contract["exact_count"]:
+            image_rules.append(
+                f"- {ids}: use exactly {len(refs)} local image marker(s), with no extra "
+                f"selected-section image; required references are {refs_text}."
+            )
+        else:
+            image_rules.append(
+                f"- {ids}: include each required local image reference: {refs_text}."
+            )
+        if contract["fixed_order"]:
+            image_rules.append(
+                f"  Keep their marker order exactly: {refs_text}."
+            )
+    if not image_rules:
+        image_rules.append(
+            "- No controller-confirmed exact image set applies; do not invent a document-wide image rule."
+        )
+
+    if derivatives.get("linked_localization_rows"):
+        linked_copy_rule = (
+            "Linked localization rows are allowed only when their copy is tied to a selected "
+            "requirement. Leave every unrelated localization row unchanged."
+        )
+    else:
+        linked_copy_rule = (
+            "No linked-localization allowance exists. Preserve every localization row, including "
+            "rows whose wording might look related."
+        )
+
+    if derivatives.get("append_only_version_history"):
+        version_history_rule = (
+            "The existing version-history heading and every prior record are protected. For a "
+            "material selected-requirement change, append contiguous complete record row(s) "
+            "immediately after the existing records; each row needs version, YYYY-MM-DD date, "
+            "material change summary, and owner. Do not add a version record for a layout- or "
+            "media-only change."
+        )
+    else:
+        version_history_rule = (
+            "There is no controller allowance to change version history. Preserve any existing "
+            "history content and do not create, edit, reorder, or append records."
+        )
+
+    return f"""
+Controller-owned in-place revision scope contract (authoritative):
+{json.dumps(semantic_packet, ensure_ascii=False, separators=(",", ":"))}
+
+Apply this contract exactly:
+- Change only the selected requirement sections and their matching requirement-list rows. The
+  protected requirement sections and all other document structure, headings, field labels, and
+  unselected content must remain byte-for-byte equivalent to the staged baseline, except for the
+  explicitly allowed linked-localization rows and append-only version-history derivative below.
+- Protected assets must remain at the same path with unchanged bytes. Existing baseline assets
+  may be retained or referenced, but only the listed controller-copied allowed-new asset paths
+  may be added; do not create, replace, or rename assets.
+- Selected-section image rules:
+{chr(10).join(image_rules)}
+- {linked_copy_rule}
+- {version_history_rule}
+- A material change changes selected requirement prose other than media, a selected
+  requirement-list row, or an allowed linked-localization row. A layout/media-only change only
+  changes selected-section media markup or media references without changing those product or
+  copy semantics. Never use a layout/media-only update to justify a version-history record.
+"""
+
+
 def _artifact_prompt(state: dict[str, Any], artifact: str, repair_errors: str = "") -> str:
     latest = _confirmed_fact_source(state)
     role = "Requirements" if artifact != "run-log.yaml" else "Orchestrator Trace"
@@ -3162,7 +3324,7 @@ This is an in-place partial PRD revision. Preserve the staged PRD structure,
 unchanged requirement sections, and existing assets. Change only the confirmed
 requirement IDs; do not broaden scope from an ambiguous natural-language
 request. The controller records revision lineage and evidence separately.
-"""
+""" + (_revision_scope_writer_contract(state) if artifact == "prd.md" else "")
     elif variant == "extract_to_new":
         descriptor = state.get("extraction_source") if isinstance(state.get("extraction_source"), dict) else {}
         snapshot = str(descriptor.get("snapshot_path", "source-material/source-prd.md"))
@@ -3782,6 +3944,7 @@ def _confirmed_delivery_impl(
         return
     restart_requested = bool(state.pop("restart_delivery", False))
     _migrate_legacy_confirmed_revision_scope(state)
+    _clear_inactive_revision_scope(state)
     _materialize_revision_scope_manifest(state)
     _record_confirmed_extraction_selection(state)
     input_problem = _delivery_input_problem(state, require_selection=True)
