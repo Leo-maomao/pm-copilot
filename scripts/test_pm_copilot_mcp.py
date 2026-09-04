@@ -95,6 +95,35 @@ class PmCopilotMcpTest(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("awaiting_confirmation", result["error"])
 
+    def test_submit_answer_forwards_a_confirmed_delivery_selector_to_the_controller(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            self.write_state(
+                folder,
+                status="needs_input",
+                termination="needs_input",
+                user_confirmation={"confirmed": True},
+                required_input={"field": "revision_selector", "question": "请选择需求 ID"},
+            )
+            controller = folder / "controller.py"
+            controller.write_text("# mocked controller\n", encoding="utf-8")
+
+            def resume(command, **kwargs):
+                self.assertEqual(command[-2:], ["--answers", "5.1"])
+                self.write_state(
+                    folder,
+                    status="awaiting_confirmation",
+                    termination="human_checkpoint",
+                    user_confirmation={"confirmed": True},
+                    revision_requirement_ids=["5.1"],
+                )
+                return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+            with patch.object(MCP, "CONTROLLER", controller), patch.object(MCP.subprocess, "run", side_effect=resume):
+                result = MCP.submit_answer(str(folder), "5.1")
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["status"], "awaiting_confirmation")
+
     def test_confirm_returns_the_post_controller_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

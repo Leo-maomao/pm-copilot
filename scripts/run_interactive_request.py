@@ -585,7 +585,9 @@ def register_implemented_feature_evidence(state: dict[str, Any], source: Path) -
     state.pop("required_input", None)
 
 
-def apply_revision_requirement_ids(state: dict[str, Any], selectors: object) -> None:
+def apply_revision_requirement_ids(
+    state: dict[str, Any], selectors: object, *, authority: str = "explicit command-line selector",
+) -> None:
     """Apply explicit, existing PRD IDs as the authoritative revision boundary."""
     selected = list(dict.fromkeys(_trace_values(selectors)))
     if not selected:
@@ -606,11 +608,82 @@ def apply_revision_requirement_ids(state: dict[str, Any], selectors: object) -> 
         "requirement_ids": selected,
         "selectors": selected,
         "selector_status": "resolved",
-        "authority": "explicit command-line selector",
+        "authority": authority,
     })
     state["revision_scope_manifest"] = manifest
     state["delivery_variant"] = "in_place_revision"
     state.pop("required_input", None)
+
+
+def _legacy_revision_baseline_matches(state: dict[str, Any]) -> bool:
+    """Require a legacy revision's recorded source snapshot before migration."""
+    history = state.get("revision_history")
+    latest = history[-1] if isinstance(history, list) and history and isinstance(history[-1], dict) else {}
+    prd_digest = str(latest.get("prd_before_sha256", "")).strip()
+    html_digest = str(latest.get("html_before_sha256", "")).strip()
+    folder = _canonical_folder(state)
+    return bool(
+        prd_digest
+        and html_digest
+        and _artifact_digest(folder / "prd.md") == prd_digest
+        and _artifact_digest(folder / "prd.html") == html_digest
+    )
+
+
+def _migrate_legacy_confirmed_revision_scope(state: dict[str, Any]) -> bool:
+    """Restore a provable in-place selector omitted by an older run format.
+
+    This migration is deliberately narrower than normal natural-language scope
+    parsing. It trusts only the frozen confirmation packet, requires one exact
+    current requirement ID, and refuses source-drifted or ambiguous records.
+    """
+    history = state.get("revision_history")
+    has_legacy_revision_history = isinstance(history, list) and bool(history)
+    if _delivery_variant(state) != "in_place_revision" and not has_legacy_revision_history:
+        return False
+    if _trace_values(state.get("revision_requirement_ids")):
+        return False
+    required = state.get("required_input")
+    if isinstance(required, dict) and str(required.get("field", "")).strip() not in {"", "revision_selector"}:
+        return False
+    packet = state.get("confirmed_fact_packet")
+    if not isinstance(packet, dict) or not packet or not _legacy_revision_baseline_matches(state):
+        return False
+    scope = packet.get("scope")
+    if not isinstance(scope, dict):
+        return False
+    known = _trace_requirement_ids(_canonical_folder(state) / "prd.md")
+    if not known:
+        return False
+    source_fields: list[str] = []
+    candidates: list[str] = []
+    goal = scope.get("goal")
+    if isinstance(goal, str):
+        candidates.extend(_extract_requirement_ids(goal, known))
+        if candidates:
+            source_fields.append("confirmed_fact_packet.scope.goal")
+    in_scope = scope.get("in_scope")
+    for item in _trace_values(in_scope):
+        matched = _extract_requirement_ids(item, known)
+        if matched:
+            candidates.extend(matched)
+            source_fields.append("confirmed_fact_packet.scope.in_scope")
+    selected = list(dict.fromkeys(candidates))
+    if len(selected) != 1:
+        return False
+    state["delivery_variant"] = "in_place_revision"
+    state["revision_requirement_ids"] = selected
+    state["revision_scope_manifest"] = {
+        "mode": "in_place_revision",
+        "requirement_ids": selected,
+        "selectors": selected,
+        "selector_status": "resolved",
+        "authority": "legacy confirmed-fact-packet migration",
+        "source_fields": list(dict.fromkeys(source_fields)),
+        "baseline_verified": True,
+    }
+    state.pop("required_input", None)
+    return True
 
 
 def _delivery_input_question(state: dict[str, Any]) -> tuple[str, str]:
@@ -671,6 +744,71 @@ def _resume_confirmed_delivery_after_cli_input(state: dict[str, Any], prior_fiel
     state["termination"] = "human_checkpoint"
     state["last_error"] = None
     state["resume_from_status"] = "needs_input"
+    return True
+
+
+def _submit_confirmed_delivery_answer(state: dict[str, Any], answer: str) -> bool:
+    """Handle typed delivery input without reopening conversational intake.
+
+    A confirmed delivery pause is not a new product discussion. Re-running the
+    Intake Agent here can overwrite the frozen fact packet and turn a precise
+    selector into an unrelated clarification loop. Only deterministic input
+    shapes are consumed; every other delivery input remains at its own gate.
+    """
+    field = _confirmed_delivery_needs_input_field(state)
+    if field is None:
+        return False
+    if field != "revision_selector":
+        expected_field, question = _delivery_input_question(state)
+        _set_needs_input(
+            state,
+            question,
+            reason=(
+                f"已确认交付所需的 {expected_field} 必须通过对应的受检输入提供；"
+                "不会将本次文本回答重新解释为新的需求澄清。"
+            ),
+            field=expected_field,
+        )
+        return True
+    normalized = answer.strip()
+    if re.search(r"(?:\b(?:all|whole|entire)\b|整份|全部|全量|所有)", normalized, re.IGNORECASE):
+        _set_needs_input(
+            state,
+            "请仅列出需要原地修改的现有 PRD 需求 ID；整份文档重写需要重新发起并明确确认范围。",
+            reason="revision selector answer mixes a whole-document rewrite with requirement IDs",
+            field="revision_selector",
+        )
+        return True
+    selectors = list(dict.fromkeys(SOURCE_REQUIREMENT_ID_RE.findall(normalized)))
+    if not selectors:
+        _set_needs_input(
+            state,
+            "请指定本次原地修改涉及的现有 PRD 需求 ID；范围不明确时不会改写整份文档。",
+            reason="revision selector answer did not contain an explicit requirement ID",
+            field="revision_selector",
+        )
+        return True
+    try:
+        apply_revision_requirement_ids(state, selectors, authority="explicit user answer")
+    except ValueError as error:
+        _set_needs_input(
+            state,
+            "请指定存在于当前 PRD 中的需求 ID；范围不明确时不会改写整份文档。",
+            reason=str(error),
+            field="revision_selector",
+        )
+        return True
+    answers = state.get("delivery_input_answers")
+    if not isinstance(answers, list):
+        answers = []
+        state["delivery_input_answers"] = answers
+    answers.append({
+        "field": "revision_selector",
+        "selectors": selectors,
+        "source": "explicit --answers",
+        "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    })
+    _resume_confirmed_delivery_after_cli_input(state, field)
     return True
 
 
@@ -2357,7 +2495,7 @@ Conversation so far:
 """
 
 
-def clarification_review_prompt(state: dict[str, Any], intake: dict[str, Any], review_path: Path) -> str:
+def clarification_review_prompt(state: dict[str, Any], intake: dict[str, Any]) -> str:
     transcript = "\n".join(
         f"Turn {turn['turn']} user input: {turn['user_text']}\n"
         f"Intake conclusion: {turn.get('summary', '')}"
@@ -2377,7 +2515,7 @@ launch recommendation lacks a separately named owner. A fact deliberately
 assigned to the development/launch confirmation bucket is covered unless it
 would force this PRD to guess user-visible behavior or acceptance evidence.
 
-Write ONLY one JSON object to {review_path} (UTF-8):
+Return ONLY one JSON object in your final response (UTF-8):
 {{
   "status": "needs_input" | "complete",
   "summary": "coverage judgment",
@@ -2405,10 +2543,10 @@ def run_clarification_review(
     state: dict[str, Any], intake: dict[str, Any], provider: str, timeout: int,
     worker: Callable[..., dict[str, Any]] = execute, model: str | None = None,
 ) -> dict[str, Any]:
-    with tempfile.TemporaryDirectory(prefix=".clarification-review-") as review_dir:
-        review_path = Path(review_dir) / "clarification-review.json"
-        result = worker(provider, clarification_review_prompt(state, intake, review_path), ROOT, timeout, model, None, False, 8000)
-        review_text = review_path.read_text(encoding="utf-8") if review_path.is_file() else ""
+    # Clarification review is a bounded, read-only verdict. Its final JSON is
+    # preserved in the attributable Agent call instead of masquerading as a
+    # staged deliverable that must mutate a temporary file.
+    result = worker(provider, clarification_review_prompt(state, intake), ROOT, timeout, model, None, False, 8000)
     result["phase"] = "clarification_review"
     if not _record_agent_call(state, result, phase="clarification_review"):
         return {"status": "failed", "blockers": ["Clarification Review Agent call has no attributable provider/model evidence"]}
@@ -2422,7 +2560,7 @@ def run_clarification_review(
             "conflicts": [],
         }
     try:
-        raw_review = review_text or result.get("output", "")
+        raw_review = result.get("output", "")
         return _normalise_clarification_review(_extract_json(raw_review))
     except (ValueError, json.JSONDecodeError) as error:
         return {
@@ -3237,6 +3375,7 @@ def _confirmed_delivery_impl(
         return
     if state.pop("restart_delivery", False):
         _restart_delivery_attempt(state)
+    _migrate_legacy_confirmed_revision_scope(state)
     _record_confirmed_extraction_selection(state)
     input_problem = _delivery_input_problem(state, require_selection=True)
     if input_problem:
@@ -3593,6 +3732,13 @@ def main() -> int:
     if cli_delivery_input_provided:
         _resume_confirmed_delivery_after_cli_input(state, delivery_needs_input_field)
         _write_json(state_path, state)
+    if args.answers and _submit_confirmed_delivery_answer(state, args.answers):
+        _write_json(state_path, state)
+        if state["status"] == "awaiting_confirmation":
+            print("已记录交付所需输入；请使用 --confirm 重新确认后进入 PRD 生成。")
+        else:
+            print(json.dumps({"status": "needs_input", "questions": _needs_input_questions(state), "run_folder": str(folder)}, ensure_ascii=False, indent=2))
+        return 3
     if args.dry_run:
         state["status"] = "planned"
         _write_json(state_path, state)
@@ -3637,9 +3783,11 @@ def main() -> int:
         # Freeze the complete clarified turn at the human confirmation gate.
         # Downstream artifact/review Agents must not reconstruct scope from a
         # later, abbreviated turn summary.
-        confirmed_turn = state["turns"][-1] if state.get("turns") else {}
-        state["confirmed_fact_packet"] = json.loads(json.dumps(confirmed_turn, ensure_ascii=False))
-        state["confirmed_fact_packet"]["confirmed_at"] = state["user_confirmation"]["at"]
+        packet = state.get("confirmed_fact_packet")
+        if not isinstance(packet, dict) or not packet:
+            confirmed_turn = state["turns"][-1] if state.get("turns") else {}
+            state["confirmed_fact_packet"] = json.loads(json.dumps(confirmed_turn, ensure_ascii=False))
+            state["confirmed_fact_packet"]["confirmed_at"] = state["user_confirmation"]["at"]
         state["resume_from_status"] = prior_status
         state["restart_delivery"] = prior_status in {"recovery_required", "failed"}
         state["status"] = "confirmed"

@@ -6,6 +6,11 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.103] - 2026-09-04
+
+- Recover legacy confirmed in-place revisions only when their frozen fact packet names one current requirement ID and their recorded PRD/HTML baseline hashes still match.
+- Keep confirmed delivery selectors out of conversational Intake, preserve frozen confirmation facts across retry, and retain review verdicts as attributable final JSON rather than transient staged-file writes.
+
 ## [6.2.102] - 2026-09-04
 
 - Unify direct-Codex readiness with provider-scoped runtime discovery, and make its regressions declare device availability explicitly, so CI environments without the optional Codex CLI continue to verify the safe Seawork route instead of producing environment-dependent failures.

@@ -28,6 +28,7 @@ from run_interactive_request import (
     _finalize_deterministic_trace,
     _materialize_controller_trace,
     _materialize_revision_evidence,
+    _migrate_legacy_confirmed_revision_scope,
     _normalise_trace_runtime_evidence,
     _prepare_delivery_workspace,
     _promote_delivery_workspace,
@@ -45,6 +46,7 @@ from run_interactive_request import (
     _run_artifact_agent,
     apply_revision_requirement_ids,
     begin_in_place_revision,
+    clarification_review_prompt,
     compact_requirement_numbers,
     create_state,
     main,
@@ -584,6 +586,151 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertEqual(resumed["status"], "awaiting_confirmation")
             self.assertEqual(resumed["revision_requirement_ids"], ["5.1"])
             self.assertEqual(resumed["revision_scope_manifest"]["authority"], "explicit command-line selector")
+
+    def test_answer_routes_confirmed_revision_selector_without_reopening_intake(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            (folder / "prd.md").write_text("| 5.1 | 状态提示 |\n### 5.1 状态提示\n", encoding="utf-8")
+            turn = {
+                "turn": 1, "user_text": "更新状态提示", "summary": "已确认需要修订",
+                "scope": {"goal": "更新第 5.1 节", "in_scope": ["5.1 状态提示"]},
+                "assumptions": [], "decisions": [], "risks": [], "buckets": {},
+            }
+            state = create_state("更新现有 PRD", folder)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_history": [{"request": state["raw_request"], "mode": "in_place_revision"}],
+                "status": "needs_input", "termination": "needs_input", "turns": [turn],
+                "confirmed_fact_packet": json.loads(json.dumps(turn)),
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "required_input": {"field": "revision_selector", "question": "请指定需求 ID", "reason": "missing selector"},
+            })
+            _write_json(folder / "interactive-run.json", state)
+            with patch("run_interactive_request._ensure_runtime_current"), patch(
+                "run_interactive_request.run_intake", side_effect=AssertionError("typed selector must not reopen intake"),
+            ), patch.object(
+                sys, "argv", ["run_interactive_request.py", "--run-folder", str(folder), "--answers", "第 5.1 节"],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 3)
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["status"], "awaiting_confirmation")
+            self.assertEqual(resumed["revision_requirement_ids"], ["5.1"])
+            self.assertEqual(resumed["revision_scope_manifest"]["authority"], "explicit user answer")
+
+    def test_invalid_confirmed_revision_answer_stays_at_selector_gate_without_agent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            (folder / "prd.md").write_text("| 5.1 | 状态提示 |\n### 5.1 状态提示\n", encoding="utf-8")
+            turn = {
+                "turn": 1, "user_text": "更新状态提示", "summary": "已确认需要修订",
+                "scope": {"goal": "更新第 5.1 节", "in_scope": ["5.1 状态提示"]},
+                "assumptions": [], "decisions": [], "risks": [], "buckets": {},
+            }
+            state = create_state("更新现有 PRD", folder)
+            state.update({
+                "delivery_variant": "in_place_revision",
+                "revision_history": [{"request": state["raw_request"], "mode": "in_place_revision"}],
+                "status": "needs_input", "termination": "needs_input", "turns": [turn],
+                "confirmed_fact_packet": json.loads(json.dumps(turn)),
+                "user_confirmation": {"confirmed": True, "source": "test"},
+                "required_input": {"field": "revision_selector", "question": "请指定需求 ID", "reason": "missing selector"},
+            })
+            _write_json(folder / "interactive-run.json", state)
+            with patch("run_interactive_request._ensure_runtime_current"), patch(
+                "run_interactive_request.run_intake", side_effect=AssertionError("invalid selector must not call intake"),
+            ), patch.object(
+                sys, "argv", ["run_interactive_request.py", "--run-folder", str(folder), "--answers", "请整体检查一下"],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 3)
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["status"], "needs_input")
+            self.assertEqual(resumed["required_input"]["field"], "revision_selector")
+            self.assertEqual(resumed["agent_calls"], [])
+
+    def test_legacy_confirmed_revision_migrates_only_one_frozen_current_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            prd = folder / "prd.md"
+            html = folder / "prd.html"
+            prd.write_text("| 5.1 | 状态提示 |\n### 5.1 状态提示\n### 5.2 其他需求\n", encoding="utf-8")
+            html.write_text("<!doctype html><html></html>\n", encoding="utf-8")
+            state = create_state("更新现有 PRD", folder)
+            state.update({
+                # Older states kept the create-state default even after revision started.
+                "delivery_variant": "new",
+                "revision_history": [{
+                    "mode": "in_place_revision",
+                    "prd_before_sha256": hashlib.sha256(prd.read_bytes()).hexdigest(),
+                    "html_before_sha256": hashlib.sha256(html.read_bytes()).hexdigest(),
+                }],
+                "confirmed_fact_packet": {
+                    "scope": {"goal": "仅更新第 5.1 节", "in_scope": ["PRD 第 5.1 节"]},
+                },
+                "required_input": {"field": "revision_selector", "question": "请指定需求 ID", "reason": "legacy"},
+            })
+            self.assertTrue(_migrate_legacy_confirmed_revision_scope(state))
+            self.assertEqual(state["delivery_variant"], "in_place_revision")
+            self.assertEqual(state["revision_requirement_ids"], ["5.1"])
+            self.assertEqual(state["revision_scope_manifest"]["authority"], "legacy confirmed-fact-packet migration")
+            self.assertNotIn("required_input", state)
+
+    def test_legacy_confirmed_revision_does_not_migrate_after_source_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision-run"
+            folder.mkdir()
+            prd = folder / "prd.md"
+            html = folder / "prd.html"
+            prd.write_text("### 5.1 状态提示\n", encoding="utf-8")
+            html.write_text("<!doctype html><html></html>\n", encoding="utf-8")
+            state = create_state("更新现有 PRD", folder)
+            state.update({
+                "revision_history": [{
+                    "mode": "in_place_revision",
+                    "prd_before_sha256": hashlib.sha256(prd.read_bytes()).hexdigest(),
+                    "html_before_sha256": hashlib.sha256(html.read_bytes()).hexdigest(),
+                }],
+                "confirmed_fact_packet": {"scope": {"goal": "更新第 5.1 节", "in_scope": []}},
+            })
+            prd.write_text("### 5.1 已被其他人更新\n", encoding="utf-8")
+            self.assertFalse(_migrate_legacy_confirmed_revision_scope(state))
+            self.assertNotIn("revision_requirement_ids", state)
+
+    def test_clarification_review_uses_attributable_final_json_not_a_temp_artifact(self) -> None:
+        state = create_state("做一个 PRD", Path("/tmp/example"))
+        prompt = clarification_review_prompt(state, {"status": "complete", "summary": "范围完整"})
+        self.assertIn("Return ONLY one JSON object in your final response", prompt)
+        self.assertNotIn("Write ONLY one JSON object to", prompt)
+        self.assertNotIn("clarification-review.json", prompt)
+
+    def test_failed_resume_keeps_the_frozen_confirmed_fact_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "run"
+            folder.mkdir()
+            frozen = {"summary": "已确认范围", "scope": {"goal": "原始 5.1", "in_scope": ["5.1"]}}
+            state = create_state("更新现有 PRD", folder)
+            state.update({
+                "status": "failed", "termination": "failed",
+                "turns": [{"summary": "错误的新摘要", "scope": {"goal": "错误 5.2"}}],
+                "confirmed_fact_packet": json.loads(json.dumps(frozen)),
+                "user_confirmation": {"confirmed": True, "source": "prior confirmation"},
+            })
+            _write_json(folder / "interactive-run.json", state)
+
+            def complete_delivery(replayed_state, *args, **kwargs):
+                replayed_state["status"] = "complete"
+                replayed_state["termination"] = "complete"
+
+            with patch("run_interactive_request._ensure_runtime_current"), patch(
+                "run_interactive_request._confirmed_delivery", side_effect=complete_delivery,
+            ), patch.object(
+                sys, "argv", ["run_interactive_request.py", "--run-folder", str(folder), "--confirm"],
+            ), patch("builtins.print"):
+                self.assertEqual(main(), 0)
+            resumed = json.loads((folder / "interactive-run.json").read_text(encoding="utf-8"))
+            self.assertEqual(resumed["confirmed_fact_packet"], frozen)
 
     def test_trace_normalisation_replaces_stale_version_and_asset_hash(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
