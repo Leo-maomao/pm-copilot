@@ -16,6 +16,7 @@ from unittest.mock import patch
 import yaml
 
 from validate_agent_trace import validate_artifact_lineage
+from validate_outputs import check_readiness_trace
 from run_interactive_request import (
     _active_runtime_version,
     _artifact_digest,
@@ -2168,6 +2169,33 @@ class InteractiveRequestTest(unittest.TestCase):
             self.assertIs(trace["quality_decision"]["passed"], False)
             self.assertNotEqual(trace["termination_condition"]["status"], "complete")
             self.assertTrue(all(item["status"] != "passed" for item in trace["validation_results"]))
+
+    def test_controller_trace_transitions_from_staging_pre_final_to_final(self) -> None:
+        """A safe-dumped controller trace must validate before it can be finalized."""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = (
+                Path(temporary)
+                / ".example-2026-09-04.delivery-stage"
+                / "example-2026-09-04"
+            )
+            folder.mkdir(parents=True)
+            (folder / "prd.md").write_text("# 新需求\n\n### 5.1 新能力\n", encoding="utf-8")
+            state = create_state("新增能力", folder)
+            state["turns"] = [{"summary": "已确认", "scope": {"goal": "新增能力"}, "assumptions": [], "risks": []}]
+            _materialize_controller_trace(state, folder / "run-log.yaml")
+
+            pre_final = (folder / "run-log.yaml").read_text(encoding="utf-8")
+            self.assertIn("validation_results:\n- command:", pre_final)
+            check_readiness_trace(folder, staging=True)
+
+            self.assertTrue(_finalize_deterministic_trace(folder, [{
+                "command": "scripts/validate_outputs.py", "status": "passed",
+                "stdout": "validation passed", "stderr": "",
+            }]))
+            check_readiness_trace(folder)
+            trace = yaml.safe_load((folder / "run-log.yaml").read_text(encoding="utf-8"))
+            self.assertIs(trace["quality_decision"]["passed"], True)
+            self.assertEqual(trace["termination_condition"]["status"], "complete")
 
     def test_revision_evidence_is_promoted_with_the_validated_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

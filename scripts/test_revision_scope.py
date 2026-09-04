@@ -200,6 +200,19 @@ class RevisionScopeTests(unittest.TestCase):
         self.assertEqual(report["status"], "failed")
         self.assertIn("protected asset changed or was removed: assets/upload-node.png", report["failures"])
 
+    def test_selected_requirement_old_asset_can_be_removed_when_replaced(self) -> None:
+        assets = dict(BASELINE_ASSETS)
+        assets.pop("assets/old-result.png")
+        report = self.validate(assets=assets)
+        self.assertEqual(report["status"], "passed")
+
+    def test_unselected_requirement_asset_cannot_be_removed(self) -> None:
+        assets = dict(BASELINE_ASSETS)
+        assets.pop("assets/upload-node.png")
+        report = self.validate(assets=assets)
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("protected asset changed or was removed: assets/upload-node.png", report["failures"])
+
     def test_only_linked_localization_rows_may_change(self) -> None:
         report = self.validate()
         self.assertEqual(report["status"], "passed")
@@ -308,6 +321,102 @@ class RevisionScopeTests(unittest.TestCase):
             candidate_assets={},
         )
         self.assertEqual(report["status"], "passed", report["failures"])
+
+    def test_constrained_merge_synchronizes_a_mirrored_pure_text_checklist(self) -> None:
+        """A retained checklist must follow the same authorized copy-table delta."""
+        baseline = """# Canvas PRD
+
+### 5.1 节点执行结果
+节点执行失败时展示失败信息和复制反馈。
+
+### 5.2 节点整理
+保留既有整理和下载命名规则。
+
+## 六、多语言需求
+```text
+执行失败
+复制成功
+宫格排列
+无标题
+```
+
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 执行失败 | 5.1 失败结果标题 | / |
+| 复制成功 | 5.1 Task ID 复制反馈 | / |
+| 宫格排列 | 5.2 整理菜单 | / |
+| 无标题 | 5.2 下载文件名兜底 | / |
+"""
+        candidate = """# Canvas PRD
+
+### 5.1 节点执行结果
+执行成功、执行失败和 Task ID 均展示结果弹窗；复制成功时显示 Task ID 已复制。
+
+### 5.2 节点整理
+被错误改写的整理和下载命名规则。
+
+## 六、多语言需求
+```text
+执行失败
+复制成功
+宫格排列
+无标题
+```
+
+| 文案 | 使用位置 | 参数 |
+| --- | --- | --- |
+| 执行成功 | 5.1 成功结果标题 | / |
+| 执行失败 | 5.1 失败结果标题 | / |
+| Task ID | 5.1 结果弹窗标签 | / |
+| Task ID 已复制 | 5.1 Task ID 复制反馈 | / |
+| 宫格排列 | 被错误改写的整理菜单 | / |
+| 无标题 | 5.2 下载文件名兜底 | / |
+"""
+        manifest = build_revision_scope_manifest(
+            baseline_markdown=baseline,
+            baseline_assets={},
+            requirement_ids=["5.1"],
+            confirmed_scope_text="仅更新 5.1 对应中文用户可见文案。",
+            authority="explicit user confirmation",
+        )
+
+        merged = constrain_revision_markdown(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=candidate,
+        )
+
+        self.assertEqual(merged["status"], "merged", merged["failures"])
+        markdown = str(merged["markdown"])
+        self.assertIn(
+            "```text\n执行成功\n执行失败\nTask ID\nTask ID 已复制\n宫格排列\n无标题\n```",
+            markdown,
+        )
+        self.assertNotIn("复制成功\n宫格排列", markdown)
+        self.assertIn("| 宫格排列 | 5.2 整理菜单 | / |", markdown)
+        self.assertNotIn("被错误改写的整理菜单", markdown)
+
+        report = validate_revision_scope(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=markdown,
+            baseline_assets={},
+            candidate_assets={},
+        )
+        self.assertEqual(report["status"], "passed", report["failures"])
+
+        changed_unselected_checklist = markdown.replace(
+            "宫格排列\n无标题\n```", "被错误改写的宫格排列\n无标题\n```", 1,
+        )
+        report = validate_revision_scope(
+            manifest,
+            baseline_markdown=baseline,
+            candidate_markdown=changed_unselected_checklist,
+            baseline_assets={},
+            candidate_assets={},
+        )
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("outside the confirmed revision scope", "\n".join(report["failures"]))
 
     def test_constrained_merge_preserves_unmatched_localization_rows_between_selected_rows(self) -> None:
         baseline = """| 5.1 | 保存状态 |

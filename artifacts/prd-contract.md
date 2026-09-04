@@ -46,6 +46,8 @@ When the user identifies an existing PRD, that PRD is the sole structural source
 
 For a layout-only request, such as pairing screenshots with their corresponding logic, modify only the affected `需求详情` cell and its rendered HTML. Do not add, remove, reorder, or rename chapters, requirement rows, detail fields, version records, research, localization, tracking, or flow diagrams. Renumber requirements only when the user explicitly deletes or merges requirements; then update every affected reference and preserve the version history.
 
+For an in-place replacement of screenshots, removing an old asset is allowed when it is no longer referenced by the selected requirements and is not referenced by any unselected requirement. Assets still used outside the selected scope remain protected. New assets must be provided through the controller's verified input-asset path and referenced under `assets/`.
+
 The H1 is a concise requirement sentence plus date, for example:
 
 ```markdown

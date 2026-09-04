@@ -20,6 +20,7 @@ import yaml
 
 from implemented_feature_contract import VISUAL_CAPTURE_METHODS, VISUAL_CAPTURE_STATUSES
 from prd_visual_contract import PLACEHOLDER_DECLARATION_RE, is_controlled_placeholder_value
+from revision_scope import requirement_sections as revision_requirement_sections
 from validate_agent_trace import (
     validate_artifact_lineage,
     validate_implemented_feature_evidence_packet,
@@ -281,6 +282,14 @@ NO_EXISTING_I18N_KEY_ROW_RE = re.compile(
 MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^:?-{3,}:?$")
 CJK_RE = re.compile(r"[\u3400-\u9fff]")
 LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
+# A localized Chinese UI label can legitimately retain a compact structural
+# identifier, for example ``Task ID`` or ``URL``.  The expression deliberately
+# accepts only a single optional identifier qualifier followed by a standard
+# identifier token; ordinary English copy remains visible to the language gate.
+STRUCTURAL_IDENTIFIER_COPY_RE = re.compile(
+    r"\b(?:[A-Z][A-Za-z0-9_-]*\s+)?(?:ID|UID|UUID|URL|URI|IP|API|SKU|ISBN|IMEI|MAC)\b",
+    re.IGNORECASE,
+)
 BILINGUAL_COPY_REQUEST_RE = re.compile(r"双语|中英|bilingual|English\s+and\s+Chinese", re.IGNORECASE)
 IMAGE_REQUIREMENT_ROW_RE = re.compile(r"\|\s*(?:需求图|截图|图示|图片)\s*\|", re.IGNORECASE)
 INLINE_REQUIREMENT_IMAGE_RE = re.compile(
@@ -388,7 +397,9 @@ def extract_yaml_block(text: str, key: str) -> str:
     indent = len(match.group("indent"))
     lines: list[str] = []
     for line in text[match.end():].splitlines():
-        if line.strip() and len(line) - len(line.lstrip(" ")) <= indent:
+        line_indent = len(line) - len(line.lstrip(" "))
+        indentationless_list_item = bool(re.match(r"^\s*-\s+", line)) and line_indent == indent
+        if line.strip() and line_indent <= indent and not indentationless_list_item:
             break
         lines.append(line)
     return "\n".join(lines)
@@ -406,7 +417,9 @@ def yaml_list_field_has_values(block: str, key: str) -> bool:
     indent = len(match.group("indent"))
     child_lines: list[str] = []
     for line in block[match.end():].splitlines():
-        if line.strip() and len(line) - len(line.lstrip(" ")) <= indent:
+        line_indent = len(line) - len(line.lstrip(" "))
+        indentationless_list_item = bool(re.match(r"^\s*-\s+", line)) and line_indent == indent
+        if line.strip() and line_indent <= indent and not indentationless_list_item:
             break
         child_lines.append(line)
     child_block = "\n".join(child_lines)
@@ -471,6 +484,97 @@ def _run_log_task_mode(run_log: str) -> str:
         return ""
     task_mode = strategy.get("task_mode")
     return task_mode.strip() if isinstance(task_mode, str) else ""
+
+
+def _proven_preserved_legacy_requirement_ids(
+    path: Path, run_log: str, prd_text: str,
+) -> set[str]:
+    """Return unchanged legacy sections protected by revision evidence.
+
+    This compatibility path is intentionally unavailable to new and extracted
+    PRDs. It also does not trust the selected-ID list alone: an unselected
+    section is eligible only when the retained controller baseline proves that
+    the current Markdown slice is byte-for-byte unchanged.
+    """
+    lineage = _run_log_mapping(run_log).get("artifact_lineage")
+    if not isinstance(lineage, dict) or lineage.get("mode") != "in_place_revision":
+        return set()
+    selected = lineage.get("revised_requirement_ids")
+    evidence_relative = lineage.get("revision_evidence_path")
+
+    def identifier_set(value: object) -> set[str] | None:
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) or not item.strip() for item in value)
+        ):
+            return None
+        return {item.strip() for item in value}
+
+    selected_ids = identifier_set(selected)
+    if (
+        selected_ids is None
+        or not isinstance(evidence_relative, str)
+        or not evidence_relative.strip()
+        or Path(evidence_relative).is_absolute()
+    ):
+        return set()
+    try:
+        evidence_path = (path / evidence_relative).resolve()
+        evidence_path.relative_to(path.resolve())
+    except ValueError:
+        return set()
+    if not evidence_path.is_file():
+        return set()
+    try:
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    if not isinstance(evidence, dict) or evidence.get("mode") != "in_place_revision":
+        return set()
+    evidence_selected = evidence.get("controller_scope_ids")
+    scope_validation = evidence.get("scope_validation")
+    manifest = evidence.get("scope_manifest")
+    evidence_selected_ids = identifier_set(evidence_selected)
+    manifest_selected_ids = identifier_set(
+        manifest.get("requirement_ids") if isinstance(manifest, dict) else None,
+    )
+    if (
+        evidence_selected_ids != selected_ids
+        or not isinstance(scope_validation, dict)
+        or scope_validation.get("status") != "passed"
+        or not isinstance(manifest, dict)
+        or manifest_selected_ids != selected_ids
+    ):
+        return set()
+    baseline = manifest.get("baseline")
+    baseline_sections = baseline.get("requirement_sections") if isinstance(baseline, dict) else None
+    if not isinstance(baseline_sections, dict):
+        return set()
+    return {
+        requirement_id
+        for requirement_id, section in revision_requirement_sections(prd_text).items()
+        if requirement_id not in selected_ids
+        and isinstance(baseline_sections.get(requirement_id), dict)
+        and section.get("sha256") == baseline_sections[requirement_id].get("sha256")
+    }
+
+
+def _contains_unlocalized_english_copy(value: str) -> bool:
+    """Return whether a Chinese copy value retains non-identifier English.
+
+    Template parameters are not visible user copy and are stripped first. A
+    compact identifier label such as ``Task ID`` may remain in a Chinese
+    interface, including when followed by Chinese feedback such as ``已复制``.
+    Everything else containing Latin letters remains an English-source-string
+    failure.
+    """
+    for raw_line in value.splitlines() or [value]:
+        visible_value = re.sub(r"\{[^{}]+\}", "", raw_line)
+        non_identifier_value = STRUCTURAL_IDENTIFIER_COPY_RE.sub("", visible_value)
+        if LATIN_LETTER_RE.search(non_identifier_value):
+            return True
+    return False
 
 
 def _implemented_feature_mapping(run_log: str) -> dict[str, object]:
@@ -1438,23 +1542,25 @@ def _is_controller_deterministic_pre_final_trace(path: Path, run_log: str) -> bo
     """
     if path.parent.name != f".{path.name}.delivery-stage":
         return False
-    if _top_level_yaml_scalar_value(run_log, "pm_copilot_revision") != "controller-deterministic-trace":
+    trace = _run_log_mapping(run_log)
+    if trace.get("pm_copilot_revision") != "controller-deterministic-trace":
         return False
 
-    termination = extract_yaml_block(run_log, "termination_condition")
-    quality_decision = extract_yaml_block(run_log, "quality_decision")
-    validation_results = extract_yaml_block(run_log, "validation_results")
-    if yaml_scalar_field_value(termination, "status") != "degraded":
+    termination = trace.get("termination_condition")
+    quality_decision = trace.get("quality_decision")
+    validation_results = trace.get("validation_results")
+    if not isinstance(termination, dict) or termination.get("status") != "degraded":
         return False
-    if yaml_bool_field_value(quality_decision, "passed") is not False:
+    if not isinstance(quality_decision, dict) or quality_decision.get("passed") is not False:
         return False
-    statuses = [
-        yaml_field_value(item, "status")
-        for item in yaml_list_item_blocks(validation_results)
-    ]
-    if not statuses or any(status != "pending" for status in statuses):
+    if not isinstance(validation_results, list) or not validation_results:
         return False
-    return _top_level_yaml_scalar_value(run_log, "final_status") == "deterministic trace ready for validation"
+    if any(
+        not isinstance(item, dict) or item.get("status") != "pending"
+        for item in validation_results
+    ):
+        return False
+    return trace.get("final_status") == "deterministic trace ready for validation"
 
 
 def check_readiness_trace(path: Path, staging: bool = False) -> None:
@@ -2213,6 +2319,10 @@ def check_chinese_prd(path: Path) -> None:
         return
 
     text = read(prd_path)
+    run_log = read(path / "run-log.yaml") if (path / "run-log.yaml").is_file() else ""
+    preserved_legacy_requirement_ids = _proven_preserved_legacy_requirement_ids(
+        path, run_log, text,
+    )
     title_match = re.search(r"^#\s+(.+?)\s*$", text, re.MULTILINE)
     if not title_match:
         fail("Chinese PRD missing top-level title")
@@ -2356,7 +2466,11 @@ def check_chinese_prd(path: Path) -> None:
         if int(section.get("level", 0)) < 3:
             continue
         detail_title = str(section.get("raw_title", ""))
-        if not any(re.match(rf"{re.escape(requirement_id)}(?:\s|$)", detail_title) for requirement_id in requirement_ids):
+        requirement_id = next((
+            item for item in requirement_ids
+            if re.match(rf"{re.escape(item)}(?:\s|$)", detail_title)
+        ), None)
+        if requirement_id is None:
             continue
         detail_body = str(section.get("body", ""))
         missing_detail_fields = [
@@ -2370,7 +2484,11 @@ def check_chinese_prd(path: Path) -> None:
                 + ", ".join(missing_detail_fields)
                 + f"; {detail_title}"
             )
-        check_requirement_detail_field_labels(detail_body, detail_title)
+        check_requirement_detail_field_labels(
+            detail_body,
+            detail_title,
+            allow_proven_legacy_figure_row=requirement_id in preserved_legacy_requirement_ids,
+        )
         check_requirement_detail_rule_layout(detail_body, detail_title)
         forbidden_detail_fields = [
             label
@@ -2401,17 +2519,17 @@ def check_chinese_prd(path: Path) -> None:
         localization_body = str(localization_section.get("body", ""))
         pure_copy_blocks = re.findall(r"```(?:text)?\s*\n(.*?)```", localization_body, re.DOTALL)
         for block in pure_copy_blocks:
-            localized_copy = re.sub(r"\{[^{}]+\}", "", block)
-            if LATIN_LETTER_RE.search(localized_copy):
-                fail("Chinese PRD 多语言需求 must list localized copy in Chinese, not an English source string")
+            for copy_line in block.splitlines():
+                if _contains_unlocalized_english_copy(copy_line):
+                    fail("Chinese PRD 多语言需求 must list localized copy in Chinese, not an English source string")
         for table in markdown_table_blocks(localization_body):
             headers = [normalize_table_cell(header) for header in table.get("headers", [])]
             if "文案" not in headers:
                 continue
             copy_index = headers.index("文案")
             for row in table.get("rows", []):
-                localized_copy = re.sub(r"\{[^{}]+\}", "", str(row[copy_index])) if copy_index < len(row) else ""
-                if LATIN_LETTER_RE.search(localized_copy):
+                localized_copy = str(row[copy_index]) if copy_index < len(row) else ""
+                if _contains_unlocalized_english_copy(localized_copy):
                     fail("Chinese PRD 多语言需求 table must list localized copy in Chinese, not an English source string")
     if CHINESE_STATUS_LEAK_RE.search(text):
         fail("Chinese PRD contains raw English readiness/review status labels")
@@ -2554,6 +2672,9 @@ def check_prd_output_contract(
     text = read(prd_path)
     run_log = read(path / "run-log.yaml") if (path / "run-log.yaml").is_file() else ""
     implemented_feature_active = implemented_feature_prd_is_active(run_log)
+    preserved_legacy_requirement_ids = _proven_preserved_legacy_requirement_ids(
+        path, run_log, text,
+    )
     h1_count = markdown_heading_count(text, 1)
     if h1_count != 1:
         fail(f"prd.md must contain exactly one top-level title, found {h1_count}")
@@ -2634,7 +2755,9 @@ def check_prd_output_contract(
 
     check_markdown_table_alignment(text, language)
     check_requirement_images_inline(text)
-    check_requirement_detail_media_blocks(text)
+    check_requirement_detail_media_blocks(
+        text, preserved_legacy_requirement_ids=preserved_legacy_requirement_ids,
+    )
     if implemented_feature_active:
         check_implemented_feature_images_in_requirement_details(text)
         check_field_value_requirement_images_stay_in_table(text)
@@ -2649,27 +2772,31 @@ def check_run_log_agent_evidence(path: Path) -> None:
     if not run_log_path.is_file():
         return
     text = read(run_log_path)
-    section = extract_yaml_block(text, "agent_execution_evidence")
-    if not section:
+    evidence = _run_log_mapping(text).get("agent_execution_evidence")
+    if not isinstance(evidence, list) or not evidence:
         fail("run-log.yaml missing agent_execution_evidence provider/model evidence")
-    items = yaml_list_item_blocks(section)
-    if not items:
+    if any(not isinstance(item, dict) for item in evidence):
         fail("run-log.yaml agent_execution_evidence must list attributable Agent calls")
+
+    def evidence_value(item: dict[object, object], key: str) -> str:
+        value = item.get(key)
+        return value.strip() if isinstance(value, str) else ""
+
     completed_keys = {
-        (yaml_field_value(item, "phase"), yaml_field_value(item, "artifact"))
-        for item in items
-        if yaml_field_value(item, "status") == "complete"
+        (evidence_value(item, "phase"), evidence_value(item, "artifact"))
+        for item in evidence
+        if evidence_value(item, "status") == "complete"
     }
-    for item in items:
-        provider = yaml_field_value(item, "provider")
-        model = yaml_field_value(item, "model")
-        status = yaml_field_value(item, "status")
-        evidence_key = (yaml_field_value(item, "phase"), yaml_field_value(item, "artifact"))
+    for item in evidence:
+        provider = evidence_value(item, "provider")
+        model = evidence_value(item, "model")
+        status = evidence_value(item, "status")
+        evidence_key = (evidence_value(item, "phase"), evidence_value(item, "artifact"))
         if status == "complete" and (not provider or not model or model in {"configured default", "unknown", "None"}):
             fail("run-log.yaml Agent evidence requires provider and model")
         if status != "complete" and evidence_key not in completed_keys:
             fail("run-log.yaml Agent failure has no attributable successful recovery")
-        if re.search(r"stream[ _-]?disconnected", yaml_field_value(item, "error"), re.IGNORECASE) and evidence_key not in completed_keys:
+        if re.search(r"stream[ _-]?disconnected", evidence_value(item, "error"), re.IGNORECASE) and evidence_key not in completed_keys:
             fail("run-log.yaml Agent evidence contains an unrecovered stream disconnect")
 
 
@@ -2793,8 +2920,10 @@ def check_field_value_requirement_images_stay_in_table(text: str) -> None:
             )
 
 
-def check_requirement_detail_media_blocks(text: str) -> None:
-    """Require Pandoc-safe source markers for every detail screenshot."""
+def check_requirement_detail_media_blocks(
+    text: str, *, preserved_legacy_requirement_ids: set[str] | None = None,
+) -> None:
+    """Require Pandoc-safe source markers outside proven preserved sections."""
     detail_section = section_by_heading(text, REQUIREMENT_DETAIL_HEADING_RE)
     if not detail_section:
         return
@@ -2811,8 +2940,19 @@ def check_requirement_detail_media_blocks(text: str) -> None:
         detail_text,
         re.IGNORECASE,
     ))
+    preserved_sections = {
+        requirement_id: section
+        for requirement_id, section in revision_requirement_sections(detail_text).items()
+        if requirement_id in (preserved_legacy_requirement_ids or set())
+    }
     for image in images:
-        line = text[: detail_start + image.start()].count("\n") + 1
+        image_start = image.start()
+        if any(
+            int(section.get("start", -1)) <= image_start < int(section.get("end", -1))
+            for section in preserved_sections.values()
+        ):
+            continue
+        line = text[: detail_start + image_start].count("\n") + 1
         fail(
             "Requirement detail images must use the Pandoc-safe [[prd-detail-media ...]] marker; "
             f"convert the ordinary image near line {line}"
@@ -2987,7 +3127,9 @@ def check_requirement_detail_rule_layout(detail_body: str, detail_title: str) ->
                 )
 
 
-def check_requirement_detail_field_labels(detail_body: str, detail_title: str) -> None:
+def check_requirement_detail_field_labels(
+    detail_body: str, detail_title: str, *, allow_proven_legacy_figure_row: bool = False,
+) -> None:
     allowed_labels = {
         normalize_table_cell(label) for label in ALLOWED_REQUIREMENT_DETAIL_FIELD_LABELS_ZH
     }
@@ -2999,6 +3141,8 @@ def check_requirement_detail_field_labels(detail_body: str, detail_title: str) -
             if not cells:
                 continue
             label = normalize_table_cell(cells[0])
+            if allow_proven_legacy_figure_row and label == normalize_table_cell("图示"):
+                continue
             if label and label not in allowed_labels:
                 fail(
                     "Chinese PRD requirement detail must use only canonical field(s): "
@@ -3128,7 +3272,12 @@ def probable_english_copy_lines(block: str) -> list[str]:
     lines: list[str] = []
     for raw_line in block.splitlines():
         line = raw_line.strip()
-        if not line or CJK_RE.search(line) or not LATIN_LETTER_RE.search(line):
+        if (
+            not line
+            or CJK_RE.search(line)
+            or not LATIN_LETTER_RE.search(line)
+            or not _contains_unlocalized_english_copy(line)
+        ):
             continue
         if re.search(r"://|/|\\|[{}<>]|^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$", line):
             continue

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +12,10 @@ from pathlib import Path
 import yaml
 
 from validate_outputs import (
+    _contains_unlocalized_english_copy,
+    _proven_preserved_legacy_requirement_ids,
     check_artifact_lineage_trace,
+    check_chinese_prd,
     check_folder,
     check_implemented_feature_prd_trace,
     check_readiness_trace,
@@ -19,7 +23,11 @@ from validate_outputs import (
     check_requirement_figure_rows,
     check_requirement_detail_media_blocks,
     check_run_log_agent_evidence,
+    extract_yaml_block,
+    probable_english_copy_lines,
+    yaml_list_field_has_values,
 )
+from revision_scope import requirement_sections
 
 
 class ValidateOutputsTest(unittest.TestCase):
@@ -82,6 +90,50 @@ class ValidateOutputsTest(unittest.TestCase):
             folder.mkdir(parents=True)
             self._write_readiness_trace(folder)
             check_readiness_trace(folder, staging=True)
+
+    def test_staging_accepts_safe_dump_controller_pre_final_trace(self) -> None:
+        """The controller emits root-level YAML list items without indentation."""
+        trace = {
+            "pm_copilot_revision": "controller-deterministic-trace",
+            "readiness": {
+                "prd_status": "ready for engineering",
+                "engineering_handoff_status": "not_generated",
+                "launch_status": "not applicable",
+                "engineering_blockers": [],
+                "launch_blockers": [],
+            },
+            "review_scores": [],
+            "quality_thresholds": [],
+            "termination_condition": {"status": "degraded"},
+            "quality_decision": {"passed": False},
+            "validation_results": [{"command": "validate_outputs.py", "status": "pending"}],
+            "failures": [],
+            "final_status": "deterministic trace ready for validation",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            staged = root / ".sample-2026-07-30.delivery-stage" / "sample-2026-07-30"
+            canonical = root / "pm-copilot-outputs" / "sample-2026-07-30"
+            staged.mkdir(parents=True)
+            canonical.mkdir(parents=True)
+            content = yaml.safe_dump(trace, allow_unicode=True, sort_keys=False)
+            self.assertIn("validation_results:\n- command:", content)
+            for folder in (staged, canonical):
+                (folder / "run-log.yaml").write_text(content, encoding="utf-8")
+
+            check_readiness_trace(staged, staging=True)
+            with self.assertRaises(SystemExit):
+                check_readiness_trace(canonical)
+
+    def test_yaml_list_helpers_accept_safe_dump_indentationless_children(self) -> None:
+        content = yaml.safe_dump({
+            "agent_execution_evidence": [{"phase": "delivery", "status": "complete"}],
+            "source_files": ["src/page.tsx"],
+        }, allow_unicode=True, sort_keys=False)
+        self.assertIn("agent_execution_evidence:\n- phase:", content)
+        self.assertIn("source_files:\n- src/page.tsx", content)
+        self.assertIn("- phase: delivery", extract_yaml_block(content, "agent_execution_evidence"))
+        self.assertTrue(yaml_list_field_has_values(content, "source_files"))
 
     def test_pre_final_controller_trace_is_rejected_in_canonical_output(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -149,6 +201,171 @@ class ValidateOutputsTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             check_requirement_figure_rows(valid.replace(".png", ".jpg"))
 
+    def test_in_place_revision_preserves_only_proven_legacy_detail_media(self) -> None:
+        text = """## 五、需求详情
+
+### 5.1 已选中需求
+
+[[prd-detail-media src="./assets/selected.png" alt="selected" copy="已选中需求"]]
+
+### 5.2 未选中历史需求
+
+![历史图示](assets/legacy.png)<small>历史图示</small>
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            sections = requirement_sections(text)
+            evidence = {
+                "mode": "in_place_revision",
+                "controller_scope_ids": ["5.1"],
+                "scope_validation": {"status": "passed"},
+                "scope_manifest": {
+                    "requirement_ids": ["5.1"],
+                    "baseline": {"requirement_sections": {
+                        requirement_id: {"sha256": section["sha256"]}
+                        for requirement_id, section in sections.items()
+                    }},
+                },
+            }
+            (folder / "revision-evidence.json").write_text(
+                json.dumps(evidence, ensure_ascii=False), encoding="utf-8",
+            )
+            run_log = yaml.safe_dump({"artifact_lineage": {
+                "mode": "in_place_revision",
+                "revised_requirement_ids": ["5.1"],
+                "revision_evidence_path": "revision-evidence.json",
+            }}, allow_unicode=True, sort_keys=False)
+            (folder / "run-log.yaml").write_text(run_log, encoding="utf-8")
+
+            preserved = _proven_preserved_legacy_requirement_ids(folder, run_log, text)
+            self.assertEqual(preserved, {"5.2"})
+            check_requirement_detail_media_blocks(
+                text, preserved_legacy_requirement_ids=preserved,
+            )
+
+            changed_unselected = text.replace("未选中历史需求", "被修改的历史需求")
+            self.assertEqual(
+                _proven_preserved_legacy_requirement_ids(folder, run_log, changed_unselected),
+                set(),
+            )
+            with self.assertRaises(SystemExit):
+                check_requirement_detail_media_blocks(changed_unselected)
+
+            selected_legacy = text.replace(
+                '[[prd-detail-media src="./assets/selected.png" alt="selected" copy="已选中需求"]]',
+                '![新图示](assets/selected.png)<small>新图示</small>',
+            )
+            with self.assertRaises(SystemExit):
+                check_requirement_detail_media_blocks(
+                    selected_legacy, preserved_legacy_requirement_ids=preserved,
+                )
+
+    def test_chinese_localization_allows_structural_identifier_labels_only(self) -> None:
+        self.assertFalse(_contains_unlocalized_english_copy("Task ID"))
+        self.assertFalse(_contains_unlocalized_english_copy("Task ID 已复制"))
+        self.assertFalse(_contains_unlocalized_english_copy("URL 已复制"))
+        self.assertFalse(_contains_unlocalized_english_copy("Task ID\n任务 ID 已复制"))
+        self.assertTrue(_contains_unlocalized_english_copy("Save changes"))
+        self.assertTrue(_contains_unlocalized_english_copy("Task ID copied"))
+        self.assertTrue(_contains_unlocalized_english_copy("Task ID\nSave changes"))
+        self.assertEqual(
+            probable_english_copy_lines("Task ID\nOrder ID\nUser ID"),
+            [],
+        )
+        self.assertEqual(
+            probable_english_copy_lines("Task ID\nSave changes"),
+            ["Save changes"],
+        )
+
+    def test_in_place_revision_preserves_only_proven_legacy_figure_field(self) -> None:
+        """An untouched legacy 图示 row is not a license for changed content."""
+        text = """# 更新节点结果提示 - 2026-09-04
+
+## 一、文档说明
+
+### 1. 文档信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 需求来源 | 用户确认的节点结果提示改动 |
+| 目标用户 | 画布创作者 |
+| 影响范围 | 节点结果提示 |
+| 文档状态 | 可评审 |
+| 文档负责人 | 产品 |
+
+### 2. 版本记录
+
+| 版本 | 日期 | 变更内容 | 负责人 |
+| --- | --- | --- |
+| v1.0 | 2026-09-04 | 更新节点结果提示 | 产品 |
+
+## 二、需求背景
+
+用户需要清晰查看节点执行结果。
+
+## 四、需求清单
+
+| 详情编号 | 需求名称 | 目标用户 | 用户场景 / 触发 | 用户问题或价值 | 需求摘要 | 优先级 | 来源 / 确认状态 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 5.1 | 节点结果提示 | 画布创作者 | 查看节点结果 | 结果状态可发现 | 显示执行结果 | P0 | 用户确认 |
+| 5.2 | 历史上传节点 | 音频用户 | 查看上传节点 | 保留历史图示 | 保留既有内容 | P1 | 已有 PRD |
+
+## 五、需求详情
+
+### 5.1 节点结果提示
+
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 画布创作者查看执行结果。 |
+| 需求入口 | 节点状态入口。 |
+| 需求详情 | 显示清晰的执行结果。 |
+| 设计与交互 | 状态可点击且不遮挡画布。 |
+
+### 5.2 历史上传节点
+
+| 维度 | 需求说明 |
+| --- | --- |
+| 用户与场景 | 音频用户查看上传节点。 |
+| 需求入口 | 上传节点。 |
+| 需求详情 | 保留当前行为。 |
+| 设计与交互 | 保留当前布局。 |
+| 图示 | 历史上传节点图示。 |
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            sections = requirement_sections(text)
+            evidence = {
+                "mode": "in_place_revision",
+                "controller_scope_ids": ["5.1"],
+                "scope_validation": {"status": "passed"},
+                "scope_manifest": {
+                    "requirement_ids": ["5.1"],
+                    "baseline": {"requirement_sections": {
+                        requirement_id: {"sha256": section["sha256"]}
+                        for requirement_id, section in sections.items()
+                    }},
+                },
+            }
+            (folder / "revision-evidence.json").write_text(
+                json.dumps(evidence, ensure_ascii=False), encoding="utf-8",
+            )
+            (folder / "run-log.yaml").write_text(
+                yaml.safe_dump({"artifact_lineage": {
+                    "mode": "in_place_revision",
+                    "revised_requirement_ids": ["5.1"],
+                    "revision_evidence_path": "revision-evidence.json",
+                }}, allow_unicode=True, sort_keys=False),
+                encoding="utf-8",
+            )
+            (folder / "prd.md").write_text(text, encoding="utf-8")
+
+            check_chinese_prd(folder)
+
+            changed = text.replace("保留当前行为。", "被改写的历史行为。")
+            (folder / "prd.md").write_text(changed, encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                check_chinese_prd(folder)
+
     def test_run_log_requires_attributable_provider_model_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)
@@ -173,6 +390,24 @@ class ValidateOutputsTest(unittest.TestCase):
             )
             with self.assertRaises(SystemExit):
                 check_run_log_agent_evidence(folder)
+
+    def test_run_log_agent_evidence_accepts_safe_dump_root_list(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            trace = {
+                "agent_execution_evidence": [{
+                    "phase": "delivery",
+                    "artifact": "prd.md",
+                    "provider": "codex",
+                    "model": "gpt-5.6",
+                    "status": "complete",
+                    "error": "",
+                }],
+            }
+            content = yaml.safe_dump(trace, allow_unicode=True, sort_keys=False)
+            self.assertIn("agent_execution_evidence:\n- phase:", content)
+            (folder / "run-log.yaml").write_text(content, encoding="utf-8")
+            check_run_log_agent_evidence(folder)
 
     def test_output_validation_rejects_fake_new_run_extraction(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

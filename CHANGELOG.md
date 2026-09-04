@@ -6,6 +6,14 @@ The project uses three-segment semantic versioning: `MAJOR.MINOR.PATCH`.
 Historical entries below are reconstructed from the git commit order so every committed change has a version entry.
 See `docs/versioning.md` for upgrade rules, compatibility policy, and release checklist.
 
+## [6.2.109] - 2026-09-04
+
+- Accept controller-owned pre-final traces in the delivery staging workspace using structured YAML state, so standard root-level YAML lists can complete the validation-to-finalization transition without being misclassified as stale `run-log.yaml` content.
+- Keep the exemption narrow: only the exact staged controller trace shape with all validation results pending is eligible; canonical and malformed traces still require an explicit passing quality decision.
+- Rebuild fenced localization checklists from the authorized merged copy table during an in-place PRD revision, preventing a selected copy update from leaving a contradictory legacy checklist while preserving unselected rows and non-mirrored content.
+- Treat compact structural identifier labels, such as `Task ID` and Chinese feedback containing one, as localized UI copy without allowing ordinary English source strings through the Chinese PRD contract.
+- Allow replacement-only selected screenshots to remove their unreferenced former asset while retaining compare-and-swap protection for every asset still used by an unselected requirement.
+
 ## [6.2.108] - 2026-09-04
 
 - Let the MCP bridge forward an explicitly confirmed `needs_input` run to the canonical controller, so controller-owned legacy-recovery migrations are reachable while genuine unanswered questions remain gated by that controller.

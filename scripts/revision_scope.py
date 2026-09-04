@@ -53,6 +53,10 @@ ASSET_REFERENCE_RE = re.compile(
     re.IGNORECASE,
 )
 LINKED_COPY_RE = re.compile(r"多语言|文案|\bcopy\b|\bi18n\b|locali[sz]ation", re.IGNORECASE)
+PURE_TEXT_FENCE_OPEN_RE = re.compile(
+    r"^[ \t]*`{3,}(?:text|plain|txt)?[ \t]*(?:\r?\n)?$", re.IGNORECASE,
+)
+PURE_TEXT_FENCE_CLOSE_RE = re.compile(r"^[ \t]*`{3,}[ \t]*(?:\r?\n)?$")
 FIXED_ORDER_RE = re.compile(r"固定顺序|按顺序|顺序为|顺序.*?(?:成功|失败)|\bfixed\s+order\b|\bin\s+(?:this|the)\s+order\b", re.IGNORECASE)
 EXACT_IMAGE_SET_RE = re.compile(
     r"仅(?:保留|引用)?|只(?:保留|引用)?|只能|不(?:引用|生成).{0,24}(?:第?\s*(?:三|3)\s*(?:张)?(?:图|图示|图片)|third\s+(?:image|figure))|"
@@ -373,6 +377,92 @@ def _localization_table_blocks(text: str) -> list[dict[str, Any]]:
     return blocks
 
 
+def _plain_copy_value(value: str) -> str:
+    """Normalize a visible-copy cell using the PRD pure-text contract."""
+    value = re.sub(r"<br\s*/?>", " ", value.strip(), flags=re.IGNORECASE)
+    value = re.sub(r"^[-*]\s+", "", value)
+    return value.strip("`\"'“”‘’ ")
+
+
+def _localization_table_copy_values(
+    lines: Sequence[str], block: Mapping[str, Any],
+) -> list[str]:
+    """Return the visible-copy column from a recognized localization table."""
+    values: list[str] = []
+    for index in block["data_indexes"]:
+        cells = _table_cells(lines[int(index)])
+        if not cells:
+            return []
+        value = _plain_copy_value(cells[0])
+        if not value:
+            return []
+        values.append(value)
+    return values
+
+
+def _pure_text_checklist_before_table(
+    lines: Sequence[str], table_start: int,
+) -> dict[str, Any] | None:
+    """Find the adjacent fenced copy checklist that a localization table owns.
+
+    The output validator recognizes fenced ``text``/``plain``/``txt`` blocks
+    (and an unlabeled fence) immediately before a copy checklist. Treating a
+    nearby arbitrary code block as a derivative would let a scoped revision
+    rewrite unrelated prose, so the association deliberately requires direct
+    adjacency apart from blank lines.
+    """
+    close_index = table_start - 1
+    while close_index >= 0 and not lines[close_index].strip():
+        close_index -= 1
+    if close_index < 0 or not PURE_TEXT_FENCE_CLOSE_RE.fullmatch(lines[close_index]):
+        return None
+
+    open_index = close_index - 1
+    while open_index >= 0:
+        line = lines[open_index]
+        if PURE_TEXT_FENCE_OPEN_RE.fullmatch(line):
+            values = [
+                _plain_copy_value(item)
+                for item in lines[open_index + 1:close_index]
+                if _plain_copy_value(item)
+            ]
+            return {
+                "open_index": open_index,
+                "body_start": open_index + 1,
+                "body_end": close_index,
+                "close_index": close_index,
+                "values": values,
+            }
+        # A preceding fence or heading means this closing fence is not a
+        # directly owned checklist block.
+        if PURE_TEXT_FENCE_CLOSE_RE.fullmatch(line) or SECTION_HEADING_RE.match(line.rstrip("\r\n")):
+            return None
+        open_index -= 1
+    return None
+
+
+def _remove_mirrored_localization_checklists(text: str) -> str:
+    """Remove only fenced blocks that exactly mirror their adjacent table.
+
+    This is used during scope comparison. A matching pure-text block is a
+    redundant projection of the table, not independent document scope. Exact
+    equality is required so a manual change to an unselected copy line remains
+    visible to the revision-scope gate.
+    """
+    lines = text.splitlines(keepends=True)
+    ranges: list[tuple[int, int]] = []
+    for table in _localization_table_blocks(text):
+        checklist = _pure_text_checklist_before_table(lines, int(table["start"]))
+        if checklist is None:
+            continue
+        table_values = _localization_table_copy_values(lines, table)
+        if table_values and checklist["values"] == table_values:
+            ranges.append((int(checklist["open_index"]), int(checklist["close_index"]) + 1))
+    for start, end in sorted(ranges, reverse=True):
+        del lines[start:end]
+    return "".join(lines)
+
+
 def _ascii_copy_tokens(value: str) -> set[str]:
     """Extract stable ASCII copy identifiers such as ``Task ID`` / ``taskId``."""
     tokens: set[str] = set()
@@ -619,6 +709,77 @@ def _remove_authorized_localization_rows(
     return "".join(line for index, line in enumerate(lines) if index not in removable)
 
 
+def _synchronize_linked_localization_checklists(
+    baseline_markdown: str, merged_markdown: str, copy_terms: set[str],
+) -> tuple[str, list[str]]:
+    """Project an authorized copy-table merge into its frozen text checklist.
+
+    An in-place revision is rebuilt from the baseline. When a baseline fenced
+    pure-text block exactly mirrors a localization table, the block is a second
+    representation of the same copy checklist. Leaving it at baseline while
+    bringing selected rows across creates an internally inconsistent PRD. The
+    final table is safe authority here because ``_merge_linked_localization_rows``
+    has already rejected or preserved every out-of-scope row.
+
+    This never imports a candidate fenced block. It only updates a baseline
+    mirror that the merge can map uniquely to its baseline table and that has
+    otherwise stayed baseline-equivalent in the rebuilt document.
+    """
+    if not copy_terms:
+        return merged_markdown, []
+    baseline_lines = baseline_markdown.splitlines(keepends=True)
+    merged_lines = merged_markdown.splitlines(keepends=True)
+    baseline_blocks = _localization_table_blocks(baseline_markdown)
+    merged_blocks = _localization_table_blocks(merged_markdown)
+    replacements: list[tuple[int, int, list[str]]] = []
+    claimed_baseline_tables: set[int] = set()
+
+    for merged_block in merged_blocks:
+        merged_indexes = list(merged_block["data_indexes"])
+        if not any(_linked_copy_key(merged_lines[int(index)], copy_terms) for index in merged_indexes):
+            continue
+        checklist = _pure_text_checklist_before_table(merged_lines, int(merged_block["start"]))
+        if checklist is None:
+            continue
+        baseline_index, table_failure = _matching_baseline_localization_table(
+            merged_block,
+            candidate_lines=merged_lines,
+            baseline_blocks=baseline_blocks,
+            baseline_lines=baseline_lines,
+            copy_terms=copy_terms,
+        )
+        if table_failure or baseline_index is None or baseline_index in claimed_baseline_tables:
+            continue
+        claimed_baseline_tables.add(baseline_index)
+        baseline_block = baseline_blocks[baseline_index]
+        baseline_checklist = _pure_text_checklist_before_table(
+            baseline_lines, int(baseline_block["start"]),
+        )
+        if baseline_checklist is None:
+            continue
+        baseline_values = _localization_table_copy_values(baseline_lines, baseline_block)
+        merged_values = _localization_table_copy_values(merged_lines, merged_block)
+        if (
+            not baseline_values
+            or not merged_values
+            or baseline_checklist["values"] != baseline_values
+            or checklist["values"] != baseline_checklist["values"]
+            or merged_values == baseline_values
+        ):
+            continue
+
+        newline = "\r\n" if any("\r\n" in line for line in merged_lines) else "\n"
+        replacements.append((
+            int(checklist["body_start"]),
+            int(checklist["body_end"]),
+            [f"{value}{newline}" for value in merged_values],
+        ))
+
+    for start, end, replacement in sorted(replacements, reverse=True):
+        merged_lines[start:end] = replacement
+    return "".join(merged_lines), []
+
+
 def _version_history_append_only(
     baseline_markdown: str, candidate_markdown: str,
 ) -> tuple[str, list[str], list[str]]:
@@ -755,7 +916,12 @@ def _outer_markdown(
     row_keys: set[str],
     discover_rows: bool,
 ) -> str:
-    result = _remove_selected_sections(text, selected_ids)
+    # A fenced checklist that exactly mirrors its adjacent localization table
+    # is a table-derived representation. Normalize it before removing allowed
+    # table rows so a controller-synchronized checklist is not misclassified
+    # as an unrelated global rewrite. Non-mirrors remain visible and protected.
+    result = _remove_mirrored_localization_checklists(text)
+    result = _remove_selected_sections(result, selected_ids)
     if selected_ids:
         pattern = "|".join(re.escape(item) for item in sorted(selected_ids, key=len, reverse=True))
         result = re.sub(rf"(?m)^\|\s*(?:{pattern})\s*\|.*(?:\n|$)", "", result)
@@ -1143,10 +1309,16 @@ def constrain_revision_markdown(
     derivatives = manifest.get("allowed_derivatives")
     derivatives = derivatives if isinstance(derivatives, Mapping) else {}
     if derivatives.get("linked_localization_rows"):
+        copy_terms = _selected_copy_terms(selected_sections)
         result, linked_failures = _merge_linked_localization_rows(
-            result, candidate_markdown, _selected_copy_terms(selected_sections),
+            result, candidate_markdown, copy_terms,
         )
         failures.extend(linked_failures)
+        if not linked_failures:
+            result, checklist_failures = _synchronize_linked_localization_checklists(
+                baseline_markdown, result, copy_terms,
+            )
+            failures.extend(checklist_failures)
     if derivatives.get("append_only_version_history"):
         _, added_rows, history_failures = _version_history_append_only(
             baseline_markdown, candidate_markdown,
@@ -1300,8 +1472,24 @@ def validate_revision_scope(
             failures.append("selected requirement images do not preserve the confirmed order")
 
     allowed_new = {str(path): str(digest) for path, digest in dict(manifest.get("allowed_new_assets", {})).items()}
+
+    # Asset ownership follows the revision boundary.  A replaced screenshot
+    # may be removed when it is only used by a selected requirement; assets
+    # still referenced by an unselected requirement remain compare-and-swap
+    # protected.  The previous implementation protected the entire asset tree,
+    # making the ordinary "replace old figure with new figure" operation fail.
+    protected_baseline_text = _outer_markdown(
+        baseline_markdown, selected, allow_linked_copy=False,
+        copy_terms=set(), row_keys=set(), discover_rows=False,
+    )
+    protected_asset_refs = set(markdown_image_refs(protected_baseline_text))
     for path, digest in baseline_assets.items():
-        if candidate_assets.get(path) != digest:
+        candidate_digest = candidate_assets.get(path)
+        if candidate_digest is None:
+            if path in protected_asset_refs:
+                failures.append(f"protected asset changed or was removed: {path}")
+            continue
+        if candidate_digest != digest:
             failures.append(f"protected asset changed or was removed: {path}")
     for path, digest in candidate_assets.items():
         if path not in baseline_assets and allowed_new.get(path) != digest:
