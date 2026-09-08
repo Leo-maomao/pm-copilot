@@ -244,9 +244,10 @@ def _document(state: dict[str, Any]) -> PrdDocument:
         if not source.is_file():
             raise DeliveryInputError("追加已实现功能需要目标运行目录中的 prd.md。")
         source_markdown = source.read_text(encoding="utf-8")
-        if not re.search(r"^###\s+5\.1\s+", source_markdown, re.M):
-            raise DeliveryInputError("追加已实现功能需要基线 PRD 中存在 5.1 需求。")
-        requirement = _requirement(request, "5.2")
+        identifiers = [int(value) for value in re.findall(r"^###\s+5\.(\d+)\s+", source_markdown, re.M)]
+        if not identifiers:
+            raise DeliveryInputError("追加已实现功能需要基线 PRD 中至少一个 5.x 需求。")
+        requirement = _requirement(request, f"5.{max(identifiers) + 1}")
         evidence.append(Evidence(str(source), "append_baseline", _sha(source)))
         return PrdDocument(_title(request), mode, request, (requirement,), tuple(evidence), source_markdown)
     else:
@@ -275,28 +276,16 @@ def _render_requirement_detail(requirement: Requirement) -> str:
     ])
 
 
-def _shift_append_identifiers(markdown: str) -> str:
-    """Open 5.2 by moving each existing 5.2+ reference exactly once."""
-
-    identifiers = sorted({int(value) for value in re.findall(r"(?<!\d)5\.(\d+)(?!\d)", markdown) if int(value) >= 2}, reverse=True)
-    for identifier in identifiers:
-        markdown = re.sub(
-            rf"(?<!\d)5\.{identifier}(?!\d)", f"5.{identifier + 1}", markdown,
-        )
-    return markdown
-
-
-def _insert_after_5_1(markdown: str, list_row: str, detail: str) -> str:
-    shifted = _shift_append_identifiers(markdown)
-    list_match = re.search(r"^\|\s*5\.1\s*\|.*(?:\n|$)", shifted, re.M)
+def _insert_after_last_requirement(markdown: str, identifier: str, list_row: str, detail: str) -> str:
+    list_match = re.search(rf"^\|\s*{re.escape(identifier)}\s*\|.*(?:\n|$)", markdown, re.M)
     if not list_match:
-        raise DeliveryInputError("追加已实现功能需要基线 PRD 的需求清单中存在 5.1。")
-    updated = shifted[:list_match.end()] + list_row + shifted[list_match.end():]
-    detail_match = re.search(r"^###\s+5\.1\s+.*(?:\n|$)", updated, re.M)
+        raise DeliveryInputError(f"追加已实现功能需要基线 PRD 的需求清单中存在 {identifier}。")
+    updated = markdown[:list_match.end()] + list_row + markdown[list_match.end():]
+    detail_match = re.search(rf"^###\s+{re.escape(identifier)}\s+.*(?:\n|$)", updated, re.M)
     if not detail_match:
-        raise DeliveryInputError("追加已实现功能需要基线 PRD 的需求详情中存在 5.1。")
-    next_detail = re.search(r"^###\s+5\.\d+\s+|^##\s+", updated[detail_match.end():], re.M)
-    insertion = detail_match.end() + (next_detail.start() if next_detail else len(updated[detail_match.end():]))
+        raise DeliveryInputError(f"追加已实现功能需要基线 PRD 的需求详情中存在 {identifier}。")
+    next_section = re.search(r"^##\s+", updated[detail_match.end():], re.M)
+    insertion = detail_match.end() + (next_section.start() if next_section else len(updated[detail_match.end():]))
     prefix = updated[:insertion].rstrip() + "\n\n"
     suffix = updated[insertion:].lstrip("\n")
     return prefix + detail + "\n" + suffix
@@ -309,7 +298,10 @@ def _render_markdown(document: PrdDocument) -> str:
             f"| {requirement.identifier} | {requirement.name} | {requirement.user} | "
             f"{requirement.scenario} | {requirement.value} | {requirement.name} | P1 | 已实现证据 |\n"
         )
-        return _insert_after_5_1(document.source_markdown, list_row, _render_requirement_detail(requirement))
+        previous_identifier = f"5.{int(requirement.identifier.split('.', 1)[1]) - 1}"
+        return _insert_after_last_requirement(
+            document.source_markdown, previous_identifier, list_row, _render_requirement_detail(requirement),
+        )
     if document.mode == "prd_revision" and document.source_markdown:
         revised = document.source_markdown
         for req in document.requirements:

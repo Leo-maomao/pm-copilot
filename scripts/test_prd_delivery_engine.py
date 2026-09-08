@@ -74,17 +74,19 @@ class PrdDeliveryEngineTest(unittest.TestCase):
             folder = root / "composition"
             self.deliver(folder, "--request", "组合入口和结果生成 PRD", "--new-requirement", "--extract-from", str(first), "--extract-from", str(second), "--extract-selector", "5.1", "--extract-selector", "5.2", "--asset", str(asset))
             self.assertTrue((folder / "assets" / "review.png").is_file())
+            baseline = (folder / "prd.md").read_text(encoding="utf-8")
+            (folder / "prd.md").write_text(baseline + "\n## 六、埋点需求\n\n| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |\n| --- | --- | --- | --- | --- |\n", encoding="utf-8")
             self.deliver(
                 folder,
                 "--request", "将当前已实现的“字幕擦除”功能合并追加到此。该功能位于视频结果节点顶部工具栏，入口位置在“片段”。",
                 "--append-implemented-feature", "--asset", str(asset),
             )
             markdown = (folder / "prd.md").read_text(encoding="utf-8")
-            self.assertIn("### 5.2 字幕擦除", markdown)
-            self.assertIn("### 5.3 组合来源 second.md 中的 结果", markdown)
-            self.assertLess(markdown.index("### 5.1 组合来源 first.md 中的 入口"), markdown.index("### 5.2 字幕擦除"))
-            self.assertLess(markdown.index("### 5.2 字幕擦除"), markdown.index("### 5.3 组合来源 second.md 中的 结果"))
-            self.assertLess(markdown.index("| 5.1 | 组合来源 first.md 中的 入口 |"), markdown.index("| 5.2 | 字幕擦除 |"))
+            self.assertIn("### 5.2 组合来源 second.md 中的 结果", markdown)
+            self.assertIn("### 5.3 字幕擦除", markdown)
+            self.assertLess(markdown.index("### 5.2 组合来源 second.md 中的 结果"), markdown.index("### 5.3 字幕擦除"))
+            self.assertLess(markdown.index("### 5.3 字幕擦除"), markdown.index("## 六、埋点需求"))
+            self.assertLess(markdown.index("| 5.2 | 组合来源 second.md 中的 结果 |"), markdown.index("| 5.3 | 字幕擦除 |"))
             self.assertIn('[[prd-detail-media src="./assets/review.png"', markdown)
             html = (folder / "prd.html").read_text(encoding="utf-8")
             self.assertIn('class="prd-detail-media-block"', html)
