@@ -59,8 +59,9 @@ Understand -> Gather evidence -> Clarify if required -> Draft PRD
   excluded. `--implemented-evidence` is optional evidence input.
 - To continue a completed PRD for the same delivery period, invoke the
   controller with `--run-folder <current-prd> --append-implemented-feature`.
-  It appends only newly implemented, consecutively numbered `5.x` requirements
-  and preserves the existing PRD and assets. Omitting that
+  It inserts one newly implemented `5.2` requirement immediately after `5.1`,
+  shifts every existing `5.2+` reference forward, and preserves the existing
+  PRD and assets. Omitting that
   flag creates a new independent PRD. The PRD Manager only aggregates and
   browses completed PRDs; it never selects a current PRD or owns period state.
 - Revisions require explicit existing requirement IDs. The controller freezes

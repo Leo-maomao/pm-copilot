@@ -47,6 +47,8 @@ class FigureDecision:
     kind: str = "placeholder"
     missing_reason: str = "No runnable frontend evidence was available during deterministic delivery."
     replacement_action: str = "Replace the controlled placeholder with a reviewed frontend figure."
+    path: str | None = None
+    asset_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -157,13 +159,25 @@ def _title(request: str) -> str:
     return text[:48] or "产品需求"
 
 
+def _requirement_name(request: str) -> str:
+    """Extract the feature noun without promoting an append instruction to a title."""
+
+    quoted_feature = re.search(r"[\"“]([^\"”]{1,32})[\"”]\s*功能", request)
+    if quoted_feature:
+        return quoted_feature.group(1).strip()
+    text = re.split(r"[。！？!?\n]", request, maxsplit=1)[0]
+    text = re.sub(r"(?:将当前已实现的|将已实现的|追加到此|合并追加|追加|还原|生成|创建|功能|PRD|prd)", "", text, flags=re.I)
+    text = text.strip(" ：:，,。.")
+    return text[:32] or _title(request)
+
+
 def _user(request: str) -> str:
     match = re.search(r"(?:为|面向|给)([^，。；;、\s]{2,16})(?:增加|提供|支持|生成|优化|创建)", request)
     return match.group(1) if match else "相关业务用户"
 
 
 def _requirement(request: str, identifier: str = "5.1") -> Requirement:
-    name = _title(request)
+    name = _requirement_name(request)
     user = _user(request)
     evidence = Evidence(source="user_request", kind="confirmed_request", text=request)
     return Requirement(
@@ -230,8 +244,9 @@ def _document(state: dict[str, Any]) -> PrdDocument:
         if not source.is_file():
             raise DeliveryInputError("追加已实现功能需要目标运行目录中的 prd.md。")
         source_markdown = source.read_text(encoding="utf-8")
-        identifiers = [int(value) for value in re.findall(r"^###\s+5\.(\d+)\s+", source_markdown, re.M)]
-        requirement = _requirement(request, f"5.{max(identifiers, default=0) + 1}")
+        if not re.search(r"^###\s+5\.1\s+", source_markdown, re.M):
+            raise DeliveryInputError("追加已实现功能需要基线 PRD 中存在 5.1 需求。")
+        requirement = _requirement(request, "5.2")
         evidence.append(Evidence(str(source), "append_baseline", _sha(source)))
         return PrdDocument(_title(request), mode, request, (requirement,), tuple(evidence), source_markdown)
     else:
@@ -239,22 +254,62 @@ def _document(state: dict[str, Any]) -> PrdDocument:
     return PrdDocument(_title(request), mode, request, requirements, tuple(evidence))
 
 
+def _figure_markup(requirement: Requirement) -> str:
+    figure = requirement.figure
+    if figure and figure.kind in {"real_capture", "reconstructed"} and figure.path:
+        asset = Path(figure.path).name
+        return (
+            f'[[prd-detail-media src="./assets/{asset}" alt="{requirement.name}-关键状态" '
+            f'copy="一、关键状态<br>1. 用户可见入口、操作结果和反馈与本需求保持一致"]]'
+        )
+    return f"占位图：{requirement.name}-关键状态.png"
+
+
+def _render_requirement_detail(requirement: Requirement) -> str:
+    return "\n".join([
+        f"### {requirement.identifier} {requirement.name}", "", "| 维度 | 需求说明 |", "| --- | --- |",
+        f"| 用户与场景 | {requirement.scenario}<br>{requirement.value} |",
+        f"| 需求入口 | {requirement.entry} |",
+        f"| 需求详情 | {requirement.behavior}<br>{_figure_markup(requirement)} |",
+        f"| 设计与交互 | {requirement.interaction} |", "",
+    ])
+
+
+def _shift_append_identifiers(markdown: str) -> str:
+    """Open 5.2 by moving each existing 5.2+ reference exactly once."""
+
+    identifiers = sorted({int(value) for value in re.findall(r"(?<!\d)5\.(\d+)(?!\d)", markdown) if int(value) >= 2}, reverse=True)
+    for identifier in identifiers:
+        markdown = re.sub(
+            rf"(?<!\d)5\.{identifier}(?!\d)", f"5.{identifier + 1}", markdown,
+        )
+    return markdown
+
+
+def _insert_after_5_1(markdown: str, list_row: str, detail: str) -> str:
+    shifted = _shift_append_identifiers(markdown)
+    list_match = re.search(r"^\|\s*5\.1\s*\|.*(?:\n|$)", shifted, re.M)
+    if not list_match:
+        raise DeliveryInputError("追加已实现功能需要基线 PRD 的需求清单中存在 5.1。")
+    updated = shifted[:list_match.end()] + list_row + shifted[list_match.end():]
+    detail_match = re.search(r"^###\s+5\.1\s+.*(?:\n|$)", updated, re.M)
+    if not detail_match:
+        raise DeliveryInputError("追加已实现功能需要基线 PRD 的需求详情中存在 5.1。")
+    next_detail = re.search(r"^###\s+5\.\d+\s+|^##\s+", updated[detail_match.end():], re.M)
+    insertion = detail_match.end() + (next_detail.start() if next_detail else len(updated[detail_match.end():]))
+    prefix = updated[:insertion].rstrip() + "\n\n"
+    suffix = updated[insertion:].lstrip("\n")
+    return prefix + detail + "\n" + suffix
+
+
 def _render_markdown(document: PrdDocument) -> str:
     if document.mode == "implemented_feature_prd" and document.source_markdown:
         requirement = document.requirements[0]
         list_row = (
             f"| {requirement.identifier} | {requirement.name} | {requirement.user} | "
-            f"{requirement.scenario} | {requirement.value} | {requirement.name} | P1 | 已实现证据 |\n\n"
+            f"{requirement.scenario} | {requirement.value} | {requirement.name} | P1 | 已实现证据 |\n"
         )
-        detail = "\n".join([
-            f"### {requirement.identifier} {requirement.name}", "", "| 维度 | 需求说明 |", "| --- | --- |",
-            f"| 用户与场景 | {requirement.scenario}<br>{requirement.value} |",
-            f"| 需求入口 | {requirement.entry} |",
-            f"| 需求详情 | {requirement.behavior}<br>占位图：{requirement.name}-关键状态.png |",
-            f"| 设计与交互 | {requirement.interaction} |", "",
-        ])
-        updated = document.source_markdown.replace("## 五、需求详情", list_row + "## 五、需求详情", 1)
-        return updated.rstrip() + "\n\n" + detail
+        return _insert_after_5_1(document.source_markdown, list_row, _render_requirement_detail(requirement))
     if document.mode == "prd_revision" and document.source_markdown:
         revised = document.source_markdown
         for req in document.requirements:
@@ -273,7 +328,7 @@ def _render_markdown(document: PrdDocument) -> str:
                 line = lines[index]
                 if re.match(r"^\|\s*需求详情\s*\|", line):
                     ending = "\n" if line.endswith("\n") else ""
-                    lines[index] = f"| 需求详情 | {req.behavior}<br>占位图：{req.name}-关键状态.png |{ending}"
+                    lines[index] = f"| 需求详情 | {req.behavior}<br>{_figure_markup(req)} |{ending}"
                     break
             else:
                 raise DeliveryInputError(f"selected requirement has no editable 需求详情 row: {req.identifier}")
@@ -285,7 +340,7 @@ def _render_markdown(document: PrdDocument) -> str:
         lines.append(f"| {req.identifier} | {req.name} | {req.user} | {req.scenario} | {req.value} | {req.name} | P1 | 用户确认请求 |")
     lines.extend(["", "## 五、需求详情", ""])
     for req in document.requirements:
-        lines.extend([f"### {req.identifier} {req.name}", "", "| 维度 | 需求说明 |", "| --- | --- |", f"| 用户与场景 | {req.scenario}<br>{req.value} |", f"| 需求入口 | {req.entry} |", f"| 需求详情 | {req.behavior}<br>占位图：{req.name}-关键状态.png |", f"| 设计与交互 | {req.interaction} |", ""])
+        lines.extend(_render_requirement_detail(req).splitlines())
     return "\n".join(lines) + "\n"
 
 
@@ -347,13 +402,76 @@ def _run_check(command: list[str], cwd: Path) -> dict[str, str]:
     return {"command": " ".join(command), "status": "passed" if result.returncode == 0 else "failed", "stdout": result.stdout[-2000:], "stderr": result.stderr[-2000:]}
 
 
+def _copy_assets(state: dict[str, Any], stage: Path) -> None:
+    """Stage preserved and supplied assets before resolving figure references."""
+
+    baseline_assets = Path(state["folder"]) / "assets"
+    if state.get("append_existing") and baseline_assets.is_dir():
+        shutil.copytree(baseline_assets, stage / "assets", dirs_exist_ok=True)
+    for asset in state.get("input_assets", []):
+        source = Path(asset)
+        if not source.is_file():
+            raise DeliveryInputError(f"input asset is missing: {source}")
+        destination = stage / "assets" / source.name
+        if destination.exists() and _sha(destination) != _sha(source):
+            raise DeliveryInputError(f"input assets have conflicting names: {source.name}")
+        if not destination.exists():
+            shutil.copy2(source, destination)
+
+
+def _materialize_figures(document: PrdDocument, state: dict[str, Any], stage: Path) -> PrdDocument:
+    """Resolve figures into staged assets; capture failures remain controlled placeholders."""
+
+    image_assets = [
+        stage / "assets" / Path(value).name
+        for value in state.get("input_assets", [])
+        if Path(value).suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+    ]
+    requirements: list[Requirement] = []
+    for requirement in document.requirements:
+        if not requirement.figure:
+            requirements.append(requirement)
+            continue
+        asset = image_assets[0] if image_assets else None
+        if asset and asset.is_file():
+            figure = FigureDecision(
+                requirement_id=requirement.identifier,
+                kind="real_capture",
+                missing_reason="",
+                replacement_action="",
+                path=f"assets/{asset.name}",
+                asset_sha256=_sha(asset),
+            )
+        else:
+            asset_name = f"{_slug(requirement.name)}-关键状态.png"
+            capture = _run_check(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "generate_reconstructed_figure.py"),
+                    "--run-folder", str(stage), "--asset-name", asset_name,
+                    "--title", requirement.name, "--state", "关键状态",
+                ],
+                ROOT,
+            )
+            reconstructed = stage / "assets" / asset_name
+            if capture["status"] == "passed" and reconstructed.is_file():
+                figure = FigureDecision(
+                    requirement_id=requirement.identifier,
+                    kind="reconstructed",
+                    missing_reason="",
+                    replacement_action="",
+                    path=f"assets/{asset_name}",
+                    asset_sha256=_sha(reconstructed),
+                )
+            else:
+                figure = requirement.figure
+        requirements.append(replace(requirement, figure=figure))
+    return replace(document, requirements=tuple(requirements))
+
+
 def _deliver(state: dict[str, Any]) -> DeliveryResult:
     canonical = Path(state["folder"])
     document = _document(state)
-    markdown = _render_markdown(document)
-    semantic = _semantic_failures(document, markdown)
-    if semantic:
-        raise RuntimeError("semantic validation failed: " + "; ".join(semantic))
     stage_parent = canonical.parent
     with tempfile.TemporaryDirectory(prefix=f".{canonical.name}.stage-", dir=stage_parent) as temp:
         stage = Path(temp)
@@ -371,15 +489,12 @@ def _deliver(state: dict[str, Any]) -> DeliveryResult:
         if document.mode == "prd_composition":
             for index, source in enumerate(state.get("extract_from", []), 1):
                 shutil.copy2(Path(source), stage / "source-material" / f"source-{index}.md")
-        for asset in state.get("input_assets", []):
-            source = Path(asset)
-            if not source.is_file():
-                raise DeliveryInputError(f"input asset is missing: {source}")
-            destination = stage / "assets" / source.name
-            if destination.exists() and _sha(destination) != _sha(source):
-                raise DeliveryInputError(f"input assets have conflicting names: {source.name}")
-            if not destination.exists():
-                shutil.copy2(source, destination)
+        _copy_assets(state, stage)
+        document = _materialize_figures(document, state, stage)
+        markdown = _render_markdown(document)
+        semantic = _semantic_failures(document, markdown)
+        if semantic:
+            raise RuntimeError("semantic validation failed: " + "; ".join(semantic))
         (stage / "prd.md").write_text(markdown, encoding="utf-8")
         render = _run_check([sys.executable, str(ROOT / "scripts" / "render_prd_html.py"), str(stage)], ROOT)
         if render["status"] != "passed":

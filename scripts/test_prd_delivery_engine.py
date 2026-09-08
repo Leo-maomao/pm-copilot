@@ -63,16 +63,32 @@ class PrdDeliveryEngineTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             asset = root / "review.png"
-            asset.write_bytes(b"review evidence")
+            asset.write_bytes(bytes.fromhex(
+                "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+                "0000000d49444154789c6360f8cfc000000401010018dd8db00000000049454e44ae426082"
+            ))
             first = root / "first.md"
             second = root / "second.md"
             first.write_text("# A\n\n### 5.1 入口\n", encoding="utf-8")
             second.write_text("# B\n\n### 5.2 结果\n", encoding="utf-8")
             folder = root / "composition"
             self.deliver(folder, "--request", "组合入口和结果生成 PRD", "--new-requirement", "--extract-from", str(first), "--extract-from", str(second), "--extract-selector", "5.1", "--extract-selector", "5.2", "--asset", str(asset))
-            self.assertEqual((folder / "assets" / "review.png").read_bytes(), b"review evidence")
-            self.deliver(folder, "--request", "追加已实现的审批结果通知功能", "--append-implemented-feature")
-            self.assertIn("### 5.3", (folder / "prd.md").read_text(encoding="utf-8"))
+            self.assertTrue((folder / "assets" / "review.png").is_file())
+            self.deliver(
+                folder,
+                "--request", "将当前已实现的“字幕擦除”功能合并追加到此。该功能位于视频结果节点顶部工具栏，入口位置在“片段”。",
+                "--append-implemented-feature", "--asset", str(asset),
+            )
+            markdown = (folder / "prd.md").read_text(encoding="utf-8")
+            self.assertIn("### 5.2 字幕擦除", markdown)
+            self.assertIn("### 5.3 组合来源 second.md 中的 结果", markdown)
+            self.assertLess(markdown.index("### 5.1 组合来源 first.md 中的 入口"), markdown.index("### 5.2 字幕擦除"))
+            self.assertLess(markdown.index("### 5.2 字幕擦除"), markdown.index("### 5.3 组合来源 second.md 中的 结果"))
+            self.assertLess(markdown.index("| 5.1 | 组合来源 first.md 中的 入口 |"), markdown.index("| 5.2 | 字幕擦除 |"))
+            self.assertIn('[[prd-detail-media src="./assets/review.png"', markdown)
+            html = (folder / "prd.html").read_text(encoding="utf-8")
+            self.assertIn('class="prd-detail-media-block"', html)
+            self.assertIn('src="./assets/review.png"', html)
 
 
 if __name__ == "__main__":
