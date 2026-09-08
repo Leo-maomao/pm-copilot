@@ -146,9 +146,12 @@ def _load_state(folder: Path) -> dict[str, Any]:
 
 def _question(request: str, mode: str) -> str | None:
     if mode == "prd_revision":
-        meaningful = re.sub(r"(?:修订|更新|当前项目|PRD|prd|产品需求文档|需求文档)", "", request, flags=re.I)
-        meaningful = re.sub(r"(?:~?/|/)[^\s]+", "", meaningful).strip(" ：:，,。.")
-        if len(meaningful) < 4:
+        scope = re.sub(
+            r"(?:请|使用|用|当前任务|当前项目|绑定|最新|PM\s*Copilot|修订|更新|现有|目标|PRD|prd|产品需求文档|需求文档)",
+            "", request, flags=re.I,
+        )
+        scope = re.sub(r"(?:~?/|/)[^\s]+", "", scope).strip(" ：:，,。.")
+        if not re.search(r"新增|删除|合并|标题|章节|位置|入口|流程|规则|状态|反馈|文案|图示|截图|图片|替换|功能|验收|权限|用户", scope):
             return "请集中说明要新增还是修订哪些需求、目标标题和章节位置，以及每张截图对应的需求状态。"
         return None
     if mode == "prd_composition":

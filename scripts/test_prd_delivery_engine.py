@@ -81,7 +81,7 @@ class PrdDeliveryEngineTest(unittest.TestCase):
             folder = Path(temporary) / "revision"
             self.deliver(folder, "--request", "生成字幕擦除功能 PRD", "--new-requirement")
             result = self.run_controller(
-                "--request", f"修订当前项目 PRD: {folder / 'prd.md'}",
+                "--request", f"请用当前任务绑定的最新 PM Copilot 修订现有 PRD，目标: {folder / 'prd.md'}",
                 "--run-folder", str(folder), "--revise", "--revision-requirement-id", "5.1",
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
