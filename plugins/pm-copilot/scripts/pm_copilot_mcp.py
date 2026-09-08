@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -31,6 +32,7 @@ def _selected_runtime_home() -> Path | None:
 
 RUNTIME_HOME = _selected_runtime_home()
 CONTROLLER = RUNTIME_HOME / "scripts/prd_request_controller.py" if RUNTIME_HOME else None
+IMAGE_PATH_RE = re.compile(r"(?<!\S)(?:/|~/)[^\s\"'<>]+?\.(?:png|jpe?g|webp)(?!\w)", re.IGNORECASE)
 
 
 def _error(message: str) -> dict[str, Any]:
@@ -76,7 +78,19 @@ def _invoke(folder: Path, args: list[str], *, background: bool = False) -> dict[
     return payload
 
 
-def start_request(request: str, project_root: str, run_folder: str = "", append_implemented_feature: bool = False, revise: bool = False, revision_requirement_ids: list[str] | None = None) -> dict[str, Any]:
+def _image_assets(request: str, asset_paths: list[str] | None) -> list[str]:
+    candidates = [*(asset_paths or []), *(match.group(0) for match in IMAGE_PATH_RE.finditer(request))]
+    resolved: list[str] = []
+    for value in candidates:
+        path = Path(value).expanduser()
+        if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+            absolute = str(path.resolve())
+            if absolute not in resolved:
+                resolved.append(absolute)
+    return resolved
+
+
+def start_request(request: str, project_root: str, run_folder: str = "", append_implemented_feature: bool = False, revise: bool = False, revision_requirement_ids: list[str] | None = None, asset_paths: list[str] | None = None) -> dict[str, Any]:
     if not request.strip():
         return _error("request must not be empty")
     project = Path(project_root).expanduser().resolve()
@@ -98,6 +112,8 @@ def start_request(request: str, project_root: str, run_folder: str = "", append_
             command.extend(["--revision-requirement-id", identifier])
     if append_implemented_feature:
         command.append("--append-implemented-feature")
+    for asset in _image_assets(request, asset_paths):
+        command.extend(["--asset", asset])
     if CONTROLLER is None or not CONTROLLER.is_file():
         return _error("PM Copilot v2 source checkout is unavailable. Reinstall the plugin and start a new task.")
     result = subprocess.run(command, cwd=project, text=True, capture_output=True, check=False)
@@ -121,7 +137,7 @@ def confirm_delivery(run_folder: str) -> dict[str, Any]:
     return _error("run is not ready") if state.get("status") != "ready" else _invoke(folder, ["--confirm"], background=True)
 
 
-TOOLS = [{"name": "prd_start_request", "description": "Start a v2 PRD request.", "inputSchema": {"type": "object", "properties": {"request": {"type": "string"}, "project_root": {"type": "string"}, "run_folder": {"type": "string"}, "append_implemented_feature": {"type": "boolean"}, "revise": {"type": "boolean"}, "revision_requirement_ids": {"type": "array", "items": {"type": "string"}}}, "required": ["request", "project_root"]}}, {"name": "prd_run_status", "description": "Read v2 PRD run status.", "inputSchema": {"type": "object", "properties": {"run_folder": {"type": "string"}}, "required": ["run_folder"]}}, {"name": "prd_submit_answer", "description": "Answer the sole consolidated product question.", "inputSchema": {"type": "object", "properties": {"run_folder": {"type": "string"}, "answer": {"type": "string"}}, "required": ["run_folder", "answer"]}}, {"name": "prd_confirm_delivery", "description": "Confirm and deliver the v2 PRD.", "inputSchema": {"type": "object", "properties": {"run_folder": {"type": "string"}}, "required": ["run_folder"]}}]
+TOOLS = [{"name": "prd_start_request", "description": "Start a v2 PRD request. Pass local image files in asset_paths; absolute image paths in request are also recognized.", "inputSchema": {"type": "object", "properties": {"request": {"type": "string"}, "project_root": {"type": "string"}, "run_folder": {"type": "string"}, "append_implemented_feature": {"type": "boolean"}, "revise": {"type": "boolean"}, "revision_requirement_ids": {"type": "array", "items": {"type": "string"}}, "asset_paths": {"type": "array", "items": {"type": "string"}}}, "required": ["request", "project_root"]}}, {"name": "prd_run_status", "description": "Read v2 PRD run status.", "inputSchema": {"type": "object", "properties": {"run_folder": {"type": "string"}}, "required": ["run_folder"]}}, {"name": "prd_submit_answer", "description": "Answer the sole consolidated product question.", "inputSchema": {"type": "object", "properties": {"run_folder": {"type": "string"}, "answer": {"type": "string"}}, "required": ["run_folder", "answer"]}}, {"name": "prd_confirm_delivery", "description": "Confirm and deliver the v2 PRD.", "inputSchema": {"type": "object", "properties": {"run_folder": {"type": "string"}}, "required": ["run_folder"]}}]
 
 
 def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
@@ -131,7 +147,7 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
     args = message.get("params", {}).get("arguments", {})
     try:
         name = message["params"]["name"]
-        payload = start_request(str(args["request"]), str(args["project_root"]), str(args.get("run_folder", "")), bool(args.get("append_implemented_feature", False)), bool(args.get("revise", False)), args.get("revision_requirement_ids")) if name == "prd_start_request" else run_summary(str(args["run_folder"])) if name == "prd_run_status" else submit_answer(str(args["run_folder"]), str(args["answer"])) if name == "prd_submit_answer" else confirm_delivery(str(args["run_folder"])) if name == "prd_confirm_delivery" else _error("unknown tool")
+        payload = start_request(str(args["request"]), str(args["project_root"]), str(args.get("run_folder", "")), bool(args.get("append_implemented_feature", False)), bool(args.get("revise", False)), args.get("revision_requirement_ids"), args.get("asset_paths")) if name == "prd_start_request" else run_summary(str(args["run_folder"])) if name == "prd_run_status" else submit_answer(str(args["run_folder"]), str(args["answer"])) if name == "prd_submit_answer" else confirm_delivery(str(args["run_folder"])) if name == "prd_confirm_delivery" else _error("unknown tool")
     except (KeyError, TypeError, ValueError) as error: payload = _error(str(error))
     return {"jsonrpc": "2.0", "id": message.get("id"), "result": {"content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}], "isError": not payload.get("ok", False)}}
 

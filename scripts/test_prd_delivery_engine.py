@@ -45,7 +45,8 @@ class PrdDeliveryEngineTest(unittest.TestCase):
 
             revision = root / "revision"
             revision.mkdir()
-            revision.joinpath("prd.md").write_text((root / "new" / "prd.md").read_text(encoding="utf-8"), encoding="utf-8")
+            baseline = (root / "new" / "prd.md").read_text(encoding="utf-8").replace("一、主流程", "一、旧主流程", 1)
+            revision.joinpath("prd.md").write_text(baseline, encoding="utf-8")
             self.deliver(revision, "--request", "更新审批提醒的失败反馈", "--revise", "--revision-requirement-id", "5.1")
 
     def test_missing_product_context_asks_once_before_confirmation(self) -> None:

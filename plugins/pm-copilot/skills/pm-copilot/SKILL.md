@@ -22,6 +22,12 @@ requirement IDs. For an implemented-feature append pass the selected
 `run_folder` and `append_implemented_feature: true`. Never route multiple
 target PRDs through a revision.
 
+Pass user-provided frontend images through `asset_paths`. Absolute local image
+paths included in the request text are also collected automatically. For a
+revision, existing target assets are preserved and a selected requirement uses
+a matching supplied or existing image before falling back to reconstruction or
+a controlled placeholder.
+
 Before reporting a failure, call the applicable MCP tool and report only its
 returned `controller_exit_code`, `controller_stderr`, `status`, and
 `last_error`; a historical run log is not evidence of a current failure.

@@ -421,6 +421,8 @@ def _semantic_failures(document: PrdDocument, markdown: str) -> list[str]:
             failures.append(f"{requirement.identifier} is absent from requirement details")
         if f"| {requirement.identifier} | {requirement.name} |" not in markdown:
             failures.append(f"{requirement.identifier} is absent from requirement list")
+    if document.mode == "prd_revision" and markdown == document.source_markdown:
+        failures.append("selected revision produced no visible PRD change")
     return failures
 
 
