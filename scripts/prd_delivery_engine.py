@@ -398,7 +398,7 @@ def _copy_assets(state: dict[str, Any], stage: Path) -> None:
     """Stage preserved and supplied assets before resolving figure references."""
 
     baseline_assets = Path(state["folder"]) / "assets"
-    if state.get("append_existing") and baseline_assets.is_dir():
+    if (state.get("append_existing") or state.get("task_mode") == "prd_revision") and baseline_assets.is_dir():
         shutil.copytree(baseline_assets, stage / "assets", dirs_exist_ok=True)
     for asset in state.get("input_assets", []):
         source = Path(asset)
@@ -425,6 +425,16 @@ def _materialize_figures(document: PrdDocument, state: dict[str, Any], stage: Pa
             requirements.append(requirement)
             continue
         asset = image_assets[0] if image_assets else None
+        if asset is None and document.mode == "prd_revision":
+            asset = next(
+                (
+                    candidate for candidate in sorted((stage / "assets").iterdir())
+                    if candidate.is_file()
+                    and candidate.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+                    and requirement.name in candidate.stem
+                ),
+                None,
+            )
         if asset and asset.is_file():
             figure = FigureDecision(
                 requirement_id=requirement.identifier,
@@ -525,7 +535,7 @@ def _deliver(state: dict[str, Any]) -> DeliveryResult:
 def _start(args: argparse.Namespace, cwd: Path) -> tuple[Path, dict[str, Any]]:
     request = (args.request or "").strip()
     folder = Path(args.run_folder).expanduser().resolve() if args.run_folder else _new_folder(request, cwd)
-    if folder.exists() and (folder / STATE_NAME).exists() and not args.append_implemented_feature:
+    if folder.exists() and (folder / STATE_NAME).exists() and not args.append_implemented_feature and not args.revise:
         return folder, _load_state(folder)
     if not request:
         raise DeliveryInputError("request is required for a new v2 PRD run")

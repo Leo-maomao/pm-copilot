@@ -59,6 +59,22 @@ class PrdDeliveryEngineTest(unittest.TestCase):
             completed = answered
             self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
 
+    def test_revision_reexecutes_completed_run_and_reuses_matching_figure_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision"
+            self.deliver(folder, "--request", "生成“字幕擦除”功能 PRD", "--new-requirement")
+            asset = folder / "assets" / "字幕擦除-入口.png"
+            asset.write_bytes(bytes.fromhex(
+                "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+                "0000000d49444154789c6360f8cfc000000401010018dd8db00000000049454e44ae426082"
+            ))
+            self.deliver(folder, "--request", "更新字幕擦除的失败反馈", "--revise", "--revision-requirement-id", "5.1")
+            markdown = (folder / "prd.md").read_text(encoding="utf-8")
+            trace = (folder / "run-log.yaml").read_text(encoding="utf-8")
+            self.assertIn('[[prd-detail-media src="./assets/字幕擦除-入口.png"', markdown)
+            self.assertIn("revised_requirement_ids:\n  - '5.1'", trace)
+            self.assertIn('src="./assets/字幕擦除-入口.png"', (folder / "prd.html").read_text(encoding="utf-8"))
+
     def test_assets_selectors_and_append_share_the_same_transaction(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
