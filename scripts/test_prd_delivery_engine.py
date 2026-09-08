@@ -183,6 +183,47 @@ class PrdDeliveryEngineTest(unittest.TestCase):
             ):
                 self.assertIn(rule, markdown)
 
+    def test_implemented_append_syncs_document_sections_and_chinese_copy_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "append"
+            self.deliver(folder, "--request", "生成导出功能 PRD")
+            request = (
+                "将当前已实现的“导出中心”功能追加合并到现有 PRD。"
+                "用户调研显示管理员需要在导出完成后立即确认结果。"
+                "新增中文文案为“导出完成”和“重新导出”，英文文案为“Export complete”。"
+                "埋点事件：查看导出结果(export_result_view)。"
+            )
+            self.deliver(folder, "--request", request, "--append-implemented-feature")
+            markdown = (folder / "prd.md").read_text(encoding="utf-8")
+            self.assertIn("# 导出功能、导出中心 -", markdown)
+            self.assertIn("追加已实现功能：导出中心", markdown)
+            self.assertIn("本次新增“导出中心”", markdown)
+            self.assertIn("用户调研显示管理员需要在导出完成后立即确认结果", markdown)
+            self.assertIn("| 5.2 | 导出中心 |", markdown)
+            self.assertIn("### 5.2 导出中心", markdown)
+            self.assertIn("## 六、多语言需求", markdown)
+            self.assertIn("导出完成", markdown)
+            self.assertIn("重新导出", markdown)
+            self.assertNotIn("Export complete", markdown)
+            self.assertIn("## 七、埋点需求", markdown)
+            self.assertIn("| 查看导出结果 | export_result_view |", markdown)
+
+    def test_implemented_append_rejects_incompatible_baseline_template(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "append"
+            self.deliver(folder, "--request", "生成导出功能 PRD")
+            baseline = (folder / "prd.md").read_text(encoding="utf-8")
+            folder.joinpath("prd.md").write_text(
+                baseline.replace("| 详情编号 | 需求名称 |", "| 编号 | 需求名称 |", 1),
+                encoding="utf-8",
+            )
+            result = self.run_controller(
+                "--request", "将当前已实现的“导出中心”功能追加合并到现有 PRD。",
+                "--run-folder", str(folder), "--append-implemented-feature",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("需求清单表头不符合最新版模板", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -87,6 +87,15 @@ class DeliveryResult:
     error: str = ""
 
 
+@dataclass(frozen=True)
+class AppendBaselineFormat:
+    """The structural contract inherited by an implemented-feature append."""
+
+    list_header: str
+    detail_header: str
+    detail_labels: tuple[str, ...]
+
+
 class DeliveryInputError(ValueError):
     """A missing product decision, distinct from an execution error."""
 
@@ -201,6 +210,11 @@ def _confirmed_constraints(request: str) -> tuple[str, ...]:
         value = candidate.strip(" ：:，,；;")
         if not value or not _CONSTRAINT_CUE_RE.search(value):
             continue
+        # Localizable copy is represented exclusively in 多语言需求.  Keeping
+        # its source-language wording in a detail table leaks English into a
+        # Chinese PRD and duplicates the copy inventory.
+        if "文案" in value and re.search(r"[\"“][^\"”]+[\"”]", value):
+            continue
         # Delivery verbs and target paths describe the request operation, not
         # a rule that belongs in the reader-facing PRD.
         value = re.sub(r"^.*?(?:追加合并到现有\s*PRD|追加到此|生成\s*PRD)[，,；;：:]?", "", value, flags=re.I).strip()
@@ -258,6 +272,36 @@ def _validate_v2_baseline(markdown: str) -> None:
         raise DeliveryInputError(f"仅支持最新版 v2 PRD 基线，缺少章节：{', '.join(missing)}")
     if LEGACY_FIGURE_ROW_RE.search(markdown):
         raise DeliveryInputError("仅支持最新版 v2 PRD 基线；请先将独立图示行迁移到需求详情中的 prd-detail-media。")
+
+
+def _section(markdown: str, heading: str) -> re.Match[str] | None:
+    return re.search(rf"(?ms)^{re.escape(heading)}\n(?P<body>.*?)(?=^##\s|\Z)", markdown)
+
+
+def _append_baseline_format(markdown: str) -> AppendBaselineFormat:
+    """Read, rather than recreate, the list and detail-table template."""
+
+    list_section = _section(markdown, "## 四、需求清单")
+    detail_section = _section(markdown, "## 五、需求详情")
+    if not list_section or not detail_section:
+        raise DeliveryInputError("追加已实现功能需要基线 PRD 的需求清单和需求详情章节。")
+    list_rows = [line for line in list_section.group("body").splitlines() if line.startswith("|")]
+    detail_rows = [line for line in detail_section.group("body").splitlines() if line.startswith("|")]
+    if len(list_rows) < 2 or len(detail_rows) < 2:
+        raise DeliveryInputError("追加已实现功能需要完整的需求清单和需求详情表头。")
+    expected_list = ("详情编号", "需求名称", "目标用户", "用户场景 / 触发", "用户问题或价值", "需求摘要", "优先级", "来源 / 确认状态")
+    actual_list = tuple(cell.strip() for cell in list_rows[0].strip("|").split("|"))
+    if actual_list != expected_list:
+        raise DeliveryInputError("当前 PRD 的需求清单表头不符合最新版模板；请先迁移模板后再追加功能。")
+    labels = tuple(
+        line.split("|", 2)[1].strip()
+        for line in detail_rows[2:]
+        if len(line.split("|", 2)) >= 3
+    )
+    expected_labels = ("用户与场景", "需求入口", "需求详情", "设计与交互")
+    if labels[:4] != expected_labels:
+        raise DeliveryInputError("当前 PRD 的需求详情字段不符合最新版模板；请先迁移模板后再追加功能。")
+    return AppendBaselineFormat("\n".join(list_rows[:2]), "\n".join(detail_rows[:2]), labels[:4])
 
 
 def _replace_template_section(markdown: str, heading: str, body: str) -> str:
@@ -382,14 +426,139 @@ def _figure_markup(requirement: Requirement) -> str:
     return "<br><br>".join(rendered) or f"占位图：{requirement.name}-关键状态.png"
 
 
-def _render_requirement_detail(requirement: Requirement) -> str:
+def _render_requirement_detail(requirement: Requirement, baseline: AppendBaselineFormat | None = None) -> str:
+    header = baseline.detail_header if baseline else "| 维度 | 需求说明 |\n| --- | --- |"
     return "\n".join([
-        f"### {requirement.identifier} {requirement.name}", "", "| 维度 | 需求说明 |", "| --- | --- |",
+        f"### {requirement.identifier} {requirement.name}", "", header,
         f"| 用户与场景 | {requirement.scenario}<br>{requirement.value} |",
         f"| 需求入口 | {requirement.entry} |",
         f"| 需求详情 | {requirement.behavior}<br>{_figure_markup(requirement)} |",
         f"| 设计与交互 | {requirement.interaction} |", "",
     ])
+
+
+def _quoted_visible_copy(request: str) -> tuple[str, ...]:
+    """Collect only explicitly identified, newly added Chinese UI copy."""
+
+    copies: list[str] = []
+    for sentence in re.split(r"[。！？!?\n]", request):
+        if not re.search(r"(?:新增|新|变更|修改).{0,12}(?:中文)?(?:文案|按钮|标题|提示|标签)|(?:文案|按钮|标题|提示|标签).{0,12}(?:为|是|改为)", sentence):
+            continue
+        for value in re.findall(r"[\"“]([^\"”]+)[\"”]", sentence):
+            text = value.strip()
+            if re.search(r"[\u4e00-\u9fff]", text) and text not in copies:
+                copies.append(text)
+    return tuple(copies)
+
+
+def _explicit_research(request: str) -> tuple[str, ...]:
+    findings = []
+    for sentence in re.split(r"[。！？!?\n]", request):
+        text = sentence.strip(" ：:，,；;")
+        if re.search(r"(?:调研|访谈|竞品|数据)显示", text) and text not in findings:
+            findings.append(text)
+    return tuple(findings)
+
+
+def _explicit_tracking(request: str) -> tuple[tuple[str, str], ...]:
+    """Tracking is product evidence only when the request names the event."""
+
+    events = []
+    for label, name in re.findall(r"埋点(?:事件)?[：:]\s*([^（(\n]+?)[（(]([a-z][a-z0-9_]+)[）)]", request):
+        item = (label.strip(), name.strip())
+        if item not in events:
+            events.append(item)
+    return tuple(events)
+
+
+def _replace_or_insert_section(markdown: str, heading: str, body: str, before_heading: str | None = None) -> str:
+    existing = _section(markdown, heading)
+    if existing:
+        return markdown[:existing.end("body")] + "\n" + body.strip() + markdown[existing.end("body"):]
+    insertion = re.search(rf"^{re.escape(before_heading)}[ \t]*$", markdown, re.M) if before_heading else None
+    block = f"{heading}\n\n{body.strip()}\n\n"
+    if insertion:
+        return markdown[:insertion.start()] + block + markdown[insertion.start():]
+    return markdown.rstrip() + "\n\n" + block
+
+
+def _append_background(markdown: str, requirement: Requirement) -> str:
+    section = _section(markdown, "## 二、需求背景")
+    if not section:
+        raise DeliveryInputError("追加已实现功能需要基线 PRD 的需求背景章节。")
+    addition = f"\n\n本次新增“{requirement.name}”：{requirement.scenario}{requirement.value}\n\n"
+    if requirement.name in section.group("body"):
+        return markdown
+    return markdown[:section.end("body")] + addition + markdown[section.end("body"):]
+
+
+def _append_optional_sections(markdown: str, requirement: Requirement) -> str:
+    research = _explicit_research(requirement.evidence[0].text)
+    if research:
+        research_section = _section(markdown, "## 三、需求调研")
+        research_rows = "\n".join(
+            f"| append-{requirement.identifier} | 用户提供 | {item} | 支持新增“{requirement.name}” | {requirement.identifier} |"
+            for item in research
+        )
+        if research_section:
+            rows = list(re.finditer(r"^\|.*\|\s*$", research_section.group("body"), re.M))
+            if len(rows) < 2:
+                raise DeliveryInputError("追加已实现功能需要完整的需求调研表头。")
+            offset = research_section.start("body") + rows[-1].end()
+            markdown = markdown[:offset] + "\n" + research_rows + markdown[offset:]
+        else:
+            markdown = _replace_or_insert_section(
+                markdown,
+                "## 三、需求调研",
+                "| ID | 来源与日期 | 发现 | 产品洞察 | 关联需求 |\n| --- | --- | --- | --- | --- |\n" + research_rows,
+                "## 四、需求清单",
+            )
+
+    copy = _quoted_visible_copy(requirement.evidence[0].text)
+    if copy:
+        localization = _section(markdown, "## 六、多语言需求")
+        if localization:
+            block = re.search(r"```text\n.*?\n```", localization.group("body"), re.S)
+            if not block:
+                raise DeliveryInputError("追加已实现功能需要多语言需求中的纯文本代码块。")
+            pure_text_end = localization.start("body") + block.end() - 3
+            markdown = markdown[:pure_text_end] + "\n" + "\n".join(copy) + markdown[pure_text_end:]
+            localization = _section(markdown, "## 六、多语言需求")
+            assert localization is not None
+            table_end = list(re.finditer(r"^\|.*\|\s*$", localization.group("body"), re.M))
+            if table_end:
+                offset = localization.start("body") + table_end[-1].end()
+                markdown = markdown[:offset] + "\n" + "\n".join(
+                    f"| {item} | {requirement.identifier} {requirement.name} | / |" for item in copy
+                ) + markdown[offset:]
+            else:
+                markdown = _replace_or_insert_section(markdown, "## 六、多语言需求", f"```text\n{chr(10).join(copy)}\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n" + "\n".join(f"| {item} | {requirement.identifier} {requirement.name} | / |" for item in copy), "## 七、埋点需求")
+        else:
+            if "## 六、埋点需求" in markdown:
+                markdown = markdown.replace("## 六、埋点需求", "## 七、埋点需求", 1)
+            body = f"```text\n{chr(10).join(copy)}\n```\n\n| 文案 | 使用位置 | 参数 |\n| --- | --- | --- |\n" + "\n".join(f"| {item} | {requirement.identifier} {requirement.name} | / |" for item in copy)
+            markdown = _replace_or_insert_section(markdown, "## 六、多语言需求", body, "## 七、埋点需求")
+    events = _explicit_tracking(requirement.evidence[0].text)
+    if events:
+        rows = "\n".join(
+            f"| {label} | {name} | 用户完成“{requirement.name}”相关操作时 | / | / |"
+            for label, name in events
+        )
+        tracking_heading = "## 七、埋点需求" if "## 六、多语言需求" in markdown else "## 六、埋点需求"
+        tracking = _section(markdown, tracking_heading)
+        if tracking:
+            table_rows = list(re.finditer(r"^\|.*\|\s*$", tracking.group("body"), re.M))
+            if len(table_rows) < 2:
+                raise DeliveryInputError("追加已实现功能需要完整的埋点需求表头。")
+            offset = tracking.start("body") + table_rows[-1].end()
+            markdown = markdown[:offset] + "\n" + rows + markdown[offset:]
+        else:
+            markdown = _replace_or_insert_section(
+                markdown,
+                tracking_heading,
+                "| 事件 | 事件名称 | 上报时机 | 附加参数 | 备注 |\n| --- | --- | --- | --- | --- |\n" + rows,
+            )
+    return markdown
 
 
 def _insert_after_last_requirement(markdown: str, identifier: str, list_row: str, detail: str) -> str:
@@ -432,6 +601,8 @@ def _update_append_shared_content(markdown: str, requirement: Requirement) -> st
 
     append_table_value("需求来源", f"追加已实现功能：{requirement.name}")
     append_table_value("影响范围", requirement.name)
+    markdown = _append_background(markdown, requirement)
+    markdown = _append_optional_sections(markdown, requirement)
     versions = list(re.finditer(r"^\|\s*v(?P<major>\d+)\.(?P<minor>\d+)\s*\|.*(?:\n|$)", markdown, re.M))
     if not versions:
         raise DeliveryInputError("追加已实现功能需要基线 PRD 的版本记录。")
@@ -444,13 +615,14 @@ def _update_append_shared_content(markdown: str, requirement: Requirement) -> st
 def _render_markdown(document: PrdDocument) -> str:
     if document.mode == "implemented_feature_prd" and document.source_markdown:
         requirement = document.requirements[0]
+        baseline = _append_baseline_format(document.source_markdown)
         list_row = (
             f"| {requirement.identifier} | {requirement.name} | {requirement.user} | "
             f"{requirement.scenario} | {requirement.value} | {requirement.name} | P1 | 已实现证据 |\n"
         )
         previous_identifier = f"5.{int(requirement.identifier.split('.', 1)[1]) - 1}"
         appended = _insert_after_last_requirement(
-            document.source_markdown, previous_identifier, list_row, _render_requirement_detail(requirement),
+            document.source_markdown, previous_identifier, list_row, _render_requirement_detail(requirement, baseline),
         )
         return _update_append_shared_content(appended, requirement)
     if document.mode == "prd_revision" and document.source_markdown:
@@ -494,6 +666,22 @@ def _lineage(document: PrdDocument, folder: Path) -> dict[str, Any]:
 def _trace(document: PrdDocument, folder: Path, validation: list[dict[str, str]]) -> dict[str, Any]:
     identity = _identity()
     figures = [asdict(figure) for req in document.requirements for figure in (req.figure, *req.additional_figures) if figure]
+    coverage = []
+    for requirement in document.requirements:
+        request = requirement.evidence[0].text if requirement.evidence else ""
+        copy = _quoted_visible_copy(request)
+        events = _explicit_tracking(request)
+        coverage.append({
+            "requirement_id": requirement.identifier,
+            "visual": "included",
+            "copy": "included" if copy else "not_needed",
+            "measurement": "included" if events else "not_needed",
+            "rationale": (
+                "Derived from explicitly identified Chinese visible copy and named tracking events."
+                if copy or events else
+                "No newly identified Chinese visible copy or decision-relevant tracking event was supplied."
+            ),
+        })
     return {
         "run_id": folder.name, "date": dt.date.today().isoformat(), "language": "zh",
         "pm_copilot_version": identity["version"], "runtime_identity": identity,
@@ -509,7 +697,7 @@ def _trace(document: PrdDocument, folder: Path, validation: list[dict[str, str]]
             ),
         },
         "frontend_figure_evidence": figures,
-        "requirement_coverage_review": [{"requirement_id": req.identifier, "visual": "included", "copy": "included", "measurement": "not_needed", "rationale": "Derived from confirmed requirement."} for req in document.requirements],
+        "requirement_coverage_review": coverage,
         "review": {"status": "passed", "findings": []},
         # The first trace is itself an input to validate_outputs.  Record the
         # completed deterministic preflight before asking that validator to
