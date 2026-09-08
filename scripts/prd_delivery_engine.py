@@ -64,6 +64,7 @@ class Requirement:
     behavior: str
     interaction: str
     evidence: tuple[Evidence, ...]
+    confirmed_constraints: tuple[str, ...] = ()
     figure: FigureDecision | None = None
     additional_figures: tuple[FigureDecision, ...] = ()
 
@@ -186,18 +187,47 @@ def _user(request: str) -> str:
     return match.group(1) if match else "相关业务用户"
 
 
+_CONSTRAINT_CUE_RE = re.compile(
+    r"菜单|顺序|模式|格式|输出轨道|轨道|连接语义|连接|入口|位置|流程|规则|状态|权限|反馈|文案|按钮|标签|tab",
+    re.I,
+)
+
+
+def _confirmed_constraints(request: str) -> tuple[str, ...]:
+    """Keep concrete user-stated product rules out of the generic fallback."""
+
+    constraints: list[str] = []
+    for candidate in re.split(r"[。！？!?\n]+", request):
+        value = candidate.strip(" ：:，,；;")
+        if not value or not _CONSTRAINT_CUE_RE.search(value):
+            continue
+        # Delivery verbs and target paths describe the request operation, not
+        # a rule that belongs in the reader-facing PRD.
+        value = re.sub(r"^.*?(?:追加合并到现有\s*PRD|追加到此|生成\s*PRD)[，,；;：:]?", "", value, flags=re.I).strip()
+        value = re.sub(r"(?:目标目录|目标路径)[：:].*$", "", value, flags=re.I).strip(" ：:，,；;")
+        if value and _CONSTRAINT_CUE_RE.search(value) and value not in constraints:
+            constraints.append(value)
+    return tuple(constraints)
+
+
 def _requirement(request: str, identifier: str = "5.1") -> Requirement:
     name = _requirement_name(request)
     user = _user(request)
     evidence = Evidence(source="user_request", kind="confirmed_request", text=request)
+    constraints = _confirmed_constraints(request)
+    behavior = "一、主流程<br>1. 用户发起操作后，系统展示当前状态和下一步动作。<br>2. 操作成功后提供可理解的完成反馈。<br><br>一、异常与恢复<br>1. 发生失败时保留用户上下文并提供重试或返回路径。"
+    if constraints:
+        rules = "<br>".join(f"{index}. {constraint}" for index, constraint in enumerate(constraints, 1))
+        behavior += f"<br><br>一、已确认规则<br>{rules}"
     return Requirement(
         identifier=identifier, name=name, user=user,
         scenario=f"{user}在处理“{name}”相关任务时需要完成目标操作。",
         value=f"让{user}能够清晰、可恢复地完成“{name}”。",
         entry="在与该任务对应的现有产品入口中提供明确入口；若入口不存在，交付前需由产品确认。",
-        behavior="一、主流程<br>1. 用户发起操作后，系统展示当前状态和下一步动作。<br>2. 操作成功后提供可理解的完成反馈。<br><br>一、异常与恢复<br>1. 发生失败时保留用户上下文并提供重试或返回路径。",
+        behavior=behavior,
         interaction="一、信息与反馈<br>1. 关键状态、可用操作和失败原因应对用户可见。",
         evidence=(evidence,),
+        confirmed_constraints=constraints,
         figure=FigureDecision(requirement_id=identifier),
     )
 
@@ -499,6 +529,9 @@ def _semantic_failures(document: PrdDocument, markdown: str) -> list[str]:
             failures.append(f"{requirement.identifier} is absent from requirement details")
         if f"| {requirement.identifier} | {requirement.name} |" not in markdown:
             failures.append(f"{requirement.identifier} is absent from requirement list")
+        for constraint in requirement.confirmed_constraints:
+            if constraint not in markdown:
+                failures.append(f"{requirement.identifier} does not cover confirmed constraint: {constraint}")
     if document.mode == "prd_revision" and markdown == document.source_markdown:
         failures.append("selected revision produced no visible PRD change")
     return failures

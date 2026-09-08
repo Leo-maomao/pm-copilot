@@ -160,6 +160,29 @@ class PrdDeliveryEngineTest(unittest.TestCase):
             self.assertIn('class="prd-detail-media-block"', html)
             self.assertIn('src="./assets/review.png"', html)
 
+    def test_implemented_append_preserves_explicit_product_rules(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "append"
+            self.deliver(folder, "--request", "生成视频编辑 PRD")
+            request = (
+                "将当前已实现的“音视频分离/音频提取”功能追加合并到现有 PRD。"
+                "菜单顺序为先音视频分离后音频提取；模式仅支持提取音频；"
+                "输出格式为 MP3；输出轨道连接到原视频节点的音频端口。"
+            )
+            self.deliver(
+                folder,
+                "--request", request,
+                "--append-implemented-feature",
+            )
+            markdown = (folder / "prd.md").read_text(encoding="utf-8")
+            for rule in (
+                "菜单顺序为先音视频分离后音频提取",
+                "模式仅支持提取音频",
+                "输出格式为 MP3",
+                "输出轨道连接到原视频节点的音频端口",
+            ):
+                self.assertIn(rule, markdown)
+
 
 if __name__ == "__main__":
     unittest.main()

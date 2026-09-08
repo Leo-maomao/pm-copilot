@@ -57,6 +57,9 @@ final_status:
   each final requirement without duplicating implementation evidence in the log.
 - `review` records the independent PRD review. A complete delivery has no open
   Critical or High finding.
+- Explicit product rules supplied in the request, including menu order, modes,
+  formats, output tracks, and connection behavior, are validated against the
+  final requirement details before a run can complete.
 - `validation_results` records renderer, output, trace, and delivery checks for
   the exact staged bytes. `quality_decision.passed` is true only after they pass.
 

@@ -10,6 +10,8 @@ Every requirement must be traceable from a user, user scenario, or user-confirme
 
 Write only product facts that are user-confirmed, directly observed, or supported by cited research. Before drafting, clean the input into facts, decisions, unknowns, and discarded description; do not copy instructional prose, template notes, process logs, or technical evidence into the PRD.
 
+When a request explicitly states a product rule, such as a menu order, supported mode or format, output track, connection behavior, entry location, or state feedback, place that rule in the matching `需求详情` field. Before delivery, verify each such rule against the rendered Markdown. A generic main-flow sentence never substitutes for an explicit rule.
+
 When a product rule is proposed rather than confirmed, obtain a user decision before generation when it would change scope, user rights, pricing, compliance, or a core flow. Do not create a `待确认` item, risk field, or acceptance-result field in the PRD to paper over missing decisions. Do not silently fill gaps with model assumptions, inferred user intent, invented limits, fabricated research, or guessed existing behavior.
 
 ## Implemented-Feature Evidence Boundary
