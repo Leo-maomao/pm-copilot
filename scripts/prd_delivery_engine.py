@@ -291,6 +291,40 @@ def _insert_after_last_requirement(markdown: str, identifier: str, list_row: str
     return prefix + detail + "\n" + suffix
 
 
+def _update_append_shared_content(markdown: str, requirement: Requirement) -> str:
+    """Keep document-wide fields aligned with an implemented-feature append."""
+
+    heading = re.search(r"^#\s+(?P<title>.+?)(?P<date>[ \t]+-[ \t]+\d{4}-\d{2}-\d{2})?[ \t]*$", markdown, re.M)
+    if not heading:
+        raise DeliveryInputError("追加已实现功能需要基线 PRD 的 H1 标题。")
+    title = heading.group("title").strip()
+    if requirement.name not in title:
+        replacement = f"# {title.rstrip('、')}、{requirement.name}{heading.group('date') or ''}"
+        markdown = markdown[:heading.start()] + replacement + markdown[heading.end():]
+
+    def append_table_value(label: str, addition: str) -> None:
+        nonlocal markdown
+        row = re.search(rf"^\|\s*{re.escape(label)}\s*\|\s*(?P<value>.*?)\s*\|\s*$", markdown, re.M)
+        if not row:
+            raise DeliveryInputError(f"追加已实现功能需要基线 PRD 的“{label}”字段。")
+        value = row.group("value").strip()
+        if requirement.name in value:
+            return
+        separator = "、" if label == "影响范围" else "；"
+        replacement = f"| {label} | {value}{separator}{addition} |"
+        markdown = markdown[:row.start()] + replacement + markdown[row.end():]
+
+    append_table_value("需求来源", f"追加已实现功能：{requirement.name}")
+    append_table_value("影响范围", requirement.name)
+    versions = list(re.finditer(r"^\|\s*v(?P<major>\d+)\.(?P<minor>\d+)\s*\|.*(?:\n|$)", markdown, re.M))
+    if not versions:
+        raise DeliveryInputError("追加已实现功能需要基线 PRD 的版本记录。")
+    latest = max(versions, key=lambda item: (int(item.group("major")), int(item.group("minor"))))
+    version = f"v{latest.group('major')}.{int(latest.group('minor')) + 1}"
+    row = f"| {version} | {dt.date.today().isoformat()} | 新增已实现功能：{requirement.name} | 待指定 |\n"
+    return markdown[:latest.end()] + row + markdown[latest.end():]
+
+
 def _render_markdown(document: PrdDocument) -> str:
     if document.mode == "implemented_feature_prd" and document.source_markdown:
         requirement = document.requirements[0]
@@ -299,9 +333,10 @@ def _render_markdown(document: PrdDocument) -> str:
             f"{requirement.scenario} | {requirement.value} | {requirement.name} | P1 | 已实现证据 |\n"
         )
         previous_identifier = f"5.{int(requirement.identifier.split('.', 1)[1]) - 1}"
-        return _insert_after_last_requirement(
+        appended = _insert_after_last_requirement(
             document.source_markdown, previous_identifier, list_row, _render_requirement_detail(requirement),
         )
+        return _update_append_shared_content(appended, requirement)
     if document.mode == "prd_revision" and document.source_markdown:
         revised = document.source_markdown
         for req in document.requirements:

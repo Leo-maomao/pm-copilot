@@ -61,7 +61,8 @@ Understand -> Gather evidence -> Clarify if required -> Draft PRD
   controller with `--run-folder <current-prd> --append-implemented-feature`.
   It appends one newly implemented requirement using the next consecutive
   `5.x` identifier, places its detail before the next top-level section, and
-  preserves the existing PRD and assets. Omitting that
+  updates the H1, document information, and version record to cover the new
+  scope while preserving existing requirements and assets. Omitting that
   flag creates a new independent PRD. The PRD Manager only aggregates and
   browses completed PRDs; it never selects a current PRD or owns period state.
 - Revisions require explicit existing requirement IDs. The controller freezes
