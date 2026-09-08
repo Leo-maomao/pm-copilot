@@ -331,8 +331,10 @@ DOCUMENT_CSS = """
     .prd-detail-media-block video {
       width: auto;
       max-width: 240px;
-      max-height: 260px;
+      max-height: none;
+      height: auto;
       margin: 0;
+      object-fit: contain;
     }
     .prd-detail-media-block .prd-detail-copy {
       min-width: 0;

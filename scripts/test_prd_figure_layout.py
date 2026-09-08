@@ -62,6 +62,9 @@ class PRDFigureLayoutTest(unittest.TestCase):
         self.assertIn('.prd-figure-item.is-wide', DOCUMENT_CSS)
         self.assertNotIn('min-height: 140px;', DOCUMENT_CSS)
         self.assertNotIn('naturalWidth', LIGHTBOX_HTML_TEMPLATE)
+        self.assertNotIn('max-height: 260px;', DOCUMENT_CSS)
+        self.assertIn('.prd-detail-media-block img,', DOCUMENT_CSS)
+        self.assertIn('height: auto;', DOCUMENT_CSS)
 
     def test_pandoc_safe_detail_media_markers_preserve_all_rules(self) -> None:
         markdown = """# 截图状态 - 2026-08-31
