@@ -76,6 +76,19 @@ class PrdDeliveryEngineTest(unittest.TestCase):
             self.assertIn("revised_requirement_ids:\n  - '5.1'", trace)
             self.assertIn('src="./assets/字幕擦除-入口.png"', (folder / "prd.html").read_text(encoding="utf-8"))
 
+    def test_path_only_revision_requests_one_scope_question(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "revision"
+            self.deliver(folder, "--request", "生成字幕擦除功能 PRD", "--new-requirement")
+            result = self.run_controller(
+                "--request", f"修订当前项目 PRD: {folder / 'prd.md'}",
+                "--run-folder", str(folder), "--revise", "--revision-requirement-id", "5.1",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["status"], "needs_input")
+            self.assertIn("标题和章节位置", payload["questions"][0])
+
     def test_assets_selectors_and_append_share_the_same_transaction(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

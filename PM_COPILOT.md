@@ -68,7 +68,9 @@ Understand -> Gather evidence -> Clarify if required -> Draft PRD
 - Revisions require explicit existing requirement IDs. The controller freezes
   the baseline and preserves every unselected section and asset. It may make a
   minimal linked update only when consistency, numbering, dependencies, or
-  acceptance evidence require it, and records that reason in the trace.
+  acceptance evidence require it, and records that reason in the trace. A
+  path-only revision request asks once for the intended scope; every supplied
+  screenshot for a selected requirement remains a separate inline figure.
 - Composition input is repeated `--extract-from <prd.md>` plus source-qualified
   requirement selectors, for example `source-1: 5.2` and `source-2: 5.4`.
   The controller snapshots every source inside the new run folder. The new PRD

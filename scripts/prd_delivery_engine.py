@@ -63,6 +63,7 @@ class Requirement:
     interaction: str
     evidence: tuple[Evidence, ...]
     figure: FigureDecision | None = None
+    additional_figures: tuple[FigureDecision, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -145,6 +146,10 @@ def _load_state(folder: Path) -> dict[str, Any]:
 
 def _question(request: str, mode: str) -> str | None:
     if mode == "prd_revision":
+        meaningful = re.sub(r"(?:修订|更新|当前项目|PRD|prd|产品需求文档|需求文档)", "", request, flags=re.I)
+        meaningful = re.sub(r"(?:~?/|/)[^\s]+", "", meaningful).strip(" ：:，,。.")
+        if len(meaningful) < 4:
+            return "请集中说明要新增还是修订哪些需求、目标标题和章节位置，以及每张截图对应的需求状态。"
         return None
     if mode == "prd_composition":
         return None
@@ -256,14 +261,18 @@ def _document(state: dict[str, Any]) -> PrdDocument:
 
 
 def _figure_markup(requirement: Requirement) -> str:
-    figure = requirement.figure
-    if figure and figure.kind in {"real_capture", "reconstructed"} and figure.path:
-        asset = Path(figure.path).name
-        return (
-            f'[[prd-detail-media src="./assets/{asset}" alt="{requirement.name}-关键状态" '
-            f'copy="一、关键状态<br>1. 用户可见入口、操作结果和反馈与本需求保持一致"]]'
-        )
-    return f"占位图：{requirement.name}-关键状态.png"
+    figures = tuple(figure for figure in (requirement.figure, *requirement.additional_figures) if figure)
+    rendered = []
+    for index, figure in enumerate(figures, 1):
+        if figure.kind in {"real_capture", "reconstructed"} and figure.path:
+            asset = Path(figure.path).name
+            rendered.append(
+                f'[[prd-detail-media src="./assets/{asset}" alt="{requirement.name}-关键状态-{index}" '
+                f'copy="一、关键状态<br>1. 用户可见入口、操作结果和反馈与本需求保持一致"]]'
+            )
+        else:
+            rendered.append(f"占位图：{requirement.name}-关键状态.png")
+    return "<br><br>".join(rendered) or f"占位图：{requirement.name}-关键状态.png"
 
 
 def _render_requirement_detail(requirement: Requirement) -> str:
@@ -384,7 +393,7 @@ def _lineage(document: PrdDocument, folder: Path) -> dict[str, Any]:
 
 def _trace(document: PrdDocument, folder: Path, validation: list[dict[str, str]]) -> dict[str, Any]:
     identity = _identity()
-    figures = [asdict(req.figure) for req in document.requirements if req.figure]
+    figures = [asdict(figure) for req in document.requirements for figure in (req.figure, *req.additional_figures) if figure]
     return {
         "run_id": folder.name, "date": dt.date.today().isoformat(), "language": "zh",
         "pm_copilot_version": identity["version"], "runtime_identity": identity,
@@ -461,25 +470,25 @@ def _materialize_figures(document: PrdDocument, state: dict[str, Any], stage: Pa
         if not requirement.figure:
             requirements.append(requirement)
             continue
-        asset = image_assets[0] if image_assets else None
-        if asset is None and document.mode == "prd_revision":
-            asset = next(
-                (
-                    candidate for candidate in sorted((stage / "assets").iterdir())
-                    if candidate.is_file()
-                    and candidate.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
-                    and requirement.name in candidate.stem
-                ),
-                None,
-            )
-        if asset and asset.is_file():
-            figure = FigureDecision(
-                requirement_id=requirement.identifier,
-                kind="real_capture",
-                missing_reason="",
-                replacement_action="",
-                path=f"assets/{asset.name}",
-                asset_sha256=_sha(asset),
+        assets = [asset for asset in image_assets if asset.is_file()]
+        if not assets and document.mode == "prd_revision":
+            assets = [
+                candidate for candidate in sorted((stage / "assets").iterdir())
+                if candidate.is_file()
+                and candidate.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+                and requirement.name in candidate.stem
+            ]
+        if assets:
+            figures = tuple(
+                FigureDecision(
+                    requirement_id=requirement.identifier,
+                    kind="real_capture",
+                    missing_reason="",
+                    replacement_action="",
+                    path=f"assets/{asset.name}",
+                    asset_sha256=_sha(asset),
+                )
+                for asset in assets
             )
         else:
             asset_name = f"{_slug(requirement.name)}-关键状态.png"
@@ -494,17 +503,17 @@ def _materialize_figures(document: PrdDocument, state: dict[str, Any], stage: Pa
             )
             reconstructed = stage / "assets" / asset_name
             if capture["status"] == "passed" and reconstructed.is_file():
-                figure = FigureDecision(
+                figures = (FigureDecision(
                     requirement_id=requirement.identifier,
                     kind="reconstructed",
                     missing_reason="",
                     replacement_action="",
                     path=f"assets/{asset_name}",
                     asset_sha256=_sha(reconstructed),
-                )
+                ),)
             else:
-                figure = requirement.figure
-        requirements.append(replace(requirement, figure=figure))
+                figures = (requirement.figure,)
+        requirements.append(replace(requirement, figure=figures[0], additional_figures=figures[1:]))
     return replace(document, requirements=tuple(requirements))
 
 
