@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""End-to-end contract tests for the v2 deterministic PRD engine."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CONTROLLER = ROOT / "scripts" / "prd_request_controller.py"
+
+
+class PrdDeliveryEngineTest(unittest.TestCase):
+    def run_controller(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run([sys.executable, str(CONTROLLER), *args], cwd=ROOT, text=True, capture_output=True, check=False)
+
+    def deliver(self, folder: Path, *start_args: str) -> dict[str, object]:
+        completed = self.run_controller(*start_args, "--run-folder", str(folder))
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["status"], "complete")
+        validation = subprocess.run([sys.executable, str(ROOT / "scripts" / "validate_outputs.py"), str(folder)], cwd=ROOT, text=True, capture_output=True, check=False)
+        self.assertEqual(validation.returncode, 0, validation.stdout + validation.stderr)
+        for name in ("prd.md", "prd.html", "run-log.yaml", "assets"):
+            self.assertTrue((folder / name).exists(), name)
+        return payload
+
+    def test_new_implemented_composition_and_revision_deliver_in_one_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.deliver(root / "new", "--request", "为审批人增加审批提醒功能", "--new-requirement")
+
+            evidence = root / "evidence.json"
+            evidence.write_text('{"observed": "导出功能"}', encoding="utf-8")
+            self.deliver(root / "implemented", "--request", "已实现导出功能，生成 PRD", "--new-requirement", "--implemented-evidence", str(evidence))
+
+            source = root / "source.md"
+            source.write_text("# 旧 PRD\n\n### 5.1 结算流程\n", encoding="utf-8")
+            self.deliver(root / "composition", "--request", "组合结算流程生成 PRD", "--new-requirement", "--extract-from", str(source))
+
+            revision = root / "revision"
+            revision.mkdir()
+            revision.joinpath("prd.md").write_text((root / "new" / "prd.md").read_text(encoding="utf-8"), encoding="utf-8")
+            self.deliver(revision, "--request", "更新审批提醒的失败反馈", "--revise", "--revision-requirement-id", "5.1")
+
+    def test_missing_product_context_asks_once_before_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary) / "needs-input"
+            result = self.run_controller("--request", "生成", "--new-requirement", "--run-folder", str(folder))
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(json.loads(result.stdout)["status"], "needs_input")
+            answered = self.run_controller("--run-folder", str(folder), "--answers", "面向审批人，在审批任务到期前提醒并支持重试")
+            self.assertEqual(answered.returncode, 0, answered.stdout + answered.stderr)
+            completed = answered
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
+    def test_assets_selectors_and_append_share_the_same_transaction(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            asset = root / "review.png"
+            asset.write_bytes(b"review evidence")
+            first = root / "first.md"
+            second = root / "second.md"
+            first.write_text("# A\n\n### 5.1 入口\n", encoding="utf-8")
+            second.write_text("# B\n\n### 5.2 结果\n", encoding="utf-8")
+            folder = root / "composition"
+            self.deliver(folder, "--request", "组合入口和结果生成 PRD", "--new-requirement", "--extract-from", str(first), "--extract-from", str(second), "--extract-selector", "5.1", "--extract-selector", "5.2", "--asset", str(asset))
+            self.assertEqual((folder / "assets" / "review.png").read_bytes(), b"review evidence")
+            self.deliver(folder, "--request", "追加已实现的审批结果通知功能", "--append-implemented-feature")
+            self.assertIn("### 5.3", (folder / "prd.md").read_text(encoding="utf-8"))
+
+
+if __name__ == "__main__":
+    unittest.main()

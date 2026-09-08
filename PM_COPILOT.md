@@ -47,22 +47,20 @@ replacement for product requirements in `prd.md`.
 ## Required Flow
 
 ```text
-Understand -> Gather evidence -> Clarify -> Confirm -> Draft PRD
+Understand -> Gather evidence -> Clarify if required -> Draft PRD
 -> Review -> Render figures and HTML -> Validate -> Deliver
 ```
 
-- New PRDs and composed PRDs require explicit user confirmation of the full
-  scope before drafting.
-- Implemented-feature PRDs require confirmation of which observed behavior is
-  production behavior; local scaffolding, mock data, and test-only controls are
-  excluded. The controller automatically freezes branch, diff, changed-file,
-  frontend-inventory, and screenshot-attempt evidence from the invoking host
-  repository before clarification; `--implemented-evidence` is an optional
-  explicit override, not a required hand-authored JSON step.
+- New PRDs and compositions proceed directly when available evidence establishes
+  the scope. They ask one consolidated question only for a decision that cannot
+  be safely inferred.
+- Implemented-feature PRDs automatically retain only supplied or observed
+  production evidence; scaffolding, mock data, and test-only controls are
+  excluded. `--implemented-evidence` is optional evidence input.
 - To continue a completed PRD for the same delivery period, invoke the
   controller with `--run-folder <current-prd> --append-implemented-feature`.
   It appends only newly implemented, consecutively numbered `5.x` requirements
-  after confirmation and preserves the existing PRD and assets. Omitting that
+  and preserves the existing PRD and assets. Omitting that
   flag creates a new independent PRD. The PRD Manager only aggregates and
   browses completed PRDs; it never selects a current PRD or owns period state.
 - Revisions require explicit existing requirement IDs. The controller freezes

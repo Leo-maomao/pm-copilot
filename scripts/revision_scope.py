@@ -679,7 +679,11 @@ def _explicitly_deleted_requirement_ids(scope_text: str, selected: Sequence[str]
     both IDs. Ambiguous wording intentionally leaves the ID protected.
     """
     deleted: list[str] = []
-    for sentence in re.split(r"[\r\n。！？!?；;,，]+", scope_text):
+    # Chinese list separators (、/，) commonly connect several IDs governed
+    # by one preceding delete verb. Splitting there loses that verb for every
+    # ID after the first and silently turns an explicit merge into a generic
+    # revision.
+    for sentence in re.split(r"[\r\n。！？!?；;]+", scope_text):
         if not _DELETION_INTENT_RE.search(sentence) or _NEGATED_DELETION_INTENT_RE.search(sentence):
             continue
         action_offsets = [match.start() for match in _DELETION_INTENT_RE.finditer(sentence)]

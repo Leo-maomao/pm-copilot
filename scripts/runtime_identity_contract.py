@@ -14,7 +14,8 @@ RUNTIME_IDENTITY_MANIFEST_SCHEMA_VERSION = 1
 RUNTIME_IDENTITY_MANIFEST_FILES = (
     "VERSION",
     "scripts/runtime_identity_contract.py",
-    "scripts/run_interactive_request.py",
+    "scripts/prd_delivery_engine.py",
+    "scripts/prd_request_controller.py",
     "scripts/collect_implemented_feature_evidence.py",
     "scripts/agent_runtime.py",
     "scripts/delivery_failure_guard.py",
@@ -77,7 +78,7 @@ def complete_runtime_identity_failures(identity: object) -> list[str]:
             ]
         normalized_files[relative_path] = value
 
-    if identity.get("controller_sha256") != normalized_files["scripts/run_interactive_request.py"]:
+    if identity.get("controller_sha256") != normalized_files["scripts/prd_request_controller.py"]:
         return [
             "runtime_identity.controller_sha256 must match the runtime manifest controller digest"
         ]

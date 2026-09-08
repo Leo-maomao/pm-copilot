@@ -4,11 +4,34 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import signal
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+
+
+DEFAULT_CODEX_MODEL = "gpt-5.6-terra"
+
+
+def _terminate_process_group(process: subprocess.Popen[str]) -> None:
+    """Stop a timed-out Codex stage and every process it started."""
+    if process.poll() is not None:
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return
+        process.communicate()
 
 
 def _codex_model(value: str | None) -> str | None:
@@ -53,7 +76,7 @@ def execute(
             "error": "Codex CLI is not available on PATH",
         }
     try:
-        selected_model = _codex_model(model)
+        selected_model = _codex_model(model) or DEFAULT_CODEX_MODEL
     except ValueError as error:
         return {
             "provider": "codex", "model": None, "status": "blocked",
@@ -74,13 +97,12 @@ def execute(
         "exec", "--ephemeral", "--skip-git-repo-check", "--cd", str(cwd.resolve()),
         "--sandbox", "workspace-write", "--config", 'model_reasoning_effort="minimal"',
     ]
-    if selected_model:
-        command.extend(["--model", selected_model])
+    command.extend(["--model", selected_model])
     if schema_path:
         command.extend(["--output-schema", str(Path(schema_path).resolve())])
     command.extend(["--output-last-message", str(output_path), prompt])
     result: dict[str, Any] = {
-        "provider": "codex", "model": selected_model or "configured default",
+        "provider": "codex", "model": selected_model,
         "cwd": ".", "dry_run": dry_run,
         "command": [*command[:-1], "[PROMPT REDACTED]"],
         "status": "planned" if dry_run else "failed", "output": "", "error": "",
@@ -89,22 +111,24 @@ def execute(
         output_path.unlink(missing_ok=True)
         return result
     try:
-        completed = subprocess.run(
-            command, cwd=cwd, text=True, capture_output=True,
-            timeout=max(1, timeout_minutes) * 60, check=False,
+        process = subprocess.Popen(
+            command, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
         )
-        output = output_path.read_text(encoding="utf-8", errors="replace") if output_path.is_file() else completed.stdout
+        stdout, stderr = process.communicate(timeout=max(1, timeout_minutes) * 60)
+        output = output_path.read_text(encoding="utf-8", errors="replace") if output_path.is_file() else stdout
         output = output.strip()
         result.update({
-            "status": "complete" if completed.returncode == 0 else "failed",
-            "exit_code": completed.returncode,
-            "failure_category": None if completed.returncode == 0 else "codex_execution_failed",
+            "status": "complete" if process.returncode == 0 else "failed",
+            "exit_code": process.returncode,
+            "failure_category": None if process.returncode == 0 else "codex_execution_failed",
             "output": output[-output_limit:],
             "output_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
             "output_truncated": len(output) > output_limit,
-            "error": completed.stderr[-2000:].strip(),
+            "error": stderr[-2000:].strip(),
         })
     except subprocess.TimeoutExpired as error:
+        _terminate_process_group(process)
         output = str(error.stdout or "").strip()
         result.update({
             "status": "timed_out", "failure_category": "agent_timeout",
@@ -113,6 +137,9 @@ def execute(
             "output_truncated": len(output) > output_limit,
             "error": f"Codex execution exceeded {timeout_minutes} minute(s)",
         })
+    except BaseException:
+        _terminate_process_group(process)
+        raise
     finally:
         output_path.unlink(missing_ok=True)
     return result

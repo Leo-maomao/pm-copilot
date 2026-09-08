@@ -15,7 +15,7 @@ REQUIRED_FILES = (
     "policies/role-boundary.md", "workflow/context-loading.md", "workflow/main-workflow.md",
     "artifacts/prd-contract.md", "artifacts/trace-contract.md", "templates/prd-template.md",
     "templates/agent-run-log-template.yaml", "scripts/prd_request_controller.py",
-    "scripts/run_interactive_request.py", "scripts/agent_runtime.py", "scripts/project_workspace.py",
+    "scripts/prd_delivery_engine.py", "scripts/agent_runtime.py", "scripts/project_workspace.py",
     "scripts/revision_scope.py", "scripts/render_prd_html.py", "scripts/setup_prd_renderer.py",
     "scripts/validate_outputs.py", "scripts/prd_visual_contract.py",
     "scripts/validate_agent_trace.py", "scripts/collect_implemented_feature_evidence.py", "scripts/generate_reconstructed_figure.py",
@@ -41,7 +41,7 @@ REMOVED_PATHS = (
     "scripts/ensure_runtime_current.py", "scripts/sync_embedded_copies.py",
 )
 UTF8_RUNTIME_SOURCES = (
-    "scripts/run_interactive_request.py", "scripts/revision_scope.py",
+    "scripts/prd_delivery_engine.py", "scripts/revision_scope.py",
     "scripts/render_prd_html.py", "scripts/validate_outputs.py",
     "scripts/prd_visual_contract.py", "scripts/generate_reconstructed_figure.py",
     "scripts/specialist_dispatch.py", "scripts/prd_manager.py",

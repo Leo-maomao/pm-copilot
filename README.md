@@ -4,12 +4,12 @@ PM Copilot 是一个专业 PRD 生成器。它把明确或待澄清的产品目�
 
 ## 四个工作流
 
-| 工作流 | 适用场景 | 确认点 |
+| 工作流 | 适用场景 | 处理方式 |
 | --- | --- | --- |
-| `new_prd` | 从模糊目标创建新功能 PRD | 澄清后确认完整范围 |
-| `implemented_feature_prd` | 从已实现功能反向还原 PRD | 确认哪些观察行为属于产品能力 |
-| `prd_revision` | 修改既有 PRD 的指定需求 | 确认已有需求编号与修改范围 |
-| `prd_composition` | 从一个或多个 PRD 提取指定需求生成新 PRD | 确认每份来源、选择范围与冲突处理 |
+| `new_prd` | 从模糊目标创建新功能 PRD | 信息充分时直接生成，关键决策缺失时集中提问 |
+| `implemented_feature_prd` | 从已实现功能反向还原 PRD | 自动保留生产证据并生成 |
+| `prd_revision` | 修改既有 PRD 的指定需求 | 按指定需求 ID 原子更新 |
+| `prd_composition` | 从一个或多个 PRD 提取指定需求生成新 PRD | 按来源选择器生成独立 PRD |
 
 每次完成交付都包含：
 
@@ -20,7 +20,11 @@ assets/
 run-log.yaml  # 内部追溯证据
 ```
 
-`prd.md` 以功能逻辑和对应前端状态为中心。能运行的页面使用真实截图；没有可运行页面时，在运行目录中生成仅用于说明的还原图示；都不可用时使用受控占位图并记录补图要求。
+`prd.md`、`prd.html`、`assets/` 与 `run-log.yaml` 从同一份结构化需求模型原子生成并共同验证。图示无法取得时保留受控占位文本，并在运行日志中记录人工补图动作；这不阻塞可评审 PRD 的交付。
+
+## v2 交付协议
+
+运行目录使用 v2 确定性交付协议。历史未完成目录不会迁移：请用当前请求重新发起一次 PRD。系统优先从请求、附件、来源 PRD 和可发现证据补齐信息；只有影响范围、权限、定价、合规或核心流程且无法安全推断的决策才会汇总为一次补充问题。信息充分时，所有规范产物直接在暂存目录中生成、进行需求忠实度和模板验证，并原子发布。
 
 ## 直接使用
 
@@ -33,7 +37,7 @@ python3 scripts/prd_request_controller.py --request "为审批人增加待办提
 ```bash
 python3 scripts/prd_request_controller.py --request "组合已选需求生成新 PRD" \
   --extract-from docs/a/prd.md --extract-from docs/b/prd.md \
-  --answers "source-1: 5.2; source-2: 5.4"
+  --extract-selector 5.2 --extract-selector 5.4
 ```
 
 PM Copilot 只读取宿主项目的代码、页面和资料作为证据，不修改宿主代码、不独立交付 UI 原型、不做研发交接或上线结论。

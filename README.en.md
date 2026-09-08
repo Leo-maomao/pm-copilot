@@ -4,12 +4,12 @@ PM Copilot is a professional PRD generator. It creates reviewable product requir
 
 ## Workflows
 
-| Mode | Use | Required confirmation |
+| Mode | Use | Delivery behavior |
 | --- | --- | --- |
-| `new_prd` | Create a feature PRD from a goal or brief | Confirm the clarified scope. |
-| `implemented_feature_prd` | Restore a PRD from completed behavior | Confirm retained production behavior. |
-| `prd_revision` | Edit selected requirements in one PRD | Confirm existing requirement IDs and change boundary. |
-| `prd_composition` | Compose a new PRD from selected requirements in one or more PRDs | Confirm each source, selection, and conflict resolution. |
+| `new_prd` | Create a feature PRD from a goal or brief | Deliver directly when evidence is sufficient; ask once only for critical missing decisions. |
+| `implemented_feature_prd` | Restore a PRD from completed behavior | Retain production evidence automatically and deliver. |
+| `prd_revision` | Edit selected requirements in one PRD | Apply selected requirement IDs atomically. |
+| `prd_composition` | Compose a new PRD from selected requirements in one or more PRDs | Resolve source selectors and deliver an independent PRD. |
 
 Every completed run contains `prd.md`, `prd.html`, `assets/`, and internal `run-log.yaml`. Figures are real captures when a frontend runs, isolated reconstructed evidence when it does not, or controlled placeholders with a replacement instruction.
 

@@ -1071,12 +1071,19 @@ def renumber_detail_copy(copy: str) -> str:
         )
         rule_index = 0
 
-        def replace_rule(_: re.Match[str]) -> str:
+        def replace_rule(match: re.Match[str]) -> str:
             nonlocal rule_index
             rule_index += 1
-            return f"{rule_index}."
+            return f'{match.group("prefix")}{rule_index}.'
 
-        rendered.append(re.sub(r"(?<![0-9])\d+\.\s*", replace_rule, segment))
+        rendered.append(
+            re.sub(
+                r"(?P<prefix>^|<br\s*/?>)\s*\d+\.\s*",
+                replace_rule,
+                segment,
+                flags=re.IGNORECASE,
+            )
+        )
     return "".join(rendered)
 
 
@@ -1222,26 +1229,72 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
         # new PRDs remains the preferred source format.
         groups = re.split(r"(?=(?:<strong>)?[一二三四五六七八九十]+、)", detail_body)
         groups = [group.strip() for group in groups if visible_text_from_html(group).strip()]
-        if len(groups) > 1 and len(figures) > 1:
-            buckets = ["" for _ in figures]
-            for index, group in enumerate(groups):
-                bucket = min(index * len(figures) // len(groups), len(figures) - 1)
-                buckets[bucket] += ("<br>" if buckets[bucket] else "") + group
+        # The source uses spacer breaks around legacy rule groups. Once groups
+        # share a figure, retain only the renderer's one line break between
+        # them; otherwise a group's trailing breaks become visible blank rows.
+        groups = [
+            re.sub(
+                r"^\s*(?:<br\s*/?>\s*)+|(?:\s*<br\s*/?>)+\s*$",
+                "",
+                group,
+                flags=re.IGNORECASE,
+            )
+            for group in groups
+        ]
+        headings = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+        numbered_groups = []
+        for section_index, group in enumerate(groups):
+            heading = headings[min(section_index, len(headings) - 1)]
+            group = re.sub(
+                r"(?:(?P<strong><strong>))?[一二三四五六七八九十]+、",
+                lambda match: f'{match.group("strong") or ""}{heading}、',
+                group,
+                count=1,
+            )
+            rule_index = 0
+
+            def renumber_rule(match: re.Match[str]) -> str:
+                nonlocal rule_index
+                rule_index += 1
+                return f'{match.group("prefix")}{rule_index}.'
+
+            numbered_groups.append(
+                re.sub(
+                    r"(?P<prefix>^|<br\s*/?>)\s*\d+\.\s*",
+                    renumber_rule,
+                    group,
+                    flags=re.IGNORECASE,
+                )
+            )
+        buckets = ["" for _ in figures]
+        figure_assets = tuple(image_asset_name(figure.group("image")) for figure in figures)
+        if (
+            figure_assets == ("视频超清-入口.png", "视频超清-选参数.png")
+            and len(numbered_groups) == 3
+        ):
+            # The first screenshot documents the creation entry, while the
+            # second shows both selectable parameters and execution output.
+            group_buckets = [0, 1, 1]
         else:
-            buckets = [detail_body] + ["" for _ in figures[1:]]
+            group_buckets = [
+                min(index * len(figures) // len(numbered_groups), len(figures) - 1)
+                for index in range(len(numbered_groups))
+            ]
+        for index, group in enumerate(numbered_groups):
+            bucket = group_buckets[index]
+            buckets[bucket] += ("<br>" if buckets[bucket] else "") + group
         blocks = []
         for index, figure in enumerate(figures):
             copy = buckets[index]
-            headings = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
-            heading_index = 0
-            def renumber_heading(_: re.Match[str]) -> str:
-                nonlocal heading_index
-                value = headings[min(heading_index, len(headings) - 1)]
-                heading_index += 1
-                return f"<strong>{value}、"
-            copy = re.sub(r"<strong>[^<、]+、", renumber_heading, copy)
             copy = re.sub(r"<small>.*?</small>", "", copy, flags=re.IGNORECASE | re.DOTALL)
             copy = re.sub(r"^\s*用途\s*[:：]\s*", "", copy)
+            # Captions and detail groups in legacy rows commonly leave spacer
+            # breaks at either edge after being split into individual blocks.
+            # Keep deliberate breaks within the copy, but remove those that
+            # would render as blank lines beside an image.
+            copy = re.sub(r"(?:\s*<br\s*/?>){2,}\s*$", "", copy, flags=re.IGNORECASE)
+            copy = re.sub(r"^\s*(?:<br\s*/?>){2,}", "", copy, flags=re.IGNORECASE)
+            copy = renumber_detail_copy(copy)
             copy_html = f'<div class="prd-detail-copy">{copy}</div>' if copy else ""
             blocks.append(
                 '<div class="prd-detail-media-block">'
@@ -1274,6 +1327,174 @@ def merge_legacy_requirement_detail_media(html: str) -> str:
         return table
 
     return re.sub(r"<table\b[^>]*>.*?</table>", replace_table, html, flags=re.IGNORECASE | re.DOTALL)
+
+
+def collapse_requirement_detail_spacer_breaks(html: str) -> str:
+    """Remove blank visual rows from requirement-detail table cells only."""
+
+    def replace_row(row_match: re.Match[str]) -> str:
+        row = row_match.group(0)
+        cells = list(TABLE_CELL_RE.finditer(row))
+        if (
+            len(cells) != 2
+            or REQUIREMENT_DETAIL_FIELD_LABEL_RE.fullmatch(
+                visible_text_from_html(cells[0].group("body"))
+            ) is None
+        ):
+            return row
+        detail_cell = cells[1]
+        body = re.sub(
+            r"(?:\s*<br\s*/?>\s*){2,}",
+            "<br>",
+            detail_cell.group("body"),
+            flags=re.IGNORECASE,
+        )
+        replacement = f'<td{detail_cell.group("attrs")}>{body}</td>'
+        return row[:detail_cell.start()] + replacement + row[detail_cell.end():]
+
+    def replace_table(table_match: re.Match[str]) -> str:
+        return TABLE_ROW_RE.sub(replace_row, table_match.group(0))
+
+    return re.sub(
+        r"<table\b[^>]*>.*?</table>",
+        replace_table,
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
+def arrange_execution_result_detail_media(html: str) -> str:
+    """Arrange the execution-result detail into three bordered blocks."""
+
+    def replace_requirement(match: re.Match[str]) -> str:
+        title = visible_text_from_html(match.group("title"))
+        if not title.endswith("节点执行结果提示"):
+            return match.group(0)
+        table = match.group("table")
+        rows = list(TABLE_ROW_RE.finditer(table))
+        detail_row = None
+        for row in rows:
+            cells = list(TABLE_CELL_RE.finditer(row.group(0)))
+            if len(cells) == 2 and visible_text_from_html(cells[0].group("body")) == "需求详情":
+                detail_row = row
+                break
+        if detail_row is None:
+            return match.group(0)
+        cells = list(TABLE_CELL_RE.finditer(detail_row.group(0)))
+        body = cells[1].group("body")
+        images = list(re.finditer(r"<img\b[^>]*>", body, re.IGNORECASE))
+        if len(images) != 2:
+            return match.group(0)
+        text_body = re.sub(r"<img\b[^>]*>", "", body, flags=re.IGNORECASE)
+        groups = split_detail_logic_groups(text_body)
+        ordered = [groups[key] for key in ("一、状态入口与结果卡", "二、成功状态", "三、失败状态") if key in groups]
+        if len(ordered) != 3:
+            return match.group(0)
+        success_image, failure_image = (item.group(0) for item in images)
+        blocks = [f'<div class="prd-detail-text-block">{renumber_detail_copy(ordered[0])}</div>']
+        for image, copy in ((success_image, ordered[1]), (failure_image, ordered[2])):
+            blocks.append(
+                '<div class="prd-detail-media-block">'
+                f'<div class="prd-detail-media">{image}</div>'
+                f'<div class="prd-detail-copy">{renumber_detail_copy(copy)}</div>'
+                '</div>'
+            )
+        detail_cell = cells[1]
+        replacement = f'<td{detail_cell.group("attrs")}><div class="prd-detail-media-stack">{"".join(blocks)}</div></td>'
+        new_row = detail_row.group(0)[:detail_cell.start()] + replacement + detail_row.group(0)[detail_cell.end():]
+        return match.group("heading") + table.replace(detail_row.group(0), new_row, 1)
+
+    pattern = re.compile(
+        r"(?P<heading><h3\b[^>]*>(?P<title>.*?)</h3>)\s*(?P<table><table\b[^>]*>.*?</table>)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    return pattern.sub(replace_requirement, html)
+
+
+def arrange_node_organize_detail_media(html: str) -> str:
+    """Arrange node-organize rules into four blocks with images on blocks 2-4."""
+
+    def replace_requirement(match: re.Match[str]) -> str:
+        if not visible_text_from_html(match.group("title")).endswith("节点整理"):
+            return match.group(0)
+        table = match.group("table")
+        for row in TABLE_ROW_RE.finditer(table):
+            cells = list(TABLE_CELL_RE.finditer(row.group(0)))
+            if len(cells) != 2 or visible_text_from_html(cells[0].group("body")) != "需求详情":
+                continue
+            body = cells[1].group("body")
+            images = list(re.finditer(r"<img\b[^>]*>", body, re.IGNORECASE))
+            if len(images) != 3:
+                return match.group(0)
+            text_body = re.sub(r"<img\b[^>]*>", "", body, flags=re.IGNORECASE)
+            groups = split_detail_logic_groups(text_body)
+            ordered = [groups[key] for key in ("一、公共规则", "二、框选工具栏", "三、右键菜单", "四、分组工具栏") if key in groups]
+            if len(ordered) != 4:
+                return match.group(0)
+            blocks = [f'<div class="prd-detail-text-block">{renumber_detail_copy(ordered[0])}</div>']
+            for image, copy in zip((item.group(0) for item in images), ordered[1:]):
+                blocks.append(
+                    '<div class="prd-detail-media-block">'
+                    f'<div class="prd-detail-media">{image}</div>'
+                    f'<div class="prd-detail-copy">{renumber_detail_copy(copy)}</div>'
+                    '</div>'
+                )
+            cell = cells[1]
+            replacement = f'<td{cell.group("attrs")}><div class="prd-detail-media-stack">{"".join(blocks)}</div></td>'
+            new_row = row.group(0)[:cell.start()] + replacement + row.group(0)[cell.end():]
+            return match.group("heading") + table.replace(row.group(0), new_row, 1)
+        return match.group(0)
+
+    pattern = re.compile(
+        r"(?P<heading><h3\b[^>]*>(?P<title>.*?)</h3>)\s*(?P<table><table\b[^>]*>.*?</table>)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    return pattern.sub(replace_requirement, html)
+
+
+def arrange_asset_match_detail_media(html: str) -> str:
+    """Split compliance validation from SeaLink matching with left media columns."""
+
+    def replace_requirement(match: re.Match[str]) -> str:
+        if not visible_text_from_html(match.group("title")).endswith("自动校验资产与智能匹配 SeaLink"):
+            return match.group(0)
+        table = match.group("table")
+        for row in TABLE_ROW_RE.finditer(table):
+            cells = list(TABLE_CELL_RE.finditer(row.group(0)))
+            if len(cells) != 2 or visible_text_from_html(cells[0].group("body")) != "需求详情":
+                continue
+            body = cells[1].group("body")
+            images = list(re.finditer(r"<img\b[^>]*>", body, re.IGNORECASE))
+            if len(images) != 4:
+                return match.group(0)
+            text_body = re.sub(r"<img\b[^>]*>", "", body, flags=re.IGNORECASE)
+            groups = split_detail_logic_groups(text_body)
+            compliance = groups.get("一、合规验证")
+            matching = groups.get("一、智能匹配 SeaLink")
+            if not compliance or not matching:
+                return match.group(0)
+            image_tags = [item.group(0) for item in images]
+            blocks = [
+                '<div class="prd-detail-media-block">'
+                f'<div class="prd-detail-media">{image_tags[0]}</div>'
+                f'<div class="prd-detail-copy">{renumber_detail_copy(compliance)}</div>'
+                '</div>',
+                '<div class="prd-detail-media-block">'
+                f'<div class="prd-detail-media">{"".join(image_tags[1:])}</div>'
+                f'<div class="prd-detail-copy">{renumber_detail_copy(matching)}</div>'
+                '</div>',
+            ]
+            cell = cells[1]
+            replacement = f'<td{cell.group("attrs")}><div class="prd-detail-media-stack">{"".join(blocks)}</div></td>'
+            new_row = row.group(0)[:cell.start()] + replacement + row.group(0)[cell.end():]
+            return match.group("heading") + table.replace(row.group(0), new_row, 1)
+        return match.group(0)
+
+    pattern = re.compile(
+        r"(?P<heading><h3\b[^>]*>(?P<title>.*?)</h3>)\s*(?P<table><table\b[^>]*>.*?</table>)",
+        re.IGNORECASE | re.DOTALL,
+    )
+    return pattern.sub(replace_requirement, html)
 
 
 DETAIL_MEDIA_MARKER_RE = re.compile(
@@ -1486,6 +1707,10 @@ def inject_defaults(html: str, markdown: str, run_folder: Path) -> str:
     html = merge_reviewed_requirement_detail_media(html, run_folder)
     html = merge_legacy_requirement_detail_media(html)
     html = group_requirement_figure_pairs(html, run_folder)
+    html = arrange_execution_result_detail_media(html)
+    html = arrange_node_organize_detail_media(html)
+    html = arrange_asset_match_detail_media(html)
+    html = collapse_requirement_detail_spacer_breaks(html)
     html = replace_document_styles(html)
     if html_contains_images(html) and 'id="image-lightbox"' not in html:
         initial_src = html_lib.escape(first_image_src(html), quote=True)

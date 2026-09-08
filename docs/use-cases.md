@@ -3,7 +3,7 @@
 ## New Feature PRD
 
 ```text
-为 <目标用户> 在 <产品区域> 增加 <能力>。请先澄清关键范围并确认，再生成 PRD。
+为 <目标用户> 在 <产品区域> 增加 <能力>。证据充分时直接生成 PRD；仅在关键范围无法推断时澄清。
 ```
 
 ## Implemented Feature To PRD
@@ -21,7 +21,7 @@
 ## Multi-PRD Composition
 
 ```text
-从 docs/a/prd.md#5.2 和 docs/b/prd.md#5.4 提取需求，确认冲突和新范围后生成独立 PRD。
+从 docs/a/prd.md#5.2 和 docs/b/prd.md#5.4 提取需求，生成独立 PRD。
 ```
 
 Each completed request includes a Markdown PRD, rendered HTML, inline figure assets, and an internal trace. A frontend state is represented by a real capture, an isolated reconstructed figure, or a controlled placeholder.
