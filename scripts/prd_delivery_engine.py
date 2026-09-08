@@ -12,7 +12,6 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -29,9 +28,12 @@ from runtime_identity_contract import RUNTIME_IDENTITY_MANIFEST_FILES, runtime_m
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PRD_TEMPLATE = ROOT / "templates" / "prd-template.md"
 STATE_NAME = "delivery-run.json"
 CANONICAL_ARTIFACTS = ("prd.md", "prd.html", "run-log.yaml")
 TASK_MODES = ("new_prd", "implemented_feature_prd", "prd_revision", "prd_composition")
+V2_REQUIRED_HEADINGS = ("## 一、文档说明", "## 二、需求背景", "## 四、需求清单", "## 五、需求详情")
+LEGACY_FIGURE_ROW_RE = re.compile(r"^\|\s*(?:图示|截图|需求图)\s*\|", re.M)
 
 
 @dataclass(frozen=True)
@@ -220,6 +222,76 @@ def _extract_source_requirement(source: Path, selector: str | None, identifier: 
     return replace(result, evidence=(source_evidence,))
 
 
+def _validate_v2_baseline(markdown: str) -> None:
+    missing = [heading for heading in V2_REQUIRED_HEADINGS if heading not in markdown]
+    if missing:
+        raise DeliveryInputError(f"仅支持最新版 v2 PRD 基线，缺少章节：{', '.join(missing)}")
+    if LEGACY_FIGURE_ROW_RE.search(markdown):
+        raise DeliveryInputError("仅支持最新版 v2 PRD 基线；请先将独立图示行迁移到需求详情中的 prd-detail-media。")
+
+
+def _replace_template_section(markdown: str, heading: str, body: str) -> str:
+    pattern = re.compile(rf"(?ms)^{re.escape(heading)}\n.*?(?=^##\s|\Z)")
+    if not pattern.search(markdown):
+        raise RuntimeError(f"PRD template is missing required section: {heading}")
+    replacement = f"{heading}\n\n{body.strip()}\n\n" if body.strip() else ""
+    return pattern.sub(replacement, markdown, count=1)
+
+
+def _template_table_header(markdown: str, heading: str) -> str:
+    section = re.search(rf"(?ms)^{re.escape(heading)}\n(?P<body>.*?)(?=^##\s|\Z)", markdown)
+    if not section:
+        raise RuntimeError(f"PRD template is missing required section: {heading}")
+    rows = [line for line in section.group("body").splitlines() if line.startswith("|")]
+    if len(rows) < 2:
+        raise RuntimeError(f"PRD template is missing table header: {heading}")
+    return "\n".join(rows[:2])
+
+
+def _render_template_document(document: PrdDocument) -> str:
+    try:
+        markdown = PRD_TEMPLATE.read_text(encoding="utf-8")
+    except OSError as error:
+        raise RuntimeError(f"cannot load PRD template: {error}") from error
+    date = dt.date.today().isoformat()
+    markdown = re.sub(r"(?ms)^<!--.*?-->\n", "", markdown, count=1)
+    markdown = markdown.replace("# 需求名称 - YYYY-MM-DD", f"# {document.title} - {date}", 1)
+    values = {
+        "需求来源": document.request,
+        "目标用户": document.requirements[0].user,
+        "影响范围": document.title,
+        "文档状态": "可评审（图示待人工补全）",
+        "文档负责人": "待指定",
+    }
+    for label, value in values.items():
+        markdown = re.sub(
+            rf"(?m)^\|\s*{re.escape(label)}\s*\|.*?\|\s*$",
+            f"| {label} | {value} |",
+            markdown,
+            count=1,
+        )
+    markdown = markdown.replace("| v0.1 | YYYY-MM-DD | 首次创建 |  |", f"| v0.1 | {date} | 首次创建 | 待指定 |", 1)
+    markdown = _replace_template_section(
+        markdown,
+        "## 二、需求背景",
+        f"{document.requirements[0].scenario}{document.requirements[0].value}",
+    )
+    markdown = _replace_template_section(markdown, "## 三、需求调研", "")
+    list_header = _template_table_header(markdown, "## 四、需求清单")
+    list_rows = "\n".join(
+        f"| {req.identifier} | {req.name} | {req.user} | {req.scenario} | {req.value} | {req.name} | P1 | 用户确认请求 |"
+        for req in document.requirements
+    )
+    markdown = _replace_template_section(markdown, "## 四、需求清单", f"{list_header}\n{list_rows}")
+    details = "\n".join(_render_requirement_detail(req).strip() for req in document.requirements)
+    markdown = _replace_template_section(markdown, "## 五、需求详情", details)
+    markdown = _replace_template_section(markdown, "## 六、多语言需求", "")
+    markdown = _replace_template_section(markdown, "## 七、埋点需求", "")
+    if "### 5.1 需求名称" in markdown or "YYYY-MM-DD" in markdown:
+        raise RuntimeError("PRD template placeholders were not fully filled")
+    return markdown.rstrip() + "\n"
+
+
 def _document(state: dict[str, Any]) -> PrdDocument:
     mode, request = state["task_mode"], state["raw_request"]
     evidence: list[Evidence] = [Evidence("user_request", "confirmed_request", request)]
@@ -235,6 +307,7 @@ def _document(state: dict[str, Any]) -> PrdDocument:
         if not source.is_file():
             raise DeliveryInputError("原地修订需要目标运行目录中的 prd.md。")
         source_markdown = source.read_text(encoding="utf-8")
+        _validate_v2_baseline(source_markdown)
         ids = state.get("revision_requirement_ids") or []
         if not ids:
             raise DeliveryInputError("请指定要修订的 requirement ID。")
@@ -252,6 +325,7 @@ def _document(state: dict[str, Any]) -> PrdDocument:
         if not source.is_file():
             raise DeliveryInputError("追加已实现功能需要目标运行目录中的 prd.md。")
         source_markdown = source.read_text(encoding="utf-8")
+        _validate_v2_baseline(source_markdown)
         identifiers = [int(value) for value in re.findall(r"^###\s+5\.(\d+)\s+", source_markdown, re.M)]
         if not identifiers:
             raise DeliveryInputError("追加已实现功能需要基线 PRD 中至少一个 5.x 需求。")
@@ -373,14 +447,7 @@ def _render_markdown(document: PrdDocument) -> str:
                 raise DeliveryInputError(f"selected requirement has no editable 需求详情 row: {req.identifier}")
             revised = "".join(lines)
         return revised if revised.endswith("\n") else revised + "\n"
-    date = dt.date.today().isoformat()
-    lines = [f"# {document.title} - {date}", "", "## 一、文档说明", "", "### 1. 文档信息", "", "| 项目 | 内容 |", "| --- | --- |", f"| 需求来源 | {document.request} |", f"| 目标用户 | {document.requirements[0].user} |", f"| 影响范围 | {document.title} |", "| 文档状态 | 可评审（图示待人工补全） |", "| 文档负责人 | 待指定 |", "", "### 2. 版本记录", "", "| 版本 | 日期 | 变更内容 | 负责人 |", "| --- | --- | --- | --- |", f"| v0.1 | {date} | 首次创建 | 待指定 |", "", "## 二、需求背景", "", f"{document.requirements[0].scenario}{document.requirements[0].value}", "", "## 四、需求清单", "", "| 详情编号 | 需求名称 | 目标用户 | 用户场景 / 触发 | 用户问题或价值 | 需求摘要 | 优先级 | 来源 / 确认状态 |", "| --- | --- | --- | --- | --- | --- | --- |"]
-    for req in document.requirements:
-        lines.append(f"| {req.identifier} | {req.name} | {req.user} | {req.scenario} | {req.value} | {req.name} | P1 | 用户确认请求 |")
-    lines.extend(["", "## 五、需求详情", ""])
-    for req in document.requirements:
-        lines.extend(_render_requirement_detail(req).splitlines())
-    return "\n".join(lines) + "\n"
+    return _render_template_document(document)
 
 
 def _lineage(document: PrdDocument, folder: Path) -> dict[str, Any]:
@@ -413,7 +480,6 @@ def _trace(document: PrdDocument, folder: Path, validation: list[dict[str, str]]
         },
         "frontend_figure_evidence": figures,
         "requirement_coverage_review": [{"requirement_id": req.identifier, "visual": "included", "copy": "included", "measurement": "not_needed", "rationale": "Derived from confirmed requirement."} for req in document.requirements],
-        "specialist_evidence": [], "pm_arbitration": {"decisions": []},
         "review": {"status": "passed", "findings": []},
         # The first trace is itself an input to validate_outputs.  Record the
         # completed deterministic preflight before asking that validator to
@@ -613,7 +679,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request")
     parser.add_argument("--run-folder")
-    parser.add_argument("--new-requirement", action="store_true")
     parser.add_argument("--revise", action="store_true")
     parser.add_argument("--append-implemented-feature", action="store_true")
     parser.add_argument("--extract-from", action="append", default=[])
@@ -624,12 +689,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--answers")
     parser.add_argument("--confirm", action="store_true")
     parser.add_argument("--background", action="store_true")
-    parser.add_argument("--provider")
-    parser.add_argument("--model")
-    parser.add_argument("--model-enhancement", action="store_true")
-    parser.add_argument("--timeout-minutes")
-    parser.add_argument("--interactive-timeout-minutes")
-    parser.add_argument("--max-revisions")
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     args, unknown = parser.parse_known_args(raw_argv)
     if unknown:

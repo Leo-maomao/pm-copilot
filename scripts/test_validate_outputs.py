@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import yaml
 
 from validate_outputs import check_folder, check_prd_output_contract, check_tracking_context
 

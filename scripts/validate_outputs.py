@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote
@@ -28,6 +27,7 @@ DETAIL_MEDIA_MARKER_RE = re.compile(r"\[\[prd-detail-media\s+(?P<attributes>.*?)
 DETAIL_MEDIA_ATTRIBUTE_RE = re.compile(r'\b(?P<name>src|alt|copy)\s*=\s*"(?P<value>[^"]*)"', re.I | re.S)
 MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\((?P<path>[^)]+)\)")
 REQUIREMENT_HEADING_RE = re.compile(r"^#{2,4}\s*5\.(?P<id>\d+)\s+", re.M)
+LEGACY_FIGURE_ROW_RE = re.compile(r"^\|\s*(?:图示|截图|需求图)\s*\|", re.M)
 SENSITIVE_TRACKING_RE = re.compile(r"(?:手机号|身份证|邮箱|email|phone|password|token|cookie)", re.I)
 
 
@@ -46,20 +46,6 @@ def _trace(folder: Path) -> dict:
     except (OSError, yaml.YAMLError):
         return {}
     return payload if isinstance(payload, dict) else {}
-
-
-def extract_yaml_block(text: str, key: str) -> str:
-    payload = yaml.safe_load(text) if text.strip() else {}
-    value = payload.get(key) if isinstance(payload, dict) else None
-    return yaml.safe_dump({key: value}, allow_unicode=True, sort_keys=False) if value is not None else ""
-
-
-def yaml_list_field_has_values(block: str, key: str) -> bool:
-    try:
-        payload = yaml.safe_load(block)
-    except yaml.YAMLError:
-        return False
-    return isinstance(payload, dict) and isinstance(payload.get(key), list) and bool(payload[key])
 
 
 def _safe_local_file(folder: Path, reference: str) -> Path | None:
@@ -199,9 +185,9 @@ def check_requirement_figure_rows(text: str) -> None:
             fail("controlled figure placeholder must use the 功能-状态.png format")
 
 
-def check_requirement_detail_media_blocks(text: str, preserved_legacy_requirement_ids: set[str] | None = None) -> None:
-    # Detail figures must use the renderer's single semantic marker. Historical
-    # untouched sections are intentionally outside this new-document constraint.
+def check_requirement_detail_media_blocks(text: str) -> None:
+    if LEGACY_FIGURE_ROW_RE.search(text):
+        fail("latest v2 PRD does not allow standalone figure rows")
     details = re.split(r"^#{2,4}\s*5\.\d+\s+", text, flags=re.M)[1:]
     for detail in details:
         if re.search(r"<img\b|!\[[^\]]*\]\(", detail, re.I) and "[[prd-detail-media" not in detail:
@@ -228,15 +214,6 @@ def check_prd_output_contract(path: Path, language: str | None = None) -> None:
         asset = _safe_local_file(path, reference)
         if asset is None or not asset.is_file():
             fail(f"PRD figure reference must remain inside assets and exist: {reference}")
-
-
-def _contains_unlocalized_english_copy(value: str) -> bool:
-    cleaned = re.sub(r"\b(?:[A-Z][A-Za-z0-9_-]*\s+)?(?:ID|URL|URI|API|SKU)\b", "", value, flags=re.I)
-    return bool(re.search(r"\b[A-Za-z]{3,}(?:\s+[A-Za-z]{3,})+\b", cleaned))
-
-
-def probable_english_copy_lines(block: str) -> list[str]:
-    return [line.strip() for line in block.splitlines() if _contains_unlocalized_english_copy(line) and not re.search(r"[\u3400-\u9fff]", line)]
 
 
 def check_chinese_prd(path: Path) -> None:
@@ -292,12 +269,6 @@ def resolve_output_language(folder: Path, explicit_language: str | None) -> str 
         return explicit_language
     language = _trace(folder).get("language")
     return str(language).lower() if str(language).lower() in {"zh", "en"} else None
-
-
-def _proven_preserved_legacy_requirement_ids(folder: Path, run_log: str, text: str) -> set[str]:
-    # Legacy media exemptions were part of the old revision validator. New
-    # revisions prove preservation through revision-evidence.json instead.
-    return set()
 
 
 def main() -> None:

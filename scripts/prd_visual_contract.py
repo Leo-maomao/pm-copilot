@@ -21,12 +21,3 @@ PLACEHOLDER_DECLARATION_RE = re.compile(
     rf"占位图[:：]\s*(?P<name>{PLACEHOLDER_NAME_PATTERN})(?=\s*(?:\||<br\s*/?>|$))",
     re.IGNORECASE,
 )
-PLACEHOLDER_VALUE_RE = re.compile(
-    rf"占位图：{PLACEHOLDER_NAME_PATTERN}(?:\s*<br\s*/?>\s*占位图：{PLACEHOLDER_NAME_PATTERN})*$",
-    re.IGNORECASE,
-)
-
-
-def is_controlled_placeholder_value(value: str) -> bool:
-    """Return whether a table-cell value contains only controlled markers."""
-    return bool(PLACEHOLDER_VALUE_RE.fullmatch(value.strip()))

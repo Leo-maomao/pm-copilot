@@ -8,26 +8,15 @@ import hashlib
 import json
 from pathlib import Path
 import re
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 import yaml
 
 from runtime_identity_contract import complete_runtime_identity_failures
-from revision_scope import (
-    aggregate_visual_evidence_by_requirement,
-    requirement_ids,
-    requirement_linked_rows,
-)
-
-
 TASK_MODES = {"new_prd", "implemented_feature_prd", "prd_revision", "prd_composition"}
 LINEAGE_MODES = {"new_run", "implemented_feature_run", "in_place_revision", "composition_run"}
-SPECIALIST_ROLES = {"functional_logic", "frontend_evidence", "source_resolution"}
-SPECIALIST_STATUSES = {"passed", "failed", "skipped"}
 REVIEW_STATUSES = {"pending", "passed", "failed"}
-VALIDATION_STATUSES = {"pending", "passed", "failed"}
 FIGURE_KINDS = {"real_capture", "reconstructed", "placeholder"}
-VISUAL_DECISIONS = {"real_figure", "required_placeholder", "not_required"}
 MODE_TO_LINEAGE = {
     "new_prd": "new_run",
     "implemented_feature_prd": "implemented_feature_run",
@@ -50,81 +39,6 @@ def _text_mapping(text: str) -> dict[str, Any]:
     except yaml.YAMLError:
         return {}
     return value if isinstance(value, dict) else {}
-
-
-def scalar_value(text: str, field: str) -> str:
-    """Compatibility helper for callers which inspect small YAML fragments."""
-    value = _text_mapping(text)
-
-    def walk(item: Any) -> str:
-        if isinstance(item, Mapping):
-            if field in item and not isinstance(item[field], (Mapping, list)):
-                return str(item[field] or "").strip()
-            for child in item.values():
-                found = walk(child)
-                if found:
-                    return found
-        elif isinstance(item, list):
-            for child in item:
-                found = walk(child)
-                if found:
-                    return found
-        return ""
-
-    return walk(value)
-
-
-def section_text(text: str, section: str) -> str:
-    value = _text_mapping(text).get(section)
-    return yaml.safe_dump(value, allow_unicode=True, sort_keys=False) if value is not None else ""
-
-
-def nested_section_text(text: str, section: str) -> str:
-    return section_text(text, section)
-
-
-def list_field_values(text: str, field: str) -> list[str]:
-    value = _text_mapping(text)
-
-    def walk(item: Any) -> list[str] | None:
-        if isinstance(item, Mapping):
-            candidate = item.get(field)
-            if isinstance(candidate, list):
-                return [str(part) for part in candidate if str(part).strip()]
-            for child in item.values():
-                found = walk(child)
-                if found is not None:
-                    return found
-        elif isinstance(item, list):
-            for child in item:
-                found = walk(child)
-                if found is not None:
-                    return found
-        return None
-
-    return walk(value) or []
-
-
-def field_has_list_item(text: str, field: str) -> bool:
-    return bool(list_field_values(text, field))
-
-
-def mapping_item_blocks(text: str, first_field: str) -> list[str]:
-    value = _text_mapping(text)
-    blocks: list[str] = []
-
-    def walk(item: Any) -> None:
-        if isinstance(item, Mapping):
-            if first_field in item:
-                blocks.append(yaml.safe_dump(dict(item), allow_unicode=True, sort_keys=False))
-            for child in item.values():
-                walk(child)
-        elif isinstance(item, list):
-            for child in item:
-                walk(child)
-
-    walk(value)
-    return blocks
 
 
 def _task_mode(trace: Mapping[str, Any], supplied: str | None = None) -> str:
@@ -293,75 +207,6 @@ def validate_implemented_feature_evidence_packet(
     return []
 
 
-def validate_implemented_feature_prd_integrity(run_log: Path, text: str, task_mode: str) -> list[str]:
-    if task_mode != "implemented_feature_prd":
-        return []
-    return [
-        *validate_artifact_lineage(run_log, text, task_mode),
-        *validate_implemented_feature_evidence_packet(run_log, text, task_mode),
-    ]
-
-
-def _implemented_feature_runtime_provenance_failures(text: str, version: str) -> list[str]:
-    trace = _text_mapping(text)
-    identity = trace.get("runtime_identity")
-    if not identity:
-        return []
-    if not isinstance(identity, Mapping):
-        return ["runtime_identity must be a mapping"]
-    failures = complete_runtime_identity_failures(identity)
-    if version and str(identity.get("version") or "") != version:
-        failures.append("frozen runtime_identity.version must match pm_copilot_version")
-    return failures
-
-
-def _validate_specialists(trace: Mapping[str, Any], root: Path) -> list[str]:
-    specialists = trace.get("specialist_evidence", [])
-    if specialists is None:
-        return []
-    if not isinstance(specialists, list):
-        return ["specialist_evidence must be a list"]
-    failures: list[str] = []
-    ids: set[str] = set()
-    for item in specialists:
-        if not isinstance(item, Mapping):
-            failures.append("specialist evidence item must be a mapping")
-            continue
-        identifier = str(item.get("id") or "")
-        if not identifier or identifier in ids:
-            failures.append("specialist evidence requires unique id")
-        ids.add(identifier)
-        if str(item.get("role") or "") not in SPECIALIST_ROLES:
-            failures.append(f"specialist {identifier or '<empty>'} has invalid role")
-        status = str(item.get("status") or "")
-        if status not in SPECIALIST_STATUSES:
-            failures.append(f"specialist {identifier or '<empty>'} has invalid status")
-        if not str(item.get("subject") or ""):
-            failures.append(f"specialist {identifier or '<empty>'} requires subject")
-        if status == "passed" and not str(item.get("path") or ""):
-            failures.append(f"passed specialist {identifier or '<empty>'} requires persisted evidence path")
-        if status == "passed":
-            path = _safe_local_file(root, item.get("path"))
-            if not path or not path.is_file():
-                failures.append(f"passed specialist {identifier or '<empty>'} evidence path is missing")
-        if status == "failed" and not str(item.get("error") or ""):
-            failures.append(f"failed specialist {identifier or '<empty>'} requires error")
-    return failures
-
-
-def _validate_pm_arbitration(trace: Mapping[str, Any]) -> list[str]:
-    specialists = trace.get("specialist_evidence")
-    if not isinstance(specialists, list) or not specialists:
-        return []
-    arbitration = trace.get("pm_arbitration")
-    decisions = arbitration.get("decisions") if isinstance(arbitration, Mapping) else None
-    if not isinstance(decisions, list) or not decisions:
-        return ["specialist evidence requires a PM Orchestrator arbitration record"]
-    if any(not isinstance(item, Mapping) or item.get("owner") != "PM Orchestrator" for item in decisions):
-        return ["PM Orchestrator must own every arbitration decision"]
-    return []
-
-
 def _validate_figure_evidence(trace: Mapping[str, Any], root: Path) -> list[str]:
     figures = trace.get("frontend_figure_evidence")
     if not isinstance(figures, list):
@@ -435,8 +280,6 @@ def validate_run_log(run_log: Path) -> dict[str, Any]:
         failures.append("completed delivery requires confirmed scope")
     failures.extend(validate_artifact_lineage(run_log, task_mode=mode))
     failures.extend(validate_implemented_feature_evidence_packet(run_log, task_mode=mode))
-    failures.extend(_validate_specialists(trace, run_log.parent))
-    failures.extend(_validate_pm_arbitration(trace))
     failures.extend(_validate_figure_evidence(trace, run_log.parent))
     review = trace.get("review")
     if not isinstance(review, Mapping):

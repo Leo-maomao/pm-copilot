@@ -38,11 +38,11 @@ Use these top-level sections and titles in order only when creating a new PRD:
 
 `需求调研` is included only when user research, competitive research, analytics, interviews, or other evidence materially shapes a requirement. `多语言需求` and `埋点需求` are included only when they contain real content. Keep the core section headings stable even when optional sections are omitted; when `多语言需求` is omitted but `埋点需求` is present, it is `## 六、埋点需求`.
 
-When a new PRD references or migrates content from another PRD, use the current new-PRD template for its document structure. The source PRD is evidence for confirmed requirement content, terminology, assets, and requested migration boundaries only. Never infer or state that the new document adopts the source PRD's chapters, field labels, numbering, or legacy media layout without explicit user direction.
+When a new PRD references or migrates content from another PRD, use the canonical new-PRD structure. The source PRD is evidence for confirmed requirement content, terminology, assets, and requested migration boundaries only. Never infer or state that the new document adopts the source PRD's chapters, field labels, numbering, or legacy media layout without explicit user direction.
 
 ## In-Place Revision Scope
 
-When the user identifies an existing PRD, that PRD is the sole structural source of truth. Preserve its chapter order, headings, field labels, numbering, and all unaffected content. Do not describe another or older PRD as the correct template, and do not apply the new-PRD template to an existing PRD unless the user explicitly requests a structural rewrite.
+When the user identifies an existing PRD, that PRD is the sole structural source of truth. Preserve its chapter order, headings, field labels, numbering, and all unaffected content. Do not describe another or older PRD as the canonical structure, and do not apply the new-PRD structure to an existing PRD unless the user explicitly requests a structural rewrite.
 
 For a layout-only request, such as pairing screenshots with their corresponding logic, modify only the affected `需求详情` cell and its rendered HTML. Do not add, remove, reorder, or rename chapters, requirement rows, detail fields, version records, research, localization, tracking, or flow diagrams. Renumber requirements only when the user explicitly deletes or merges requirements; then update every affected reference and preserve the version history.
 
@@ -150,7 +150,7 @@ For an implemented-feature PRD, every requirement that names a production user-f
 
 Each real image is paired with its matching state logic in the same `需求详情` cell; do not repeat a visible image-name caption. A placeholder uses only `占位图：功能-状态.png`; record failed capture paths and the reason for the placeholder only in internal evidence.
 
-The legacy standalone `图示` row is accepted only as input from older PRDs; the HTML renderer migrates it into the matching `需求详情` cell. New PRDs and production controller outputs must use the single-cell media-block layout above.
+Only the latest v2 PRD format is supported. Every figure belongs in the matching `需求详情` cell through the single-cell media-block layout above; a standalone `图示` row is rejected.
 
 Do not add separate risk, pending-confirmation, acceptance-result, or technical-test fields to requirement details. Keep only confirmed product behavior in the detail; when an unresolved product decision genuinely blocks drafting, handle it before generation or state the assumption in `需求背景`.
 

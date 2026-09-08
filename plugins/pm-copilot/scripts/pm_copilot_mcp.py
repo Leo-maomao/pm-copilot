@@ -104,8 +104,6 @@ def start_request(request: str, project_root: str, run_folder: str = "", append_
     command.extend(["--request", request])
     if run_folder:
         command.extend(["--run-folder", str(Path(run_folder).expanduser().resolve())])
-    else:
-        command.append("--new-requirement")
     if revise:
         command.append("--revise")
         for identifier in revision_requirement_ids or []:

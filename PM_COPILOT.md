@@ -41,7 +41,7 @@ run-log.yaml
 ```
 
 `run-log.yaml` is internal audit evidence. It records confirmation, source
-snapshots, agent work, figure provenance, review, and validation. It is not a
+snapshots, figure provenance, review, and validation. It is not a
 replacement for product requirements in `prd.md`.
 
 ## Required Flow
@@ -74,7 +74,7 @@ Understand -> Gather evidence -> Clarify if required -> Draft PRD
 - Composition input is repeated `--extract-from <prd.md>` plus source-qualified
   requirement selectors, for example `source-1: 5.2` and `source-2: 5.4`.
   The controller snapshots every source inside the new run folder. The new PRD
-  starts from the current template and renumbers details from `5.1`; it never
+  starts from the canonical document structure and renumbers details from `5.1`; it never
   inherits source structure or numbering.
 
 ## Frontend Figures
@@ -91,27 +91,9 @@ evidence; reconstructions and placeholders are controlled fallbacks.
 3. When neither path works, retain only the controlled inline
    `占位图：功能-状态.png` marker and a replacement instruction in the run log.
 
-Use the existing PRD Markdown template and renderer. Put every figure beside
+Use the canonical renderer. Put every figure beside
 the corresponding behavior with the `prd-detail-media` marker; do not create a
 separate UI delivery artifact.
-
-## Multi-Agent Execution
-
-PM Orchestrator owns classification, clarification, final synthesis, and
-conflict arbitration. It delegates only independent evidence questions:
-
-- Functional Logic Agent: requirement list, business rules, and edge states.
-- Frontend Evidence Agent: source inspection, reconstruction, capture, and
-  figure provenance.
-- Source Resolution Agent: composition-only source snapshots and requirement
-  selector resolution.
-- Review Agent: independent check of logic, figures, source boundaries,
-  numbering, and the PRD contract.
-
-There is no fixed specialist-count limit: dispatch every independently
-verifiable evidence question that the confirmed scope requires. Do not delegate
-when one agent can answer the question directly. Specialist output is evidence, never a vote;
-PM Orchestrator records the final decision.
 
 ## Runtime Loading
 

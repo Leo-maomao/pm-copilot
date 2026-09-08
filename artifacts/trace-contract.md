@@ -32,9 +32,6 @@ artifact_lineage:
   revision_baseline: {}
 frontend_figure_evidence: []
 requirement_coverage_review: []
-specialist_evidence: []
-pm_arbitration:
-  decisions: []
 review:
   status:
   findings: []
@@ -58,12 +55,6 @@ final_status:
   It is controller-derived from the final PRD and immutable evidence packet, so
   it preserves the visual decision and explicit localization/tracking links for
   each final requirement without duplicating implementation evidence in the log.
-- `specialist_evidence` is created only for independently useful work. It may
-  contain any number of functional-logic, frontend-evidence, or source-resolution
-  specialists. A failed specialist remains evidence of a failed attempt, never
-  product truth.
-- `pm_arbitration.decisions` records the PM Orchestrator's conclusion whenever
-  specialist claims conflict or a specialist result is not adopted.
 - `review` records the independent PRD review. A complete delivery has no open
   Critical or High finding.
 - `validation_results` records renderer, output, trace, and delivery checks for
@@ -79,5 +70,4 @@ PM readiness fields to this contract.
 python3 scripts/render_prd_html.py <run-folder>
 python3 scripts/validate_outputs.py <run-folder>
 python3 scripts/validate_agent_trace.py <run-folder>
-python3 scripts/run_delivery_checks.py <run-folder>
 ```

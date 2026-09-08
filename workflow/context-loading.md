@@ -40,7 +40,7 @@ Require one or more source PRDs and a requirement selector for each source.
 Snapshot sources into the new run folder, resolve each selector against those
 snapshots, show conflicts, and confirm the resulting new scope. Source
 structure and numbering are provenance only; the new PRD uses the current
-template and starts detail numbering at `5.1`.
+canonical document structure and starts detail numbering at `5.1`.
 
 ## Figure Evidence
 
