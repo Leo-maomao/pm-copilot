@@ -1,34 +1,34 @@
 ---
 name: pm-copilot
-description: Use PM Copilot to generate PRDs in the current project.
+description: 在当前代码仓库中创建、根据代码整理或修改集中需求库中的需求。
 ---
 
-# PM Copilot Plugin Adapter
+# 需求管理器
 
-Use `prd_start_request` for every PRD request. The installed plugin resolves
-its sole source checkout automatically; never ask for a runtime path. Never invoke a PM Copilot controller from the shell. The host repository is read-only product
-evidence and receives PRD outputs, never PM Copilot runtime changes.
+只处理“需求”，不要输出或使用旧领域术语。所有正式需求保存在产品助理仓库的 `requirements/` 中，绝不写入当前目标代码仓库。
 
-The v2 protocol has one delivery path and one state file, `delivery-run.json`.
-It creates `prd.md`, `prd.html`, `assets/`, and `run-log.yaml` atomically.
-Historical unfinished runs are unsupported and must be restarted as v2 runs.
+## 初始化
 
-Call `prd_run_status` before reporting progress or failure. A sufficient
-request delivers immediately. For `needs_input`, call `prd_submit_answer`; the
-controller automatically continues through canonical artifact delivery.
+首次调用时读取 `~/.config/pm-copilot/config.json`。其中的 `repositoryRoot` 必须是产品助理仓库绝对路径。文件不存在时，询问用户该路径；确认后创建配置。不得把该路径写入需求正文或返回给局域网浏览者。
 
-For an in-place revision pass `run_folder`, `revise: true`, and the selected
-requirement IDs. For an implemented-feature append pass the selected
-`run_folder` and `append_implemented_feature: true`. Never route multiple
-target PRDs through a revision.
+从当前仓库的 Git `origin` 识别 `project-key`；没有远端时用当前目录名。正式目录为 `requirements/projects/<project-key>/requirements/<requirement-id>/`，每条需求使用 `requirement.md` 与同目录 `assets/`。
 
-Pass user-provided frontend images through `asset_paths`. Absolute local image
-paths included in the request text are also collected automatically. For a
-revision, existing target assets are preserved and a selected requirement uses
-every matching supplied or existing image before falling back to reconstruction
-or a controlled placeholder. A request that only names a PRD path must answer
-one consolidated scope question before a revision is delivered.
+## 工作流
 
-Before reporting a failure, call the applicable MCP tool and report only its
-returned `controller_exit_code`, `controller_stderr`, `status`, and
-`last_error`; a historical run log is not evidence of a current failure.
+### 自然语言
+
+根据用户描述创建一条独立需求。生成书面化标题、摘要、正文与必要的一级或二级内容，并使用 `defined` 状态。若用户提到与收件箱草稿相同的口语标题，先匹配 `requirements/inbox/`；多个候选时提问。完成后将匹配草稿的图片移入需求的 `assets/`。
+
+### 根据代码整理
+
+先阅读当前仓库的相关代码。用户给出本地 URL 或明确要求验证时，再检查运行页面。代码是主要依据。按口语标题匹配收件箱草稿；图示归属无法确认时必须提问。生成后的需求状态为 `defined`。
+
+### 修改已有需求
+
+用户必须明确标题或稳定 ID。定位到唯一目标后原地更新 Markdown，保留原状态和创建时间，只更新 `updatedAt`。标题、正文、二级内容及图示归属都可更新；目标不唯一时先提问。
+
+## 内容与图示
+
+需求只有一级和可选二级内容。模型根据实现边界、交互目标和状态链决定是否拆分二级内容，而不是按图片数量机械拆分。没有二级内容时，图示跟随一级；有二级内容时，每张图必须归属一个明确内容，但同一个二级内容可以关联多张图。图示归属不明时先提问。图片文件名只用于关联，不显示给研发。
+
+每次写入后确认 Markdown 可解析、图片路径相对且均在同目录 `assets/` 内。不要修改历史来源文件。

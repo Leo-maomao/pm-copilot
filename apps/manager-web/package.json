@@ -1,0 +1,25 @@
+{
+  "name": "@pm-copilot/manager-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 57391",
+    "build": "tsc --build && vite build"
+  },
+  "dependencies": {
+    "@pm-copilot/core": "workspace:*",
+    "dompurify": "3.3.3",
+    "lucide-react": "0.468.0",
+    "marked": "17.0.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  }
+}

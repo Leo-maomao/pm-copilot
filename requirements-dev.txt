@@ -1,2 +1,0 @@
-playwright>=1.60,<2
-PyYAML>=6.0,<7

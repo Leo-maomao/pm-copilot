@@ -1,0 +1,29 @@
+{
+  "name": "local-pm-copilot",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.26.0",
+  "engines": {
+    "node": ">=24.11.1 <25",
+    "pnpm": ">=10.26.0 <11"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "scripts": {
+    "dev": "pnpm --filter @pm-copilot/manager-web dev",
+    "start": "pnpm build && pnpm --filter @pm-copilot/local-server start",
+    "check": "pnpm exec biome check . && pnpm exec tsc --build",
+    "test": "pnpm --filter @pm-copilot/core test && pnpm --filter @pm-copilot/local-server build && pnpm --filter @pm-copilot/local-server test && pnpm exec playwright test",
+    "test:unit": "pnpm --filter @pm-copilot/core test",
+    "test:e2e": "pnpm exec playwright test",
+    "build": "pnpm --filter @pm-copilot/core build && pnpm --filter @pm-copilot/manager-web build && pnpm --filter @pm-copilot/local-server build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@playwright/test": "1.63.0",
+    "typescript": "7.0.2"
+  }
+}

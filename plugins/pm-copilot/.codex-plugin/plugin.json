@@ -1,19 +1,21 @@
 {
   "name": "pm-copilot",
-  "version": "8.0.0+codex.20260908110055",
-  "description": "Professional PRD generator with evidence-backed frontend figures.",
+  "version": "0.1.0+codex.20260911064832",
+  "description": "\u5c06\u81ea\u7136\u8bed\u8a00\u3001\u4ee3\u7801\u548c\u5df2\u6709\u9700\u6c42\u8f6c\u5316\u4e3a\u7edf\u4e00\u9700\u6c42\u5e93\u4e2d\u7684\u53ef\u6267\u884c\u9700\u6c42\u3002",
+  "skills": "./skills/",
   "author": {
     "name": "PM Copilot"
   },
-  "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "PM Copilot",
-    "shortDescription": "Create, restore, revise, or compose reviewable PRDs.",
-    "longDescription": "Use a configured PM Copilot checkout for new PRDs, implemented-feature restoration, scoped revisions, and multi-PRD composition.",
+    "shortDescription": "\u5728\u5f53\u524d\u9879\u76ee\u4e0a\u4e0b\u6587\u4e2d\u751f\u4ea7\u548c\u7ef4\u62a4\u9700\u6c42\u3002",
+    "longDescription": "\u8bfb\u53d6\u5f53\u524d\u9879\u76ee\u4ee3\u7801\u6216\u5df2\u6709\u9700\u6c42\uff0c\u5728\u672c\u673a\u79c1\u6709\u9700\u6c42\u5e93\u4e2d\u521b\u5efa\u548c\u7ef4\u62a4\u53ef\u4f9b\u7814\u53d1\u9605\u8bfb\u7684\u9700\u6c42\u3002",
     "developerName": "PM Copilot",
     "category": "Productivity",
-    "capabilities": [],
-    "defaultPrompt": "Use prd_start_request to clarify and generate a reviewable PRD for this project."
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": "\u6839\u636e\u5f53\u524d\u9879\u76ee\u4ee3\u7801\u6574\u7406\u4e00\u6761\u9700\u6c42\u3002"
   }
 }

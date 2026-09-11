@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "pm-copilot": {
-      "command": "python3",
-      "args": ["./scripts/pm_copilot_mcp.py"],
-      "cwd": "."
-    }
-  }
-}

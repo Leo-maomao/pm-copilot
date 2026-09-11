@@ -1,1 +1,6 @@
-vendor/mermaid/mermaid.min.js binary
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
