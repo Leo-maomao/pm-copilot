@@ -101,6 +101,17 @@ export async function deleteProject(
   return (await response.json()) as ScannedRequirements;
 }
 
+export async function deleteRequirement(
+  requirement: LoadedRequirement,
+): Promise<ScannedRequirements> {
+  const response = await fetch(
+    `/api/requirements/${encodeURIComponent(requirement.assetKey)}`,
+    { method: 'DELETE' },
+  );
+  if (!response.ok) throw new Error('Unable to delete requirement.');
+  return (await response.json()) as ScannedRequirements;
+}
+
 export async function updateRequirementStatus(
   requirement: LoadedRequirement,
   status: RequirementStatus,
@@ -166,6 +177,24 @@ export async function deleteRequirementVisual(
     },
   );
   if (!response.ok) throw new Error('Unable to delete requirement visual.');
+  return (await response.json()) as ScannedRequirements;
+}
+
+export async function updateRequirementVisualName(
+  requirement: LoadedRequirement,
+  input: Readonly<{ alt: string; path: string }>,
+): Promise<ScannedRequirements> {
+  const response = await fetch(
+    `/api/requirements/${encodeURIComponent(requirement.assetKey)}/visuals`,
+    {
+      body: JSON.stringify(input),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'PUT',
+    },
+  );
+  if (!response.ok) {
+    throw new Error('Unable to update requirement visual name.');
+  }
   return (await response.json()) as ScannedRequirements;
 }
 

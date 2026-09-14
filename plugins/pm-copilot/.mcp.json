@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "pm-copilot": {
+      "command": "node",
+      "args": ["./scripts/pm-copilot-mcp.mjs"],
+      "cwd": "."
+    }
+  }
+}

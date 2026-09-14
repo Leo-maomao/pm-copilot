@@ -1,11 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = process.env.PM_COPILOT_E2E_PORT ?? '57392';
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  // The suite writes to one local requirement library and browser session store.
+  fullyParallel: false,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:57391',
+    baseURL,
     browserName: 'chromium',
     channel: 'chrome',
     trace: 'retain-on-failure',
@@ -17,8 +21,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm start',
-    url: 'http://127.0.0.1:57391',
-    reuseExistingServer: !process.env.CI,
+    command: 'node tests/e2e/start-server.mjs',
+    url: baseURL,
+    reuseExistingServer: false,
   },
 });

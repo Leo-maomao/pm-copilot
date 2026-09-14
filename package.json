@@ -16,7 +16,7 @@
     "dev": "pnpm --filter @pm-copilot/manager-web dev",
     "start": "pnpm build && pnpm --filter @pm-copilot/local-server start",
     "check": "pnpm exec biome check . && pnpm exec tsc --build",
-    "test": "pnpm --filter @pm-copilot/core test && pnpm --filter @pm-copilot/local-server build && pnpm --filter @pm-copilot/local-server test && pnpm exec playwright test",
+    "test": "pnpm --filter @pm-copilot/core build && pnpm --filter @pm-copilot/core test && node --test plugins/pm-copilot/test/*.test.mjs && pnpm --filter @pm-copilot/manager-web build && pnpm --filter @pm-copilot/local-server build && pnpm --filter @pm-copilot/local-server test && pnpm exec playwright test",
     "test:unit": "pnpm --filter @pm-copilot/core test",
     "test:e2e": "pnpm exec playwright test",
     "build": "pnpm --filter @pm-copilot/core build && pnpm --filter @pm-copilot/manager-web build && pnpm --filter @pm-copilot/local-server build"

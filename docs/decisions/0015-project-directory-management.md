@@ -11,7 +11,7 @@
 
 管理器仅在本机编辑会话已解锁时，在每个项目标题右侧提供新建需求、重命名与删除操作。重命名和删除均使用居中确认界面；删除界面会显示该项目当前包含的需求数。
 
-服务新增受编辑会话保护的 `PATCH /api/projects/:projectName` 与 `DELETE /api/projects/:projectName`。重命名通过文件系统原子移动整个项目目录完成，目录内需求 Markdown、图示与稳定需求 ID 保持不变。删除递归移除目标项目目录及其所有需求和图示，并且只接受经过路径校验的既有项目名称。
+服务新增受编辑会话保护的 `PATCH /api/projects/:projectName` 与 `DELETE /api/projects/:projectName`。重命名通过文件系统原子移动需求库根目录下的整个项目目录完成，目录内需求 Markdown、图示与稳定需求 ID 保持不变；`.manager/project-origins.json` 同步保存当前目录到初始 Git 归属的映射，插件可继续定位项目。删除递归移除目标项目目录及其所有需求、图示和对应映射，并且只接受经过路径校验的既有项目名称。
 
 ## 后果
 

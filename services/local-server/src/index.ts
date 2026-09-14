@@ -1,6 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import {
-  cp,
   mkdir,
   readdir,
   readFile,
@@ -10,19 +9,15 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { homedir } from 'node:os';
 import { extname, join, normalize, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   createRequirementMarkdown,
-  parseHistoricalRequirementMarkdown,
   parseRequirementMarkdown,
   type RequirementDocument,
   type RequirementImage,
-  type RequirementSection,
   type RequirementStatus,
-  readHistoricalRequirementTimeline,
   requirementStatuses,
 } from '@pm-copilot/core';
 
@@ -35,24 +30,18 @@ type ProjectRequirements = Readonly<{
   projectName: string;
   requirements: readonly LoadedRequirement[];
 }>;
-type Draft = Readonly<{
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  images: readonly RequirementImage[];
-}>;
 
-const port = Number.parseInt(process.env.PM_COPILOT_PORT ?? '57391', 10);
+const managerPort = 57391;
+const port =
+  process.env.NODE_ENV === 'test'
+    ? Number.parseInt(process.env.PM_COPILOT_PORT ?? String(managerPort), 10)
+    : managerPort;
 const host = process.env.PM_COPILOT_HOST ?? '0.0.0.0';
 const workspaceRoot = resolve(
   fileURLToPath(new URL('../../..', import.meta.url)),
 );
 const libraryRoot = resolve(
   process.env.PM_COPILOT_LIBRARY_ROOT ?? join(workspaceRoot, 'requirements'),
-);
-const migrationScanRoot = resolve(
-  process.env.PM_COPILOT_HISTORY_ROOT ?? join(homedir(), 'Desktop'),
 );
 const staticRoot = join(workspaceRoot, 'apps/manager-web/dist');
 const contentTypes: Readonly<Record<string, string>> = {
@@ -75,6 +64,23 @@ const editorSessionsFilename = join(
   '.manager',
   'editor-sessions.json',
 );
+const projectOriginsFilename = join(
+  libraryRoot,
+  '.manager',
+  'project-origins.json',
+);
+const projectRenameFilename = join(
+  libraryRoot,
+  '.manager',
+  'project-rename.json',
+);
+const projectDeleteFilename = join(
+  libraryRoot,
+  '.manager',
+  'project-delete.json',
+);
+const projectOrigins = new Map<string, string>();
+let projectOriginsError: string | undefined;
 
 function inside(parent: string, target: string): boolean {
   const path = relative(parent, target);
@@ -122,7 +128,7 @@ function safeFilename(value: unknown): string | undefined {
     : undefined;
 }
 function requirementDirectory(projectKey: string, id: string): string {
-  return join(libraryRoot, 'projects', projectKey, 'requirements', id);
+  return join(libraryRoot, projectKey, id);
 }
 function projectExists(projectName: string): boolean {
   return projects.some((project) => project.projectName === projectName);
@@ -134,15 +140,13 @@ function safeProjectName(value: unknown): string | undefined {
     !projectName ||
     projectName === '.' ||
     projectName === '..' ||
+    projectName === '.manager' ||
     projectName.includes('\0') ||
     /[\\/]/.test(projectName)
   ) {
     return undefined;
   }
   return projectName;
-}
-function draftDirectory(id: string): string {
-  return join(libraryRoot, 'inbox', id);
 }
 function json(
   response: import('node:http').ServerResponse,
@@ -184,6 +188,220 @@ async function persistEditorSessions(): Promise<void> {
     `${JSON.stringify({ sessions: [...editorSessions] }, null, 2)}\n`,
   );
 }
+async function loadProjectOrigins(): Promise<void> {
+  let content: string;
+  try {
+    content = await readFile(projectOriginsFilename, 'utf8');
+  } catch (caught) {
+    if ((caught as { code?: string }).code === 'ENOENT') return;
+    projectOriginsError = 'Project origin mapping cannot be read.';
+    return;
+  }
+  try {
+    const value: unknown = JSON.parse(content);
+    if (!value || typeof value !== 'object' || !('origins' in value)) {
+      throw new Error('Invalid mapping.');
+    }
+    const origins = (value as { origins?: unknown }).origins;
+    if (!origins || typeof origins !== 'object' || Array.isArray(origins)) {
+      throw new Error('Invalid mapping.');
+    }
+    for (const [directory, origin] of Object.entries(origins)) {
+      if (
+        !safeProjectName(directory) ||
+        typeof origin !== 'string' ||
+        !origin
+      ) {
+        throw new Error('Invalid mapping.');
+      }
+      projectOrigins.set(directory, origin);
+    }
+  } catch {
+    projectOrigins.clear();
+    projectOriginsError = 'Project origin mapping is invalid.';
+  }
+}
+async function persistProjectOrigins(): Promise<void> {
+  await writeAtomic(
+    projectOriginsFilename,
+    `${JSON.stringify({ origins: Object.fromEntries(projectOrigins) }, null, 2)}\n`,
+  );
+}
+async function projectDirectoryExists(name: string): Promise<boolean> {
+  try {
+    return (await stat(join(libraryRoot, name))).isDirectory();
+  } catch {
+    return false;
+  }
+}
+async function ensureProjectMaintenanceAvailable(): Promise<void> {
+  if (projectOriginsError) throw new Error(projectOriginsError);
+  for (const filename of [projectRenameFilename, projectDeleteFilename]) {
+    try {
+      if ((await stat(filename)).isFile()) {
+        throw new Error(
+          'Project transaction recovery is pending. Restart the manager.',
+        );
+      }
+    } catch (caught) {
+      if ((caught as { code?: string }).code !== 'ENOENT') throw caught;
+    }
+  }
+}
+async function recoverProjectRename(): Promise<void> {
+  let content: string;
+  try {
+    content = await readFile(projectRenameFilename, 'utf8');
+  } catch (caught) {
+    if ((caught as { code?: string }).code === 'ENOENT') return;
+    projectOriginsError = 'Project rename recovery cannot be read.';
+    return;
+  }
+  try {
+    const value: unknown = JSON.parse(content);
+    if (!value || typeof value !== 'object') throw new Error('Invalid rename.');
+    const { from, origins, to } = value as Record<string, unknown>;
+    const sourceName = safeProjectName(from);
+    const targetName = safeProjectName(to);
+    if (
+      !sourceName ||
+      !targetName ||
+      !origins ||
+      typeof origins !== 'object' ||
+      Array.isArray(origins)
+    ) {
+      throw new Error('Invalid rename.');
+    }
+    for (const [directory, origin] of Object.entries(origins)) {
+      if (
+        !safeProjectName(directory) ||
+        typeof origin !== 'string' ||
+        !origin
+      ) {
+        throw new Error('Invalid rename.');
+      }
+    }
+    const sourceExists = await projectDirectoryExists(sourceName);
+    const targetExists = await projectDirectoryExists(targetName);
+    if (sourceExists === targetExists) throw new Error('Ambiguous rename.');
+    if (targetExists) {
+      await writeAtomic(
+        projectOriginsFilename,
+        `${JSON.stringify({ origins }, null, 2)}\n`,
+      );
+    }
+    await rm(projectRenameFilename, { force: true });
+  } catch {
+    projectOriginsError = 'Project rename recovery is invalid.';
+  }
+}
+async function recoverProjectDelete(): Promise<void> {
+  let content: string;
+  try {
+    content = await readFile(projectDeleteFilename, 'utf8');
+  } catch (caught) {
+    if ((caught as { code?: string }).code === 'ENOENT') return;
+    projectOriginsError = 'Project delete recovery cannot be read.';
+    return;
+  }
+  try {
+    const value: unknown = JSON.parse(content);
+    if (!value || typeof value !== 'object') throw new Error('Invalid delete.');
+    const { origins, projectName } = value as Record<string, unknown>;
+    const directory = safeProjectName(projectName);
+    if (
+      !directory ||
+      !origins ||
+      typeof origins !== 'object' ||
+      Array.isArray(origins)
+    ) {
+      throw new Error('Invalid delete.');
+    }
+    for (const [name, origin] of Object.entries(origins)) {
+      if (!safeProjectName(name) || typeof origin !== 'string' || !origin) {
+        throw new Error('Invalid delete.');
+      }
+    }
+    if (!(await projectDirectoryExists(directory))) {
+      await writeAtomic(
+        projectOriginsFilename,
+        `${JSON.stringify({ origins }, null, 2)}\n`,
+      );
+    }
+    await rm(projectDeleteFilename, { force: true });
+  } catch {
+    projectOriginsError = 'Project delete recovery is invalid.';
+  }
+}
+async function renameProjectDirectory(
+  projectName: string,
+  nextProjectName: string,
+): Promise<void> {
+  const origin = projectOrigins.get(projectName) ?? projectName;
+  const previousOrigins = new Map(projectOrigins);
+  const nextOrigins = new Map(projectOrigins);
+  nextOrigins.delete(projectName);
+  nextOrigins.set(nextProjectName, origin);
+  await writeAtomic(
+    projectRenameFilename,
+    `${JSON.stringify(
+      {
+        from: projectName,
+        origins: Object.fromEntries(nextOrigins),
+        to: nextProjectName,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await rename(
+    join(libraryRoot, projectName),
+    join(libraryRoot, nextProjectName),
+  );
+  projectOrigins.clear();
+  for (const [directory, projectOrigin] of nextOrigins) {
+    projectOrigins.set(directory, projectOrigin);
+  }
+  try {
+    await persistProjectOrigins();
+  } catch (caught) {
+    try {
+      await rename(
+        join(libraryRoot, nextProjectName),
+        join(libraryRoot, projectName),
+      );
+    } finally {
+      projectOrigins.clear();
+      for (const [directory, projectOrigin] of previousOrigins) {
+        projectOrigins.set(directory, projectOrigin);
+      }
+    }
+    throw caught;
+  }
+  await rm(projectRenameFilename, { force: true });
+}
+async function deleteProjectDirectory(projectName: string): Promise<void> {
+  const nextOrigins = new Map(projectOrigins);
+  nextOrigins.delete(projectName);
+  await writeAtomic(
+    projectDeleteFilename,
+    `${JSON.stringify(
+      {
+        origins: Object.fromEntries(nextOrigins),
+        projectName,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await rm(join(libraryRoot, projectName), { force: true, recursive: true });
+  projectOrigins.clear();
+  for (const [directory, origin] of nextOrigins) {
+    projectOrigins.set(directory, origin);
+  }
+  await persistProjectOrigins();
+  await rm(projectDeleteFilename, { force: true });
+}
 async function readBody(
   request: import('node:http').IncomingMessage,
 ): Promise<Record<string, unknown>> {
@@ -198,54 +416,38 @@ async function readBody(
   return result as Record<string, unknown>;
 }
 
-async function readDrafts(): Promise<readonly Draft[]> {
-  try {
-    const entries = await readdir(join(libraryRoot, 'inbox'), {
-      withFileTypes: true,
-    });
-    return await Promise.all(
-      entries
-        .filter((entry) => entry.isDirectory())
-        .map(
-          async (entry) =>
-            JSON.parse(
-              await readFile(
-                join(libraryRoot, 'inbox', entry.name, 'draft.json'),
-                'utf8',
-              ),
-            ) as Draft,
-        ),
-    );
-  } catch {
-    return [];
-  }
-}
-
 async function refreshIndex(): Promise<void> {
   projects = [];
   assets = new Map();
   targets = new Map();
   let projectEntries: readonly import('node:fs').Dirent[] = [];
   try {
-    projectEntries = await readdir(join(libraryRoot, 'projects'), {
+    projectEntries = await readdir(libraryRoot, {
       withFileTypes: true,
     });
   } catch {
     return;
   }
-  for (const project of projectEntries.filter((entry) => entry.isDirectory())) {
+  for (const project of projectEntries.filter(
+    (entry) => entry.isDirectory() && !entry.name.startsWith('.'),
+  )) {
     const records: LoadedRequirement[] = [];
     try {
-      const entries = await readdir(
-        join(libraryRoot, 'projects', project.name, 'requirements'),
-        { withFileTypes: true },
-      );
+      const entries = await readdir(join(libraryRoot, project.name), {
+        withFileTypes: true,
+      });
       for (const entry of entries.filter((item) => item.isDirectory())) {
         const directory = requirementDirectory(project.name, entry.name);
         try {
           const parsedDocument = parseRequirementMarkdown(
             await readFile(join(directory, 'requirement.md'), 'utf8'),
           );
+          if (
+            parsedDocument.id !== entry.name ||
+            records.some(({ document }) => document.id === parsedDocument.id)
+          ) {
+            continue;
+          }
           const document: RequirementDocument = {
             ...parsedDocument,
             sections: await Promise.all(
@@ -320,270 +522,21 @@ function indexPayload(request: import('node:http').IncomingMessage): object {
 async function updateRequirement(
   key: string,
   mutate: (document: RequirementDocument) => RequirementDocument,
+  options: Readonly<{ touchTimeline?: boolean }> = {},
 ): Promise<void> {
   const filename = targets.get(key);
   if (!filename) throw new Error('Requirement not found.');
   const current = parseRequirementMarkdown(await readFile(filename, 'utf8'));
-  const next = {
-    ...mutate(current),
-    updatedAt: now(),
-    updatedAtTimestamp: Date.now(),
-  };
+  const mutated = mutate(current);
+  const next =
+    options.touchTimeline === false
+      ? mutated
+      : {
+          ...mutated,
+          updatedAt: now(),
+          updatedAtTimestamp: Date.now(),
+        };
   await writeAtomic(filename, createRequirementMarkdown(next));
-}
-
-async function reconcileHistoricalTimeline(
-  projectKey: string,
-  id: string,
-  timeline: Readonly<{ createdAt: string; updatedAt: string }>,
-): Promise<boolean> {
-  const filename = join(requirementDirectory(projectKey, id), 'requirement.md');
-  try {
-    const current = parseRequirementMarkdown(await readFile(filename, 'utf8'));
-    if (
-      current.createdAt === timeline.createdAt &&
-      current.updatedAt === timeline.updatedAt
-    ) {
-      return true;
-    }
-    await writeAtomic(
-      filename,
-      createRequirementMarkdown({
-        ...current,
-        createdAt: timeline.createdAt,
-        updatedAt: timeline.updatedAt,
-        updatedAtTimestamp: Date.parse(timeline.updatedAt),
-      }),
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function migrateHistory(): Promise<void> {
-  const markerRoot = join(libraryRoot, '.migration', 'records');
-  const completionMarker = join(libraryRoot, '.migration', 'completed.md');
-  let projectEntries: readonly import('node:fs').Dirent[] = [];
-  try {
-    projectEntries = await readdir(migrationScanRoot, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  const historicalDirectory = ['pm', 'copilot', 'outputs'].join('-');
-  for (const project of projectEntries.filter((entry) => entry.isDirectory())) {
-    let exports: readonly import('node:fs').Dirent[] = [];
-    const sourceRoot = join(
-      migrationScanRoot,
-      project.name,
-      historicalDirectory,
-    );
-    try {
-      exports = await readdir(sourceRoot, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const exported of exports.filter((entry) => entry.isDirectory())) {
-      const sourceDirectory = join(sourceRoot, exported.name);
-      const sourceMarkdown = join(
-        sourceDirectory,
-        `${['p', 'r', 'd'].join('')}.md`,
-      );
-      try {
-        const fingerprint = createHash('sha256')
-          .update(sourceMarkdown)
-          .digest('hex');
-        const info = await stat(sourceMarkdown);
-        const source = await readFile(sourceMarkdown, 'utf8');
-        const timeline = readHistoricalRequirementTimeline(
-          source,
-          info.mtime.toISOString(),
-        );
-        const documents = parseHistoricalRequirementMarkdown(source, {
-          createdAt: timeline.createdAt,
-          idPrefix: `history-${slug(exported.name)}`,
-          updatedAt: timeline.updatedAt,
-        });
-        for (const document of documents) {
-          const id = `${slug(document.id)}-${fingerprint.slice(0, 8)}`;
-          const directory = requirementDirectory(slug(project.name), id);
-          if (
-            await reconcileHistoricalTimeline(slug(project.name), id, timeline)
-          ) {
-            continue;
-          }
-          const rewritten = {
-            ...document,
-            id,
-            createdAt: timeline.createdAt,
-            status: 'defined' as const,
-            sections: document.sections.map((section) => ({
-              ...section,
-              images: section.images.map((image) => ({
-                ...image,
-                path: image.path.replace(/^\.\//, ''),
-              })),
-            })),
-          };
-          await mkdir(directory, { recursive: true });
-          try {
-            await cp(
-              join(sourceDirectory, 'assets'),
-              join(directory, 'assets'),
-              { recursive: true, force: false, errorOnExist: false },
-            );
-          } catch {
-            /* no assets */
-          }
-          await writeAtomic(
-            join(directory, 'requirement.md'),
-            createRequirementMarkdown(rewritten),
-          );
-        }
-        await writeAtomic(
-          join(markerRoot, `${fingerprint}.md`),
-          `source: ${fingerprint}\nimportedAt: ${now()}\n`,
-        );
-      } catch {
-        /* one partial export never blocks startup */
-      }
-    }
-  }
-  await writeAtomic(completionMarker, `completedAt: ${now()}\n`);
-}
-
-function htmlToText(content: string): string {
-  return content
-    .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&quot;/gi, '"')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function detailTitle(content: string, fallback: string): string {
-  const firstLine = htmlToText(content).split(/\r?\n/)[0]?.trim() ?? '';
-  const title = firstLine.replace(/^[一二三四五六七八九十]+、\s*/, '');
-  return title.length > 0 ? title : fallback;
-}
-
-function readHtmlMediaSections(
-  html: string,
-  title: string,
-): readonly RequirementSection[] {
-  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const content = new RegExp(
-    `<h3\\b[^>]*>\\s*(?:\\d+(?:\\.\\d+)*\\s+)?${escapedTitle}\\s*<\\/h3>([\\s\\S]*?)(?=<h3\\b|$)`,
-    'i',
-  ).exec(html)?.[1];
-  if (!content) return [];
-  const blocks = Array.from(
-    content.matchAll(
-      /<div class=["'][^"']*detail-media-block[^"']*["'][^>]*>\s*<div class=["'][^"']*detail-media[^"']*["'][^>]*>\s*<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>\s*<\/div>\s*<div class=["'][^"']*detail-copy[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi,
-    ),
-  );
-  return blocks.flatMap((block, index) => {
-    const path = block[1]?.replace(/^\.\//, '').trim();
-    const description = htmlToText(block[2] ?? '');
-    if (!path) return [];
-    return [
-      {
-        title: detailTitle(block[2] ?? '', `细化内容 ${index + 1}`),
-        description,
-        images: [{ alt: '需求图示', path }],
-      },
-    ];
-  });
-}
-
-async function repairHistoricalHtmlVisuals(): Promise<void> {
-  let projectEntries: readonly import('node:fs').Dirent[] = [];
-  try {
-    projectEntries = await readdir(migrationScanRoot, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  const historicalDirectory = ['pm', 'copilot', 'outputs'].join('-');
-  for (const project of projectEntries.filter((entry) => entry.isDirectory())) {
-    const sourceRoot = join(
-      migrationScanRoot,
-      project.name,
-      historicalDirectory,
-    );
-    let exports: readonly import('node:fs').Dirent[] = [];
-    try {
-      exports = await readdir(sourceRoot, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const exported of exports.filter((entry) => entry.isDirectory())) {
-      const sourceDirectory = join(sourceRoot, exported.name);
-      try {
-        const sourceMarkdown = join(
-          sourceDirectory,
-          `${['p', 'r', 'd'].join('')}.md`,
-        );
-        const fingerprint = createHash('sha256')
-          .update(sourceMarkdown)
-          .digest('hex');
-        const info = await stat(sourceMarkdown);
-        const html = await readFile(join(sourceDirectory, 'prd.html'), 'utf8');
-        const sourceDocuments = parseHistoricalRequirementMarkdown(
-          await readFile(sourceMarkdown, 'utf8'),
-          {
-            idPrefix: `history-${slug(exported.name)}`,
-            updatedAt: info.mtime.toISOString(),
-          },
-        );
-        for (const sourceDocument of sourceDocuments) {
-          const mediaSections = readHtmlMediaSections(
-            html,
-            sourceDocument.title,
-          );
-          if (!mediaSections.length) continue;
-          const id = `${slug(sourceDocument.id)}-${fingerprint.slice(0, 8)}`;
-          const filename = join(
-            requirementDirectory(slug(project.name), id),
-            'requirement.md',
-          );
-          const current = parseRequirementMarkdown(
-            await readFile(filename, 'utf8'),
-          );
-          await writeAtomic(
-            filename,
-            createRequirementMarkdown({
-              ...current,
-              sections: mediaSections,
-            }),
-          );
-        }
-      } catch {
-        // Historical exports without HTML remain unchanged.
-      }
-    }
-  }
-}
-
-async function normalizeMigratedStatuses(): Promise<void> {
-  const marker = join(libraryRoot, '.migration', 'status-normalized-v1.md');
-  try {
-    await stat(marker);
-    return;
-  } catch {
-    // Legacy sources have no reliable lifecycle state.
-  }
-  for (const project of projects) {
-    for (const requirement of project.requirements) {
-      if (!requirement.document.id.startsWith('history-')) continue;
-      if (requirement.document.status !== 'defined') continue;
-      await updateRequirement(requirement.assetKey, (document) => ({
-        ...document,
-        status: 'planning',
-      }));
-    }
-  }
-  await writeAtomic(marker, `completedAt: ${now()}\n`);
 }
 
 async function sendFile(
@@ -604,10 +557,9 @@ async function sendFile(
   }
 }
 
-await migrateHistory();
-await repairHistoricalHtmlVisuals();
-await refreshIndex();
-await normalizeMigratedStatuses();
+await recoverProjectRename();
+await recoverProjectDelete();
+await loadProjectOrigins();
 await refreshIndex();
 await loadEditorSessions();
 createServer(async (request, response) => {
@@ -638,46 +590,17 @@ createServer(async (request, response) => {
     }
     return;
   }
-  if (url.pathname === '/api/drafts' && request.method === 'GET')
-    return void json(response, {
-      canEdit: canEdit(request),
-      drafts: await readDrafts(),
-    });
-  if (url.pathname === '/api/drafts' && request.method === 'POST') {
-    if (!canEdit(request))
-      return void json(response, { error: 'Local-only write.' }, 403);
-    try {
-      const body = await readBody(request);
-      const title = typeof body.title === 'string' ? body.title.trim() : '';
-      if (!title) throw new Error('Title required.');
-      const id = `${slug(title)}-${Date.now().toString(36)}`;
-      const timestamp = now();
-      const draft: Draft = {
-        id,
-        title,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        images: [],
-      };
-      await writeAtomic(
-        join(draftDirectory(id), 'draft.json'),
-        JSON.stringify(draft, null, 2),
-      );
-      return void json(response, draft, 201);
-    } catch {
-      return void json(response, { error: 'Draft creation failed.' }, 400);
-    }
-  }
   if (url.pathname === '/api/projects' && request.method === 'POST') {
     if (!canEdit(request))
       return void json(response, { error: 'Local-only write.' }, 403);
     try {
+      await ensureProjectMaintenanceAvailable();
       const body = await readBody(request);
       const projectName = safeProjectName(body.projectName);
       if (!projectName || projectExists(projectName)) {
         throw new Error('Invalid project.');
       }
-      await mkdir(join(libraryRoot, 'projects', projectName, 'requirements'), {
+      await mkdir(join(libraryRoot, projectName), {
         recursive: true,
       });
       await refreshIndex();
@@ -690,6 +613,7 @@ createServer(async (request, response) => {
     if (!canEdit(request))
       return void json(response, { error: 'Local-only write.' }, 403);
     try {
+      await ensureProjectMaintenanceAvailable();
       const projectName = safeProjectName(
         decodeURIComponent(url.pathname.slice('/api/projects/'.length)),
       );
@@ -704,10 +628,7 @@ createServer(async (request, response) => {
         throw new Error('Invalid project rename.');
       }
       if (nextProjectName !== projectName) {
-        await rename(
-          join(libraryRoot, 'projects', projectName),
-          join(libraryRoot, 'projects', nextProjectName),
-        );
+        await renameProjectDirectory(projectName, nextProjectName);
       }
       await refreshIndex();
       return void json(response, indexPayload(request));
@@ -722,16 +643,14 @@ createServer(async (request, response) => {
     if (!canEdit(request))
       return void json(response, { error: 'Local-only write.' }, 403);
     try {
+      await ensureProjectMaintenanceAvailable();
       const projectName = safeProjectName(
         decodeURIComponent(url.pathname.slice('/api/projects/'.length)),
       );
       if (!projectName || !projectExists(projectName)) {
         throw new Error('Invalid project deletion.');
       }
-      await rm(join(libraryRoot, 'projects', projectName), {
-        force: true,
-        recursive: true,
-      });
+      await deleteProjectDirectory(projectName);
       await refreshIndex();
       return void json(response, indexPayload(request));
     } catch {
@@ -758,7 +677,6 @@ createServer(async (request, response) => {
         createdAt: timestamp,
         updatedAt: timestamp,
         updatedAtTimestamp: Date.now(),
-        summary: '待补充需求内容。',
         sections: [{ title: '', description: '', images: [] }],
       };
       await writeAtomic(
@@ -781,6 +699,31 @@ createServer(async (request, response) => {
   }
   if (
     url.pathname.startsWith('/api/requirements/') &&
+    !url.pathname.slice('/api/requirements/'.length).includes('/') &&
+    request.method === 'DELETE'
+  ) {
+    if (!canEdit(request))
+      return void json(response, { error: 'Local-only write.' }, 403);
+    const key = decodeURIComponent(
+      url.pathname.slice('/api/requirements/'.length),
+    );
+    try {
+      const directory = assets.get(key);
+      if (!directory) throw new Error('Requirement not found.');
+      await rm(directory, { force: true, recursive: true });
+      await refreshIndex();
+      return void json(response, indexPayload(request));
+    } catch {
+      return void json(
+        response,
+        { error: 'Requirement deletion failed.' },
+        400,
+      );
+    }
+  }
+  if (
+    url.pathname.startsWith('/api/requirements/') &&
+    !url.pathname.slice('/api/requirements/'.length).includes('/') &&
     request.method === 'PUT'
   ) {
     if (!canEdit(request))
@@ -790,13 +733,17 @@ createServer(async (request, response) => {
     );
     try {
       const body = await readBody(request);
-      await updateRequirement(key, (current) => ({
-        ...current,
-        ...(typeof body.title === 'string' && body.title.trim()
-          ? { title: body.title.trim() }
-          : {}),
-        ...(isStatus(body.status) ? { status: body.status } : {}),
-      }));
+      await updateRequirement(
+        key,
+        (current) => ({
+          ...current,
+          ...(typeof body.title === 'string' && body.title.trim()
+            ? { title: body.title.trim() }
+            : {}),
+          ...(isStatus(body.status) ? { status: body.status } : {}),
+        }),
+        { touchTimeline: !isStatus(body.status) },
+      );
       await refreshIndex();
       return void json(response, indexPayload(request));
     } catch {
@@ -894,6 +841,38 @@ createServer(async (request, response) => {
       return void json(response, indexPayload(request));
     } catch {
       return void json(response, { error: 'Visual deletion failed.' }, 400);
+    }
+  }
+  if (
+    url.pathname.startsWith('/api/requirements/') &&
+    url.pathname.endsWith('/visuals') &&
+    request.method === 'PUT'
+  ) {
+    if (!canEdit(request))
+      return void json(response, { error: 'Local-only write.' }, 403);
+    const key = decodeURIComponent(
+      url.pathname.slice('/api/requirements/'.length, -'/visuals'.length),
+    );
+    try {
+      const body = await readBody(request);
+      const path = typeof body.path === 'string' ? body.path : '';
+      const alt = typeof body.alt === 'string' ? body.alt.trim() : '';
+      if (!path.startsWith('assets/') || !alt) {
+        throw new Error('Invalid visual name.');
+      }
+      await updateRequirement(key, (document) => ({
+        ...document,
+        sections: document.sections.map((section) => ({
+          ...section,
+          images: section.images.map((image) =>
+            image.path === path ? { ...image, alt } : image,
+          ),
+        })),
+      }));
+      await refreshIndex();
+      return void json(response, indexPayload(request));
+    } catch {
+      return void json(response, { error: 'Visual name update failed.' }, 400);
     }
   }
   if (

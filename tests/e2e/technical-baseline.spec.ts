@@ -44,6 +44,9 @@ test('renders the centralized requirement manager shell', async ({ page }) => {
   await expect(page.getByLabel('搜索结果')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByLabel('搜索结果')).toHaveCount(0);
+  await page.getByLabel('搜索需求').fill('仅限元数据的搜索词');
+  await expect(page.getByLabel('搜索结果')).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '收起目录' }).click();
   await expect(page.locator('.manager-shell')).toHaveClass(
     /navigator-collapsed/,

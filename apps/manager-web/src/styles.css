@@ -284,6 +284,23 @@ h2 {
   background: #edf4f1;
   color: #15543f;
 }
+.delete-requirement {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid #ead6d6;
+  border-radius: 4px;
+  background: #fff;
+  color: #a54e4e;
+  cursor: pointer;
+}
+.delete-requirement:hover,
+.delete-requirement:focus-visible {
+  border-color: #d99b9b;
+  background: #fff3f3;
+  color: #8f3535;
+}
 .visual-editor-dialog {
   position: fixed;
   inset: 0;
@@ -367,6 +384,7 @@ h2 {
 }
 .visual-group-image-item {
   position: relative;
+  width: 116px;
   min-inline-size: 0;
   margin: 0;
   border: 0;
@@ -375,6 +393,37 @@ h2 {
   transition:
     opacity 140ms ease,
     transform 140ms ease;
+}
+.visual-group-image-name {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  border: 0;
+  background: transparent;
+  color: #526963;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+}
+.visual-group-image-name--editing {
+  min-height: 46px;
+  border: 1px solid #cbdad3;
+  border-radius: 3px;
+  background: #fff;
+  color: #1d3345;
+  padding: 5px 6px;
+  field-sizing: content;
+  overflow: hidden;
+  resize: none;
+}
+.visual-group-image-name:focus-visible {
+  border-color: #2b8a67;
+  outline: 2px solid rgb(43 138 103 / 22%);
+  outline-offset: 1px;
 }
 .visual-group-image-item:active {
   cursor: grabbing;
@@ -635,6 +684,13 @@ h2 {
   transform: translateY(0);
   visibility: visible;
 }
+/* Keep the action menu inside the scrollable navigator when the final project
+   sits against the bottom edge. */
+nav > .tree-project:last-child .tree-project-action-menu {
+  top: auto;
+  bottom: calc(100% + 3px);
+  transform: translateY(3px);
+}
 .tree-project-actions button:hover,
 .tree-project-actions button:focus-visible {
   background: #e2eee8;
@@ -841,20 +897,20 @@ details:not([open]) > summary svg {
   white-space: nowrap;
 }
 .tree-status--scheduled {
-  background: #e0edf7;
-  color: #32627f;
+  background: #dbeafe;
+  color: #1e3a8a;
 }
 .tree-status--defined {
-  background: #e8eeea;
-  color: #496553;
+  background: #f3e8ff;
+  color: #6b21a8;
 }
 .tree-status--planning {
-  background: #f5eedb;
-  color: #80662d;
+  background: #fef3c7;
+  color: #92400e;
 }
 .tree-status--completed {
-  background: #e6eee9;
-  color: #3d7455;
+  background: #dcfce7;
+  color: #166534;
 }
 .tree-project summary small,
 .tree-group summary small {
@@ -1067,20 +1123,20 @@ time {
   white-space: nowrap;
 }
 .requirement-status--scheduled {
-  background: #e0edf7;
-  color: #32627f;
+  background: #dbeafe;
+  color: #1e3a8a;
 }
 .requirement-status--defined {
-  background: #e8eeea;
-  color: #496553;
+  background: #f3e8ff;
+  color: #6b21a8;
 }
 .requirement-status--planning {
-  background: #f5eedb;
-  color: #80662d;
+  background: #fef3c7;
+  color: #92400e;
 }
 .requirement-status--completed {
-  background: #e6eee9;
-  color: #3d7455;
+  background: #dcfce7;
+  color: #166534;
 }
 .requirement-content {
   display: grid;
@@ -1310,20 +1366,20 @@ time {
   white-space: nowrap;
 }
 .search-result-status--scheduled {
-  background: #e0edf7;
-  color: #32627f;
+  background: #dbeafe;
+  color: #1e3a8a;
 }
 .search-result-status--defined {
-  background: #e8eeea;
-  color: #496553;
+  background: #f3e8ff;
+  color: #6b21a8;
 }
 .search-result-status--planning {
-  background: #f5eedb;
-  color: #80662d;
+  background: #fef3c7;
+  color: #92400e;
 }
 .search-result-status--completed {
-  background: #e6eee9;
-  color: #3d7455;
+  background: #dcfce7;
+  color: #166534;
 }
 .search-results-empty {
   padding: 12px;

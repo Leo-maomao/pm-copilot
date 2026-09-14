@@ -1,4 +1,5 @@
 import {
+  normalizeRequirementDescription,
   type RequirementImage,
   type RequirementStatus,
   requirementStatuses,
@@ -28,6 +29,7 @@ import {
   createProject,
   createRequirement,
   deleteProject,
+  deleteRequirement,
   deleteRequirementVisual,
   type LoadedRequirement,
   type ProjectRequirements,
@@ -38,6 +40,7 @@ import {
   unlockEditor,
   updateRequirementStatus,
   updateRequirementTitle,
+  updateRequirementVisualName,
   updateVisualGroups,
   updateVisualOrder,
 } from './requirement-source.js';
@@ -130,15 +133,6 @@ function getStatusLabel(status: RequirementStatus): string {
   );
 }
 
-function normalizeRequirementMarkdown(markdown: string): string {
-  // Historical requirements sometimes place the list marker and its content on separate lines.
-  // Join only that form so Marked can restore the intended ordered-list structure.
-  return markdown.replace(
-    /(^|\n)([ \t]*)(\d+[.)])(?:[ \t]*\n)+[ \t]*/gu,
-    '$1$2$3 ',
-  );
-}
-
 function findDisplayRequirement(
   projects: readonly ProjectRequirements[],
   target: DisplayRequirement,
@@ -160,7 +154,6 @@ function matchesRequirement(
   const { document } = item.requirement;
   return [
     document.title,
-    document.summary,
     ...document.sections.map((section) => section.description),
   ]
     .join('\n')
@@ -379,7 +372,7 @@ function RequirementBody({
 }): React.JSX.Element {
   const renderedDescription = DOMPurify.sanitize(
     marked.parse(
-      normalizeRequirementMarkdown(description || '该需求仅包含图示。'),
+      normalizeRequirementDescription(description || '待补充需求内容。'),
       {
         async: false,
       },
@@ -478,6 +471,7 @@ function VisualEditorDialog({
   onGroupsChange,
   onPreview,
   onRename,
+  onRenameVisual,
   onSave,
   onVisualMove,
   startTitleEditing = false,
@@ -496,6 +490,10 @@ function VisualEditorDialog({
   onRename: (
     item: DisplayRequirement,
     title: string,
+  ) => Promise<DisplayRequirement>;
+  onRenameVisual: (
+    item: DisplayRequirement,
+    input: Readonly<{ alt: string; path: string }>,
   ) => Promise<DisplayRequirement>;
   onSave: (
     item: DisplayRequirement,
@@ -517,6 +515,7 @@ function VisualEditorDialog({
   const [pasteTarget, setPasteTarget] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [editingImagePath, setEditingImagePath] = useState<string>();
   const [draggingPath, setDraggingPath] = useState<string>();
   const [dropTarget, setDropTarget] =
     useState<
@@ -531,6 +530,7 @@ function VisualEditorDialog({
     setTitle(item?.requirement.document.title ?? '');
     setPasteTarget(0);
     setIsTitleEditing(Boolean(item && startTitleEditing));
+    setEditingImagePath(undefined);
   }, [item, startTitleEditing]);
   if (!currentItem) return null;
   const activeItem = currentItem;
@@ -605,6 +605,24 @@ function VisualEditorDialog({
     try {
       setCurrentItem(await onDelete(activeItem, path));
     } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function updateImageName(path: string, alt: string): Promise<void> {
+    const nextAlt = alt.trim();
+    const currentAlt = activeItem.requirement.document.sections
+      .flatMap((section) => section.images)
+      .find((image) => image.path === path)?.alt;
+    if (!nextAlt || nextAlt === currentAlt) {
+      setEditingImagePath(undefined);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      setCurrentItem(await onRenameVisual(activeItem, { alt: nextAlt, path }));
+    } finally {
+      setEditingImagePath(undefined);
       setIsSaving(false);
     }
   }
@@ -729,6 +747,13 @@ function VisualEditorDialog({
                       });
                     }}
                     onDragStart={(event) => {
+                      if (
+                        event.target instanceof HTMLInputElement ||
+                        event.target instanceof HTMLTextAreaElement
+                      ) {
+                        event.preventDefault();
+                        return;
+                      }
                       event.dataTransfer.effectAllowed = 'move';
                       event.dataTransfer.setData('text/plain', image.path);
                       setDraggingPath(image.path);
@@ -750,6 +775,39 @@ function VisualEditorDialog({
                       draggable={false}
                       src={readImageUrl(activeItem.requirement, image.path)}
                     />
+                    {editingImagePath === image.path ? (
+                      <textarea
+                        aria-label={`图片名称：${image.alt}`}
+                        autoFocus
+                        className="visual-group-image-name visual-group-image-name--editing"
+                        defaultValue={image.alt}
+                        disabled={isSaving}
+                        onBlur={(event) =>
+                          void updateImageName(image.path, event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            event.currentTarget.blur();
+                          }
+                          if (event.key === 'Escape') {
+                            event.currentTarget.value = image.alt;
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        rows={2}
+                      />
+                    ) : (
+                      <button
+                        aria-label={`编辑图片名称：${image.alt}`}
+                        className="visual-group-image-name"
+                        disabled={isSaving}
+                        onClick={() => setEditingImagePath(image.path)}
+                        type="button"
+                      >
+                        {image.alt}
+                      </button>
+                    )}
                     <button
                       aria-label={`查看图示：${image.alt}`}
                       className="preview-visual"
@@ -1243,15 +1301,103 @@ function DeleteProjectDialog({
   );
 }
 
+function DeleteRequirementDialog({
+  item,
+  onClose,
+  onDelete,
+}: {
+  item: DisplayRequirement;
+  onClose: () => void;
+  onDelete: () => Promise<void>;
+}): React.JSX.Element {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  async function confirm(): Promise<void> {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await onDelete();
+      onClose();
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <dialog
+      aria-label="删除需求"
+      className="new-project-dialog project-delete-dialog"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onClose();
+      }}
+      open
+    >
+      <section className="new-project-surface project-delete-surface">
+        <header>
+          <h2 className="project-delete-title">
+            <Trash2 aria-hidden="true" size={17} />
+            <span>删除需求</span>
+          </h2>
+          <button
+            aria-label="关闭删除需求"
+            className="new-project-close"
+            onClick={onClose}
+            ref={closeButtonRef}
+            type="button"
+          >
+            <X aria-hidden="true" size={18} />
+          </button>
+        </header>
+        <p>
+          将删除“{item.requirement.document.title}”及其图示，此操作无法恢复。
+        </p>
+        <footer>
+          <button
+            className="project-delete-cancel"
+            disabled={isDeleting}
+            onClick={onClose}
+            type="button"
+          >
+            取消
+          </button>
+          <button
+            className="project-delete-confirm"
+            disabled={isDeleting}
+            onClick={() => void confirm()}
+            type="button"
+          >
+            <Trash2 aria-hidden="true" size={14} />
+            删除需求
+          </button>
+        </footer>
+      </section>
+    </dialog>
+  );
+}
+
 function RequirementCard({
   canEdit,
   item,
+  onDelete,
   onStatusChange,
   onVisualEdit,
   onPreview,
 }: {
   canEdit: boolean;
   item: DisplayRequirement;
+  onDelete: (item: DisplayRequirement) => void;
   onStatusChange: (item: DisplayRequirement, status: RequirementStatus) => void;
   onVisualEdit: (item: DisplayRequirement) => void;
   onPreview: (image: PreviewImage) => void;
@@ -1296,6 +1442,15 @@ function RequirementCard({
               type="button"
             >
               <ImagePlus aria-hidden="true" size={16} />
+            </button>
+            <button
+              aria-label={`${document.title} 删除需求`}
+              className="delete-requirement"
+              onClick={() => onDelete(item)}
+              title="删除需求"
+              type="button"
+            >
+              <Trash2 aria-hidden="true" size={16} />
             </button>
           </div>
         ) : (
@@ -1357,6 +1512,8 @@ export function App(): React.JSX.Element {
     useState<ProjectRequirements>();
   const [deleteProjectTarget, setDeleteProjectTarget] =
     useState<ProjectRequirements>();
+  const [deleteRequirementTarget, setDeleteRequirementTarget] =
+    useState<DisplayRequirement>();
   const [isEditorUnlockOpen, setIsEditorUnlockOpen] = useState(false);
   const detailPaneRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -1476,7 +1633,24 @@ export function App(): React.JSX.Element {
     try {
       const scanned = await updateRequirementStatus(item.requirement, status);
       setCanEdit(scanned.canEdit);
-      setProjects(scanned.projects);
+      const requirementKey = getRequirementKey(
+        item.projectName,
+        item.requirement.document.id,
+      );
+      setProjects((current) =>
+        current.map((project) => ({
+          ...project,
+          requirements: project.requirements.map((requirement) =>
+            getRequirementKey(project.projectName, requirement.document.id) ===
+            requirementKey
+              ? {
+                  ...requirement,
+                  document: { ...requirement.document, status },
+                }
+              : requirement,
+          ),
+        })),
+      );
       setStatusOverrides({});
       setError(undefined);
     } catch {
@@ -1512,6 +1686,16 @@ export function App(): React.JSX.Element {
     title: string,
   ): Promise<DisplayRequirement> {
     const scanned = await updateRequirementTitle(item.requirement, title);
+    setProjects(scanned.projects);
+    setCanEdit(scanned.canEdit);
+    return findDisplayRequirement(scanned.projects, item);
+  }
+
+  async function renameVisual(
+    item: DisplayRequirement,
+    input: Readonly<{ alt: string; path: string }>,
+  ): Promise<DisplayRequirement> {
+    const scanned = await updateRequirementVisualName(item.requirement, input);
     setProjects(scanned.projects);
     setCanEdit(scanned.canEdit);
     return findDisplayRequirement(scanned.projects, item);
@@ -1633,6 +1817,29 @@ export function App(): React.JSX.Element {
     } catch {
       setError('无法删除项目。请确认正在通过本机地址访问管理器。');
       throw new Error('Project deletion failed.');
+    }
+  }
+
+  async function deleteExistingRequirement(): Promise<void> {
+    const item = deleteRequirementTarget;
+    if (!item) return;
+    try {
+      const scanned = await deleteRequirement(item.requirement);
+      setProjects(scanned.projects);
+      setCanEdit(scanned.canEdit);
+      setVisualEditItem((current) =>
+        current &&
+        getRequirementKey(
+          current.projectName,
+          current.requirement.document.id,
+        ) === getRequirementKey(item.projectName, item.requirement.document.id)
+          ? undefined
+          : current,
+      );
+      setError(undefined);
+    } catch {
+      setError('无法删除需求。请确认正在通过本机地址访问管理器。');
+      throw new Error('Requirement deletion failed.');
     }
   }
 
@@ -1886,6 +2093,7 @@ export function App(): React.JSX.Element {
                     item.requirement.document.id,
                   )}
                   onStatusChange={changeStatus}
+                  onDelete={setDeleteRequirementTarget}
                   onVisualEdit={openVisualEditor}
                   onPreview={setPreviewImage}
                 />
@@ -1913,6 +2121,7 @@ export function App(): React.JSX.Element {
         onGroupsChange={changeVisualGroups}
         onPreview={setPreviewImage}
         onRename={renameRequirement}
+        onRenameVisual={renameVisual}
         onSave={saveVisual}
         onVisualMove={moveVisual}
         startTitleEditing={isVisualTitleEditing}
@@ -1941,6 +2150,13 @@ export function App(): React.JSX.Element {
           onClose={() => setDeleteProjectTarget(undefined)}
           onDelete={deleteExistingProject}
           project={deleteProjectTarget}
+        />
+      )}
+      {deleteRequirementTarget && (
+        <DeleteRequirementDialog
+          item={deleteRequirementTarget}
+          onClose={() => setDeleteRequirementTarget(undefined)}
+          onDelete={deleteExistingRequirement}
         />
       )}
     </main>

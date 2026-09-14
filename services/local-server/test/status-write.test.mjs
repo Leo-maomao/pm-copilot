@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import {
   mkdir,
@@ -40,22 +39,32 @@ async function index(url) {
 
 test('persists a local status change in the central library', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'requirement-manager-test-'));
-  const directory = join(root, 'projects', 'demo', 'requirements', 'sample');
+  const directory = join(root, 'demo', 'sample');
   await mkdir(directory, { recursive: true });
   await writeFile(
     join(directory, 'requirement.md'),
-    '---\nid: sample\ntitle: Status test\nstatus: defined\ncreatedAt: 2026-09-10T10:00:00.000Z\nupdatedAt: 2026-09-10T10:00:00.000Z\nsummary: Verify centralized storage.\n---\n\nContent.',
+    '---\nid: sample\ntitle: Status test\nstatus: defined\ncreatedAt: 2026-09-10T10:00:00.000Z\nupdatedAt: 2026-09-10T10:00:00.000Z\n---\n\nContent.',
     'utf8',
+  );
+  await mkdir(join(root, '恢复后的项目'), { recursive: true });
+  await mkdir(join(root, '.manager'), { recursive: true });
+  await writeFile(
+    join(root, '.manager', 'project-rename.json'),
+    JSON.stringify({
+      from: '原项目',
+      origins: { 恢复后的项目: '原项目' },
+      to: '恢复后的项目',
+    }),
   );
   const serverPort = await port();
   const server = spawn(process.execPath, ['dist/index.js'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      NODE_ENV: 'test',
       PM_COPILOT_HOST: '127.0.0.1',
       PM_COPILOT_PORT: String(serverPort),
       PM_COPILOT_LIBRARY_ROOT: root,
-      PM_COPILOT_HISTORY_ROOT: join(root, 'empty'),
     },
     stdio: 'ignore',
   });
@@ -67,6 +76,14 @@ test('persists a local status change in the central library', async (t) => {
   const baseUrl = `http://127.0.0.1:${serverPort}`;
   const lockedPayload = await (await index(`${baseUrl}/api/index`)).json();
   assert.equal(lockedPayload.canEdit, false);
+  await assert.doesNotReject(() =>
+    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+      (content) => assert.match(content, /"恢复后的项目": "原项目"/),
+    ),
+  );
+  await assert.rejects(() =>
+    stat(join(root, '.manager', 'project-rename.json')),
+  );
   const unlock = await fetch(`${baseUrl}/api/edit-session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -81,10 +98,17 @@ test('persists a local status change in the central library', async (t) => {
       (content) => assert.match(content, /"sessions"/),
     ),
   );
+  await assert.rejects(() =>
+    stat(join(root, '.manager', 'project-rename.json')),
+  );
   const payload = await (
     await fetch(`${baseUrl}/api/index`, { headers: { Cookie: cookie } })
   ).json();
   assert.equal(payload.canEdit, true);
+  assert.equal(
+    payload.projects.some((project) => project.projectName === '.manager'),
+    false,
+  );
   const projectResponse = await fetch(`${baseUrl}/api/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
@@ -114,8 +138,11 @@ test('persists a local status change in the central library', async (t) => {
     ),
     true,
   );
+  await assert.doesNotReject(() => stat(join(root, '已重命名项目')));
   await assert.doesNotReject(() =>
-    stat(join(root, 'projects', '已重命名项目')),
+    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+      (content) => assert.match(content, /"已重命名项目": "全新项目"/),
+    ),
   );
   const deletedProjectResponse = await fetch(
     `${baseUrl}/api/projects/${encodeURIComponent('已重命名项目')}`,
@@ -128,7 +155,12 @@ test('persists a local status change in the central library', async (t) => {
     ),
     false,
   );
-  await assert.rejects(() => stat(join(root, 'projects', '已重命名项目')));
+  await assert.rejects(() => stat(join(root, '已重命名项目')));
+  await assert.doesNotReject(() =>
+    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+      (content) => assert.doesNotMatch(content, /已重命名项目/),
+    ),
+  );
   const createdResponse = await fetch(`${baseUrl}/api/requirements`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
@@ -143,20 +175,29 @@ test('persists a local status change in the central library', async (t) => {
   );
   await assert.doesNotReject(() =>
     readFile(
-      join(
-        root,
-        'projects',
-        'demo',
-        'requirements',
-        createdPayload.created.id,
-        'requirement.md',
-      ),
+      join(root, 'demo', createdPayload.created.id, 'requirement.md'),
       'utf8',
     ).then((content) => {
-      assert.match(content, /^title: Created requirement$/m);
-      assert.match(content, /^status: planning$/m);
-      assert.match(content, /^summary: 待补充需求内容。$/m);
+      assert.match(content, /^title: "Created requirement"$/m);
+      assert.match(content, /^status: "planning"$/m);
+      assert.doesNotMatch(content, /^summary:/m);
     }),
+  );
+  const deletedRequirementResponse = await fetch(
+    `${baseUrl}/api/requirements/${encodeURIComponent(`demo:${createdPayload.created.id}`)}`,
+    { method: 'DELETE', headers: { Cookie: cookie } },
+  );
+  assert.equal(deletedRequirementResponse.status, 200);
+  assert.equal(
+    (await deletedRequirementResponse.json()).projects
+      .find((project) => project.projectName === 'demo')
+      .requirements.some(
+        (requirement) => requirement.document.id === createdPayload.created.id,
+      ),
+    false,
+  );
+  await assert.rejects(() =>
+    stat(join(root, 'demo', createdPayload.created.id)),
   );
   const key = payload.projects[0].requirements[0].assetKey;
   const response = await fetch(
@@ -168,10 +209,19 @@ test('persists a local status change in the central library', async (t) => {
     },
   );
   assert.equal(response.status, 200);
+  const statusPayload = await response.json();
+  const statusRequirement = statusPayload.projects
+    .flatMap((project) => project.requirements)
+    .find((requirement) => requirement.assetKey === key);
+  assert.equal(
+    statusRequirement.document.updatedAt,
+    payload.projects[0].requirements[0].document.updatedAt,
+  );
   await assert.doesNotReject(() =>
-    readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
-      assert.match(content, /^status: scheduled$/m),
-    ),
+    readFile(join(directory, 'requirement.md'), 'utf8').then((content) => {
+      assert.match(content, /^status: "scheduled"$/m);
+      assert.match(content, /^updatedAt: "2026-09-10T10:00:00.000Z"$/m);
+    }),
   );
   const visual = await fetch(
     `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
@@ -186,6 +236,18 @@ test('persists a local status change in the central library', async (t) => {
     },
   );
   assert.equal(visual.status, 200);
+  const renamedVisual = await fetch(
+    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({
+        alt: '节点搜索清单',
+        path: 'assets/top-level.png',
+      }),
+    },
+  );
+  assert.equal(renamedVisual.status, 200, await renamedVisual.text());
   const group = await fetch(
     `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visual-groups`,
     {
@@ -230,7 +292,7 @@ test('persists a local status change in the central library', async (t) => {
     readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
       assert.match(
         content,
-        /## 图示 1\n{2,}!\[需求图示\]\(assets\/top-level\.png\)\n\n!\[需求图示\]\(assets\/second-level\.png\)/,
+        /## 图示 1\n{2,}!\[节点搜索清单\]\(assets\/top-level\.png\)\n\n!\[second-level\]\(assets\/second-level\.png\)/,
       ),
     ),
   );
@@ -252,71 +314,32 @@ test('persists a local status change in the central library', async (t) => {
     readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
       assert.match(
         content,
-        /## 图示 1\n{2,}!\[需求图示\]\(assets\/second-level\.png\)\n\n!\[需求图示\]\(assets\/top-level\.png\)/,
+        /## 图示 1\n{2,}!\[second-level\]\(assets\/second-level\.png\)\n\n!\[节点搜索清单\]\(assets\/top-level\.png\)/,
       ),
     ),
   );
 });
 
-test('reconciles historical requirement dates from the version record', async (t) => {
-  const root = await mkdtemp(join(tmpdir(), 'requirement-manager-history-'));
-  const historyRoot = join(root, 'history');
-  const sourceDirectory = join(
-    historyRoot,
-    'legacy-project',
-    'pm-copilot-outputs',
-    'sample-history',
-  );
-  const sourceMarkdown = join(sourceDirectory, 'prd.md');
-  const source = `# 示例历史需求 - 2026-06-02
-
-### 2. 版本记录
-
-| 版本 | 日期 | 变更内容 |
-| --- | --- | --- |
-| v0.1 | 2026-06-01 | 首次创建 |
-| v0.2 | 2026-06-03 | 更新说明 |
-
-## 五、需求详情
-
-历史需求正文。`;
-  await mkdir(sourceDirectory, { recursive: true });
-  await writeFile(sourceMarkdown, source, 'utf8');
-
-  const fingerprint = createHash('sha256').update(sourceMarkdown).digest('hex');
-  const id = `history-sample-history-1-${fingerprint.slice(0, 8)}`;
-  const directory = join(
-    root,
-    'projects',
-    'legacy-project',
-    'requirements',
-    id,
-  );
-  await mkdir(directory, { recursive: true });
+test('recovers an interrupted project deletion before indexing', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'requirement-manager-delete-'));
+  await mkdir(join(root, '.manager'), { recursive: true });
   await writeFile(
-    join(directory, 'requirement.md'),
-    `---
-id: ${id}
-title: 已迁移历史需求
-status: scheduled
-createdAt: 2026-09-10T10:00:00.000Z
-updatedAt: 2026-09-10T10:00:00.000Z
-summary: 保留本机修改。
----
-
-本机正文。`,
-    'utf8',
+    join(root, '.manager', 'project-origins.json'),
+    JSON.stringify({ origins: { 已删除项目: 'source-project' } }),
   );
-
+  await writeFile(
+    join(root, '.manager', 'project-delete.json'),
+    JSON.stringify({ origins: {}, projectName: '已删除项目' }),
+  );
   const serverPort = await port();
   const server = spawn(process.execPath, ['dist/index.js'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      NODE_ENV: 'test',
       PM_COPILOT_HOST: '127.0.0.1',
-      PM_COPILOT_PORT: String(serverPort),
       PM_COPILOT_LIBRARY_ROOT: root,
-      PM_COPILOT_HISTORY_ROOT: historyRoot,
+      PM_COPILOT_PORT: String(serverPort),
     },
     stdio: 'ignore',
   });
@@ -325,18 +348,13 @@ summary: 保留本机修改。
     await once(server, 'exit');
     await rm(root, { force: true, recursive: true });
   });
-
-  const payload = await (
-    await index(`http://127.0.0.1:${serverPort}/api/index`)
-  ).json();
-  const document = payload.projects[0].requirements[0].document;
-  assert.equal(document.createdAt, '2026-06-01T00:00:00.000Z');
-  assert.equal(document.updatedAt, '2026-06-03T00:00:00.000Z');
-  assert.equal(document.status, 'scheduled');
+  await index(`http://127.0.0.1:${serverPort}/api/index`);
   await assert.doesNotReject(() =>
-    readFile(join(directory, 'requirement.md'), 'utf8').then((content) => {
-      assert.match(content, /^title: 已迁移历史需求$/m);
-      assert.match(content, /^summary: 保留本机修改。$/m);
-    }),
+    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+      (content) => assert.deepEqual(JSON.parse(content), { origins: {} }),
+    ),
+  );
+  await assert.rejects(() =>
+    stat(join(root, '.manager', 'project-delete.json')),
   );
 });
