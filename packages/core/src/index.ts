@@ -34,9 +34,14 @@ export type RequirementSnapshot = Readonly<{
   items: readonly RequirementDocument[];
 }>;
 
-/** Convert legacy prose numbering into Markdown paragraphs and ordered lists. */
+/**
+ * Convert legacy prose numbering into Markdown, then enforce the canonical body
+ * shape: a `### 主题` heading owns the numbered list directly beneath it, that
+ * list counts from 1, items stay contiguous, and blocks are separated by
+ * exactly one blank line.
+ */
 export function normalizeRequirementDescription(description: string): string {
-  return description
+  const normalized = description
     .replace(/(^|\n)([ \t]*)(\d+[.)])(?:[ \t]*\n)+[ \t]*/gu, '$1$2$3 ')
     .replace(
       /(?<=[\u4e00-\u9fff。；：])(?=(?:[1-9]|1[0-9])[.)](?=[\u4e00-\u9fff「“]))/gu,
@@ -44,9 +49,39 @@ export function normalizeRequirementDescription(description: string): string {
     )
     .replace(/(^|\n)([ \t]*)(\d+[.)])[ \t]*/gu, '$1$2$3 ')
     .replace(/(^|\n)([ \t]*)([一二三四五六七八九十]+、)(?=\S)/gu, '$1$2### $3')
-    .replace(/^(### [^\n]+)\n(?=\d)/gmu, '$1\n\n')
+    // A heading opens a block: one blank line before it, and the list it owns
+    // starts on the very next line.
+    .replace(/\n{2,}(?=### )/gu, '\n\n')
+    .replace(/(^|[^\n])\n(?=### )/gu, '$1\n\n')
+    .replace(/^(### [^\n]*)\n{2,}(?=\d+[.)] )/gmu, '$1\n')
+    // Ordered items stay contiguous: a blank line between them renders a loose
+    // list and adds spacing that is not in the content.
+    .replace(/(^\d+[.)] [^\n]*)\n{2,}(?=\d+[.)] )/gmu, '$1\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  return restartOrderedItemNumbers(normalized);
+}
+
+/**
+ * Every `### 主题` owns its own list, so its items count from 1. Numbering that
+ * runs on across headings makes the reader follow a sequence that is not there.
+ */
+function restartOrderedItemNumbers(description: string): string {
+  let counter = 0;
+  return description
+    .split('\n')
+    .map((line) => {
+      if (line.startsWith('### ')) {
+        counter = 0;
+        return line;
+      }
+      const item = /^(\d+)([.)] )(.*)$/u.exec(line);
+      if (!item) return line;
+      counter += 1;
+      return `${counter}${item[2]}${item[3]}`;
+    })
+    .join('\n');
 }
 
 export function createRequirementMarkdown(
@@ -54,7 +89,8 @@ export function createRequirementMarkdown(
 ): string {
   const sections = document.sections
     .map((section) => {
-      const heading = section.title ? `## ${section.title}\n\n` : '';
+      // The join below supplies the blank line, so the heading never carries its own.
+      const heading = section.title ? `## ${section.title}` : '';
       const images = section.images
         .map((image) => `![${image.alt}](${image.path})`)
         .join('\n\n');

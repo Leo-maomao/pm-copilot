@@ -16,8 +16,49 @@ describe('normalizeRequirementDescription', () => {
         '一、入口、展示与检索1.入口与任务队列可见。2.支持实时筛选。',
       ),
     ).toBe(
-      '### 一、入口、展示与检索\n\n1. 入口与任务队列可见。\n2. 支持实时筛选。',
+      '### 一、入口、展示与检索\n1. 入口与任务队列可见。\n2. 支持实时筛选。',
     );
+  });
+
+  it('keeps a heading on its own line and separates it from the block above', () => {
+    expect(
+      normalizeRequirementDescription(
+        '### 一、素材识别\n\n1. 类型标识可见。\n2. 名称可见。\n### 二、卡片操作\n\n1. 卡片可预览。',
+      ),
+    ).toBe(
+      '### 一、素材识别\n1. 类型标识可见。\n2. 名称可见。\n\n### 二、卡片操作\n1. 卡片可预览。',
+    );
+  });
+
+  it('collapses the blank lines that would render a loose ordered list', () => {
+    expect(
+      normalizeRequirementDescription(
+        '### 一、列表\n\n1. 第一条。\n\n\n2. 第二条。\n\n3. 第三条。',
+      ),
+    ).toBe('### 一、列表\n1. 第一条。\n2. 第二条。\n3. 第三条。');
+  });
+
+  it('keeps exactly one blank line between prose blocks', () => {
+    expect(normalizeRequirementDescription('第一段。\n\n\n\n第二段。')).toBe(
+      '第一段。\n\n第二段。',
+    );
+  });
+
+  it('restarts ordered items under every heading', () => {
+    expect(
+      normalizeRequirementDescription(
+        '### 一、核心内容\n1. 查看类型与关键信息。\n### 二、状态与边界\n2. 可添加到画布。\n### 三、反馈与恢复\n3. 保留原因提示。',
+      ),
+    ).toBe(
+      '### 一、核心内容\n1. 查看类型与关键信息。\n\n### 二、状态与边界\n1. 可添加到画布。\n\n### 三、反馈与恢复\n1. 保留原因提示。',
+    );
+  });
+
+  it('is stable when it runs again', () => {
+    const once = normalizeRequirementDescription(
+      '一、范围\n\n1. 第一项。\n### 二、状态\n\n1. 第二项。',
+    );
+    expect(normalizeRequirementDescription(once)).toBe(once);
   });
 });
 
@@ -57,6 +98,36 @@ describe('createRequirementClipboardMarkdown', () => {
     expect(markdown).not.toContain('id:');
     expect(markdown).not.toContain('status:');
     expect(markdown).not.toContain('## 需求说明');
+  });
+});
+
+describe('createRequirementMarkdown', () => {
+  it('separates every block with exactly one blank line', () => {
+    const markdown = createRequirementMarkdown({
+      id: 'file-shape',
+      title: '文件形态',
+      status: 'defined',
+      createdAt: '2026-09-10T10:00:00.000Z',
+      updatedAt: '2026-09-10T10:00:00.000Z',
+      updatedAtTimestamp: 1_789_034_400_000,
+      sections: [
+        {
+          title: '素材识别',
+          description: '### 一、素材识别\n1. 类型标识可见。',
+          images: [{ alt: '卡片', path: 'assets/card.png' }],
+        },
+        {
+          title: '卡片操作',
+          description: '### 一、卡片操作\n1. 卡片可预览。',
+          images: [],
+        },
+      ],
+    });
+
+    expect(markdown).toBe(
+      '---\nid: "file-shape"\ntitle: "文件形态"\nstatus: "defined"\ncreatedAt: "2026-09-10T10:00:00.000Z"\nupdatedAt: "2026-09-10T10:00:00.000Z"\n---\n\n## 素材识别\n\n![卡片](assets/card.png)\n\n### 一、素材识别\n1. 类型标识可见。\n\n## 卡片操作\n\n### 一、卡片操作\n1. 卡片可预览。\n',
+    );
+    expect(markdown).not.toMatch(/\n{3,}/);
   });
 });
 
