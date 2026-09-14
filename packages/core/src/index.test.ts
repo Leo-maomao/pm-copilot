@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createEmptyRequirementSnapshot,
+  createRequirementClipboardMarkdown,
   createRequirementMarkdown,
   normalizeRequirementDescription,
   parseRequirementMarkdown,
@@ -26,6 +27,36 @@ describe('createEmptyRequirementSnapshot', () => {
       statuses: requirementStatuses,
       items: [],
     });
+  });
+});
+
+describe('createRequirementClipboardMarkdown', () => {
+  it('copies only the title and section text without metadata or image paths', () => {
+    const markdown = createRequirementClipboardMarkdown({
+      id: 'clipboard-copy',
+      title: '可复制需求',
+      status: 'defined',
+      createdAt: '2026-09-10T10:00:00.000Z',
+      updatedAt: '2026-09-10T10:00:00.000Z',
+      updatedAtTimestamp: 1_789_034_400_000,
+      sections: [
+        {
+          title: '需求说明',
+          description: '一、需求说明\n\n开发时保留这个行为。',
+          images: [{ alt: '参考图', path: 'assets/reference.png' }],
+        },
+      ],
+    });
+
+    expect(markdown).toBe(
+      '# 可复制需求\n\n### 一、需求说明\n\n开发时保留这个行为。\n',
+    );
+    expect(markdown).toContain('开发时保留这个行为。');
+    expect(markdown).not.toContain('assets/reference.png');
+    expect(markdown).not.toContain('![参考图]');
+    expect(markdown).not.toContain('id:');
+    expect(markdown).not.toContain('status:');
+    expect(markdown).not.toContain('## 需求说明');
   });
 });
 

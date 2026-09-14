@@ -265,7 +265,38 @@ h2 {
 .requirement-edit-controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+.copy-requirement {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c8ddd4;
+  border-radius: 4px;
+  background: #f7fbf9;
+  padding: 0 9px;
+  color: #24634f;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.copy-requirement:hover,
+.copy-requirement:focus-visible {
+  border-color: #5d9b85;
+  background: #edf7f2;
+  color: #15543f;
+}
+.copy-requirement--copied {
+  border-color: #79b49b;
+  background: #e8f6ee;
+  color: #176b48;
+}
+.copy-requirement--error {
+  border-color: #d99b9b;
+  background: #fff3f3;
+  color: #8f3535;
 }
 .add-visual {
   display: grid;

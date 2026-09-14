@@ -1,4 +1,5 @@
 import {
+  createRequirementClipboardMarkdown,
   normalizeRequirementDescription,
   type RequirementImage,
   type RequirementStatus,
@@ -8,6 +9,7 @@ import DOMPurify from 'dompurify';
 import {
   ChevronDown,
   ClipboardPaste,
+  Copy,
   Ellipsis,
   ImagePlus,
   ListFilter,
@@ -23,7 +25,7 @@ import {
 } from 'lucide-react';
 import { marked } from 'marked';
 import { useEffect, useMemo, useRef, useState } from 'react';
-
+import { copyTextToClipboard } from './clipboard.js';
 import {
   addRequirementVisual,
   createProject,
@@ -1403,6 +1405,10 @@ function RequirementCard({
   onPreview: (image: PreviewImage) => void;
 }): React.JSX.Element {
   const { document } = item.requirement;
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
+    'idle',
+  );
+  const copyResetTimer = useRef<number | undefined>(undefined);
   const hasChildSections = document.sections.length > 1;
   const cardId = `requirement-${encodeURIComponent(
     getRequirementKey(item.projectName, document.id),
@@ -1417,49 +1423,84 @@ function RequirementCard({
             {new Date(document.updatedAt).toLocaleDateString('zh-CN')}
           </time>
         </div>
-        {canEdit ? (
-          <div className="requirement-edit-controls">
-            <fieldset className="status-picker">
-              <legend className="visually-hidden">
-                {document.title} 的需求状态
-              </legend>
-              {requirementStatuses.map((status) => (
-                <button
-                  aria-pressed={item.status === status.id}
-                  key={status.id}
-                  onClick={() => onStatusChange(item, status.id)}
-                  type="button"
-                >
-                  {status.label}
-                </button>
-              ))}
-            </fieldset>
-            <button
-              aria-label={`${document.title} 添加图示`}
-              className="add-visual"
-              onClick={() => onVisualEdit(item)}
-              title="添加图示"
-              type="button"
-            >
-              <ImagePlus aria-hidden="true" size={16} />
-            </button>
-            <button
-              aria-label={`${document.title} 删除需求`}
-              className="delete-requirement"
-              onClick={() => onDelete(item)}
-              title="删除需求"
-              type="button"
-            >
-              <Trash2 aria-hidden="true" size={16} />
-            </button>
-          </div>
-        ) : (
-          <span
-            className={`requirement-status requirement-status--${item.status}`}
+        <div className="requirement-edit-controls">
+          <button
+            aria-label={`${document.title} 复制 Markdown`}
+            className={`copy-requirement${copyState === 'copied' ? ' copy-requirement--copied' : ''}${copyState === 'error' ? ' copy-requirement--error' : ''}`}
+            onClick={async () => {
+              const copied = await copyTextToClipboard(
+                createRequirementClipboardMarkdown(document),
+              );
+              setCopyState(copied ? 'copied' : 'error');
+              if (copyResetTimer.current)
+                window.clearTimeout(copyResetTimer.current);
+              copyResetTimer.current = window.setTimeout(
+                () => setCopyState('idle'),
+                2200,
+              );
+            }}
+            title={
+              copyState === 'copied'
+                ? '已复制 Markdown'
+                : copyState === 'error'
+                  ? '复制失败，请重试'
+                  : '复制 Markdown'
+            }
+            type="button"
           >
-            {getStatusLabel(item.status)}
-          </span>
-        )}
+            <Copy aria-hidden="true" size={16} />
+            <span>
+              {copyState === 'copied'
+                ? '已复制'
+                : copyState === 'error'
+                  ? '重试复制'
+                  : '复制 Markdown'}
+            </span>
+          </button>
+          {canEdit ? (
+            <>
+              <fieldset className="status-picker">
+                <legend className="visually-hidden">
+                  {document.title} 的需求状态
+                </legend>
+                {requirementStatuses.map((status) => (
+                  <button
+                    aria-pressed={item.status === status.id}
+                    key={status.id}
+                    onClick={() => onStatusChange(item, status.id)}
+                    type="button"
+                  >
+                    {status.label}
+                  </button>
+                ))}
+              </fieldset>
+              <button
+                aria-label={`${document.title} 添加图示`}
+                className="add-visual"
+                onClick={() => onVisualEdit(item)}
+                title="添加图示"
+                type="button"
+              >
+                <ImagePlus aria-hidden="true" size={16} />
+              </button>
+              <button
+                aria-label={`${document.title} 删除需求`}
+                className="delete-requirement"
+                onClick={() => onDelete(item)}
+                title="删除需求"
+                type="button"
+              >
+                <Trash2 aria-hidden="true" size={16} />
+              </button>
+            </>
+          ) : (
+            <span
+              className={`requirement-status requirement-status--${item.status}`}
+            >
+              {getStatusLabel(item.status)}
+            </span>
+          )}
+        </div>
       </header>
       <div
         className={`requirement-content ${hasChildSections ? 'requirement-content--sections' : ''}`}

@@ -65,6 +65,17 @@ export function createRequirementMarkdown(
   return `---\nid: ${frontMatterValue(document.id)}\ntitle: ${frontMatterValue(document.title)}\nstatus: ${frontMatterValue(document.status)}\ncreatedAt: ${frontMatterValue(document.createdAt)}\nupdatedAt: ${frontMatterValue(document.updatedAt)}\n---\n\n${sections}\n`;
 }
 
+/** Create a text-only Markdown copy for handing a requirement to an AI assistant. */
+export function createRequirementClipboardMarkdown(
+  document: RequirementDocument,
+): string {
+  const sections = document.sections
+    .map((section) => normalizeRequirementDescription(section.description))
+    .filter(Boolean)
+    .join('\n\n');
+  return `# ${document.title}\n\n${sections}\n`;
+}
+
 const frontMatterPattern = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const imagePattern = /!\[([^\]]*)\]\(([^\s)]+)(?:\s+"[^"]*")?\)/g;
 
