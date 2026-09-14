@@ -172,7 +172,7 @@ test('completes a manager-created requirement while preserving and assigning eve
   assert.match(missingAssignment.error, /Every existing image path/);
 });
 
-test('updates content without changing the status, creation time, or image paths', async (t) => {
+test('updates content without changing the status, timeline, or image paths', async (t) => {
   const { configPath, libraryRoot, projectRoot } = await fixture(t);
   const directory = join(libraryRoot, 'requirements', 'SeaFlow', 'published');
   await mkdir(directory, { recursive: true });
@@ -193,7 +193,9 @@ test('updates content without changing the status, creation time, or image paths
   assert.match(markdown, /^createdAt: "2026-09-01T00:00:00.000Z"$/m);
   assert.match(markdown, /^status: "scheduled"$/m);
   assert.match(markdown, /assets\/original\.png/);
-  assert.doesNotMatch(markdown, /^updatedAt: "2026-09-02T00:00:00.000Z"$/m);
+  // The requirement keeps the date it was created with, and the tree position
+  // that follows from it.
+  assert.match(markdown, /^updatedAt: "2026-09-02T00:00:00.000Z"$/m);
 });
 
 test('rejects missing configuration and duplicate requirement targets', async (t) => {

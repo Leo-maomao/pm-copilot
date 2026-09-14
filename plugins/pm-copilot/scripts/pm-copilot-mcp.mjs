@@ -506,15 +506,13 @@ async function completeImplemented(args) {
     error(
       'The selected requirement has no images. Create the requirement and add visuals in the manager first.',
     );
-  const timestamp = new Date().toISOString();
   const title = text(args.title, 'title');
   assertUniqueTitle(requirements, title, target);
+  // The timeline belongs to creation: a content update never rewrites it.
   const document = {
     ...target.document,
     title,
     status: 'defined',
-    updatedAt: timestamp,
-    updatedAtTimestamp: Date.parse(timestamp),
     sections: contentSections(args.sections, images, true, true),
   };
   await writeAtomic(target.filename, core.createRequirementMarkdown(document));
@@ -577,12 +575,10 @@ async function updateContent(args) {
       ? args.title.trim()
       : target.document.title;
   assertUniqueTitle(requirements, title, target);
-  const timestamp = new Date().toISOString();
+  // The timeline belongs to creation: a content update never rewrites it.
   const document = {
     ...target.document,
     title,
-    updatedAt: timestamp,
-    updatedAtTimestamp: Date.parse(timestamp),
     sections: contentSections(
       args.sections,
       allImages(target.document),
