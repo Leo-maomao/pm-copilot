@@ -417,16 +417,31 @@ async function readBody(
   return result as Record<string, unknown>;
 }
 
-async function refreshIndex(): Promise<void> {
-  projects = [];
-  assets = new Map();
-  targets = new Map();
+let indexRefresh: Promise<void> = Promise.resolve();
+
+/**
+ * Rebuild the index from disk. Scans are serialized and the finished index is
+ * swapped in one step, so a concurrent reader never sees a half-built index and
+ * the newest scan always wins.
+ */
+function refreshIndex(): Promise<void> {
+  indexRefresh = indexRefresh.then(scanLibrary, scanLibrary);
+  return indexRefresh;
+}
+
+async function scanLibrary(): Promise<void> {
+  const nextProjects: ProjectRequirements[] = [];
+  const nextAssets = new Map<string, string>();
+  const nextTargets = new Map<string, string>();
   let projectEntries: readonly import('node:fs').Dirent[] = [];
   try {
     projectEntries = await readdir(libraryRoot, {
       withFileTypes: true,
     });
   } catch {
+    projects = nextProjects;
+    assets = nextAssets;
+    targets = nextTargets;
     return;
   }
   for (const project of projectEntries.filter(
@@ -460,8 +475,8 @@ async function refreshIndex(): Promise<void> {
           };
           const key = assetKey(project.name, document.id);
           records.push({ assetDirectory: directory, assetKey: key, document });
-          assets.set(key, directory);
-          targets.set(key, join(directory, 'requirement.md'));
+          nextAssets.set(key, directory);
+          nextTargets.set(key, join(directory, 'requirement.md'));
         } catch {
           /* ignore one malformed record */
         }
@@ -469,22 +484,20 @@ async function refreshIndex(): Promise<void> {
     } catch {
       /* empty project */
     }
-    projects = [
-      ...projects,
-      {
-        projectName: project.name,
-        requirements: records.sort(
-          (a, b) =>
-            b.document.updatedAtTimestamp - a.document.updatedAtTimestamp,
-        ),
-      },
-    ];
+    nextProjects.push({
+      projectName: project.name,
+      requirements: records.sort(
+        (a, b) => b.document.updatedAtTimestamp - a.document.updatedAtTimestamp,
+      ),
+    });
   }
-  projects = [...projects].sort(
+  projects = nextProjects.sort(
     (a, b) =>
       (b.requirements[0]?.document.updatedAtTimestamp ?? 0) -
       (a.requirements[0]?.document.updatedAtTimestamp ?? 0),
   );
+  assets = nextAssets;
+  targets = nextTargets;
 }
 
 async function filterExistingImages(
@@ -589,8 +602,12 @@ createServer(async (request, response) => {
     request.url ?? '/',
     `http://${request.headers.host ?? 'localhost'}`,
   );
-  if (url.pathname === '/api/index' && request.method === 'GET')
+  // The plugin MCP writes requirement files straight to disk, so a cached index
+  // would hide them until someone pressed the manager's refresh button.
+  if (url.pathname === '/api/index' && request.method === 'GET') {
+    await refreshIndex();
     return void json(response, indexPayload(request));
+  }
   if (url.pathname === '/api/refresh' && request.method === 'POST') {
     await refreshIndex();
     return void json(response, indexPayload(request));
