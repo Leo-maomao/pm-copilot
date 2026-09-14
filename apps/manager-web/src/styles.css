@@ -332,6 +332,78 @@ h2 {
   background: #fff3f3;
   color: #8f3535;
 }
+.edit-body {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid #d5e1dc;
+  border-radius: 4px;
+  background: #fff;
+  color: #42635a;
+  cursor: pointer;
+}
+.edit-body:hover,
+.edit-body:focus-visible {
+  border-color: #71a08f;
+  background: #edf4f1;
+  color: #15543f;
+}
+.requirement-body-editor-shell {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+.body-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.body-editor-save,
+.body-editor-cancel {
+  height: 28px;
+  border: 1px solid #c8ddd4;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0 14px;
+  color: #24634f;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.body-editor-save {
+  border-color: #79b49b;
+  background: #e8f6ee;
+  color: #176b48;
+}
+.body-editor-save:hover,
+.body-editor-cancel:hover {
+  border-color: #5d9b85;
+}
+.body-editor-save:disabled,
+.body-editor-cancel:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.requirement-body-editor {
+  width: 100%;
+  min-height: 96px;
+  overflow: hidden;
+  scroll-margin-block-start: 24px;
+  border: 1px solid #d5e1dc;
+  border-radius: 4px;
+  background: #fbfdfc;
+  padding: 10px;
+  color: #24443c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  resize: none;
+}
+.requirement-body-editor:focus-visible {
+  border-color: #71a08f;
+  outline: none;
+}
 .visual-editor-dialog {
   position: fixed;
   inset: 0;

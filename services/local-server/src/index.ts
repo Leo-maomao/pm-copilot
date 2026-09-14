@@ -17,6 +17,7 @@ import {
   parseRequirementMarkdown,
   type RequirementDocument,
   type RequirementImage,
+  type RequirementSection,
   type RequirementStatus,
   requirementStatuses,
 } from '@pm-copilot/core';
@@ -519,24 +520,45 @@ function indexPayload(request: import('node:http').IncomingMessage): object {
     })),
   };
 }
+/**
+ * Requirements are ordered and dated by creation, so no manager write touches
+ * the timeline: status, title, body and figures all leave `updatedAt` alone.
+ */
 async function updateRequirement(
   key: string,
   mutate: (document: RequirementDocument) => RequirementDocument,
-  options: Readonly<{ touchTimeline?: boolean }> = {},
 ): Promise<void> {
   const filename = targets.get(key);
   if (!filename) throw new Error('Requirement not found.');
   const current = parseRequirementMarkdown(await readFile(filename, 'utf8'));
-  const mutated = mutate(current);
-  const next =
-    options.touchTimeline === false
-      ? mutated
-      : {
-          ...mutated,
-          updatedAt: now(),
-          updatedAtTimestamp: Date.now(),
-        };
-  await writeAtomic(filename, createRequirementMarkdown(next));
+  await writeAtomic(filename, createRequirementMarkdown(mutate(current)));
+}
+
+/**
+ * In-manager body editing: replace every section description by index.
+ * Section titles and image ownership stay untouched.
+ */
+function withEditedSectionDescriptions(
+  current: RequirementDocument,
+  raw: unknown,
+): readonly RequirementSection[] {
+  if (!Array.isArray(raw) || raw.length !== current.sections.length) {
+    throw new Error('Invalid sections payload.');
+  }
+  return current.sections.map((section, index) => {
+    const candidate: unknown = raw[index];
+    if (
+      typeof candidate !== 'object' ||
+      candidate === null ||
+      typeof (candidate as { description?: unknown }).description !== 'string'
+    ) {
+      throw new Error('Invalid sections payload.');
+    }
+    return {
+      ...section,
+      description: (candidate as { description: string }).description.trim(),
+    };
+  });
 }
 
 async function sendFile(
@@ -733,17 +755,18 @@ createServer(async (request, response) => {
     );
     try {
       const body = await readBody(request);
-      await updateRequirement(
-        key,
-        (current) => ({
-          ...current,
-          ...(typeof body.title === 'string' && body.title.trim()
-            ? { title: body.title.trim() }
-            : {}),
-          ...(isStatus(body.status) ? { status: body.status } : {}),
-        }),
-        { touchTimeline: !isStatus(body.status) },
-      );
+      await updateRequirement(key, (current) => ({
+        ...current,
+        ...(typeof body.title === 'string' && body.title.trim()
+          ? { title: body.title.trim() }
+          : {}),
+        ...(isStatus(body.status) ? { status: body.status } : {}),
+        ...(body.sections === undefined
+          ? {}
+          : {
+              sections: withEditedSectionDescriptions(current, body.sections),
+            }),
+      }));
       await refreshIndex();
       return void json(response, indexPayload(request));
     } catch {

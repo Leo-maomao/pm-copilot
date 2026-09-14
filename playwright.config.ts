@@ -7,6 +7,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   // The suite writes to one local requirement library and browser session store.
   fullyParallel: false,
+  workers: 1,
   reporter: 'list',
   use: {
     baseURL,

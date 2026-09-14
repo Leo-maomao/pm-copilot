@@ -130,6 +130,27 @@ export async function updateRequirementStatus(
   return (await response.json()) as ScannedRequirements;
 }
 
+/** Write the section descriptions edited in the manager. */
+export async function updateRequirementContent(
+  requirement: LoadedRequirement,
+  descriptions: readonly string[],
+): Promise<ScannedRequirements> {
+  const response = await fetch(
+    `/api/requirements/${encodeURIComponent(requirement.assetKey)}`,
+    {
+      body: JSON.stringify({
+        sections: descriptions.map((description) => ({ description })),
+      }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'PUT',
+    },
+  );
+  if (!response.ok) {
+    throw new Error('Unable to update the requirement content.');
+  }
+  return (await response.json()) as ScannedRequirements;
+}
+
 export async function updateRequirementTitle(
   requirement: LoadedRequirement,
   title: string,

@@ -40,6 +40,7 @@ import {
   renameProject,
   scanProjectCollection,
   unlockEditor,
+  updateRequirementContent,
   updateRequirementStatus,
   updateRequirementTitle,
   updateRequirementVisualName,
@@ -363,23 +364,64 @@ function RequirementBody({
   images,
   requirement,
   description,
+  draft,
+  actions,
+  autoFocus,
   isChild,
+  onDraftChange,
   onPreview,
 }: {
   images: readonly RequirementImage[];
   requirement: LoadedRequirement;
   description: string;
+  /** Body editing: when set, the rendered Markdown becomes a textarea. */
+  draft?: string | undefined;
+  /** Rendered inside the editor column, right under the textarea. */
+  actions?: React.ReactNode;
+  /** Jump into this editor when it opens (only the first section does). */
+  autoFocus?: boolean | undefined;
   isChild: boolean;
+  onDraftChange?: (next: string) => void;
   onPreview: (image: PreviewImage) => void;
 }): React.JSX.Element {
-  const renderedDescription = DOMPurify.sanitize(
-    marked.parse(
-      normalizeRequirementDescription(description || '待补充需求内容。'),
-      {
-        async: false,
-      },
-    ),
-  );
+  const isEditing = draft !== undefined;
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const renderedDescription = isEditing
+    ? ''
+    : DOMPurify.sanitize(
+        marked.parse(
+          normalizeRequirementDescription(description || '待补充需求内容。'),
+          {
+            async: false,
+          },
+        ),
+      );
+
+  // Opening the editor jumps straight into it instead of leaving it off-screen.
+  useEffect(() => {
+    if (!isEditing || !autoFocus) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus({ preventScroll: true });
+    // The editor sizes itself to its content in this same commit, and the
+    // two-column body re-centres around it. Scroll one frame later, or the jump
+    // lands on the pre-layout position and clips the first lines.
+    const frame = requestAnimationFrame(() => {
+      editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isEditing, autoFocus]);
+
+  // The editor always grows to fit the whole body instead of scrolling inside.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || draft === undefined) return;
+    editor.style.height = 'auto';
+    // box-sizing is border-box, so the borders have to be added back on top of
+    // the content height or the last line gets clipped.
+    const borders = editor.offsetHeight - editor.clientHeight;
+    editor.style.height = `${editor.scrollHeight + borders}px`;
+  }, [draft]);
 
   return (
     <div
@@ -411,11 +453,25 @@ function RequirementBody({
           ))}
         </section>
       )}
-      <div
-        className="requirement-markdown"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: DOMPurify sanitizes the rendered Markdown before insertion.
-        dangerouslySetInnerHTML={{ __html: renderedDescription }}
-      />
+      {isEditing ? (
+        <div className="requirement-body-editor-shell">
+          <textarea
+            aria-label="需求正文"
+            className="requirement-body-editor"
+            onChange={(event) => onDraftChange?.(event.target.value)}
+            ref={editorRef}
+            spellCheck={false}
+            value={draft}
+          />
+          {actions}
+        </div>
+      ) : (
+        <div
+          className="requirement-markdown"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: DOMPurify sanitizes the rendered Markdown before insertion.
+          dangerouslySetInnerHTML={{ __html: renderedDescription }}
+        />
+      )}
     </div>
   );
 }
@@ -1395,6 +1451,7 @@ function RequirementCard({
   onDelete,
   onStatusChange,
   onVisualEdit,
+  onContentSave,
   onPreview,
 }: {
   canEdit: boolean;
@@ -1402,17 +1459,84 @@ function RequirementCard({
   onDelete: (item: DisplayRequirement) => void;
   onStatusChange: (item: DisplayRequirement, status: RequirementStatus) => void;
   onVisualEdit: (item: DisplayRequirement) => void;
+  onContentSave: (
+    item: DisplayRequirement,
+    descriptions: readonly string[],
+  ) => Promise<boolean>;
   onPreview: (image: PreviewImage) => void;
 }): React.JSX.Element {
   const { document } = item.requirement;
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
     'idle',
   );
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
+  const [resetCount, setResetCount] = useState(0);
+  const [draftState, setDraftState] = useState<{
+    revision: string;
+    values: readonly string[];
+  }>({ revision: '', values: [] });
+  const [isSavingContent, setIsSavingContent] = useState(false);
   const copyResetTimer = useRef<number | undefined>(undefined);
   const hasChildSections = document.sections.length > 1;
+  const isEditingBody = canEdit && viewMode === 'edit';
   const cardId = `requirement-${encodeURIComponent(
     getRequirementKey(item.projectName, document.id),
   )}`;
+  // An open editor keeps its own draft: it survives unrelated re-renders and is
+  // dropped once the stored document changes (its own save, or a reset).
+  const storedDescriptions = document.sections.map(
+    (section) => section.description,
+  );
+  const bodyRevision = `${document.updatedAt}|${document.updatedAtTimestamp}|${resetCount}`;
+  const sectionDrafts =
+    draftState.revision === bodyRevision
+      ? draftState.values
+      : storedDescriptions;
+
+  function changeDraft(index: number, next: string): void {
+    setDraftState({
+      revision: bodyRevision,
+      values: sectionDrafts.map((draft, draftIndex) =>
+        draftIndex === index ? next : draft,
+      ),
+    });
+  }
+
+  async function saveBody(): Promise<void> {
+    setIsSavingContent(true);
+    const isSaved = await onContentSave(item, sectionDrafts);
+    setIsSavingContent(false);
+    if (!isSaved) return;
+    // A save does not touch the timeline, so drop the draft explicitly: the next
+    // open must show what is actually stored.
+    setResetCount((current) => current + 1);
+    setViewMode('preview');
+  }
+
+  // Carried by the last editing section so the buttons sit with the textarea.
+  const editorActions = isEditingBody ? (
+    <div className="body-editor-actions">
+      <button
+        className="body-editor-cancel"
+        disabled={isSavingContent}
+        onClick={() => {
+          setResetCount((current) => current + 1);
+          setViewMode('preview');
+        }}
+        type="button"
+      >
+        取消
+      </button>
+      <button
+        className="body-editor-save"
+        disabled={isSavingContent}
+        onClick={() => void saveBody()}
+        type="button"
+      >
+        {isSavingContent ? '保存中…' : '保存'}
+      </button>
+    </div>
+  ) : undefined;
 
   return (
     <article className="requirement-card" id={cardId}>
@@ -1474,6 +1598,17 @@ function RequirementCard({
                   </button>
                 ))}
               </fieldset>
+              {!isEditingBody && (
+                <button
+                  aria-label={`${document.title} 编辑正文`}
+                  className="edit-body"
+                  onClick={() => setViewMode('edit')}
+                  title="编辑正文"
+                  type="button"
+                >
+                  <Pencil aria-hidden="true" size={16} />
+                </button>
+              )}
               <button
                 aria-label={`${document.title} 添加图示`}
                 className="add-visual"
@@ -1505,12 +1640,18 @@ function RequirementCard({
       <div
         className={`requirement-content ${hasChildSections ? 'requirement-content--sections' : ''}`}
       >
-        {document.sections.map((section) => (
+        {document.sections.map((section, index) => (
           <RequirementBody
+            actions={
+              index === document.sections.length - 1 ? editorActions : undefined
+            }
+            autoFocus={index === 0}
             description={section.description}
+            draft={isEditingBody ? sectionDrafts[index] : undefined}
             images={section.images}
             isChild={hasChildSections}
             key={`${document.id}-${section.title}-${section.images.map((image) => image.path).join('-')}`}
+            onDraftChange={(next) => changeDraft(index, next)}
             onPreview={onPreview}
             requirement={item.requirement}
           />
@@ -1659,6 +1800,27 @@ export function App(): React.JSX.Element {
         )
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+  }
+
+  /** Persist section descriptions edited in the manager. */
+  async function changeContent(
+    item: DisplayRequirement,
+    descriptions: readonly string[],
+  ): Promise<boolean> {
+    if (!canEdit) return false;
+    try {
+      const scanned = await updateRequirementContent(
+        item.requirement,
+        descriptions,
+      );
+      setCanEdit(scanned.canEdit);
+      setProjects(scanned.projects);
+      setError(undefined);
+      return true;
+    } catch {
+      setError('无法保存需求正文。');
+      return false;
+    }
   }
 
   async function changeStatus(
@@ -2134,6 +2296,7 @@ export function App(): React.JSX.Element {
                     item.requirement.document.id,
                   )}
                   onStatusChange={changeStatus}
+                  onContentSave={changeContent}
                   onDelete={setDeleteRequirementTarget}
                   onVisualEdit={openVisualEditor}
                   onPreview={setPreviewImage}

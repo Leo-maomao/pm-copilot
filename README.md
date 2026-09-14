@@ -9,4 +9,4 @@ pnpm install
 pnpm start
 ```
 
-管理器默认只读。点击“需求管理器”并输入本机编辑口令后，当前浏览器可以持续编辑，服务重启后无需重复输入；局域网访问者未解锁时只能阅读。服务固定监听 `0.0.0.0:57391`；可用 `PM_COPILOT_HOST` 和 `PM_COPILOT_LIBRARY_ROOT` 覆盖默认设置。详见 [统一需求库规范](./docs/requirements-storage.md) 和 [插件工作流](./docs/plugin-workflows.md)。
+管理器默认只读。点击“需求管理器”并输入本机编辑口令后，当前浏览器可以持续编辑，服务重启后无需重复输入；局域网访问者未解锁时只能阅读。解锁后可以修改需求状态、标题、图示，也可以通过卡片右上角的铅笔按钮直接编辑正文；需求的时间只与创建有关，任何编辑都不会改变它在目录中的位置或卡片日期（详见 [决策记录](./docs/decisions/0022-in-manager-body-editing.md)）。服务固定监听 `0.0.0.0:57391`；可用 `PM_COPILOT_HOST` 和 `PM_COPILOT_LIBRARY_ROOT` 覆盖默认设置。详见 [统一需求库规范](./docs/requirements-storage.md) 和 [插件工作流](./docs/plugin-workflows.md)。
