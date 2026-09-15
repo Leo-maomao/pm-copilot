@@ -163,7 +163,9 @@ function json(
 
 async function writeAtomic(filename: string, content: string): Promise<void> {
   await mkdir(resolve(filename, '..'), { recursive: true });
-  const temporary = `${filename}.${process.pid}-${Date.now()}.tmp`;
+  // Two writes to the same file in the same millisecond would otherwise share a
+  // temporary name, and the first rename would make the second one fail.
+  const temporary = `${filename}.${process.pid}-${randomBytes(6).toString('hex')}.tmp`;
   await writeFile(temporary, content, 'utf8');
   await rename(temporary, filename);
 }
@@ -540,11 +542,13 @@ function indexPayload(request: import('node:http').IncomingMessage): object {
 async function updateRequirement(
   key: string,
   mutate: (document: RequirementDocument) => RequirementDocument,
-): Promise<void> {
+): Promise<RequirementDocument> {
   const filename = targets.get(key);
   if (!filename) throw new Error('Requirement not found.');
   const current = parseRequirementMarkdown(await readFile(filename, 'utf8'));
-  await writeAtomic(filename, createRequirementMarkdown(mutate(current)));
+  const next = mutate(current);
+  await writeAtomic(filename, createRequirementMarkdown(next));
+  return next;
 }
 
 /**
@@ -820,11 +824,9 @@ createServer(async (request, response) => {
       const directory = resolve(filename, '..');
       const encoded = data.slice(data.indexOf(',') + 1);
       await mkdir(join(directory, 'assets'), { recursive: true });
-      await writeFile(
-        join(directory, 'assets', imageName),
-        Buffer.from(encoded, 'base64'),
-      );
-      await updateRequirement(key, (document) => {
+      const uploaded = join(directory, 'assets', imageName);
+      await writeFile(uploaded, Buffer.from(encoded, 'base64'));
+      const appendImage = updateRequirement(key, (document) => {
         const image: RequirementImage = {
           alt: '需求图示',
           path: `assets/${imageName}`,
@@ -850,6 +852,13 @@ createServer(async (request, response) => {
           ],
         };
       });
+      try {
+        await appendImage;
+      } catch (error) {
+        // An image whose reference never landed would sit in assets/ forever.
+        await rm(uploaded, { force: true });
+        throw error;
+      }
       await refreshIndex();
       return void json(response, indexPayload(request));
     } catch {
@@ -870,13 +879,25 @@ createServer(async (request, response) => {
       const body = await readBody(request);
       const path = typeof body.path === 'string' ? body.path : '';
       if (!path.startsWith('assets/')) throw new Error('Invalid visual path.');
-      await updateRequirement(key, (document) => ({
+      const filename = targets.get(key);
+      if (!filename) throw new Error('Requirement not found.');
+      const directory = resolve(filename, '..');
+      const updated = await updateRequirement(key, (document) => ({
         ...document,
         sections: document.sections.map((section) => ({
           ...section,
           images: section.images.filter((image) => image.path !== path),
         })),
       }));
+      // Dropping the last reference is what "删除图示" means, so the file goes
+      // with it; otherwise every deleted figure stays in assets/ forever.
+      const stillReferenced = updated.sections.some((section) =>
+        section.images.some((image) => image.path === path),
+      );
+      const asset = resolve(directory, path);
+      if (!stillReferenced && inside(directory, asset)) {
+        await rm(asset, { force: true });
+      }
       await refreshIndex();
       return void json(response, indexPayload(request));
     } catch {

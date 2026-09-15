@@ -318,6 +318,28 @@ test('persists a local status change in the central library', async (t) => {
       ),
     ),
   );
+  // Deleting a figure drops its file as well: a deleted image must not stay in
+  // assets/ as an orphan the manager can no longer reach.
+  const deletedVisual = await fetch(
+    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ path: 'assets/top-level.png' }),
+    },
+  );
+  const deletedPayload = await deletedVisual.json();
+  assert.equal(deletedVisual.status, 200, JSON.stringify(deletedPayload));
+  assert.equal(
+    deletedPayload.projects
+      .flatMap((project) => project.requirements)
+      .find((requirement) => requirement.assetKey === key)
+      .document.sections.flatMap((section) => section.images)
+      .some((image) => image.path === 'assets/top-level.png'),
+    false,
+  );
+  await assert.rejects(() => stat(join(directory, 'assets', 'top-level.png')));
+
 });
 
 test('recovers an interrupted project deletion before indexing', async (t) => {

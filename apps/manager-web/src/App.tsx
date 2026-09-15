@@ -731,6 +731,8 @@ function VisualEditorDialog({
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}
+      // The paste target tiles live inside this dialog, so they must not carry
+      // their own paste handler: one paste would then upload the image twice.
       onPaste={(event) => void pasteImage(event)}
       open
     >
@@ -906,7 +908,6 @@ function VisualEditorDialog({
                     event.preventDefault();
                     void moveImage(index);
                   }}
-                  onPaste={(event) => void pasteImage(event)}
                   title="选择此图示层后粘贴图片"
                   type="button"
                 >
