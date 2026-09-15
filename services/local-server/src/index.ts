@@ -526,6 +526,8 @@ async function filterExistingImages(
 function indexPayload(request: import('node:http').IncomingMessage): object {
   return {
     canEdit: canEdit(request),
+    // The manager shows and edits the Git origin mapping the plugin looks up.
+    origins: Object.fromEntries(projectOrigins),
     projects: projects.map((project) => ({
       projectName: project.projectName,
       requirements: project.requirements.map(({ assetKey: key, document }) => ({
@@ -640,16 +642,65 @@ createServer(async (request, response) => {
       await ensureProjectMaintenanceAvailable();
       const body = await readBody(request);
       const projectName = safeProjectName(body.projectName);
+      const requestedOrigin =
+        body.origin === undefined ? undefined : safeProjectName(body.origin);
+      if (body.origin !== undefined && !requestedOrigin) {
+        throw new Error('Invalid Git origin.');
+      }
       if (!projectName || projectExists(projectName)) {
         throw new Error('Invalid project.');
       }
       await mkdir(join(libraryRoot, projectName), {
         recursive: true,
       });
+      // The plugin looks requirements up by Git repository name; when the
+      // directory is named differently the mapping has to exist from the start.
+      if (requestedOrigin && requestedOrigin !== projectName) {
+        projectOrigins.set(projectName, requestedOrigin);
+        await persistProjectOrigins();
+      }
       await refreshIndex();
       return void json(response, indexPayload(request), 201);
     } catch {
       return void json(response, { error: 'Project creation failed.' }, 400);
+    }
+  }
+  if (
+    url.pathname.startsWith('/api/projects/') &&
+    url.pathname.endsWith('/origin') &&
+    request.method === 'PUT'
+  ) {
+    if (!canEdit(request))
+      return void json(response, { error: 'Local-only write.' }, 403);
+    try {
+      await ensureProjectMaintenanceAvailable();
+      const projectName = safeProjectName(
+        decodeURIComponent(
+          url.pathname.slice('/api/projects/'.length, -'/origin'.length),
+        ),
+      );
+      if (!projectName || !projectExists(projectName)) {
+        throw new Error('Unknown project.');
+      }
+      const body = await readBody(request);
+      const raw = typeof body.origin === 'string' ? body.origin.trim() : '';
+      const nextOrigin = raw ? safeProjectName(raw) : undefined;
+      if (raw && !nextOrigin) throw new Error('Invalid Git origin.');
+      // An origin identical to the directory name needs no mapping: the plugin
+      // finds that directory by itself.
+      if (!nextOrigin || nextOrigin === projectName) {
+        projectOrigins.delete(projectName);
+      } else {
+        projectOrigins.set(projectName, nextOrigin);
+      }
+      await persistProjectOrigins();
+      return void json(response, indexPayload(request));
+    } catch {
+      return void json(
+        response,
+        { error: 'Project origin update failed.' },
+        400,
+      );
     }
   }
   if (url.pathname.startsWith('/api/projects/') && request.method === 'PATCH') {

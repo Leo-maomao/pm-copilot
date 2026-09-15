@@ -331,13 +331,52 @@ async function requirementRoot(repositoryRoot, key) {
   return join(repositoryRoot, 'requirements', projectDirectory(key));
 }
 
-async function loadRequirements(repositoryRoot, key, core) {
+/**
+ * The manager names requirement directories, the plugin looks them up by the Git
+ * repository name, and `project-origins.json` bridges the two. Directories that
+ * contain the key are the usual reason a lookup fails, so name them.
+ */
+async function similarProjectDirectories(repositoryRoot, key) {
+  try {
+    return (
+      await readdir(join(repositoryRoot, 'requirements'), {
+        withFileTypes: true,
+      })
+    )
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .map((entry) => entry.name)
+      .filter((name) => name !== key && name.includes(key));
+  } catch {
+    return [];
+  }
+}
+
+function missingProjectDirectory(key, similar) {
+  const head = `No requirement directory is mapped to this project: ${key}.`;
+  if (similar.length === 1) {
+    return `${head} The library has "${similar[0]}"; if that is the same project, record "${key}" as its Git origin in the manager.`;
+  }
+  if (similar.length > 1) {
+    return `${head} Similar directories: ${similar.join(', ')}. Record the Git origin of the right one in the manager.`;
+  }
+  return `${head} Create the project in the manager first.`;
+}
+
+async function loadRequirements(repositoryRoot, key, core, options = {}) {
   const root = await requirementRoot(repositoryRoot, key);
   let entries;
   try {
     entries = await readdir(root, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (caught) {
+    if (caught?.code !== 'ENOENT') {
+      error('The project requirement directory cannot be read.');
+    }
+    const similar = await similarProjectDirectories(repositoryRoot, key);
+    // Writing the first requirement legitimately starts a new directory, but a
+    // directory that merely contains the key means the project already exists
+    // under the manager's name: creating a second one splits the project in two.
+    if (options.allowMissingDirectory && similar.length === 0) return [];
+    error(missingProjectDirectory(key, similar));
   }
   const requirements = [];
   for (const entry of entries) {
@@ -523,7 +562,9 @@ async function createText(args) {
   const repositoryRoot = await readConfig();
   const core = await coreFor(repositoryRoot);
   const key = await projectKey(args.project_root);
-  const requirements = await loadRequirements(repositoryRoot, key, core);
+  const requirements = await loadRequirements(repositoryRoot, key, core, {
+    allowMissingDirectory: true,
+  });
   const title = text(args.title, 'title');
   if (requirements.some(({ document }) => document.title === title))
     error('A requirement with this title already exists.');

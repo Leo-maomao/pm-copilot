@@ -11,6 +11,7 @@ import {
   ClipboardPaste,
   Copy,
   Ellipsis,
+  GitBranch,
   ImagePlus,
   ListFilter,
   Maximize2,
@@ -39,6 +40,7 @@ import {
   refreshProjectCollection,
   renameProject,
   scanProjectCollection,
+  setProjectOrigin,
   unlockEditor,
   updateRequirementContent,
   updateRequirementStatus,
@@ -203,6 +205,7 @@ function RequirementTree({
   onCreateProject,
   onDeleteProject,
   onRenameProject,
+  onOriginEdit,
   onRequestEditing,
 }: {
   projects: readonly ProjectRequirements[];
@@ -217,6 +220,7 @@ function RequirementTree({
   onCreateProject: () => void;
   onDeleteProject: (project: ProjectRequirements) => void;
   onRenameProject: (project: ProjectRequirements) => void;
+  onOriginEdit: (project: ProjectRequirements) => void;
   onRequestEditing: () => void;
 }): React.JSX.Element {
   const [actionProjectName, setActionProjectName] = useState<string>();
@@ -334,6 +338,20 @@ function RequirementTree({
                   >
                     <Pencil aria-hidden="true" size={14} />
                     <span>重命名</span>
+                  </button>
+                  <button
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setActionProjectName(undefined);
+                      onOriginEdit(project);
+                    }}
+                    role="menuitem"
+                    title="设置 Git 归属"
+                    type="button"
+                  >
+                    <GitBranch aria-hidden="true" size={14} />
+                    <span>设置 Git 归属</span>
                   </button>
                   <button
                     className="tree-project-action-menu-delete"
@@ -1110,9 +1128,10 @@ function NewProjectDialog({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (projectName: string) => Promise<void>;
+  onCreate: (projectName: string, origin: string) => Promise<void>;
 }): React.JSX.Element {
   const [projectName, setProjectName] = useState('');
+  const [origin, setOrigin] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1128,7 +1147,7 @@ function NewProjectDialog({
     if (!nextProjectName || isCreating) return;
     setIsCreating(true);
     try {
-      await onCreate(nextProjectName);
+      await onCreate(nextProjectName, origin.trim());
       onClose();
     } finally {
       setIsCreating(false);
@@ -1174,6 +1193,17 @@ function NewProjectDialog({
           ref={inputRef}
           value={projectName}
         />
+        <input
+          aria-label="Git 仓库名"
+          disabled={isCreating}
+          onChange={(event) => setOrigin(event.target.value)}
+          placeholder="Git 仓库名（可选）"
+          value={origin}
+        />
+        <p className="new-project-hint">
+          插件按 Git
+          仓库名查找需求。目录名与仓库名不一致时必须填写，否则插件看不到该项目。
+        </p>
         <footer>
           <button
             className="new-project-submit"
@@ -1181,6 +1211,97 @@ function NewProjectDialog({
             type="submit"
           >
             创建项目
+          </button>
+        </footer>
+      </form>
+    </dialog>
+  );
+}
+
+function ProjectOriginDialog({
+  project,
+  origin,
+  onClose,
+  onSave,
+}: {
+  project: ProjectRequirements;
+  origin: string;
+  onClose: () => void;
+  onSave: (origin: string) => Promise<void>;
+}): React.JSX.Element {
+  const [value, setValue] = useState(origin);
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  async function submit(
+    event: React.FormEvent<HTMLFormElement>,
+  ): Promise<void> {
+    event.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave(value.trim());
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <dialog
+      aria-label="设置 Git 归属"
+      className="new-project-dialog"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onClose();
+      }}
+      open
+    >
+      <form
+        className="new-project-surface"
+        onSubmit={(event) => void submit(event)}
+      >
+        <header>
+          <h2>设置 Git 归属</h2>
+          <button
+            aria-label="关闭设置 Git 归属"
+            className="new-project-close"
+            onClick={onClose}
+            type="button"
+          >
+            <X aria-hidden="true" size={18} />
+          </button>
+        </header>
+        <input
+          aria-label="Git 仓库名"
+          disabled={isSaving}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder="例如 sea-craft-next-cn"
+          ref={inputRef}
+          value={value}
+        />
+        <p className="new-project-hint">
+          插件按 Git 仓库名查找「{project.projectName}
+          」的需求。留空表示与目录名相同。
+        </p>
+        <footer>
+          <button
+            className="new-project-submit"
+            disabled={isSaving}
+            type="submit"
+          >
+            保存
           </button>
         </footer>
       </form>
@@ -1693,6 +1814,11 @@ export function App(): React.JSX.Element {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [renameProjectTarget, setRenameProjectTarget] =
     useState<ProjectRequirements>();
+  const [originEditTarget, setOriginEditTarget] =
+    useState<ProjectRequirements>();
+  const [projectOrigins, setProjectOrigins] = useState<
+    Readonly<Record<string, string>>
+  >({});
   const [deleteProjectTarget, setDeleteProjectTarget] =
     useState<ProjectRequirements>();
   const [deleteRequirementTarget, setDeleteRequirementTarget] =
@@ -1970,15 +2096,47 @@ export function App(): React.JSX.Element {
     }
   }
 
-  async function createNewProject(projectName: string): Promise<void> {
+  async function createNewProject(
+    projectName: string,
+    origin: string,
+  ): Promise<void> {
     try {
-      const scanned = await createProject(projectName);
+      const scanned = await createProject(projectName, origin || undefined);
       setProjects(scanned.projects);
       setCanEdit(scanned.canEdit);
       setError(undefined);
     } catch {
       setError('无法新增项目。请确认项目名称未重复。');
       throw new Error('Project creation failed.');
+    }
+  }
+
+  /** Open the Git origin editor with the origin the server currently holds. */
+  async function openProjectOriginEditor(
+    project: ProjectRequirements,
+  ): Promise<void> {
+    try {
+      const scanned = await scanProjectCollection();
+      setProjectOrigins(scanned.origins ?? {});
+      setCanEdit(scanned.canEdit);
+    } catch {
+      setProjectOrigins({});
+    }
+    setOriginEditTarget(project);
+  }
+
+  async function changeProjectOrigin(nextOrigin: string): Promise<void> {
+    const project = originEditTarget;
+    if (!project) return;
+    try {
+      const scanned = await setProjectOrigin(project.projectName, nextOrigin);
+      setProjects(scanned.projects);
+      setProjectOrigins(scanned.origins ?? {});
+      setCanEdit(scanned.canEdit);
+      setError(undefined);
+    } catch {
+      setError('无法更新 Git 归属。');
+      throw new Error('Project origin update failed.');
     }
   }
 
@@ -2189,6 +2347,7 @@ export function App(): React.JSX.Element {
               onDeleteProject={setDeleteProjectTarget}
               onNavigate={navigateToRequirement}
               onRenameProject={setRenameProjectTarget}
+              onOriginEdit={(project) => void openProjectOriginEditor(project)}
               onRequestEditing={() => setIsEditorUnlockOpen(true)}
               onSelectProject={selectProject}
               onToggleProject={toggleProject}
@@ -2341,6 +2500,14 @@ export function App(): React.JSX.Element {
         <NewProjectDialog
           onClose={() => setIsNewProjectOpen(false)}
           onCreate={createNewProject}
+        />
+      )}
+      {originEditTarget && (
+        <ProjectOriginDialog
+          onClose={() => setOriginEditTarget(undefined)}
+          onSave={changeProjectOrigin}
+          origin={projectOrigins[originEditTarget.projectName] ?? ''}
+          project={originEditTarget}
         />
       )}
       {renameProjectTarget && (

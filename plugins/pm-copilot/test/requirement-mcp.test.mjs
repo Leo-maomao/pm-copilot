@@ -439,3 +439,79 @@ test('leaves the original document intact when an atomic update cannot write', a
   }
   assert.equal(await readFile(filename, 'utf8'), original);
 });
+
+test('reports an unmapped project directory instead of an empty list', async (t) => {
+  const { configPath, libraryRoot, projectRoot } = await fixture(t);
+  // The manager named the directory after the local checkout folder while the Git
+  // origin resolves to another name, and no origin mapping was recorded.
+  const directory = join(
+    libraryRoot,
+    'requirements',
+    'SeaFlow-main',
+    'existing',
+  );
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, 'requirement.md'),
+    `---\nid: existing\ntitle: 已有需求\nstatus: defined\ncreatedAt: 2026-09-01T00:00:00.000Z\nupdatedAt: 2026-09-01T00:00:00.000Z\n---\n\n### 一、内容\n1. 正文。\n`,
+  );
+  const mcp = startMcp(configPath);
+  t.after(() => mcp.stop());
+
+  const inspected = await mcp.call('inspect_project_requirements', {
+    project_root: projectRoot,
+  });
+  assert.equal(inspected.ok, false);
+  assert.match(inspected.error, /No requirement directory is mapped/);
+  assert.match(inspected.error, /SeaFlow-main/);
+
+  const updated = await mcp.call('update_requirement_content', {
+    project_root: projectRoot,
+    target_title: '已有需求',
+    sections: [section('', '新正文。')],
+  });
+  assert.equal(updated.ok, false);
+  assert.match(updated.error, /SeaFlow-main/);
+
+  // Creating here would start a second directory for the same project.
+  const created = await mcp.call('create_text_requirement', {
+    project_root: projectRoot,
+    title: '新需求',
+    sections: [section('', '正文。')],
+  });
+  assert.equal(created.ok, false);
+  assert.match(created.error, /SeaFlow-main/);
+});
+
+test('finds the requirements once the Git origin mapping exists', async (t) => {
+  const { configPath, libraryRoot, projectRoot } = await fixture(t);
+  const directory = join(
+    libraryRoot,
+    'requirements',
+    'SeaFlow-main',
+    'existing',
+  );
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, 'requirement.md'),
+    `---\nid: existing\ntitle: 已有需求\nstatus: defined\ncreatedAt: 2026-09-01T00:00:00.000Z\nupdatedAt: 2026-09-01T00:00:00.000Z\n---\n\n### 一、内容\n1. 正文。\n`,
+  );
+  const managerDirectory = join(libraryRoot, 'requirements', '.manager');
+  await mkdir(managerDirectory, { recursive: true });
+  await writeFile(
+    join(managerDirectory, 'project-origins.json'),
+    JSON.stringify({ origins: { 'SeaFlow-main': 'SeaFlow' } }),
+  );
+  const mcp = startMcp(configPath);
+  t.after(() => mcp.stop());
+
+  const inspected = await mcp.call('inspect_project_requirements', {
+    project_root: projectRoot,
+  });
+  assert.equal(inspected.ok, true);
+  assert.equal(inspected.project_key, 'SeaFlow');
+  assert.deepEqual(
+    inspected.requirements.map((requirement) => requirement.title),
+    ['已有需求'],
+  );
+});

@@ -12,6 +12,8 @@ export type ProjectRequirements = Readonly<{
 
 export type ScannedRequirements = Readonly<{
   canEdit: boolean;
+  /** Project directory name -> Git repository name the plugin looks up. */
+  origins: Readonly<Record<string, string>>;
   projects: readonly ProjectRequirements[];
 }>;
 
@@ -64,13 +66,31 @@ export async function createRequirement(
 
 export async function createProject(
   projectName: string,
+  origin?: string,
 ): Promise<ScannedRequirements> {
   const response = await fetch('/api/projects', {
-    body: JSON.stringify({ projectName }),
+    body: JSON.stringify(origin ? { projectName, origin } : { projectName }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   });
   if (!response.ok) throw new Error('Unable to create project.');
+  return (await response.json()) as ScannedRequirements;
+}
+
+/** Record which Git repository the plugin should resolve this project by. */
+export async function setProjectOrigin(
+  projectName: string,
+  origin: string,
+): Promise<ScannedRequirements> {
+  const response = await fetch(
+    `/api/projects/${encodeURIComponent(projectName)}/origin`,
+    {
+      body: JSON.stringify({ origin }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'PUT',
+    },
+  );
+  if (!response.ok) throw new Error('Unable to update the project origin.');
   return (await response.json()) as ScannedRequirements;
 }
 

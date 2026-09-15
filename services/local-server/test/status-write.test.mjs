@@ -340,6 +340,47 @@ test('persists a local status change in the central library', async (t) => {
   );
   await assert.rejects(() => stat(join(directory, 'assets', 'top-level.png')));
 
+  // A project whose directory name differs from its Git repository name records
+  // the mapping when it is created, and the mapping can be corrected afterwards.
+  const mapped = await fetch(`${baseUrl}/api/projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({
+      projectName: '目录名不同',
+      origin: 'git-repo-name',
+    }),
+  });
+  assert.equal(mapped.status, 201);
+  const mappedPayload = await mapped.json();
+  const mappedName = '目录名不同';
+  assert.equal(mappedPayload.origins[mappedName], 'git-repo-name');
+  await assert.doesNotReject(() =>
+    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+      (content) => assert.match(content, /"目录名不同": "git-repo-name"/),
+    ),
+  );
+  const remapped = await fetch(
+    `${baseUrl}/api/projects/${encodeURIComponent('demo')}/origin`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ origin: 'demo-repo' }),
+    },
+  );
+  const remappedPayload = await remapped.json();
+  assert.equal(remapped.status, 200, JSON.stringify(remappedPayload));
+  assert.equal(remappedPayload.origins.demo, 'demo-repo');
+  const cleared = await fetch(
+    `${baseUrl}/api/projects/${encodeURIComponent('demo')}/origin`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ origin: '' }),
+    },
+  );
+  const clearedPayload = await cleared.json();
+  assert.equal(cleared.status, 200, JSON.stringify(clearedPayload));
+  assert.equal(clearedPayload.origins.demo, undefined);
 });
 
 test('recovers an interrupted project deletion before indexing', async (t) => {
