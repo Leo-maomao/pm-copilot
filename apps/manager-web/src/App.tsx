@@ -11,8 +11,8 @@ import {
   ClipboardPaste,
   Copy,
   Ellipsis,
-  GitBranch,
   ImagePlus,
+  Link as LinkIcon,
   ListFilter,
   Maximize2,
   PanelLeftClose,
@@ -40,7 +40,6 @@ import {
   refreshProjectCollection,
   renameProject,
   scanProjectCollection,
-  setProjectOrigin,
   unlockEditor,
   updateRequirementContent,
   updateRequirementStatus,
@@ -131,6 +130,93 @@ function getRequirementKey(projectName: string, requirementId: string): string {
   return `${projectName}:${requirementId}`;
 }
 
+function getRequirementCardId(
+  projectName: string,
+  requirementId: string,
+): string {
+  return `requirement-${encodeURIComponent(
+    getRequirementKey(projectName, requirementId),
+  )}`;
+}
+
+const requirementRoutePattern = /^\/r\/([^/]+)\/([^/]+)\/?$/;
+
+/** The path of a requirement's shareable link, without the host. */
+function getRequirementPath(
+  projectName: string,
+  requirementId: string,
+): string {
+  return `/r/${encodeURIComponent(projectName)}/${encodeURIComponent(requirementId)}`;
+}
+
+/** The requirement a link points at, when the page was opened from one. */
+function readRequirementLink():
+  | Readonly<{ projectName: string; requirementId: string }>
+  | undefined {
+  const [, projectName, requirementId] =
+    requirementRoutePattern.exec(window.location.pathname) ?? [];
+  if (projectName === undefined || requirementId === undefined)
+    return undefined;
+  try {
+    return {
+      projectName: decodeURIComponent(projectName),
+      requirementId: decodeURIComponent(requirementId),
+    };
+  } catch {
+    // A broken percent escape is only ever a link that leads nowhere.
+    return undefined;
+  }
+}
+
+/**
+ * The host to put in a shared link. Colleagues cannot reach `127.0.0.1`, so a
+ * loopback page borrows the host's own LAN address; browsing over an address
+ * that already works is the better evidence of what they can open.
+ */
+function getShareOrigin(lanOrigins: readonly string[]): string {
+  const { hostname, origin } = window.location;
+  const isLoopback =
+    hostname === '127.0.0.1' ||
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]';
+  return isLoopback ? (lanOrigins[0] ?? origin) : origin;
+}
+
+/**
+ * Where the highlight line sits below the detail pane's top edge. It has to
+ * clear `.requirement-card`'s 32px scroll-margin-top, or a card a tree click
+ * just aligned to the top would hand the highlight back to its predecessor.
+ */
+const treeHighlightOffset = 40;
+
+/**
+ * The requirement the reader is currently on: the last card scrolled past the
+ * highlight line, or the first card while the pane is above all of them.
+ */
+function findActiveRequirementKey(detailPane: HTMLElement): string | undefined {
+  const cards = detailPane.querySelectorAll<HTMLElement>(
+    '[data-requirement-key]',
+  );
+  // The end of the pane is a hard stop — the last card can never reach the
+  // highlight line — so scrolling to the bottom selects it outright.
+  if (
+    detailPane.scrollTop > 0 &&
+    detailPane.scrollTop + detailPane.clientHeight >=
+      detailPane.scrollHeight - 1
+  ) {
+    return cards[cards.length - 1]?.dataset.requirementKey;
+  }
+  const highlightLine =
+    detailPane.getBoundingClientRect().top + treeHighlightOffset;
+  let active = cards[0]?.dataset.requirementKey;
+  for (const card of cards) {
+    if (card.getBoundingClientRect().top > highlightLine) break;
+    active = card.dataset.requirementKey ?? active;
+  }
+  return active;
+}
+
 function getStatusLabel(status: RequirementStatus): string {
   return (
     requirementStatuses.find((definition) => definition.id === status)?.label ??
@@ -167,15 +253,18 @@ function matchesRequirement(
 }
 
 function RequirementTreeItem({
+  isActive,
   item,
   onNavigate,
 }: {
+  isActive: boolean;
   item: DisplayRequirement;
   onNavigate: (item: DisplayRequirement) => void;
 }): React.JSX.Element {
   return (
     <button
-      className="tree-item"
+      aria-current={isActive ? 'true' : undefined}
+      className={`tree-item ${isActive ? 'tree-item--active' : ''}`}
       onClick={() => onNavigate(item)}
       type="button"
     >
@@ -192,11 +281,44 @@ function RequirementTreeItem({
   );
 }
 
+/** Gap between a project row and its menu, and its smallest viewport margin. */
+const menuOffset = 3;
+
+/**
+ * Where a project menu fits: beside its row, flipped to whichever side of the
+ * row has room and clamped to the viewport.
+ *
+ * The tree body scrolls with `overflow: auto` and is only as tall as its
+ * content, so a menu positioned inside it is clipped by that edge — losing its
+ * first or last entry. Measured against the viewport instead, it always fits.
+ */
+function readMenuPlacement(
+  actions: HTMLElement,
+  menu: HTMLElement,
+): Readonly<{ above: boolean; left: number; top: number }> {
+  const rowBox = actions.getBoundingClientRect();
+  const menuHeight = menu.offsetHeight;
+  const roomBelow = window.innerHeight - rowBox.bottom;
+  const above = roomBelow < menuHeight + menuOffset && rowBox.top > roomBelow;
+  const top = above
+    ? rowBox.top - menuHeight - menuOffset
+    : rowBox.bottom + menuOffset;
+  return {
+    above,
+    left: Math.max(menuOffset, rowBox.right - menu.offsetWidth),
+    top: Math.max(
+      menuOffset,
+      Math.min(top, window.innerHeight - menuHeight - menuOffset),
+    ),
+  };
+}
+
 function RequirementTree({
   projects,
   statusOverrides,
   onNavigate,
   activeProjectName,
+  activeRequirementKey,
   onSelectProject,
   collapsedProjects,
   onToggleProject,
@@ -205,13 +327,15 @@ function RequirementTree({
   onCreateProject,
   onDeleteProject,
   onRenameProject,
-  onOriginEdit,
   onRequestEditing,
+  scrollContainerRef,
 }: {
   projects: readonly ProjectRequirements[];
   statusOverrides: Readonly<Record<string, RequirementStatus>>;
   onNavigate: (item: DisplayRequirement) => void;
   activeProjectName: string | undefined;
+  /** Selected in the tree because the detail pane is scrolled to it. */
+  activeRequirementKey: string | undefined;
   onSelectProject: (projectName: string) => void;
   collapsedProjects: Readonly<Record<string, boolean>>;
   onToggleProject: (projectName: string, collapsed: boolean) => void;
@@ -220,10 +344,63 @@ function RequirementTree({
   onCreateProject: () => void;
   onDeleteProject: (project: ProjectRequirements) => void;
   onRenameProject: (project: ProjectRequirements) => void;
-  onOriginEdit: (project: ProjectRequirements) => void;
   onRequestEditing: () => void;
+  /** The scrolling tree body the project menus have to stay inside. */
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }): React.JSX.Element {
   const [actionProjectName, setActionProjectName] = useState<string>();
+  // The row whose menu is placed, and where that menu goes: hovering and
+  // focusing both reveal a menu, and only one row can be under the pointer at a
+  // time, so a single project decides for whichever menu is showing.
+  const [menuPlacement, setMenuPlacement] =
+    useState<
+      Readonly<{
+        above: boolean;
+        left: number;
+        projectName: string;
+        top: number;
+      }>
+    >();
+  const menuAnchorRef =
+    useRef<Readonly<{ element: HTMLElement; projectName: string }>>(undefined);
+
+  function placeProjectMenu(projectName: string, actions: HTMLElement): void {
+    const menu = actions.querySelector('.tree-project-action-menu');
+    if (!(menu instanceof HTMLElement)) return;
+    menuAnchorRef.current = { element: actions, projectName };
+    const placement = readMenuPlacement(actions, menu);
+    setMenuPlacement((current) =>
+      current &&
+      current.projectName === projectName &&
+      current.above === placement.above &&
+      current.left === placement.left &&
+      current.top === placement.top
+        ? current
+        : { ...placement, projectName },
+    );
+  }
+
+  // A viewport-fixed menu does not travel with the scrolling tree, so it is
+  // re-anchored while the row under it moves.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Re-anchoring only reads the DOM and the stable setters.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    function reanchor(): void {
+      const anchor = menuAnchorRef.current;
+      if (!anchor) return;
+      if (
+        !anchor.element.matches(
+          ':hover, :focus-within, .tree-project-actions--open',
+        )
+      ) {
+        return;
+      }
+      placeProjectMenu(anchor.projectName, anchor.element);
+    }
+    container.addEventListener('scroll', reanchor);
+    return () => container.removeEventListener('scroll', reanchor);
+  }, [scrollContainerRef]);
 
   return (
     <nav aria-label="需求目录">
@@ -272,6 +449,13 @@ function RequirementTree({
               <div className="tree-project-content">
                 {projectItems.map((item) => (
                   <RequirementTreeItem
+                    isActive={
+                      activeRequirementKey ===
+                      getRequirementKey(
+                        item.projectName,
+                        item.requirement.document.id,
+                      )
+                    }
                     item={item}
                     key={item.requirement.document.id}
                     onNavigate={onNavigate}
@@ -279,8 +463,15 @@ function RequirementTree({
                 ))}
               </div>
             </details>
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: these only measure where to open the menu; the button inside stays the control. */}
             <div
               className={`tree-project-actions ${actionProjectName === project.projectName ? 'tree-project-actions--open' : ''}`}
+              onFocus={(event) =>
+                placeProjectMenu(project.projectName, event.currentTarget)
+              }
+              onPointerEnter={(event) =>
+                placeProjectMenu(project.projectName, event.currentTarget)
+              }
             >
               <button
                 aria-expanded={
@@ -310,7 +501,18 @@ function RequirementTree({
                 <Ellipsis aria-hidden="true" size={18} />
               </button>
               {canCreate && (
-                <div className="tree-project-action-menu" role="menu">
+                <div
+                  className={`tree-project-action-menu ${menuPlacement?.projectName === project.projectName && menuPlacement.above ? 'tree-project-action-menu--above' : ''}`}
+                  role="menu"
+                  style={
+                    menuPlacement?.projectName === project.projectName
+                      ? {
+                          left: `${menuPlacement.left}px`,
+                          top: `${menuPlacement.top}px`,
+                        }
+                      : undefined
+                  }
+                >
                   <button
                     onClick={(event) => {
                       event.preventDefault();
@@ -338,20 +540,6 @@ function RequirementTree({
                   >
                     <Pencil aria-hidden="true" size={14} />
                     <span>重命名</span>
-                  </button>
-                  <button
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setActionProjectName(undefined);
-                      onOriginEdit(project);
-                    }}
-                    role="menuitem"
-                    title="设置 Git 归属"
-                    type="button"
-                  >
-                    <GitBranch aria-hidden="true" size={14} />
-                    <span>设置 Git 归属</span>
                   </button>
                   <button
                     className="tree-project-action-menu-delete"
@@ -1218,97 +1406,6 @@ function NewProjectDialog({
   );
 }
 
-function ProjectOriginDialog({
-  project,
-  origin,
-  onClose,
-  onSave,
-}: {
-  project: ProjectRequirements;
-  origin: string;
-  onClose: () => void;
-  onSave: (origin: string) => Promise<void>;
-}): React.JSX.Element {
-  const [value, setValue] = useState(origin);
-  const [isSaving, setIsSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, []);
-
-  async function submit(
-    event: React.FormEvent<HTMLFormElement>,
-  ): Promise<void> {
-    event.preventDefault();
-    if (isSaving) return;
-    setIsSaving(true);
-    try {
-      await onSave(value.trim());
-      onClose();
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  return (
-    <dialog
-      aria-label="设置 Git 归属"
-      className="new-project-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onClose();
-      }}
-      open
-    >
-      <form
-        className="new-project-surface"
-        onSubmit={(event) => void submit(event)}
-      >
-        <header>
-          <h2>设置 Git 归属</h2>
-          <button
-            aria-label="关闭设置 Git 归属"
-            className="new-project-close"
-            onClick={onClose}
-            type="button"
-          >
-            <X aria-hidden="true" size={18} />
-          </button>
-        </header>
-        <input
-          aria-label="Git 仓库名"
-          disabled={isSaving}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="例如 sea-craft-next-cn"
-          ref={inputRef}
-          value={value}
-        />
-        <p className="new-project-hint">
-          插件按 Git 仓库名查找「{project.projectName}
-          」的需求。留空表示与目录名相同。
-        </p>
-        <footer>
-          <button
-            className="new-project-submit"
-            disabled={isSaving}
-            type="submit"
-          >
-            保存
-          </button>
-        </footer>
-      </form>
-    </dialog>
-  );
-}
-
 function RenameProjectDialog({
   project,
   onClose,
@@ -1567,9 +1664,53 @@ function DeleteRequirementDialog({
   );
 }
 
+/** One-shot copy button: it reports the result in place for a moment. */
+function CopyActionButton({
+  ariaLabel,
+  icon,
+  idleLabel,
+  text,
+  title,
+}: {
+  ariaLabel: string;
+  icon: React.ReactNode;
+  idleLabel: string;
+  text: string;
+  /** Tooltip, kept on the state that explains what will be copied. */
+  title: string;
+}): React.JSX.Element {
+  const [state, setState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const resetTimer = useRef<number | undefined>(undefined);
+
+  return (
+    <button
+      aria-label={ariaLabel}
+      className={`copy-requirement${state === 'copied' ? ' copy-requirement--copied' : ''}${state === 'error' ? ' copy-requirement--error' : ''}`}
+      onClick={async () => {
+        const copied = await copyTextToClipboard(text);
+        setState(copied ? 'copied' : 'error');
+        if (resetTimer.current) window.clearTimeout(resetTimer.current);
+        resetTimer.current = window.setTimeout(() => setState('idle'), 2200);
+      }}
+      title={title}
+      type="button"
+    >
+      {icon}
+      <span>
+        {state === 'copied'
+          ? '已复制'
+          : state === 'error'
+            ? '重试复制'
+            : idleLabel}
+      </span>
+    </button>
+  );
+}
+
 function RequirementCard({
   canEdit,
   item,
+  shareUrl,
   onDelete,
   onStatusChange,
   onVisualEdit,
@@ -1578,6 +1719,8 @@ function RequirementCard({
 }: {
   canEdit: boolean;
   item: DisplayRequirement;
+  /** Link that opens this requirement in the manager. */
+  shareUrl: string;
   onDelete: (item: DisplayRequirement) => void;
   onStatusChange: (item: DisplayRequirement, status: RequirementStatus) => void;
   onVisualEdit: (item: DisplayRequirement) => void;
@@ -1588,9 +1731,6 @@ function RequirementCard({
   onPreview: (image: PreviewImage) => void;
 }): React.JSX.Element {
   const { document } = item.requirement;
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
-    'idle',
-  );
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
   const [resetCount, setResetCount] = useState(0);
   const [draftState, setDraftState] = useState<{
@@ -1598,12 +1738,9 @@ function RequirementCard({
     values: readonly string[];
   }>({ revision: '', values: [] });
   const [isSavingContent, setIsSavingContent] = useState(false);
-  const copyResetTimer = useRef<number | undefined>(undefined);
   const hasChildSections = document.sections.length > 1;
   const isEditingBody = canEdit && viewMode === 'edit';
-  const cardId = `requirement-${encodeURIComponent(
-    getRequirementKey(item.projectName, document.id),
-  )}`;
+  const cardId = getRequirementCardId(item.projectName, document.id);
   // An open editor keeps its own draft: it survives unrelated re-renders and is
   // dropped once the stored document changes (its own save, or a reset).
   const storedDescriptions = document.sections.map(
@@ -1661,7 +1798,11 @@ function RequirementCard({
   ) : undefined;
 
   return (
-    <article className="requirement-card" id={cardId}>
+    <article
+      className="requirement-card"
+      data-requirement-key={getRequirementKey(item.projectName, document.id)}
+      id={cardId}
+    >
       <header className="requirement-card-header">
         <div className="requirement-title-meta">
           <h2>{document.title}</h2>
@@ -1670,39 +1811,20 @@ function RequirementCard({
           </time>
         </div>
         <div className="requirement-edit-controls">
-          <button
-            aria-label={`${document.title} 复制 Markdown`}
-            className={`copy-requirement${copyState === 'copied' ? ' copy-requirement--copied' : ''}${copyState === 'error' ? ' copy-requirement--error' : ''}`}
-            onClick={async () => {
-              const copied = await copyTextToClipboard(
-                createRequirementClipboardMarkdown(document),
-              );
-              setCopyState(copied ? 'copied' : 'error');
-              if (copyResetTimer.current)
-                window.clearTimeout(copyResetTimer.current);
-              copyResetTimer.current = window.setTimeout(
-                () => setCopyState('idle'),
-                2200,
-              );
-            }}
-            title={
-              copyState === 'copied'
-                ? '已复制 Markdown'
-                : copyState === 'error'
-                  ? '复制失败，请重试'
-                  : '复制 Markdown'
-            }
-            type="button"
-          >
-            <Copy aria-hidden="true" size={16} />
-            <span>
-              {copyState === 'copied'
-                ? '已复制'
-                : copyState === 'error'
-                  ? '重试复制'
-                  : '复制 Markdown'}
-            </span>
-          </button>
+          <CopyActionButton
+            ariaLabel={`${document.title} 复制 Markdown`}
+            icon={<Copy aria-hidden="true" size={16} />}
+            idleLabel="复制 Markdown"
+            text={createRequirementClipboardMarkdown(document)}
+            title="复制 Markdown"
+          />
+          <CopyActionButton
+            ariaLabel={`${document.title} 复制链接`}
+            icon={<LinkIcon aria-hidden="true" size={16} />}
+            idleLabel="复制链接"
+            text={shareUrl}
+            title={shareUrl}
+          />
           {canEdit ? (
             <>
               <fieldset className="status-picker">
@@ -1785,9 +1907,12 @@ function RequirementCard({
 
 export function App(): React.JSX.Element {
   const [persistedView] = useState(readPersistedManagerView);
+  // A shared link wins over the last session's position.
+  const [requirementLink] = useState(readRequirementLink);
+  const [lanOrigins, setLanOrigins] = useState<readonly string[]>([]);
   const [projects, setProjects] = useState<readonly ProjectRequirements[]>([]);
   const [activeProjectName, setActiveProjectName] = useState(
-    persistedView.activeProjectName,
+    requirementLink?.projectName ?? persistedView.activeProjectName,
   );
   const [statusOverrides, setStatusOverrides] = useState<
     Readonly<Record<string, RequirementStatus>>
@@ -1814,20 +1939,19 @@ export function App(): React.JSX.Element {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [renameProjectTarget, setRenameProjectTarget] =
     useState<ProjectRequirements>();
-  const [originEditTarget, setOriginEditTarget] =
-    useState<ProjectRequirements>();
-  const [projectOrigins, setProjectOrigins] = useState<
-    Readonly<Record<string, string>>
-  >({});
   const [deleteProjectTarget, setDeleteProjectTarget] =
     useState<ProjectRequirements>();
   const [deleteRequirementTarget, setDeleteRequirementTarget] =
     useState<DisplayRequirement>();
   const [isEditorUnlockOpen, setIsEditorUnlockOpen] = useState(false);
+  const [activeRequirementKey, setActiveRequirementKey] = useState<string>();
   const detailPaneRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const treeGroupsRef = useRef<HTMLDivElement>(null);
   const restoredScrollRef = useRef(false);
+  const isLinkHandledRef = useRef(false);
+  const skipNextHighlightRef = useRef(false);
+  const highlightFrameRef = useRef<number | undefined>(undefined);
 
   const displayRequirements = useMemo(
     () =>
@@ -1894,6 +2018,8 @@ export function App(): React.JSX.Element {
     );
   }, [displayRequirements, query]);
 
+  const shareOrigin = useMemo(() => getShareOrigin(lanOrigins), [lanOrigins]);
+
   async function loadScan(refresh = false): Promise<void> {
     setIsRefreshing(true);
     try {
@@ -1901,6 +2027,7 @@ export function App(): React.JSX.Element {
         ? await refreshProjectCollection()
         : await scanProjectCollection();
       setCanEdit(scanned.canEdit);
+      setLanOrigins(scanned.lanOrigins ?? []);
       setProjects(scanned.projects);
       setError(undefined);
     } catch {
@@ -1916,14 +2043,40 @@ export function App(): React.JSX.Element {
     persistManagerView({ activeProjectName: projectName });
   }
 
+  function updateActiveRequirement(): void {
+    const detailPane = detailPaneRef.current;
+    if (!detailPane) return;
+    // The measurement taken right after a link lands would name the first card
+    // whenever the pane is too short to scroll the linked one to the top, and
+    // the link has already said which requirement is current.
+    if (skipNextHighlightRef.current) {
+      skipNextHighlightRef.current = false;
+      return;
+    }
+    const next = findActiveRequirementKey(detailPane);
+    setActiveRequirementKey((current) => (current === next ? current : next));
+  }
+
+  /** Card hit-testing reads layout, so keep it to one pass per frame. */
+  function scheduleHighlightUpdate(): void {
+    if (highlightFrameRef.current !== undefined) return;
+    highlightFrameRef.current = requestAnimationFrame(() => {
+      highlightFrameRef.current = undefined;
+      updateActiveRequirement();
+    });
+  }
+
+  function handleDetailScroll(event: React.UIEvent<HTMLElement>): void {
+    persistManagerView({ detailScrollTop: event.currentTarget.scrollTop });
+    scheduleHighlightUpdate();
+  }
+
   function navigateToRequirement(item: DisplayRequirement): void {
     selectProject(item.projectName);
     requestAnimationFrame(() => {
       document
         .getElementById(
-          `requirement-${encodeURIComponent(
-            getRequirementKey(item.projectName, item.requirement.document.id),
-          )}`,
+          getRequirementCardId(item.projectName, item.requirement.document.id),
         )
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -2111,35 +2264,6 @@ export function App(): React.JSX.Element {
     }
   }
 
-  /** Open the Git origin editor with the origin the server currently holds. */
-  async function openProjectOriginEditor(
-    project: ProjectRequirements,
-  ): Promise<void> {
-    try {
-      const scanned = await scanProjectCollection();
-      setProjectOrigins(scanned.origins ?? {});
-      setCanEdit(scanned.canEdit);
-    } catch {
-      setProjectOrigins({});
-    }
-    setOriginEditTarget(project);
-  }
-
-  async function changeProjectOrigin(nextOrigin: string): Promise<void> {
-    const project = originEditTarget;
-    if (!project) return;
-    try {
-      const scanned = await setProjectOrigin(project.projectName, nextOrigin);
-      setProjects(scanned.projects);
-      setProjectOrigins(scanned.origins ?? {});
-      setCanEdit(scanned.canEdit);
-      setError(undefined);
-    } catch {
-      setError('无法更新 Git 归属。');
-      throw new Error('Project origin update failed.');
-    }
-  }
-
   async function renameExistingProject(nextProjectName: string): Promise<void> {
     const project = renameProjectTarget;
     if (!project) return;
@@ -2263,14 +2387,91 @@ export function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    if (!projects.length || restoredScrollRef.current) return;
+    if (!projects.length || restoredScrollRef.current || requirementLink) {
+      return;
+    }
     const animationFrame = requestAnimationFrame(() => {
       treeGroupsRef.current?.scrollTo({ top: persistedView.treeScrollTop });
       detailPaneRef.current?.scrollTo({ top: persistedView.detailScrollTop });
       restoredScrollRef.current = true;
     });
     return () => cancelAnimationFrame(animationFrame);
-  }, [persistedView.detailScrollTop, persistedView.treeScrollTop, projects]);
+  }, [
+    persistedView.detailScrollTop,
+    persistedView.treeScrollTop,
+    projects,
+    requirementLink,
+  ]);
+
+  // A shared link opens on its requirement rather than on the last position: the
+  // card goes to the top of the pane and its project is brought into the tree.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The link is resolved once, against the first index.
+  useEffect(() => {
+    if (!requirementLink || !isIndexLoaded || isLinkHandledRef.current) return;
+    isLinkHandledRef.current = true;
+    const target = displayRequirements.find(
+      (item) =>
+        item.projectName === requirementLink.projectName &&
+        item.requirement.document.id === requirementLink.requirementId,
+    );
+    if (!target) {
+      setError('链接中的需求不存在，可能已被重命名或删除。');
+      return;
+    }
+    selectProject(target.projectName);
+    // A pane too short to scroll the card to the top still has to report the
+    // linked requirement as the current one, so the link names it itself and
+    // the next measurement, taken before any scrolling, is dropped.
+    skipNextHighlightRef.current = true;
+    setActiveRequirementKey(
+      getRequirementKey(target.projectName, target.requirement.document.id),
+    );
+    // Deliberately not cancelled by a re-run: the link is resolved once and the
+    // jump must survive an unrelated re-render landing in the same frame.
+    requestAnimationFrame(() => {
+      document
+        .getElementById(
+          getRequirementCardId(
+            target.projectName,
+            target.requirement.document.id,
+          ),
+        )
+        ?.scrollIntoView({ block: 'start' });
+      document
+        .querySelector('.tree-project--active summary')
+        ?.scrollIntoView({ block: 'nearest' });
+    });
+  }, [displayRequirements, isIndexLoaded, requirementLink]);
+
+  // The address bar carries the requirement on screen, so the link of what is
+  // being read can be copied straight from the browser.
+  useEffect(() => {
+    if (!isIndexLoaded) return;
+    const active = displayRequirements.find(
+      (item) =>
+        getRequirementKey(item.projectName, item.requirement.document.id) ===
+        activeRequirementKey,
+    );
+    if (!active) return;
+    const path = getRequirementPath(
+      active.projectName,
+      active.requirement.document.id,
+    );
+    if (window.location.pathname === path) return;
+    try {
+      window.history.replaceState(null, '', path);
+    } catch {
+      // Browsers throttle history writes; a stale path is not worth a crash.
+    }
+  }, [activeRequirementKey, displayRequirements, isIndexLoaded]);
+
+  // Switching project, filtering or refreshing replaces the cards under the
+  // pane, so the highlight is re-derived once the new list is laid out. Coming
+  // after the restore effect keeps it reading the restored scroll position.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The card positions are on screen, not in this list.
+  useEffect(() => {
+    scheduleHighlightUpdate();
+  }, [filteredRequirements]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Initial local index loads once.
   useEffect(() => {
@@ -2342,16 +2543,17 @@ export function App(): React.JSX.Element {
               canCreate={canEdit}
               collapsedProjects={collapsedProjects}
               activeProjectName={currentProjectName}
+              activeRequirementKey={activeRequirementKey}
               onCreate={(projectName) => void createNewRequirement(projectName)}
               onCreateProject={() => setIsNewProjectOpen(true)}
               onDeleteProject={setDeleteProjectTarget}
               onNavigate={navigateToRequirement}
               onRenameProject={setRenameProjectTarget}
-              onOriginEdit={(project) => void openProjectOriginEditor(project)}
               onRequestEditing={() => setIsEditorUnlockOpen(true)}
               onSelectProject={selectProject}
               onToggleProject={toggleProject}
               projects={projects}
+              scrollContainerRef={treeGroupsRef}
               statusOverrides={statusOverrides}
             />
           </div>
@@ -2362,9 +2564,7 @@ export function App(): React.JSX.Element {
       <section
         aria-label="需求展示区"
         className="detail-pane"
-        onScroll={(event) =>
-          persistManagerView({ detailScrollTop: event.currentTarget.scrollTop })
-        }
+        onScroll={handleDetailScroll}
         ref={detailPaneRef}
       >
         <header className="detail-toolbar">
@@ -2460,6 +2660,7 @@ export function App(): React.JSX.Element {
                   onDelete={setDeleteRequirementTarget}
                   onVisualEdit={openVisualEditor}
                   onPreview={setPreviewImage}
+                  shareUrl={`${shareOrigin}${getRequirementPath(item.projectName, item.requirement.document.id)}`}
                 />
               ))}
             </div>
@@ -2500,14 +2701,6 @@ export function App(): React.JSX.Element {
         <NewProjectDialog
           onClose={() => setIsNewProjectOpen(false)}
           onCreate={createNewProject}
-        />
-      )}
-      {originEditTarget && (
-        <ProjectOriginDialog
-          onClose={() => setOriginEditTarget(undefined)}
-          onSave={changeProjectOrigin}
-          origin={projectOrigins[originEditTarget.projectName] ?? ''}
-          project={originEditTarget}
         />
       )}
       {renameProjectTarget && (

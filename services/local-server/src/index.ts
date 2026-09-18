@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import {
   mkdir,
   readdir,
@@ -9,6 +10,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { extname, join, normalize, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -523,9 +525,57 @@ async function filterExistingImages(
   );
 }
 
+/**
+ * Ranges no colleague can reach: link-local, and the RFC 2544 block a VPN
+ * client hands to its own tunnel, which would otherwise outrank the real
+ * interface by sorting first.
+ */
+function isShareableAddress(address: string): boolean {
+  const [first = 0, second = 0] = address.split('.').map(Number);
+  if (first === 169 && second === 254) return false;
+  if (first === 198 && (second === 18 || second === 19)) return false;
+  return true;
+}
+
+/** Ordinary LAN ranges first, so a tunnel address is only a fallback. */
+function networkRank(address: string): number {
+  const [first = 0, second = 0] = address.split('.').map(Number);
+  if (first === 192 && second === 168) return 0;
+  if (first === 10) return 1;
+  if (first === 172 && second >= 16 && second <= 31) return 2;
+  return 3;
+}
+
+/**
+ * Origins the manager is reachable on from another machine on the network.
+ *
+ * A requirement link has to survive being pasted to a colleague, and the page
+ * cannot discover the host's LAN address by itself: browsing over
+ * `127.0.0.1` would produce links that only work on this machine.
+ */
+function lanOrigins(): readonly string[] {
+  const origins: string[] = [];
+  for (const addresses of Object.values(networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (
+        address.family === 'IPv4' &&
+        !address.internal &&
+        isShareableAddress(address.address)
+      ) {
+        origins.push(`http://${address.address}:${port}`);
+      }
+    }
+  }
+  return origins.sort(
+    (left, right) =>
+      networkRank(left) - networkRank(right) || left.localeCompare(right),
+  );
+}
+
 function indexPayload(request: import('node:http').IncomingMessage): object {
   return {
     canEdit: canEdit(request),
+    lanOrigins: lanOrigins(),
     // The manager shows and edits the Git origin mapping the plugin looks up.
     origins: Object.fromEntries(projectOrigins),
     projects: projects.map((project) => ({
@@ -1138,15 +1188,24 @@ createServer(async (request, response) => {
     if (!inside(directory, target)) return void response.writeHead(404).end();
     return void (await sendFile(response, target));
   }
+  // Unknown API paths must not fall through to the page below.
+  if (url.pathname.startsWith('/api/'))
+    return void response.writeHead(404).end();
   const requested =
     url.pathname === '/'
       ? 'index.html'
       : normalize(url.pathname).replace(/^[/\\]+/, '');
   const target = resolve(staticRoot, requested);
-  await sendFile(
-    response,
-    inside(staticRoot, target) ? target : join(staticRoot, 'index.html'),
-  );
+  // A shared requirement link such as `/r/<project>/<requirement>` has no file
+  // behind it, so an unknown route serves the app shell and the manager resolves
+  // the link itself. Requests under `assets/` keep the 404: answering a stale
+  // bundle with HTML would only hide why it failed.
+  const page =
+    inside(staticRoot, target) &&
+    (existsSync(target) || requested.startsWith('assets/'))
+      ? target
+      : join(staticRoot, 'index.html');
+  await sendFile(response, page);
 }).listen(port, host, () =>
   console.log(`Requirement manager available at http://${host}:${port}/`),
 );

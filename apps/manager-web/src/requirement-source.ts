@@ -12,6 +12,8 @@ export type ProjectRequirements = Readonly<{
 
 export type ScannedRequirements = Readonly<{
   canEdit: boolean;
+  /** Origins this manager answers on from another machine, for shared links. */
+  lanOrigins?: readonly string[];
   /** Project directory name -> Git repository name the plugin looks up. */
   origins: Readonly<Record<string, string>>;
   projects: readonly ProjectRequirements[];

@@ -732,6 +732,16 @@ h2 {
   right: 4px;
   z-index: 2;
 }
+/* This row's own stacking box would trap the menu inside it, letting the `...`
+   buttons of the rows below — same z-index, later in the document — paint over
+   the menu. Showing a menu lifts the whole box above theirs. */
+.tree-project-actions:where(
+  :hover,
+  :focus-within,
+  .tree-project-actions--open
+) {
+  z-index: 4;
+}
 .tree-project-actions button {
   display: grid;
   width: 28px;
@@ -744,11 +754,15 @@ h2 {
   cursor: pointer;
 }
 .tree-project-action-menu {
-  position: absolute;
+  /* Fixed to the viewport, not to the row: the tree body clips its own
+     overflow and is only as tall as its content, so a menu placed inside it
+     loses its first or last entry. The tree supplies `left`/`top`. */
+  position: fixed;
   z-index: 3;
-  top: calc(100% + 3px);
-  right: 0;
-  display: none;
+  /* Laid out even while closed so the tree can measure it before opening it;
+     visibility keeps it out of sight, out of focus and out of the
+     accessibility tree until it opens. */
+  display: grid;
   width: 116px;
   border: 1px solid #d7e1dc;
   border-radius: 4px;
@@ -763,6 +777,10 @@ h2 {
     visibility 120ms ease;
   visibility: hidden;
   padding: 4px;
+}
+/* Set by the tree when the menu is anchored above its row. */
+.tree-project-action-menu--above {
+  transform: translateY(3px);
 }
 .tree-project-action-menu button {
   display: flex;
@@ -786,13 +804,6 @@ h2 {
   pointer-events: auto;
   transform: translateY(0);
   visibility: visible;
-}
-/* Keep the action menu inside the scrollable navigator when the final project
-   sits against the bottom edge. */
-nav > .tree-project:last-child .tree-project-action-menu {
-  top: auto;
-  bottom: calc(100% + 3px);
-  transform: translateY(3px);
 }
 .tree-project-actions button:hover,
 .tree-project-actions button:focus-visible {
@@ -981,7 +992,8 @@ details:not([open]) > summary svg {
   color: #33434e;
   cursor: pointer;
 }
-.tree-item:hover {
+.tree-item:hover,
+.tree-item--active {
   border-left-color: #4d8e78;
   background: #eef4f1;
 }
