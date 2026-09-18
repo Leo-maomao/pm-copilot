@@ -10,6 +10,7 @@
 ## Engineering rules
 
 - Read relevant code and documentation before editing. Keep changes focused and avoid unrelated refactors.
+- Commit and push straight to `main`. Do not open branches or pull requests: this is a single-author local tool, and its history is linear.
 - Code, variables, API identifiers, and commit types use English. Repository documentation uses Chinese unless a file has an established language.
 - Never commit secrets, private project data, generated artifacts, local configuration, or dependency directories.
 - New dependencies, persisted formats, browser permissions, network listeners, and cross-package interfaces require a decision record in `docs/decisions/`.

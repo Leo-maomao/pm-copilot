@@ -2,7 +2,7 @@
 
 ## 分支与提交
 
-- 新分支使用 `codex/` 前缀。
+- 直接在 `main` 上提交和推送，不新建分支，也不开 PR。
 - 提交使用 Conventional Commit，例如 `feat: add local server health check`。
 - 一个提交只解决一个可说明的变更，不混入格式化噪声或无关重构。
 
