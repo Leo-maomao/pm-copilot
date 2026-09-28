@@ -414,12 +414,6 @@ function selectRequirement(requirements, args) {
   return matches[0];
 }
 
-function allImages(document) {
-  return document.sections.flatMap((section) =>
-    section.images.map((image) => image.path),
-  );
-}
-
 function contentSections(
   input,
   existingImages,
@@ -470,7 +464,9 @@ function contentSections(
   if (
     requireImageMapping &&
     (supplied.length !== existingImages.length ||
-      supplied.some((path) => !existingImages.includes(path)))
+      supplied.some(
+        (path) => !existingImages.some((existing) => existing.path === path),
+      ))
   ) {
     error('Every existing image path must be assigned to exactly one section.');
   }
@@ -479,10 +475,12 @@ function contentSections(
     images: section.images.map((image) => ({
       path: image.path,
       alt:
-        image.path
+        existingImages.find((existing) => existing.path === image.path)?.alt ??
+        (image.path
           .split('/')
           .at(-1)
-          ?.replace(/\.[^.]+$/, '') || '需求图示',
+          ?.replace(/\.[^.]+$/, '') ||
+          '需求图示'),
     })),
   }));
 }
@@ -540,7 +538,7 @@ async function completeImplemented(args) {
   const key = await projectKey(args.project_root);
   const requirements = await loadRequirements(repositoryRoot, key, core);
   const target = selectRequirement(requirements, args);
-  const images = allImages(target.document);
+  const images = target.document.sections.flatMap((section) => section.images);
   if (!images.length)
     error(
       'The selected requirement has no images. Create the requirement and add visuals in the manager first.',
@@ -622,7 +620,7 @@ async function updateContent(args) {
     title,
     sections: contentSections(
       args.sections,
-      allImages(target.document),
+      target.document.sections.flatMap((section) => section.images),
       true,
       true,
     ),

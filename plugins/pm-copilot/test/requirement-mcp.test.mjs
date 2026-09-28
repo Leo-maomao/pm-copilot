@@ -193,6 +193,7 @@ test('updates content without changing the status, timeline, or image paths', as
   assert.match(markdown, /^createdAt: "2026-09-01T00:00:00.000Z"$/m);
   assert.match(markdown, /^status: "scheduled"$/m);
   assert.match(markdown, /assets\/original\.png/);
+  assert.match(markdown, /!\[原图\]\(assets\/original\.png\)/);
   // The requirement keeps the date it was created with, and the tree position
   // that follows from it.
   assert.match(markdown, /^updatedAt: "2026-09-02T00:00:00.000Z"$/m);
