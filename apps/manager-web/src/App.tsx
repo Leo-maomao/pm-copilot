@@ -72,6 +72,7 @@ type PersistedManagerView = Readonly<{
 
 const managerViewStorageKey = 'pm-copilot:view';
 const managerRequirementHistoryStateKey = 'pmCopilotRequirement';
+const managerRequirementPathStorageKey = 'pm-copilot:requirement-path';
 const editorDigitPositions = [
   { id: 'one', position: 0 },
   { id: 'two', position: 1 },
@@ -157,9 +158,26 @@ function readRequirementLink():
   // The manager updates the address bar as the reader scrolls. Keep that
   // internal route from being treated as an explicit shared link after a
   // refresh, otherwise the linked card would be moved back to the top.
+  const navigationEntry = performance.getEntriesByType('navigation')[0];
+  const navigationType =
+    navigationEntry instanceof PerformanceNavigationTiming
+      ? navigationEntry.type
+      : undefined;
+  let storedInternalPath: string | null = null;
+  try {
+    storedInternalPath = sessionStorage.getItem(
+      managerRequirementPathStorageKey,
+    );
+  } catch {
+    // A disabled browser storage should not prevent shared links from opening.
+  }
+  const isRestoringPage =
+    navigationType === 'reload' || navigationType === 'back_forward';
   if (
-    window.history.state?.[managerRequirementHistoryStateKey] ===
-    window.location.pathname
+    isRestoringPage &&
+    (window.history.state?.[managerRequirementHistoryStateKey] ===
+      window.location.pathname ||
+      storedInternalPath === window.location.pathname)
   ) {
     return undefined;
   }
@@ -2467,6 +2485,11 @@ export function App(): React.JSX.Element {
       active.projectName,
       active.requirement.document.id,
     );
+    try {
+      sessionStorage.setItem(managerRequirementPathStorageKey, path);
+    } catch {
+      // A disabled browser storage should not prevent the manager from working.
+    }
     if (window.location.pathname === path) return;
     try {
       window.history.replaceState(
