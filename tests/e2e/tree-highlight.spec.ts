@@ -86,6 +86,21 @@ test('selects the tree entry of the requirement scrolled to in the pane', async 
     await scrollCardToPaneTop(page, 2);
     await expect(activeTitle).toHaveText(cardTitles[2] ?? '');
 
+    const scrollTopBeforeReload = await page
+      .locator('.detail-pane')
+      .evaluate((pane) => pane.scrollTop);
+    await page.reload();
+    await expect(
+      page.locator('.tree-item[aria-current="true"] .tree-item-title'),
+    ).toHaveText(cardTitles[2] ?? '');
+    await expect
+      .poll(() =>
+        page.locator('.detail-pane').evaluate((pane) => pane.scrollTop),
+      )
+      // Browser layout restoration can differ by the card scroll margin, but
+      // it must remain on the same anchor instead of jumping to the top.
+      .toBeGreaterThanOrEqual(scrollTopBeforeReload - 40);
+
     await page
       .locator('.detail-pane')
       .evaluate((pane) => pane.scrollTo({ top: 0 }));

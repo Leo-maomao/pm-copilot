@@ -71,6 +71,7 @@ type PersistedManagerView = Readonly<{
 }>;
 
 const managerViewStorageKey = 'pm-copilot:view';
+const managerRequirementHistoryStateKey = 'pmCopilotRequirement';
 const editorDigitPositions = [
   { id: 'one', position: 0 },
   { id: 'two', position: 1 },
@@ -153,6 +154,15 @@ function getRequirementPath(
 function readRequirementLink():
   | Readonly<{ projectName: string; requirementId: string }>
   | undefined {
+  // The manager updates the address bar as the reader scrolls. Keep that
+  // internal route from being treated as an explicit shared link after a
+  // refresh, otherwise the linked card would be moved back to the top.
+  if (
+    window.history.state?.[managerRequirementHistoryStateKey] ===
+    window.location.pathname
+  ) {
+    return undefined;
+  }
   const [, projectName, requirementId] =
     requirementRoutePattern.exec(window.location.pathname) ?? [];
   if (projectName === undefined || requirementId === undefined)
@@ -2459,7 +2469,14 @@ export function App(): React.JSX.Element {
     );
     if (window.location.pathname === path) return;
     try {
-      window.history.replaceState(null, '', path);
+      window.history.replaceState(
+        {
+          ...(window.history.state ?? {}),
+          [managerRequirementHistoryStateKey]: path,
+        },
+        '',
+        path,
+      );
     } catch {
       // Browsers throttle history writes; a stale path is not worth a crash.
     }
