@@ -13,10 +13,7 @@
     "longDescription": "\u8bfb\u53d6\u5f53\u524d\u9879\u76ee\u4ee3\u7801\u6216\u5df2\u6709\u9700\u6c42\uff0c\u5728\u672c\u673a\u79c1\u6709\u9700\u6c42\u5e93\u4e2d\u521b\u5efa\u548c\u7ef4\u62a4\u53ef\u4f9b\u7814\u53d1\u9605\u8bfb\u7684\u9700\u6c42\u3002",
     "developerName": "PM Copilot",
     "category": "Productivity",
-    "capabilities": [
-      "Interactive",
-      "Write"
-    ],
+    "capabilities": ["Interactive", "Write"],
     "defaultPrompt": "\u6839\u636e\u5f53\u524d\u9879\u76ee\u4ee3\u7801\u6574\u7406\u4e00\u6761\u9700\u6c42\u3002"
   }
 }

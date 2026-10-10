@@ -19,6 +19,7 @@
 ## Codex skills
 
 - Use `plugin-creator` to create or update Codex plugin packages.
-- Use `frontend-ui-engineering` for user-facing management-page changes.
-- Use `browser-testing-with-devtools` to validate browser-facing changes in a real browser.
+- Use `frontend-design` for management-page design and `vercel-react-best-practices` for React implementation. Preserve the existing product layout and visual language unless a redesign is requested.
+- Use `web-design-guidelines` when reviewing interface quality and accessibility.
+- Use `playwright` for real-browser inspection of page states, interactions, console errors, and screenshots. Resolve its CLI wrapper from the loaded skill directory. Keep the existing Playwright regression suite and run the repository checks above; manual inspection does not replace them.
 - Consult `openai-docs` before changing Codex-specific integration behavior.
