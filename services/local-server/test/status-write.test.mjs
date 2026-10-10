@@ -37,7 +37,7 @@ async function index(url) {
   throw new Error('Server did not start.');
 }
 
-test('persists a local status change in the central library', async (t) => {
+test('persists manager writes in the central library', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'requirement-manager-test-'));
   const directory = join(root, 'demo', 'sample');
   await mkdir(directory, { recursive: true });
@@ -109,278 +109,309 @@ test('persists a local status change in the central library', async (t) => {
     payload.projects.some((project) => project.projectName === '.manager'),
     false,
   );
-  const projectResponse = await fetch(`${baseUrl}/api/projects`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: cookie },
-    body: JSON.stringify({ projectName: '全新项目' }),
-  });
-  assert.equal(projectResponse.status, 201);
-  const projectPayload = await projectResponse.json();
-  assert.equal(
-    projectPayload.projects.some(
-      (project) =>
-        project.projectName === '全新项目' && project.requirements.length === 0,
-    ),
-    true,
-  );
-  const renamedProjectResponse = await fetch(
-    `${baseUrl}/api/projects/${encodeURIComponent('全新项目')}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({ projectName: '已重命名项目' }),
+  await t.test(
+    'creates, renames and deletes a project with its origin mapping',
+    async () => {
+      const projectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({ projectName: '全新项目' }),
+      });
+      assert.equal(projectResponse.status, 201);
+      const projectPayload = await projectResponse.json();
+      assert.equal(
+        projectPayload.projects.some(
+          (project) =>
+            project.projectName === '全新项目' &&
+            project.requirements.length === 0,
+        ),
+        true,
+      );
+      const renamedProjectResponse = await fetch(
+        `${baseUrl}/api/projects/${encodeURIComponent('全新项目')}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({ projectName: '已重命名项目' }),
+        },
+      );
+      assert.equal(renamedProjectResponse.status, 200);
+      assert.equal(
+        (await renamedProjectResponse.json()).projects.some(
+          (project) => project.projectName === '已重命名项目',
+        ),
+        true,
+      );
+      await assert.doesNotReject(() => stat(join(root, '已重命名项目')));
+      await assert.doesNotReject(() =>
+        readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+          (content) => assert.match(content, /"已重命名项目": "全新项目"/),
+        ),
+      );
+      const deletedProjectResponse = await fetch(
+        `${baseUrl}/api/projects/${encodeURIComponent('已重命名项目')}`,
+        { method: 'DELETE', headers: { Cookie: cookie } },
+      );
+      assert.equal(deletedProjectResponse.status, 200);
+      assert.equal(
+        (await deletedProjectResponse.json()).projects.some(
+          (project) => project.projectName === '已重命名项目',
+        ),
+        false,
+      );
+      await assert.rejects(() => stat(join(root, '已重命名项目')));
+      await assert.doesNotReject(() =>
+        readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+          (content) => assert.doesNotMatch(content, /已重命名项目/),
+        ),
+      );
     },
   );
-  assert.equal(renamedProjectResponse.status, 200);
-  assert.equal(
-    (await renamedProjectResponse.json()).projects.some(
-      (project) => project.projectName === '已重命名项目',
-    ),
-    true,
-  );
-  await assert.doesNotReject(() => stat(join(root, '已重命名项目')));
-  await assert.doesNotReject(() =>
-    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
-      (content) => assert.match(content, /"已重命名项目": "全新项目"/),
-    ),
-  );
-  const deletedProjectResponse = await fetch(
-    `${baseUrl}/api/projects/${encodeURIComponent('已重命名项目')}`,
-    { method: 'DELETE', headers: { Cookie: cookie } },
-  );
-  assert.equal(deletedProjectResponse.status, 200);
-  assert.equal(
-    (await deletedProjectResponse.json()).projects.some(
-      (project) => project.projectName === '已重命名项目',
-    ),
-    false,
-  );
-  await assert.rejects(() => stat(join(root, '已重命名项目')));
-  await assert.doesNotReject(() =>
-    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
-      (content) => assert.doesNotMatch(content, /已重命名项目/),
-    ),
-  );
-  const createdResponse = await fetch(`${baseUrl}/api/requirements`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: cookie },
-    body: JSON.stringify({ projectName: 'demo', title: 'Created requirement' }),
-  });
-  assert.equal(createdResponse.status, 201);
-  const createdPayload = await createdResponse.json();
-  assert.equal(createdPayload.created.projectName, 'demo');
-  assert.equal(
-    createdPayload.created.id.startsWith('created-requirement-'),
-    true,
-  );
-  await assert.doesNotReject(() =>
-    readFile(
-      join(root, 'demo', createdPayload.created.id, 'requirement.md'),
-      'utf8',
-    ).then((content) => {
-      assert.match(content, /^title: "Created requirement"$/m);
-      assert.match(content, /^status: "planning"$/m);
-      assert.doesNotMatch(content, /^summary:/m);
-    }),
-  );
-  const deletedRequirementResponse = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(`demo:${createdPayload.created.id}`)}`,
-    { method: 'DELETE', headers: { Cookie: cookie } },
-  );
-  assert.equal(deletedRequirementResponse.status, 200);
-  assert.equal(
-    (await deletedRequirementResponse.json()).projects
-      .find((project) => project.projectName === 'demo')
-      .requirements.some(
-        (requirement) => requirement.document.id === createdPayload.created.id,
-      ),
-    false,
-  );
-  await assert.rejects(() =>
-    stat(join(root, 'demo', createdPayload.created.id)),
+  await t.test(
+    'creates and deletes a requirement with its stored Markdown',
+    async () => {
+      const createdResponse = await fetch(`${baseUrl}/api/requirements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({
+          projectName: 'demo',
+          title: 'Created requirement',
+        }),
+      });
+      assert.equal(createdResponse.status, 201);
+      const createdPayload = await createdResponse.json();
+      assert.equal(createdPayload.created.projectName, 'demo');
+      assert.equal(
+        createdPayload.created.id.startsWith('created-requirement-'),
+        true,
+      );
+      await assert.doesNotReject(() =>
+        readFile(
+          join(root, 'demo', createdPayload.created.id, 'requirement.md'),
+          'utf8',
+        ).then((content) => {
+          assert.match(content, /^title: "Created requirement"$/m);
+          assert.match(content, /^status: "planning"$/m);
+          assert.doesNotMatch(content, /^summary:/m);
+        }),
+      );
+      const deletedRequirementResponse = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(`demo:${createdPayload.created.id}`)}`,
+        { method: 'DELETE', headers: { Cookie: cookie } },
+      );
+      assert.equal(deletedRequirementResponse.status, 200);
+      assert.equal(
+        (await deletedRequirementResponse.json()).projects
+          .find((project) => project.projectName === 'demo')
+          .requirements.some(
+            (requirement) =>
+              requirement.document.id === createdPayload.created.id,
+          ),
+        false,
+      );
+      await assert.rejects(() =>
+        stat(join(root, 'demo', createdPayload.created.id)),
+      );
+    },
   );
   const key = payload.projects[0].requirements[0].assetKey;
-  const response = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({ status: 'scheduled' }),
+  await t.test(
+    'updates status without changing the requirement timeline',
+    async () => {
+      const response = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({ status: 'scheduled' }),
+        },
+      );
+      assert.equal(response.status, 200);
+      const statusPayload = await response.json();
+      const statusRequirement = statusPayload.projects
+        .flatMap((project) => project.requirements)
+        .find((requirement) => requirement.assetKey === key);
+      assert.equal(
+        statusRequirement.document.updatedAt,
+        payload.projects[0].requirements[0].document.updatedAt,
+      );
+      await assert.doesNotReject(() =>
+        readFile(join(directory, 'requirement.md'), 'utf8').then((content) => {
+          assert.match(content, /^status: "scheduled"$/m);
+          assert.match(content, /^updatedAt: "2026-09-10T10:00:00.000Z"$/m);
+        }),
+      );
     },
   );
-  assert.equal(response.status, 200);
-  const statusPayload = await response.json();
-  const statusRequirement = statusPayload.projects
-    .flatMap((project) => project.requirements)
-    .find((requirement) => requirement.assetKey === key);
-  assert.equal(
-    statusRequirement.document.updatedAt,
-    payload.projects[0].requirements[0].document.updatedAt,
-  );
-  await assert.doesNotReject(() =>
-    readFile(join(directory, 'requirement.md'), 'utf8').then((content) => {
-      assert.match(content, /^status: "scheduled"$/m);
-      assert.match(content, /^updatedAt: "2026-09-10T10:00:00.000Z"$/m);
-    }),
-  );
-  const visual = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({
-        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9xQAAAABJRU5ErkJggg==',
-        filename: 'top-level.png',
-        sectionTitle: '',
-      }),
+  await t.test(
+    'adds, renames, groups, reorders and deletes visual files',
+    async () => {
+      const visual = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({
+            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9xQAAAABJRU5ErkJggg==',
+            filename: 'top-level.png',
+            sectionTitle: '',
+          }),
+        },
+      );
+      assert.equal(visual.status, 200);
+      const renamedVisual = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({
+            alt: '节点搜索清单',
+            path: 'assets/top-level.png',
+          }),
+        },
+      );
+      assert.equal(renamedVisual.status, 200, await renamedVisual.text());
+      const group = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visual-groups`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({ action: 'add', sectionIndex: 1 }),
+        },
+      );
+      assert.equal(group.status, 200);
+      const secondVisual = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({
+            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9xQAAAABJRU5ErkJggg==',
+            filename: 'second-level.png',
+            sectionTitle: '图示 1',
+          }),
+        },
+      );
+      assert.equal(secondVisual.status, 200);
+      await assert.doesNotReject(() =>
+        readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
+          assert.match(content, /## 图示 1/),
+        ),
+      );
+      const order = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visual-order`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({
+            path: 'assets/top-level.png',
+            targetPath: 'assets/second-level.png',
+            targetSectionIndex: 1,
+          }),
+        },
+      );
+      assert.equal(order.status, 200, await order.text());
+      await assert.doesNotReject(() =>
+        readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
+          assert.match(
+            content,
+            /## 图示 1\n{2,}!\[节点搜索清单\]\(assets\/top-level\.png\)\n\n!\[second-level\]\(assets\/second-level\.png\)/,
+          ),
+        ),
+      );
+      const orderAfter = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visual-order`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({
+            insertAfter: true,
+            path: 'assets/top-level.png',
+            targetPath: 'assets/second-level.png',
+            targetSectionIndex: 1,
+          }),
+        },
+      );
+      assert.equal(orderAfter.status, 200, await orderAfter.text());
+      await assert.doesNotReject(() =>
+        readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
+          assert.match(
+            content,
+            /## 图示 1\n{2,}!\[second-level\]\(assets\/second-level\.png\)\n\n!\[节点搜索清单\]\(assets\/top-level\.png\)/,
+          ),
+        ),
+      );
+      // Deleting a figure drops its file as well: a deleted image must not stay in
+      // assets/ as an orphan the manager can no longer reach.
+      const deletedVisual = await fetch(
+        `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({ path: 'assets/top-level.png' }),
+        },
+      );
+      const deletedPayload = await deletedVisual.json();
+      assert.equal(deletedVisual.status, 200, JSON.stringify(deletedPayload));
+      assert.equal(
+        deletedPayload.projects
+          .flatMap((project) => project.requirements)
+          .find((requirement) => requirement.assetKey === key)
+          .document.sections.flatMap((section) => section.images)
+          .some((image) => image.path === 'assets/top-level.png'),
+        false,
+      );
+      await assert.rejects(() =>
+        stat(join(directory, 'assets', 'top-level.png')),
+      );
     },
   );
-  assert.equal(visual.status, 200);
-  const renamedVisual = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({
-        alt: '节点搜索清单',
-        path: 'assets/top-level.png',
-      }),
+  await t.test(
+    'creates, updates and clears project origin mappings',
+    async () => {
+      // A project whose directory name differs from its Git repository name records
+      // the mapping when it is created, and the mapping can be corrected afterwards.
+      const mapped = await fetch(`${baseUrl}/api/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({
+          projectName: '目录名不同',
+          origin: 'git-repo-name',
+        }),
+      });
+      assert.equal(mapped.status, 201);
+      const mappedPayload = await mapped.json();
+      const mappedName = '目录名不同';
+      assert.equal(mappedPayload.origins[mappedName], 'git-repo-name');
+      await assert.doesNotReject(() =>
+        readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
+          (content) => assert.match(content, /"目录名不同": "git-repo-name"/),
+        ),
+      );
+      const remapped = await fetch(
+        `${baseUrl}/api/projects/${encodeURIComponent('demo')}/origin`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({ origin: 'demo-repo' }),
+        },
+      );
+      const remappedPayload = await remapped.json();
+      assert.equal(remapped.status, 200, JSON.stringify(remappedPayload));
+      assert.equal(remappedPayload.origins.demo, 'demo-repo');
+      const cleared = await fetch(
+        `${baseUrl}/api/projects/${encodeURIComponent('demo')}/origin`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({ origin: '' }),
+        },
+      );
+      const clearedPayload = await cleared.json();
+      assert.equal(cleared.status, 200, JSON.stringify(clearedPayload));
+      assert.equal(clearedPayload.origins.demo, undefined);
     },
   );
-  assert.equal(renamedVisual.status, 200, await renamedVisual.text());
-  const group = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visual-groups`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({ action: 'add', sectionIndex: 1 }),
-    },
-  );
-  assert.equal(group.status, 200);
-  const secondVisual = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({
-        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9xQAAAABJRU5ErkJggg==',
-        filename: 'second-level.png',
-        sectionTitle: '图示 1',
-      }),
-    },
-  );
-  assert.equal(secondVisual.status, 200);
-  await assert.doesNotReject(() =>
-    readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
-      assert.match(content, /## 图示 1/),
-    ),
-  );
-  const order = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visual-order`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({
-        path: 'assets/top-level.png',
-        targetPath: 'assets/second-level.png',
-        targetSectionIndex: 1,
-      }),
-    },
-  );
-  assert.equal(order.status, 200, await order.text());
-  await assert.doesNotReject(() =>
-    readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
-      assert.match(
-        content,
-        /## 图示 1\n{2,}!\[节点搜索清单\]\(assets\/top-level\.png\)\n\n!\[second-level\]\(assets\/second-level\.png\)/,
-      ),
-    ),
-  );
-  const orderAfter = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visual-order`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({
-        insertAfter: true,
-        path: 'assets/top-level.png',
-        targetPath: 'assets/second-level.png',
-        targetSectionIndex: 1,
-      }),
-    },
-  );
-  assert.equal(orderAfter.status, 200, await orderAfter.text());
-  await assert.doesNotReject(() =>
-    readFile(join(directory, 'requirement.md'), 'utf8').then((content) =>
-      assert.match(
-        content,
-        /## 图示 1\n{2,}!\[second-level\]\(assets\/second-level\.png\)\n\n!\[节点搜索清单\]\(assets\/top-level\.png\)/,
-      ),
-    ),
-  );
-  // Deleting a figure drops its file as well: a deleted image must not stay in
-  // assets/ as an orphan the manager can no longer reach.
-  const deletedVisual = await fetch(
-    `${baseUrl}/api/requirements/${encodeURIComponent(key)}/visuals`,
-    {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({ path: 'assets/top-level.png' }),
-    },
-  );
-  const deletedPayload = await deletedVisual.json();
-  assert.equal(deletedVisual.status, 200, JSON.stringify(deletedPayload));
-  assert.equal(
-    deletedPayload.projects
-      .flatMap((project) => project.requirements)
-      .find((requirement) => requirement.assetKey === key)
-      .document.sections.flatMap((section) => section.images)
-      .some((image) => image.path === 'assets/top-level.png'),
-    false,
-  );
-  await assert.rejects(() => stat(join(directory, 'assets', 'top-level.png')));
-
-  // A project whose directory name differs from its Git repository name records
-  // the mapping when it is created, and the mapping can be corrected afterwards.
-  const mapped = await fetch(`${baseUrl}/api/projects`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: cookie },
-    body: JSON.stringify({
-      projectName: '目录名不同',
-      origin: 'git-repo-name',
-    }),
-  });
-  assert.equal(mapped.status, 201);
-  const mappedPayload = await mapped.json();
-  const mappedName = '目录名不同';
-  assert.equal(mappedPayload.origins[mappedName], 'git-repo-name');
-  await assert.doesNotReject(() =>
-    readFile(join(root, '.manager', 'project-origins.json'), 'utf8').then(
-      (content) => assert.match(content, /"目录名不同": "git-repo-name"/),
-    ),
-  );
-  const remapped = await fetch(
-    `${baseUrl}/api/projects/${encodeURIComponent('demo')}/origin`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({ origin: 'demo-repo' }),
-    },
-  );
-  const remappedPayload = await remapped.json();
-  assert.equal(remapped.status, 200, JSON.stringify(remappedPayload));
-  assert.equal(remappedPayload.origins.demo, 'demo-repo');
-  const cleared = await fetch(
-    `${baseUrl}/api/projects/${encodeURIComponent('demo')}/origin`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({ origin: '' }),
-    },
-  );
-  const clearedPayload = await cleared.json();
-  assert.equal(cleared.status, 200, JSON.stringify(clearedPayload));
-  assert.equal(clearedPayload.origins.demo, undefined);
 });
 
 test('recovers an interrupted project deletion before indexing', async (t) => {

@@ -24,31 +24,56 @@ export type CreatedRequirementCollection = ScannedRequirements &
     created: Readonly<{ id: string; projectName: string }>;
   }>;
 
+async function request(
+  path: string,
+  errorMessage: string,
+  method = 'GET',
+  body?: unknown,
+): Promise<Response> {
+  const options =
+    method === 'GET'
+      ? undefined
+      : body === undefined
+        ? { method }
+        : {
+            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json' },
+            method,
+          };
+  const response = await fetch(path, options);
+  if (!response.ok) throw new Error(errorMessage);
+  return response;
+}
+
+async function requestJson<Result = ScannedRequirements>(
+  path: string,
+  errorMessage: string,
+  method = 'GET',
+  body?: unknown,
+): Promise<Result> {
+  const response = await request(path, errorMessage, method, body);
+  return (await response.json()) as Result;
+}
+
 export async function scanProjectCollection(): Promise<ScannedRequirements> {
-  const response = await fetch('/api/index');
-  if (!response.ok) {
-    throw new Error('Unable to load the local requirement index.');
-  }
-  return (await response.json()) as ScannedRequirements;
+  return requestJson(
+    '/api/index',
+    'Unable to load the local requirement index.',
+  );
 }
 
 export async function unlockEditor(passcode: string): Promise<void> {
-  const response = await fetch('/api/edit-session', {
-    body: JSON.stringify({ passcode }),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
+  await request('/api/edit-session', 'Unable to unlock editor.', 'POST', {
+    passcode,
   });
-  if (!response.ok) {
-    throw new Error('Unable to unlock editor.');
-  }
 }
 
 export async function refreshProjectCollection(): Promise<ScannedRequirements> {
-  const response = await fetch('/api/refresh', { method: 'POST' });
-  if (!response.ok) {
-    throw new Error('Unable to refresh the local requirement index.');
-  }
-  return (await response.json()) as ScannedRequirements;
+  return requestJson(
+    '/api/refresh',
+    'Unable to refresh the local requirement index.',
+    'POST',
+  );
 }
 
 export async function createRequirement(
@@ -57,26 +82,24 @@ export async function createRequirement(
     title: string;
   }>,
 ): Promise<CreatedRequirementCollection> {
-  const response = await fetch('/api/requirements', {
-    body: JSON.stringify(input),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
-  });
-  if (!response.ok) throw new Error('Unable to create requirement.');
-  return (await response.json()) as CreatedRequirementCollection;
+  return requestJson<CreatedRequirementCollection>(
+    '/api/requirements',
+    'Unable to create requirement.',
+    'POST',
+    input,
+  );
 }
 
 export async function createProject(
   projectName: string,
   origin?: string,
 ): Promise<ScannedRequirements> {
-  const response = await fetch('/api/projects', {
-    body: JSON.stringify(origin ? { projectName, origin } : { projectName }),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
-  });
-  if (!response.ok) throw new Error('Unable to create project.');
-  return (await response.json()) as ScannedRequirements;
+  return requestJson(
+    '/api/projects',
+    'Unable to create project.',
+    'POST',
+    origin ? { projectName, origin } : { projectName },
+  );
 }
 
 /** Record which Git repository the plugin should resolve this project by. */
@@ -84,72 +107,56 @@ export async function setProjectOrigin(
   projectName: string,
   origin: string,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/projects/${encodeURIComponent(projectName)}/origin`,
-    {
-      body: JSON.stringify({ origin }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'PUT',
-    },
+    'Unable to update the project origin.',
+    'PUT',
+    { origin },
   );
-  if (!response.ok) throw new Error('Unable to update the project origin.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function renameProject(
   projectName: string,
   nextProjectName: string,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/projects/${encodeURIComponent(projectName)}`,
-    {
-      body: JSON.stringify({ projectName: nextProjectName }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'PATCH',
-    },
+    'Unable to rename project.',
+    'PATCH',
+    { projectName: nextProjectName },
   );
-  if (!response.ok) throw new Error('Unable to rename project.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function deleteProject(
   projectName: string,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/projects/${encodeURIComponent(projectName)}`,
-    { method: 'DELETE' },
+    'Unable to delete project.',
+    'DELETE',
   );
-  if (!response.ok) throw new Error('Unable to delete project.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function deleteRequirement(
   requirement: LoadedRequirement,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}`,
-    { method: 'DELETE' },
+    'Unable to delete requirement.',
+    'DELETE',
   );
-  if (!response.ok) throw new Error('Unable to delete requirement.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function updateRequirementStatus(
   requirement: LoadedRequirement,
   status: RequirementStatus,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}`,
-    {
-      body: JSON.stringify({ status }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'PUT',
-    },
+    'Unable to update the requirement status.',
+    'PUT',
+    { status },
   );
-  if (!response.ok) {
-    throw new Error('Unable to update the requirement status.');
-  }
-  return (await response.json()) as ScannedRequirements;
 }
 
 /** Write the section descriptions edited in the manager. */
@@ -157,104 +164,74 @@ export async function updateRequirementContent(
   requirement: LoadedRequirement,
   descriptions: readonly string[],
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}`,
+    'Unable to update the requirement content.',
+    'PUT',
     {
-      body: JSON.stringify({
-        sections: descriptions.map((description) => ({ description })),
-      }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'PUT',
+      sections: descriptions.map((description) => ({ description })),
     },
   );
-  if (!response.ok) {
-    throw new Error('Unable to update the requirement content.');
-  }
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function updateRequirementTitle(
   requirement: LoadedRequirement,
   title: string,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}`,
-    {
-      body: JSON.stringify({ title }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'PUT',
-    },
+    'Unable to update the requirement title.',
+    'PUT',
+    { title },
   );
-  if (!response.ok) throw new Error('Unable to update the requirement title.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function addRequirementVisual(
   requirement: LoadedRequirement,
   input: Readonly<{ data: string; filename: string; sectionTitle: string }>,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}/visuals`,
-    {
-      body: JSON.stringify(input),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    },
+    'Unable to add requirement visual.',
+    'POST',
+    input,
   );
-  if (!response.ok) {
-    throw new Error('Unable to add requirement visual.');
-  }
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function deleteRequirementVisual(
   requirement: LoadedRequirement,
   path: string,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}/visuals`,
-    {
-      body: JSON.stringify({ path }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'DELETE',
-    },
+    'Unable to delete requirement visual.',
+    'DELETE',
+    { path },
   );
-  if (!response.ok) throw new Error('Unable to delete requirement visual.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function updateRequirementVisualName(
   requirement: LoadedRequirement,
   input: Readonly<{ alt: string; path: string }>,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}/visuals`,
-    {
-      body: JSON.stringify(input),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'PUT',
-    },
+    'Unable to update requirement visual name.',
+    'PUT',
+    input,
   );
-  if (!response.ok) {
-    throw new Error('Unable to update requirement visual name.');
-  }
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function updateVisualGroups(
   requirement: LoadedRequirement,
   input: Readonly<{ action: 'add' | 'remove'; sectionIndex?: number }>,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}/visual-groups`,
-    {
-      body: JSON.stringify(input),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    },
+    'Unable to update visual groups.',
+    'POST',
+    input,
   );
-  if (!response.ok) throw new Error('Unable to update visual groups.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export async function updateVisualOrder(
@@ -266,16 +243,12 @@ export async function updateVisualOrder(
     targetSectionIndex: number;
   }>,
 ): Promise<ScannedRequirements> {
-  const response = await fetch(
+  return requestJson(
     `/api/requirements/${encodeURIComponent(requirement.assetKey)}/visual-order`,
-    {
-      body: JSON.stringify(input),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    },
+    'Unable to update visual order.',
+    'POST',
+    input,
   );
-  if (!response.ok) throw new Error('Unable to update visual order.');
-  return (await response.json()) as ScannedRequirements;
 }
 
 export function readImageUrl(

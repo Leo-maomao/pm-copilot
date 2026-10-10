@@ -55,6 +55,13 @@ type DisplayRequirement = Readonly<{
   status: RequirementStatus;
 }>;
 
+type DisplayProject = Readonly<{
+  project: ProjectRequirements;
+  items: readonly DisplayRequirement[];
+}>;
+
+const emptyDisplayRequirements: readonly DisplayRequirement[] = [];
+
 type PreviewImage = Readonly<{
   alt: string;
   src: string;
@@ -71,6 +78,9 @@ type PersistedManagerView = Readonly<{
 }>;
 
 const managerViewStorageKey = 'pm-copilot:view';
+let managerViewCache:
+  | Readonly<{ serialized: string; view: PersistedManagerView }>
+  | undefined;
 const managerRequirementHistoryStateKey = 'pmCopilotRequirement';
 const managerRequirementPathStorageKey = 'pm-copilot:requirement-path';
 const editorDigitPositions = [
@@ -93,9 +103,12 @@ function readPersistedManagerView(): PersistedManagerView {
   try {
     const saved = sessionStorage.getItem(managerViewStorageKey);
     if (!saved) return fallback;
+    // Read the current value so external storage changes still take effect,
+    // but only parse and validate it when it differs from our last write.
+    if (managerViewCache?.serialized === saved) return managerViewCache.view;
     const value = JSON.parse(saved) as Partial<PersistedManagerView>;
     const statusFilter = value.statusFilter;
-    return {
+    const view: PersistedManagerView = {
       activeProjectName:
         typeof value.activeProjectName === 'string'
           ? value.activeProjectName
@@ -111,6 +124,8 @@ function readPersistedManagerView(): PersistedManagerView {
           : 'all',
       treeScrollTop: value.treeScrollTop ?? 0,
     };
+    managerViewCache = { serialized: saved, view };
+    return view;
   } catch {
     return fallback;
   }
@@ -119,10 +134,10 @@ function readPersistedManagerView(): PersistedManagerView {
 function persistManagerView(update: Partial<PersistedManagerView>): void {
   const current = readPersistedManagerView();
   try {
-    sessionStorage.setItem(
-      managerViewStorageKey,
-      JSON.stringify({ ...current, ...update }),
-    );
+    const view = { ...current, ...update };
+    const serialized = JSON.stringify(view);
+    sessionStorage.setItem(managerViewStorageKey, serialized);
+    managerViewCache = { serialized, view };
   } catch {
     // A disabled browser storage should not prevent the manager from working.
   }
@@ -342,8 +357,7 @@ function readMenuPlacement(
 }
 
 function RequirementTree({
-  projects,
-  statusOverrides,
+  displayProjects,
   onNavigate,
   activeProjectName,
   activeRequirementKey,
@@ -358,8 +372,7 @@ function RequirementTree({
   onRequestEditing,
   scrollContainerRef,
 }: {
-  projects: readonly ProjectRequirements[];
-  statusOverrides: Readonly<Record<string, RequirementStatus>>;
+  displayProjects: readonly DisplayProject[];
   onNavigate: (item: DisplayRequirement) => void;
   activeProjectName: string | undefined;
   /** Selected in the tree because the detail pane is scrolled to it. */
@@ -442,21 +455,7 @@ function RequirementTree({
           <span>新增项目</span>
         </button>
       )}
-      {projects.map((project) => {
-        const projectItems = project.requirements
-          .map((requirement) => ({
-            projectName: project.projectName,
-            requirement,
-            status:
-              statusOverrides[
-                getRequirementKey(project.projectName, requirement.document.id)
-              ] ?? requirement.document.status,
-          }))
-          .sort(
-            (left, right) =>
-              right.requirement.document.updatedAtTimestamp -
-              left.requirement.document.updatedAtTimestamp,
-          );
+      {displayProjects.map(({ project, items: projectItems }) => {
         return (
           <div
             className={`tree-project ${activeProjectName === project.projectName ? 'tree-project--active' : ''}`}
@@ -620,16 +619,20 @@ function RequirementBody({
 }): React.JSX.Element {
   const isEditing = draft !== undefined;
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const renderedDescription = isEditing
-    ? ''
-    : DOMPurify.sanitize(
-        marked.parse(
-          normalizeRequirementDescription(description || '待补充需求内容。'),
-          {
-            async: false,
-          },
-        ),
-      );
+  const renderedDescription = useMemo(
+    () =>
+      isEditing
+        ? ''
+        : DOMPurify.sanitize(
+            marked.parse(
+              normalizeRequirementDescription(
+                description || '待补充需求内容。',
+              ),
+              { async: false },
+            ),
+          ),
+    [description, isEditing],
+  );
 
   // Opening the editor jumps straight into it instead of leaving it off-screen.
   useEffect(() => {
@@ -1981,10 +1984,11 @@ export function App(): React.JSX.Element {
   const skipNextHighlightRef = useRef(false);
   const highlightFrameRef = useRef<number | undefined>(undefined);
 
-  const displayRequirements = useMemo(
+  const displayProjects = useMemo<readonly DisplayProject[]>(
     () =>
-      projects.flatMap((project) =>
-        [...project.requirements]
+      projects.map((project) => ({
+        project,
+        items: [...project.requirements]
           .sort(
             (left, right) =>
               right.document.updatedAtTimestamp -
@@ -1998,36 +2002,22 @@ export function App(): React.JSX.Element {
                 getRequirementKey(project.projectName, requirement.document.id)
               ] ?? requirement.document.status,
           })),
-      ),
+      })),
     [projects, statusOverrides],
   );
 
-  const currentProject =
-    projects.find((project) => project.projectName === activeProjectName) ??
-    projects[0];
-  const currentProjectName = currentProject?.projectName;
-
-  const currentProjectRequirements = useMemo(
-    () =>
-      [...(currentProject?.requirements ?? [])]
-        .sort(
-          (left, right) =>
-            right.document.updatedAtTimestamp -
-            left.document.updatedAtTimestamp,
-        )
-        .map((requirement) => ({
-          projectName: currentProject?.projectName ?? '',
-          requirement,
-          status:
-            statusOverrides[
-              getRequirementKey(
-                currentProject?.projectName ?? '',
-                requirement.document.id,
-              )
-            ] ?? requirement.document.status,
-        })),
-    [currentProject, statusOverrides],
+  const displayRequirements = useMemo(
+    () => displayProjects.flatMap(({ items }) => items),
+    [displayProjects],
   );
+
+  const currentProject =
+    displayProjects.find(
+      ({ project }) => project.projectName === activeProjectName,
+    ) ?? displayProjects[0];
+  const currentProjectName = currentProject?.project.projectName;
+  const currentProjectRequirements =
+    currentProject?.items ?? emptyDisplayRequirements;
 
   const filteredRequirements = useMemo(
     () =>
@@ -2592,9 +2582,8 @@ export function App(): React.JSX.Element {
               onRequestEditing={() => setIsEditorUnlockOpen(true)}
               onSelectProject={selectProject}
               onToggleProject={toggleProject}
-              projects={projects}
+              displayProjects={displayProjects}
               scrollContainerRef={treeGroupsRef}
-              statusOverrides={statusOverrides}
             />
           </div>
         ) : (

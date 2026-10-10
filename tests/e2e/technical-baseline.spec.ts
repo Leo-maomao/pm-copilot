@@ -104,3 +104,102 @@ test('keeps the project action entry visible after collapsing a project', async 
   await expect(project.locator('details')).not.toHaveAttribute('open', '');
   await expect(project.locator('.tree-project-more')).toBeVisible();
 });
+
+test('keeps status, search and directory order consistent after refresh', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('.navigator-heading').click();
+  for (const [index, digit] of ['9', '5', '2', '7'].entries()) {
+    await page.getByLabel(`第 ${index + 1} 位编辑口令`).fill(digit);
+  }
+  await expect(page.getByRole('dialog', { name: '进入编辑状态' })).toHaveCount(
+    0,
+  );
+
+  const keys: string[] = [];
+  try {
+    for (const title of ['状态同步验证 A', '状态同步验证 B']) {
+      const response = await page.request.post('/api/requirements', {
+        data: { projectName: 'demo-project', title },
+      });
+      expect(response.status()).toBe(201);
+      const { created } = await response.json();
+      keys.push(`${created.projectName}:${created.id}`);
+    }
+    await page.goto('/');
+    await expect(
+      page.getByRole('heading', { name: '状态同步验证 B', exact: true }),
+    ).toBeVisible();
+    const titles = await page.locator('.requirement-card h2').allTextContents();
+    expect(await page.locator('.tree-item-title').allTextContents()).toEqual(
+      titles,
+    );
+
+    const card = page.locator('.requirement-card').filter({
+      has: page.getByRole('heading', { name: '状态同步验证 A', exact: true }),
+    });
+    const treeItem = page.locator('.tree-item').filter({
+      has: page.getByText('状态同步验证 A', { exact: true }),
+    });
+    await card.getByRole('button', { name: '已排期', exact: true }).click();
+    await expect(treeItem.locator('.tree-status')).toHaveText('已排期');
+    await expect(card.getByRole('button', { name: '已排期' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(
+      await page.locator('.requirement-card h2').allTextContents(),
+    ).toEqual(titles);
+
+    await page.getByLabel('筛选状态', { exact: true }).click();
+    await page.getByRole('menuitemradio', { name: '已排期' }).click();
+    await expect(page.locator('.requirement-card h2')).toHaveText([
+      '状态同步验证 A',
+    ]);
+    await page.getByLabel('搜索需求', { exact: true }).fill('状态同步验证 B');
+    await expect(page.getByLabel('搜索结果')).toContainText('待规划');
+    await page.getByLabel('搜索结果').getByRole('button').click();
+    await expect(page.getByLabel('搜索需求', { exact: true })).toHaveValue('');
+    await expect(page.getByLabel('筛选状态', { exact: true })).toHaveText(
+      '全部',
+    );
+    await expect(page.locator('.requirement-card h2')).toHaveText(titles);
+
+    await page.getByLabel('搜索需求', { exact: true }).fill('状态同步验证 A');
+    await expect(page.getByLabel('搜索结果')).toContainText('已排期');
+    await page.getByLabel('筛选状态', { exact: true }).click();
+    await page.getByRole('menuitemradio', { name: '已排期' }).click();
+    await expect(page.getByLabel('搜索需求', { exact: true })).toHaveValue(
+      '状态同步验证 A',
+    );
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const stored = JSON.parse(
+            sessionStorage.getItem('pm-copilot:view') ?? '{}',
+          );
+          return { query: stored.query, statusFilter: stored.statusFilter };
+        }),
+      )
+      .toEqual({ query: '状态同步验证 A', statusFilter: 'scheduled' });
+    await page.reload();
+    await expect(page.getByLabel('搜索需求', { exact: true })).toHaveValue(
+      '状态同步验证 A',
+    );
+    await expect(page.getByLabel('筛选状态', { exact: true })).toHaveText(
+      '已排期',
+    );
+    await expect(page.locator('.requirement-card h2')).toHaveText([
+      '状态同步验证 A',
+    ]);
+    await expect(treeItem.locator('.tree-status')).toHaveText('已排期');
+  } finally {
+    for (const key of keys) {
+      const removed = await page.request.delete(
+        `/api/requirements/${encodeURIComponent(key)}`,
+      );
+      expect(removed.ok()).toBeTruthy();
+    }
+  }
+});
