@@ -60,6 +60,8 @@ const tools = [
       $defs: {
         sections: {
           type: 'array',
+          description:
+            '独立展示内容块列表。每个元素对应一个文件级章节和一组图示归属，不是正文中的“一、二、三”主题；同一需求内部的多个主题必须放在同一个元素的 description 中。',
           minItems: 1,
           items: {
             type: 'object',
@@ -90,6 +92,8 @@ const tools = [
       $defs: {
         sections: {
           type: 'array',
+          description:
+            '独立展示内容块列表。每个元素对应一个文件级章节和一组图示归属，不是正文中的“一、二、三”主题；同一需求内部的多个主题必须放在同一个元素的 description 中。',
           minItems: 1,
           items: {
             type: 'object',
@@ -120,6 +124,8 @@ const tools = [
       $defs: {
         sections: {
           type: 'array',
+          description:
+            '独立展示内容块列表。每个元素对应一个文件级章节和一组图示归属，不是正文中的“一、二、三”主题；同一需求内部的多个主题必须放在同一个元素的 description 中。',
           minItems: 1,
           items: {
             type: 'object',
